@@ -42,3 +42,5 @@ backups/
 !.vscode/extensions.json
 .DS_Store
 .dev-keys/
+web/test-results/
+web/playwright-report/

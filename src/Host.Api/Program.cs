@@ -9,6 +9,7 @@ using Host.Api.Jobs;
 using Imports.Application;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -64,7 +65,20 @@ builder.Services
     .AddEntityFrameworkStores<AuthDbContext>()
     .AddDefaultTokenProviders();
 
-var secureCookies = !builder.Environment.IsEnvironment("Testing");
+// Plain-HTTP local development and tests can't carry Secure cookies; everywhere else TLS is mandatory.
+var secureCookies = !builder.Environment.IsEnvironment("Testing") && !builder.Environment.IsDevelopment();
+
+// TLS terminates at the reverse proxy. Only trust X-Forwarded-* from the proxy's network, never from clients.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+    foreach (var cidr in config.GetSection("ReverseProxy:KnownNetworks").Get<string[]>() ?? [])
+    {
+        o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(cidr));
+    }
+});
 builder.Services.ConfigureApplicationCookie(o =>
 {
     o.Cookie.Name = secureCookies ? "__Host-pf-session" : "pf-session";
@@ -123,6 +137,7 @@ if (app.Environment.IsDevelopment() || config.GetValue<bool>("Database:MigrateOn
     await Database.MigrateAsync(app.Services);
 }
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseSecurityHeaders();

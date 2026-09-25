@@ -1,0 +1,64 @@
+{
+  "nav": { "overview": "Overview", "money": "Money", "setup": "Setup", "dashboard": "Dashboard", "monthly": "Monthly", "annual": "Annual", "transactions": "Transactions", "recurring": "Recurring", "budgets": "Budgets", "goals": "Goals", "accounts": "Accounts", "categories": "Categories", "import": "Import", "settings": "Settings" },
+  "common": { "save": "Save", "saved": "Saved", "cancel": "Cancel", "edit": "Edit", "delete": "Delete", "archive": "Archive", "restore": "Restore", "undo": "Undo", "search": "Search description or notes…", "from": "From", "to": "To", "clear": "Clear filters", "month": "Month", "status": "Status", "name": "Name", "bucket": "Bucket", "viewAll": "View all", "showArchived": "Show archived", "error": "Something went wrong" },
+  "auth": {
+    "signIn": "Sign in", "privateNotice": "Private finance server — owner access only", "email": "Email", "password": "Password", "remember": "Keep me signed in on this device", "continue": "Continue", "verify": "Verify",
+    "codePrompt": "Enter the 6-digit code from your authenticator app.", "recoveryPrompt": "Enter one of your recovery codes.", "useRecovery": "Use a recovery code instead", "useCode": "Use an authenticator code",
+    "lockedOut": "Too many attempts. Wait a few minutes and try again.", "logout": "Sign out",
+    "setupTitle": "Create the owner account", "setupSubtitle": "First run. You'll need the setup token from the server's .env file.", "setupToken": "Setup token", "newPassword": "New password", "passwordHint": "At least 12 characters. A passphrase works best.", "createOwner": "Create account",
+    "mfaTitle": "Protect your finances", "mfaSubtitle": "Two-factor authentication is required. Scan the code with an authenticator app.", "mfaManual": "Or enter this key manually:", "enableMfa": "Enable two-factor authentication",
+    "recoveryIntro": "Save these recovery codes somewhere safe. Each can be used once if you lose your phone.", "savedCodes": "I've saved them"
+  },
+  "type": { "Expense": "Expense", "Income": "Income", "Transfer": "Transfer", "Savings": "Savings", "InvestmentContribution": "Investment" },
+  "nature": { "Fixed": "Fixed", "Variable": "Variable" },
+  "status": { "Positive": "Positive", "Negative": "Negative" },
+  "allocation": { "Todo": "To do", "Done": "Done", "Partial": "Partial", "NotApplicable": "N/A" },
+  "accountKind": { "Bank": "Bank", "Cash": "Cash", "CreditCard": "Credit card", "Savings": "Savings", "Broker": "Broker", "Loan": "Loan", "Other": "Other" },
+  "source": { "Manual": "Manual", "Recurring": "Recurring", "Xlsx": "Excel", "Csv": "CSV", "Json": "JSON", "Trading212": "Trading 212", "InteractiveBrokers": "IBKR" },
+  "audit": { "Created": "Created", "Updated": "Updated", "Deleted": "Deleted", "Restored": "Restored" },
+  "budgetStatus": { "none": "", "under": "on track", "near": "close to limit", "over": "over budget" },
+  "budgetMode": { "PercentOfIncome": "% of income", "FixedAmount": "Fixed €", "Remainder": "Remainder" },
+  "frequency": { "Weekly": "Weekly", "Monthly": "Monthly", "Yearly": "Yearly" },
+  "importStatus": { "Previewed": "Preview", "Committed": "Imported", "RolledBack": "Undone", "Failed": "Failed" },
+  "kpi": { "income": "Income", "expenses": "Expenses", "fixedExpenses": "Fixed expenses", "variableExpenses": "Variable expenses", "invested": "Invested", "saved": "Saved", "netBalance": "Net balance", "savingsRate": "Savings rate", "avgSavingsRate": "Avg. savings rate", "expenseBudget": "Expense budget", "investedPct": "% invested", "savedPct": "% saved" },
+  "charts": { "incomeVsExpenses": "Income vs expenses", "realRates": "% invested / saved of income", "monthlyFlows": "Where the money went", "cumulative": "Cumulative invested & saved" },
+  "dashboard": { "title": "Dashboard", "subtitle": "Your year at a glance", "monthlyView": "Monthly view", "weightedRate": "Income-weighted savings rate: {{rate}}" },
+  "monthly": {
+    "title": "Monthly summary", "allocation": "Allocation", "editBudget": "Edit budget", "target": "Target", "actual": "Actual", "difference": "Difference", "budget": "Budget",
+    "noBudget": "No budget defined for this month.", "unallocated": "Unallocated income", "freeCashFlow": "Left after setting money aside", "byCategory": "Spending by category", "categories": "Categories", "noExpenses": "No expenses this month.",
+    "vs": { "previous": "Previous month", "average": "12-month avg.", "budget": "Budget" },
+    "vsShort": { "previous": "vs last month", "average": "vs average", "budget": "vs budget" }
+  },
+  "annual": { "title": "Annual summary", "cumInvested": "Cum. invested", "cumSaved": "Cum. saved", "total": "Total / average", "rateNote": "The savings-rate total is the average of monthly rates, as in the original spreadsheet. Weighted by income it is {{weighted}}." },
+  "tx": {
+    "add": "Add transaction", "edit": "Edit transaction", "amount": "Amount", "currency": "Currency", "fxRate": "Rate: 1 {{currency}} = ? EUR", "category": "Category", "allCategories": "All categories", "allAccounts": "All accounts", "bucket": "Allocation bucket",
+    "account": "Account", "fromAccount": "From account", "toAccount": "To account", "external": "Outside my accounts", "date": "Date", "goal": "Goal", "description": "Description", "notes": "Notes", "nature": "Nature", "type": "Type",
+    "saveAndNew": "Save & add another", "shortcuts": "Enter to save · Ctrl+Enter to save & add another", "saved": "Transaction saved", "updated": "Transaction updated", "deleted": "Transaction deleted",
+    "count": "{{count}} transactions", "empty": "No transactions match these filters.", "history": "Change history",
+    "errors": { "amount": "Enter an amount greater than zero.", "account": "Choose an account." }
+  },
+  "recurring": {
+    "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.", "new": "New recurring", "edit": "Edit recurring", "pendingTitle": "Waiting for confirmation", "confirm": "Confirm", "skip": "Skip", "confirmed": "Recorded",
+    "schedule": "Schedule", "next": "Next", "day": "day {{day}}", "pause": "Pause", "resume": "Resume", "empty": "No recurring transactions yet — add salary, rent or subscriptions.", "type": "Type", "frequency": "Frequency", "dayOfMonth": "Day of month", "start": "Starts", "end": "Ends (optional)"
+  },
+  "budgets": {
+    "subtitle": "Each version applies from its month onwards — changing it never rewrites past months.", "effectiveFrom": "Effective from", "allocation": "Income allocation", "percentHint": "Percentages are of the month's income. \"Remainder\" gives expenses whatever the other lines leave (like the original spreadsheet).",
+    "categoryLimits": "Category limits", "addCategory": "Add category limit", "noCategoryLimits": "No category limits. Add one, e.g. Restaurants €150.", "note": "Note (optional)", "saveVersion": "Save budget version", "saved": "Budget saved", "versions": "Versions", "none": "No budgets yet."
+  },
+  "goals": { "subtitle": "Savings linked to a goal count towards it automatically.", "new": "New goal", "edit": "Edit goal", "achieved": "Achieved", "current": "Current", "target": "Target", "by": "Target date", "monthlyNeeded": "Needed / month", "starting": "Already saved", "manual": "Override current amount", "howProgress": "Progress = already saved + savings transactions linked to this goal, unless you override it.", "empty": "No goals yet." },
+  "accounts": { "new": "New account", "edit": "Edit account", "kind": "Type", "openingBalance": "Opening balance", "openingBalanceOn": "Balance date", "institution": "Institution", "identifier": "IBAN / account number", "identifierKeep": "Leave empty to keep", "identifierNote": "Encrypted at rest and never shared with AI clients by default.", "readOnly": "Read-only", "empty": "No accounts yet. Create your main bank account first." },
+  "categories": {
+    "new": "New category", "custom": "Custom", "expenses": "Expense categories", "income": "Income categories", "parent": "Parent (optional)", "color": "Colour",
+    "housing": "Housing", "utilities": "Utilities", "electricity": "Electricity", "water-gas": "Water & gas", "internet": "Internet", "mobile": "Mobile phone", "groceries": "Groceries", "restaurants": "Restaurants", "food": "Food", "transport": "Transport", "fuel": "Fuel", "travel": "Travel", "entertainment": "Entertainment", "subscriptions": "Subscriptions", "gym": "Gym", "shopping": "Shopping", "clothing": "Clothing", "health": "Health", "education": "Education", "insurance": "Insurance", "health-insurance": "Health insurance", "car-insurance": "Car insurance", "taxes": "Taxes", "gifts": "Gifts", "other": "Other",
+    "salary": "Salary", "bonus": "Bonus", "freelance": "Freelance", "interest": "Interest", "dividends": "Dividends", "other-income": "Other income"
+  },
+  "import": {
+    "title": "Import from Excel", "subtitle": "Migrate the Finance Tracker workbook into the ledger.", "steps": { "upload": "Analyze", "map": "Map, validate & preview", "done": "Import" },
+    "uploadHelp": "Upload your Finance Tracker .xlsx. The file is parsed on your server and not stored — only the values it contains.", "year": "Which year is this workbook?", "privacy": "Formulas are never executed. Cell text is treated as plain data.", "analyze": "Analyze workbook",
+    "mapping": "Mapping", "mainAccount": "Main account (income & expenses)", "investmentAccount": "Investments go to", "savingsAccount": "Savings go to", "none": "Outside my accounts", "needAccount": "Create an account first (Accounts page).", "categoryMapping": "Workbook categories",
+    "validation": "Validation", "transactionsFound": "{{count}} entries found", "reconciled": "Totals match the workbook to the cent", "notReconciled": "Some totals differ from the workbook — check the table below", "budgetFound": "Allocation: stocks {{stocks}}%, crypto {{crypto}}%, travel {{travel}}%, other savings {{other}}%",
+    "reconciliation": "Reconciliation", "measure": "Measure", "imported": "Imported", "measures": { "income": "Income", "fixed": "Fixed", "variable": "Variable", "invested": "Invested", "saved": "Saved" },
+    "commit": "Import", "preview": "Preview", "done": "{{created}} transactions imported ({{skipped}} already present).", "another": "Import another file", "history": "Import history", "file": "File", "created": "Created", "undo": "Undo import", "undone": "{{count}} transactions removed"
+  },
+  "settings": { "appearance": "Appearance", "language": "Language", "theme": "Theme", "themes": { "system": "System", "light": "Light", "dark": "Dark" }, "security": "Security", "signedInAs": "Signed in as {{email}}", "mfaOn": "Two-factor authentication on", "currentPassword": "Current password", "changePassword": "Change password", "passwordChanged": "Password changed", "privacy": "Privacy", "privacyText": "Your data stays on your server. The browser stores only your theme, language and last-used account. Broker connections are read-only and AI access is off unless you create a client with explicit permissions." }
+}

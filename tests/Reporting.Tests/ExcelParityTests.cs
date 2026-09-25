@@ -58,6 +58,8 @@ public sealed class ExcelParityTests
         s.NetBalance.ShouldBe(1149.50m);            // I12 = B7 − (C31 + C47): investments are NOT subtracted
         s.SavingsRate.ShouldBe(0.33m);              // I13 = (D11+D12+D13+D14) / B7
         s.Unallocated.ShouldBe(0m);                 // C16 = B7 − SUM(C11:C15)
+        s.InvestmentTarget.ShouldBe(625m);          // C11 + C12
+        s.SavingsTarget.ShouldBe(250m);             // C13 + C14
         s.Status.ShouldBe(BalanceStatus.Positive);  // Dashboard I = IF(saldo >= 0, "Positivo", "Negativo")
         s.FreeCashFlow.ShouldBe(324.50m);           // new: what is really left after setting money aside
     }

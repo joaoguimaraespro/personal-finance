@@ -27,6 +27,8 @@ public sealed record MonthlySummary(
     decimal? SavingsOnlyRate,
     decimal? ExpenseBudget,
     decimal? ExpenseBudgetBalance,
+    decimal? InvestmentTarget,
+    decimal? SavingsTarget,
     decimal? Unallocated,
     BalanceStatus Status,
     IReadOnlyList<BucketLine> Buckets,
@@ -71,10 +73,18 @@ public static class MonthlyCalculator
             SavingsOnlyRate: Ratio(saved, t.Income),             // Resumo O
             ExpenseBudget: targets.ExpensePool,                  // C15
             ExpenseBudgetBalance: targets.ExpensePool - totalExpenses, // I9
+            InvestmentTarget: SumTargets(lines, investment: true),     // C11 + C12
+            SavingsTarget: SumTargets(lines, investment: false),       // C13 + C14
             Unallocated: budget is null ? null : t.Income - targets.PoolTotal, // C16
             Status: netBalance >= 0 ? BalanceStatus.Positive : BalanceStatus.Negative,
             lines,
             t.TransactionCount);
+    }
+
+    private static decimal? SumTargets(List<BucketLine> lines, bool investment)
+    {
+        var withTarget = lines.Where(l => l.IsInvestment == investment && l.Target is not null).ToList();
+        return withTarget.Count == 0 ? null : withTarget.Sum(l => l.Target!.Value);
     }
 
     /// <summary>Division that yields "no value" instead of 0 or an error when there is no income (the NA() cells).</summary>

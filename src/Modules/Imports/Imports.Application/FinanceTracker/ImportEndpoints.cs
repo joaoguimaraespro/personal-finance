@@ -17,8 +17,10 @@ namespace Imports.Application.FinanceTracker;
 public sealed record ImportSummaryDto(Guid Id, string Kind, string FileName, ImportStatus Status, int Created,
     int Skipped, DateTimeOffset CreatedAtUtc, DateTimeOffset? CommittedAtUtc, DateTimeOffset? RolledBackAtUtc);
 
+public sealed record CategoryMappingDto(string Label, Guid CategoryId);
+
 public sealed record ImportPreviewDto(Guid Id, ImportStatus Status, string FileName, ImportPreview Preview,
-    IReadOnlyList<string> WorkbookCategories);
+    IReadOnlyList<CategoryMappingDto> WorkbookCategories);
 
 public sealed record MappingRequest(int Year, Guid? MainAccountId, Guid? InvestmentAccountId, Guid? SavingsAccountId,
     Dictionary<string, Guid>? Categories, bool? ImportBudget);
@@ -248,7 +250,11 @@ public static class ImportEndpoints
     private static ImportPreviewDto ToDto(ImportBatch batch, RawWorkbook workbook, ImportPreview preview) => new(
         batch.Id, batch.Status, batch.FileName, preview,
         workbook.Rows.Where(r => r.Block is RawBlock.Fixed or RawBlock.Variable && r.CategoryLabel is not null)
-            .Select(r => r.CategoryLabel!).Distinct().Order().ToList());
+            .Select(r => r.CategoryLabel!).Distinct().Order()
+            .Select(label => new CategoryMappingDto(label,
+                preview.Mapping.Categories.GetValueOrDefault(FinanceTrackerReader.Normalize(label),
+                    Finance.Domain.SystemCatalog.CategoryId("other"))))
+            .ToList());
 
     private static string SafeFileName(string name)
     {
