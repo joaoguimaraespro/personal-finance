@@ -12,6 +12,15 @@
   <Folder Name="/src/Modules/Imports/">
     <Project Path="src/Modules/Imports/Imports.Application/Imports.Application.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Integrations/">
+    <Project Path="src/Modules/Integrations/Integrations.Application/Integrations.Application.csproj" />
+    <Project Path="src/Modules/Integrations/Integrations.Infrastructure/Integrations.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Investments/">
+    <Project Path="src/Modules/Investments/Investments.Application/Investments.Application.csproj" />
+    <Project Path="src/Modules/Investments/Investments.Domain/Investments.Domain.csproj" />
+    <Project Path="src/Modules/Investments/Investments.Infrastructure/Investments.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Reporting/">
     <Project Path="src/Modules/Reporting/Reporting.Application/Reporting.Application.csproj" />
   </Folder>
@@ -19,6 +28,8 @@
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
     <Project Path="tests/Finance.Tests/Finance.Tests.csproj" />
     <Project Path="tests/Integration.Tests/Integration.Tests.csproj" />
+    <Project Path="tests/Integrations.Tests/Integrations.Tests.csproj" />
+    <Project Path="tests/Investments.Tests/Investments.Tests.csproj" />
     <Project Path="tests/Reporting.Tests/Reporting.Tests.csproj" />
   </Folder>
 </Solution>

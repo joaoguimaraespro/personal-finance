@@ -10,11 +10,18 @@ public sealed class ArchitectureTests
     private static readonly Assembly Reporting = typeof(Reporting.Application.ReportingModule).Assembly;
     private static readonly Assembly Imports = typeof(Imports.Application.ImportsModule).Assembly;
     private static readonly Assembly SharedKernel = typeof(SharedKernel.Result).Assembly;
+    private static readonly Assembly InvestmentsDomain = typeof(Investments.Domain.Position).Assembly;
+    private static readonly Assembly InvestmentsApplication = typeof(Investments.Application.InvestmentsModule).Assembly;
+    private static readonly Assembly IntegrationsApplication = typeof(Integrations.Application.IntegrationsModule).Assembly;
+    private static readonly Assembly IntegrationsInfrastructure =
+        typeof(Integrations.Infrastructure.IntegrationsInfrastructure).Assembly;
 
     private static readonly Assembly[] All =
     [
         SharedKernel, FinanceDomain, FinanceApplication, typeof(Finance.Infrastructure.FinanceInfrastructure).Assembly,
-        Reporting, Imports, typeof(Program).Assembly,
+        Reporting, Imports, typeof(Program).Assembly, InvestmentsDomain, InvestmentsApplication,
+        typeof(Investments.Infrastructure.InvestmentsInfrastructure).Assembly, IntegrationsApplication,
+        IntegrationsInfrastructure,
     ];
 
     [Fact]
@@ -25,10 +32,37 @@ public sealed class ArchitectureTests
             .GetResult().IsSuccessful.ShouldBeTrue();
 
     [Fact]
-    public void Application_layers_do_not_depend_on_infrastructure() =>
-        Types.InAssemblies([FinanceApplication, Reporting, Imports]).ShouldNot()
-            .HaveDependencyOnAny("Npgsql", "Finance.Infrastructure", "Host.Api")
+    public void Investments_domain_has_no_framework_dependencies() =>
+        Types.InAssembly(InvestmentsDomain).ShouldNot()
+            .HaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Npgsql", "System.Net.Http",
+                "Investments.Application", "Integrations")
             .GetResult().IsSuccessful.ShouldBeTrue();
+
+    [Fact]
+    public void Application_layers_do_not_depend_on_infrastructure() =>
+        Types.InAssemblies([FinanceApplication, Reporting, Imports, InvestmentsApplication, IntegrationsApplication])
+            .ShouldNot()
+            .HaveDependencyOnAny("Npgsql", "Finance.Infrastructure", "Investments.Infrastructure",
+                "Integrations.Infrastructure", "Host.Api")
+            .GetResult().IsSuccessful.ShouldBeTrue();
+
+    /// <summary>Broker wire formats (T212 JSON, IBKR XML) must not leak beyond the infrastructure layer.</summary>
+    [Fact]
+    public void Broker_wire_types_stay_internal() =>
+        IntegrationsInfrastructure.GetTypes()
+            .Where(t => t.Namespace?.EndsWith(".Trading212", StringComparison.Ordinal) == true ||
+                        t.Namespace?.EndsWith(".Ibkr", StringComparison.Ordinal) == true)
+            .Where(t => t.IsPublic || t.IsNestedPublic)
+            .Select(t => t.FullName)
+            .ShouldBeEmpty();
+
+    /// <summary>The provider abstraction exposes reads only.</summary>
+    [Fact]
+    public void Investment_provider_contract_has_only_read_operations() =>
+        typeof(Integrations.Application.Contracts.IInvestmentProvider).GetMethods()
+            .Where(m => !m.IsSpecialName) // property getters such as Kind
+            .Select(m => m.Name)
+            .ShouldAllBe(name => name.StartsWith("Get", StringComparison.Ordinal));
 
     [Fact]
     public void Reporting_never_writes_to_the_ledger()
@@ -63,7 +97,8 @@ public sealed class ArchitectureTests
     [Fact]
     public void No_trading_or_money_movement_operations_exist()
     {
-        string[] forbidden = ["PlaceOrder", "Buy", "Sell", "Withdraw", "Deposit", "CancelOrder", "ModifyOrder"];
+        string[] forbidden = ["PlaceOrder", "Buy", "Sell", "Withdraw", "Deposit", "CancelOrder", "ModifyOrder",
+            "SubmitOrder", "Trade", "Transfer"];
         var offenders = All.SelectMany(a => a.GetTypes())
             .SelectMany(t => t.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                           BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
@@ -79,7 +114,8 @@ public sealed class ArchitectureTests
     public void No_raw_sql_is_executed_from_application_code()
     {
         string[] rawSql = ["FromSqlRaw", "FromSqlInterpolated", "ExecuteSqlRaw", "ExecuteSqlInterpolated", "SqlQueryRaw"];
-        var offenders = new[] { FinanceApplication, Reporting, Imports, typeof(Program).Assembly }
+        var offenders = new[] { FinanceApplication, Reporting, Imports, typeof(Program).Assembly, InvestmentsApplication,
+                IntegrationsApplication }
             .SelectMany(a => a.GetTypes())
             .SelectMany(t => t.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                           BindingFlags.NonPublic | BindingFlags.DeclaredOnly))

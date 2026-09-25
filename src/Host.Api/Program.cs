@@ -7,6 +7,10 @@ using Host.Api.Auth;
 using Host.Api.Infrastructure;
 using Host.Api.Jobs;
 using Imports.Application;
+using Investments.Application;
+using Investments.Infrastructure;
+using Integrations.Application;
+using Integrations.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -59,6 +63,10 @@ builder.Services.AddFinanceInfrastructure(connectionString);
 builder.Services.AddFinanceApplication();
 builder.Services.AddReporting();
 builder.Services.AddImports();
+builder.Services.AddInvestmentsInfrastructure(connectionString);
+builder.Services.AddInvestmentsApplication();
+builder.Services.AddIntegrationsInfrastructure(connectionString);
+builder.Services.AddIntegrationsApplication();
 
 // ---- Identity (single owner, mandatory TOTP MFA)
 builder.Services.AddDbContext<AuthDbContext>(o => o
@@ -137,6 +145,8 @@ builder.Services.AddRateLimiter(o =>
 
 builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "postgres", tags: ["ready"]);
 builder.Services.AddHostedService<RecurringProposalJob>();
+builder.Services.AddHostedService<DailySnapshotJob>();
+builder.Services.AddHostedService<BrokerSyncService>();
 builder.Services.Configure<HostOptions>(o =>
     o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 
@@ -178,6 +188,8 @@ var owner = api.MapGroup("").RequireAuthorization(AuthEndpoints.MfaPolicy);
 owner.MapFinanceEndpoints();
 owner.MapReports();
 owner.MapImports();
+owner.MapInvestments();
+owner.MapIntegrations();
 
 await app.RunAsync();
 return 0;

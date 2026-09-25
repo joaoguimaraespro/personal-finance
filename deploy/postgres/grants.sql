@@ -2,7 +2,7 @@
 DO $$
 DECLARE s text;
 BEGIN
-  FOREACH s IN ARRAY ARRAY['finance', 'auth'] LOOP
+  FOREACH s IN ARRAY ARRAY['finance', 'auth', 'investments', 'integrations', 'ai'] LOOP
     EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I AUTHORIZATION finance_migrator', s);
     EXECUTE format('ALTER SCHEMA %I OWNER TO finance_migrator', s);
     EXECUTE format('GRANT USAGE ON SCHEMA %I TO finance_app, finance_backup', s);

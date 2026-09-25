@@ -12,4 +12,7 @@ public enum DataSource
     Json = 4,
     Trading212 = 10,
     InteractiveBrokers = 11,
+
+    /// <summary>Fictitious data for demos and screenshots. Only available when explicitly enabled.</summary>
+    Demo = 99,
 }
