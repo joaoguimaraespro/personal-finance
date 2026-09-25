@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Host.Api/Host.Api.csproj" />
+    <Project Path="src/SharedKernel/SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Finance/">
+    <Project Path="src/Modules/Finance/Finance.Application/Finance.Application.csproj" />
+    <Project Path="src/Modules/Finance/Finance.Domain/Finance.Domain.csproj" />
+    <Project Path="src/Modules/Finance/Finance.Infrastructure/Finance.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Imports/">
+    <Project Path="src/Modules/Imports/Imports.Application/Imports.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reporting/">
+    <Project Path="src/Modules/Reporting/Reporting.Application/Reporting.Application.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
+    <Project Path="tests/Finance.Tests/Finance.Tests.csproj" />
+    <Project Path="tests/Integration.Tests/Integration.Tests.csproj" />
+    <Project Path="tests/Reporting.Tests/Reporting.Tests.csproj" />
+  </Folder>
+</Solution>

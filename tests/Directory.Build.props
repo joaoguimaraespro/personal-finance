@@ -1,0 +1,7 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <PropertyGroup>
+    <!-- Test names read as sentences; test classes are not a public API; CA5350: TOTP (RFC 6238) is defined on HMAC-SHA1. -->
+    <NoWarn>$(NoWarn);CA1707;CA1001;CA2000;CA1063;CA1816;CA2234;CA1508;CA5350;xUnit1051</NoWarn>
+  </PropertyGroup>
+</Project>

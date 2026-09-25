@@ -1,0 +1,44 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+coverage*/
+
+# Node / Angular
+node_modules/
+web/dist/
+web/.angular/
+web/coverage/
+web/playwright-report/
+web/test-results/
+
+# Secrets & personal data — this repo is PUBLIC
+.env
+.env.*
+!.env.example
+deploy/secrets/
+*.pem
+*.key
+*.age
+keys/
+backups/
+*.dump
+*.sql.gz
+# Real spreadsheets never enter git; only synthetic fixtures do
+*.xlsx
+*.xls
+*.csv
+!tools/fixtures/**/*.xlsx
+!tools/fixtures/**/*.csv
+!tests/**/Fixtures/**/*.csv
+!tests/**/Fixtures/**/*.xlsx
+!tests/**/Fixtures/**/*.xml
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+.dev-keys/
