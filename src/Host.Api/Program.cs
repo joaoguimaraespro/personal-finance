@@ -16,6 +16,22 @@ using Microsoft.EntityFrameworkCore;
 using Reporting.Application;
 using Scalar.AspNetCore;
 
+// Container health probe for the chiseled image (no shell or curl inside).
+if (args.Contains("--healthcheck"))
+{
+    using var probe = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+    var port = Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS") ?? "8080";
+    try
+    {
+        var response = await probe.GetAsync($"http://127.0.0.1:{port}/health/live");
+        return response.IsSuccessStatusCode ? 0 : 1;
+    }
+    catch (HttpRequestException)
+    {
+        return 1;
+    }
+}
+
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 var connectionString = config.GetConnectionString("Finance")
@@ -129,7 +145,7 @@ var app = builder.Build();
 if (args.Contains("--migrate"))
 {
     await Database.MigrateAsync(app.Services);
-    return;
+    return 0;
 }
 
 if (app.Environment.IsDevelopment() || config.GetValue<bool>("Database:MigrateOnStartup"))
@@ -164,5 +180,6 @@ owner.MapReports();
 owner.MapImports();
 
 await app.RunAsync();
+return 0;
 
 public partial class Program;

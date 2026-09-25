@@ -1,0 +1,9 @@
+[Unit]
+Description=Encrypted backup of the personal-finance database
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/personal-finance
+Environment=DOCKER_HOST=unix://%t/docker.sock
+ExecStart=%h/personal-finance/deploy/scripts/backup.sh

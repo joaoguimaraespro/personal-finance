@@ -1,0 +1,43 @@
+{
+	admin off
+	auto_https off
+	servers {
+		# Only the host-side HTTPS terminator (tailscale serve / reverse proxy) may set X-Forwarded-*.
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For
+	}
+}
+
+:8080 {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Cross-Origin-Opener-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# Inline styles are required by Angular component styles and ECharts' SVG renderer; scripts are self-only.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	}
+
+	respond /healthz 200
+
+	handle /api/* {
+		request_body {
+			max_size 12MB
+		}
+		reverse_proxy api:8080
+	}
+
+	handle {
+		root * /srv
+		@immutable path *.js *.css *.woff2 *.svg
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-store"
+		try_files {path} /index.html
+		file_server
+	}
+}

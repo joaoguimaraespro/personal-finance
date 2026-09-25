@@ -16,6 +16,8 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     locale: 'en-IE',
     timezoneId: 'Europe/Lisbon',
+    // Against the production stack, simulate the HTTPS terminator (tailscale serve) in front of Caddy.
+    extraHTTPHeaders: process.env['E2E_FORWARDED_HTTPS'] ? { 'X-Forwarded-Proto': 'https' } : undefined,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
 });

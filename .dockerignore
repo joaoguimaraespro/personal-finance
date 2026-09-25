@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/node_modules/
+web/dist/
+web/.angular/
+web/test-results/
+web/playwright-report/
+tests/
+docs/
+backups/
+deploy/secrets/
+.dev-keys/
+.git/
+**/*.xlsx
+**/.env
+**/.env.*

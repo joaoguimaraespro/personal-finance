@@ -1,0 +1,103 @@
+# Production stack. Run as the unprivileged "finance" user with rootless Docker:
+#   docker compose --env-file .env up -d
+# Only the web container publishes a port, and only on loopback; HTTPS is terminated by `tailscale serve`.
+name: personal-finance
+
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    shm_size: 256mb
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?set in .env}
+      FINANCE_MIGRATOR_PASSWORD: ${FINANCE_MIGRATOR_PASSWORD:?set in .env}
+      FINANCE_APP_PASSWORD: ${FINANCE_APP_PASSWORD:?set in .env}
+      FINANCE_BACKUP_PASSWORD: ${FINANCE_BACKUP_PASSWORD:?set in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+      - ./postgres/grants.sql:/docker-entrypoint-initdb.d/20-grants.sql:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d finance"]
+      interval: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  # One-shot: applies migrations with the DDL-capable role, then exits.
+  migrate:
+    <<: *hardening
+    image: ${API_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-api:latest}
+    build: { context: .., dockerfile: src/Host.Api/Dockerfile }
+    restart: "no"
+    command: ["--migrate"]
+    environment:
+      ConnectionStrings__Finance: Host=db;Database=finance;Username=finance_migrator;Password=${FINANCE_MIGRATOR_PASSWORD}
+      DataProtection__KeyPath: /keys
+    volumes:
+      - dp-keys:/keys
+    networks: [internal]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *hardening
+    image: ${API_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-api:latest}
+    build: { context: .., dockerfile: src/Host.Api/Dockerfile }
+    environment:
+      ConnectionStrings__Finance: Host=db;Database=finance;Username=finance_app;Password=${FINANCE_APP_PASSWORD}
+      Auth__SetupToken: ${AUTH_SETUP_TOKEN:?set in .env}
+      DataProtection__KeyPath: /keys
+      ReverseProxy__KnownNetworks__0: 172.30.10.0/24
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      TZ: Europe/Lisbon
+    volumes:
+      - dp-keys:/keys
+    tmpfs: [/tmp]
+    networks: [internal, edge]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    deploy:
+      resources:
+        limits: { memory: 768m }
+
+  web:
+    <<: *hardening
+    image: ${WEB_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-web:latest}
+    build: { context: .., dockerfile: web/Dockerfile }
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
+    tmpfs: [/tmp]
+    networks: [edge]
+    depends_on: [api]
+    deploy:
+      resources:
+        limits: { memory: 128m }
+
+networks:
+  # No route to the outside world: the database can only talk to the API and the migrator.
+  internal:
+    internal: true
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+
+volumes:
+  db-data:
+  # ASP.NET Data Protection key ring: encrypts sessions and account identifiers. Back it up with the database.
+  dp-keys:
