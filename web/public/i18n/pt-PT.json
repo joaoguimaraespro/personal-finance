@@ -17,7 +17,8 @@
   "wealth": "Património",
   "portfolio": "Carteira",
   "netWorth": "Património líquido",
-  "connections": "Ligações"
+  "connections": "Ligações",
+  "export": "Exportar"
  },
  "common": {
   "save": "Guardar",
@@ -505,5 +506,37 @@
   "counts": "{{imported}} importados · {{updated}} atualizados · {{ignored}} sem alteração",
   "confirmDelete": "Eliminar a ligação \"{{name}}\"? As credenciais são apagadas de imediato.",
   "confirmPurge": "Apagar também todos os dados importados? (Cancelar mantém o histórico.)"
+ },
+ "export": {
+  "title": "Exportar e cópia de segurança",
+  "subtitle": "Os dados são teus: descarrega-os quando quiseres, em formatos que qualquer ferramenta lê.",
+  "excel": "Livro Excel",
+  "kinds": {
+   "Month": "Mês",
+   "Year": "Ano",
+   "Period": "Período",
+   "All": "Histórico completo",
+   "Expenses": "Despesas",
+   "Income": "Rendimentos",
+   "Investments": "Investimentos",
+   "Portfolio": "Carteira"
+  },
+  "downloadXlsx": "Descarregar .xlsx",
+  "datasets": {
+   "Transactions": "Movimentos",
+   "Monthly": "Resumo mensal",
+   "Positions": "Posições",
+   "Dividends": "Dividendos",
+   "Trades": "Negócios",
+   "NetWorth": "Património"
+  },
+  "excelPt": "Excel (Portugal): separador ';' e vírgula decimal",
+  "downloadCsv": "Descarregar .csv",
+  "archive": "Arquivo JSON completo",
+  "archiveHelp": "Todos os registos com a sua origem, num formato documentado e versionado.",
+  "downloadJson": "Descarregar .json",
+  "restore": "Restaurar de JSON",
+  "restoreHelp": "Importa os dados financeiros de um arquivo para este servidor. Registos existentes mantêm-se; importar duas vezes não altera nada.",
+  "restored": "Restaurados {{transactions}} movimentos e {{accounts}} contas ({{skipped}} já existiam)."
  }
 }

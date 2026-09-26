@@ -4,6 +4,9 @@
     <Project Path="src/SharedKernel/SharedKernel.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Exports/">
+    <Project Path="src/Modules/Exports/Exports.Application/Exports.Application.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Finance/">
     <Project Path="src/Modules/Finance/Finance.Application/Finance.Application.csproj" />
     <Project Path="src/Modules/Finance/Finance.Domain/Finance.Domain.csproj" />

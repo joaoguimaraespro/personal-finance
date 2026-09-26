@@ -25,6 +25,7 @@ export const routes: Routes = [
       { path: 'accounts', loadComponent: () => import('./features/accounts/accounts').then((m) => m.AccountsComponent) },
       { path: 'categories', loadComponent: () => import('./features/categories/categories').then((m) => m.CategoriesComponent) },
       { path: 'import', loadComponent: () => import('./features/import/import').then((m) => m.ImportComponent) },
+      { path: 'export', loadComponent: () => import('./features/export/export').then((m) => m.ExportComponent) },
       { path: 'settings', loadComponent: () => import('./features/settings/settings').then((m) => m.SettingsComponent) },
     ],
   },

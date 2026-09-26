@@ -17,7 +17,8 @@
   "wealth": "Wealth",
   "portfolio": "Portfolio",
   "netWorth": "Net worth",
-  "connections": "Connections"
+  "connections": "Connections",
+  "export": "Export"
  },
  "common": {
   "save": "Save",
@@ -505,5 +506,37 @@
   "counts": "{{imported}} imported · {{updated}} updated · {{ignored}} unchanged",
   "confirmDelete": "Delete the connection \"{{name}}\"? Its credentials are erased immediately.",
   "confirmPurge": "Also delete all data imported from it? (Cancel keeps the history.)"
+ },
+ "export": {
+  "title": "Export & backup",
+  "subtitle": "Your data is yours: download it any time, in formats any tool can read.",
+  "excel": "Excel workbook",
+  "kinds": {
+   "Month": "Month",
+   "Year": "Year",
+   "Period": "Period",
+   "All": "Complete history",
+   "Expenses": "Expenses",
+   "Income": "Income",
+   "Investments": "Investments",
+   "Portfolio": "Portfolio"
+  },
+  "downloadXlsx": "Download .xlsx",
+  "datasets": {
+   "Transactions": "Transactions",
+   "Monthly": "Monthly summary",
+   "Positions": "Positions",
+   "Dividends": "Dividends",
+   "Trades": "Trades",
+   "NetWorth": "Net worth"
+  },
+  "excelPt": "Excel (Portugal): ';' separator and decimal comma",
+  "downloadCsv": "Download .csv",
+  "archive": "Complete JSON archive",
+  "archiveHelp": "Every record with its provenance, in a documented, versioned format.",
+  "downloadJson": "Download .json",
+  "restore": "Restore from JSON",
+  "restoreHelp": "Imports the finance data of an archive into this server. Existing records are kept; importing twice changes nothing.",
+  "restored": "Restored {{transactions}} transactions and {{accounts}} accounts ({{skipped}} already present)."
  }
 }

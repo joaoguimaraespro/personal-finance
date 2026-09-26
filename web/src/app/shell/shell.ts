@@ -113,6 +113,7 @@ export class ShellComponent {
         { path: '/accounts', label: 'nav.accounts', icon: '▭' },
         { path: '/categories', label: 'nav.categories', icon: '#' },
         { path: '/import', label: 'nav.import', icon: '⇪' },
+        { path: '/export', label: 'nav.export', icon: '⇩' },
         { path: '/settings', label: 'nav.settings', icon: '⚙' },
       ],
     },

@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Modules\Imports\Imports.Application\Imports.Application.csproj" />
     <ProjectReference Include="..\Modules\Investments\Investments.Infrastructure\Investments.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Integrations\Integrations.Infrastructure\Integrations.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Exports\Exports.Application\Exports.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Integration.Tests" />
