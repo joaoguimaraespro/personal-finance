@@ -1,0 +1,22 @@
+# Local try-out on a PC: HTTPS on https://localhost:8443 with Caddy's own local certificate
+# (the browser will ask you to accept it). Not for the server — there, `tailscale serve` provides HTTPS.
+{
+	admin off
+	local_certs
+	skip_install_trust
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+import /etc/caddy/routes.caddy
+
+https://localhost:8443 {
+	tls internal
+	import site
+}
+
+# Container health check only.
+:8080 {
+	respond /healthz 200
+}

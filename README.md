@@ -128,6 +128,19 @@ Details: [docs/security.md](docs/security.md).
 
 ## Running it
 
+### Try it on your PC (Docker only)
+
+```powershell
+git clone https://github.com/joaoguimaraespro/personal-finance.git
+cd personal-finance
+.\scripts\local-up.ps1          # Windows (Docker Desktop)
+./scripts/local-up.sh            # macOS / Linux
+```
+
+Open **https://localhost:8443**, accept the local certificate, create the owner with the printed setup token,
+enrol an authenticator app, and explore. *Connections → Demo broker* adds a fictitious portfolio.
+Stop with the command the script prints (add `-v` to wipe the local database).
+
 ### Development
 
 ```bash
