@@ -96,7 +96,11 @@ step "Build and start (first build takes a few minutes)"
 as_app "cd '${APP_DIR}/deploy' && docker compose --env-file .env up -d --build --wait --quiet-pull"
 
 step "Tailnet HTTPS on port ${TAILNET_PORT}"
-tailscale serve --bg --https="${TAILNET_PORT}" "http://127.0.0.1:${HTTP_PORT}" >/dev/null
+if ! tailscale status --self --json | grep -q '"CertDomains": *\['; then
+  echo "HTTPS certificates are disabled for this tailnet. Enable them at https://login.tailscale.com/admin/dns"
+  echo "(HTTPS Certificates → Enable); this step continues automatically once they are on."
+fi
+tailscale serve --bg --https="${TAILNET_PORT}" "http://127.0.0.1:${HTTP_PORT}"
 TS_HOST=$(tailscale status --self --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
 
 step "Backups"
