@@ -154,8 +154,13 @@ enrol an authenticator app, and press <kbd>N</kbd>.
 
 ### Production (home server)
 
-See [docs/deployment.md](docs/deployment.md): isolated user with rootless Docker, `deploy/.env`,
-`docker compose up -d`, `tailscale serve`, daily encrypted backups via a systemd timer, and the
+```bash
+sudo deploy/scripts/server-deploy.sh --backup-recipient age1…   # idempotent; re-run to upgrade
+```
+
+One command creates an isolated `finance` user with its own rootless Docker, generates secrets, starts the
+stack on loopback and publishes it on the tailnet only (`tailscale serve`, HTTPS on :8443), with daily
+encrypted backups. Details in [docs/deployment.md](docs/deployment.md) and the
 [disaster-recovery runbook](docs/disaster-recovery.md).
 
 ## Testing
