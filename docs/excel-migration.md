@@ -2,7 +2,7 @@
 
 The source is the "Gestor Financeiro Pessoal" workbook (`FinanceTracker_Template.xlsx`, PT-PT). It was
 inspected read-only; it is never stored in this repository. Tests use a synthetic workbook with the same
-layout (`tests/Integration.Tests/Fixtures/SyntheticWorkbook.cs`).
+layout (`backend/tests/Integration.Tests/Fixtures/SyntheticWorkbook.cs`).
 
 ## Sheets
 

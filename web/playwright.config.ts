@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * E2E against a running stack (API + web) with an EMPTY database — the journey starts at first-run setup.
- * Locally: `docker compose -f deploy/compose.dev.yml up -d`, `dotnet run --project src/Host.Api`, `npm start`.
+ * Locally: `docker compose -f deploy/compose.dev.yml up -d`, `dotnet run --project backend/src/Host.Api`, `npm start`.
  */
 export default defineConfig({
   testDir: './e2e',

@@ -5,7 +5,7 @@ web/dist/
 web/.angular/
 web/test-results/
 web/playwright-report/
-tests/
+backend/tests/
 docs/
 backups/
 deploy/secrets/

@@ -42,7 +42,7 @@ services:
   migrate:
     <<: *hardening
     image: ${API_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-api:latest}
-    build: { context: .., dockerfile: src/Host.Api/Dockerfile }
+    build: { context: .., dockerfile: backend/src/Host.Api/Dockerfile }
     restart: "no"
     command: ["--migrate"]
     environment:
@@ -57,7 +57,7 @@ services:
   api:
     <<: *hardening
     image: ${API_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-api:latest}
-    build: { context: .., dockerfile: src/Host.Api/Dockerfile }
+    build: { context: .., dockerfile: backend/src/Host.Api/Dockerfile }
     environment:
       ConnectionStrings__Finance: Host=db;Database=finance;Username=finance_app;Password=${FINANCE_APP_PASSWORD}
       Auth__SetupToken: ${AUTH_SETUP_TOKEN:?set in .env}
@@ -84,7 +84,7 @@ services:
   mcp:
     <<: *hardening
     image: ${MCP_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-mcp:latest}
-    build: { context: .., dockerfile: src/Host.Mcp/Dockerfile }
+    build: { context: .., dockerfile: backend/src/Host.Mcp/Dockerfile }
     environment:
       Gateway__BaseUrl: http://api:8080
     tmpfs: [/tmp]

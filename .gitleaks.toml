@@ -4,6 +4,6 @@ useDefault = true
 [allowlist]
 description = "Development-only placeholders that are not secrets"
 paths = [
-  '''src/Host.Api/appsettings.Development.json''',
+  '''backend/src/Host.Api/appsettings.Development.json''',
   '''deploy/compose.dev.yml''',
 ]

@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.7
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY global.json Directory.Build.props Directory.Packages.props .editorconfig ./
-COPY src/SharedKernel/ src/SharedKernel/
-COPY src/Modules/Ai/Ai.Contracts/ src/Modules/Ai/Ai.Contracts/
-COPY src/Host.Mcp/ src/Host.Mcp/
+COPY backend/global.json backend/Directory.Build.props backend/Directory.Packages.props .editorconfig ./
+COPY backend/src/SharedKernel/ src/SharedKernel/
+COPY backend/src/Modules/Ai/Ai.Contracts/ src/Modules/Ai/Ai.Contracts/
+COPY backend/src/Host.Mcp/ src/Host.Mcp/
 RUN dotnet restore src/Host.Mcp/Host.Mcp.csproj
 RUN dotnet publish src/Host.Mcp/Host.Mcp.csproj -c Release -o /app --no-restore /p:UseAppHost=false
 

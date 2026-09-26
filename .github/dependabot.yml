@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: nuget
-    directory: /
+    directory: /backend
     schedule: { interval: weekly }
     groups:
       dotnet: { patterns: ["*"] }
@@ -12,7 +12,7 @@ updates:
       angular: { patterns: ["@angular/*", "@angular-devkit/*"] }
       web: { patterns: ["*"], exclude-patterns: ["@angular/*", "@angular-devkit/*"] }
   - package-ecosystem: docker
-    directories: ["/src/Host.Api", "/web", "/deploy"]
+    directories: ["/backend/src/Host.Api", "/backend/src/Host.Mcp", "/web", "/deploy"]
     schedule: { interval: weekly }
   - package-ecosystem: github-actions
     directory: /

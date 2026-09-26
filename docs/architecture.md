@@ -6,21 +6,23 @@ A **modular monolith** (see [ADR-0001](adr/0001-modular-monolith.md)). One API p
 module boundaries enforced by project references and architecture tests rather than by the network.
 
 ```
-src/
-  SharedKernel/                    Result/Error, DataSource (provenance), YearMonth, Currency, Entity
-  Modules/
-    Finance/
-      Finance.Domain/              Entities + invariants. No EF, no ASP.NET.
-      Finance.Application/         Feature slices: request DTOs, validators, endpoints, queries
-      Finance.Infrastructure/      EF Core DbContext (schema "finance"), audit interceptor, seeding
-    Reporting/Reporting.Application/  Pure calculators + read-only queries
-    Imports/Imports.Application/      Workbook reader, planner, reconciliation, commit/undo
-  Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel
-web/                               Angular SPA
-deploy/                            Compose, Caddy, Postgres roles, backup/restore
+backend/                             .NET solution: PersonalFinance.slnx, global.json, central package versions
+  src/
+    SharedKernel/                    Result/Error, DataSource (provenance), YearMonth, Currency, Entity
+    Modules/
+      Finance/
+        Finance.Domain/              Entities + invariants. No EF, no ASP.NET.
+        Finance.Application/         Feature slices: request DTOs, validators, endpoints, queries
+        Finance.Infrastructure/      EF Core DbContext (schema "finance"), audit interceptor, seeding
+      Reporting/Reporting.Application/  Pure calculators + read-only queries
+      Imports/Imports.Application/      Workbook reader, planner, reconciliation, commit/undo
+    Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel
+  tests/                             Unit, architecture and Testcontainers integration tests
+web/                                 Angular SPA
+deploy/                              Compose, Caddy, Postgres roles, backup/restore
 ```
 
-### Dependency rules (tested in `tests/Architecture.Tests`)
+### Dependency rules (tested in `backend/tests/Architecture.Tests`)
 
 - `Finance.Domain` depends only on `SharedKernel`.
 - Application layers never reference Npgsql, infrastructure projects or the host.

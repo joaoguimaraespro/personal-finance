@@ -32,9 +32,9 @@ backups/
 *.csv
 !tools/fixtures/**/*.xlsx
 !tools/fixtures/**/*.csv
-!tests/**/Fixtures/**/*.csv
-!tests/**/Fixtures/**/*.xlsx
-!tests/**/Fixtures/**/*.xml
+!backend/tests/**/Fixtures/**/*.csv
+!backend/tests/**/Fixtures/**/*.xlsx
+!backend/tests/**/Fixtures/**/*.xml
 
 # IDE / OS
 .idea/

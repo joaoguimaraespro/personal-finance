@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.7
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY global.json Directory.Build.props Directory.Packages.props .editorconfig ./
-COPY src/ src/
+COPY backend/global.json backend/Directory.Build.props backend/Directory.Packages.props .editorconfig ./
+COPY backend/src/ src/
 RUN dotnet restore src/Host.Api/Host.Api.csproj
 RUN dotnet publish src/Host.Api/Host.Api.csproj -c Release -o /app --no-restore /p:UseAppHost=false \
     && mkdir -p /keys

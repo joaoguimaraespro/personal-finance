@@ -145,11 +145,11 @@ Stop with the command the script prints (add `-v` to wipe the local database).
 
 ```bash
 docker compose -f deploy/compose.dev.yml up -d          # PostgreSQL on 127.0.0.1:55432
-dotnet run --project src/Host.Api                          # API on http://localhost:5080 (migrates on start)
+dotnet run --project backend/src/Host.Api                  # API on http://localhost:5080 (migrates on start)
 cd web && npm ci && npm start                              # UI on http://localhost:4200
 ```
 
-Open the UI, create the owner with the dev setup token from `src/Host.Api/appsettings.Development.json`,
+Open the UI, create the owner with the dev setup token from `backend/src/Host.Api/appsettings.Development.json`,
 enrol an authenticator app, and press <kbd>N</kbd>.
 
 ### Production (home server)
@@ -162,14 +162,14 @@ See [docs/deployment.md](docs/deployment.md): isolated user with rootless Docker
 
 | Suite | What it covers |
 |---|---|
-| `tests/Reporting.Tests` | Every workbook formula reproduced with concrete numbers (e.g. `I9 = C15 − (C31 + C47)`) |
-| `tests/Finance.Tests` | Domain rules: amounts, currencies, transfers, recurrence schedules, budget validation |
-| `tests/Architecture.Tests` | Layering; no trading/money-movement operations; no raw SQL; reporting never writes |
-| `tests/Integration.Tests` | Real PostgreSQL via Testcontainers: auth + MFA + CSRF, CRUD + audit, reports, recurring, Excel import idempotency/undo, prompt-injection text stays inert |
+| `backend/tests/Reporting.Tests` | Every workbook formula reproduced with concrete numbers (e.g. `I9 = C15 − (C31 + C47)`) |
+| `backend/tests/Finance.Tests` | Domain rules: amounts, currencies, transfers, recurrence schedules, budget validation |
+| `backend/tests/Architecture.Tests` | Layering; no trading/money-movement operations; no raw SQL; reporting never writes |
+| `backend/tests/Integration.Tests` | Real PostgreSQL via Testcontainers: auth + MFA + CSRF, CRUD + audit, reports, recurring, Excel import idempotency/undo, prompt-injection text stays inert |
 | `web/e2e` | Playwright: first run → MFA enrolment → keyboard quick-add → dashboards → PT-PT → dark mode, run against the production images in CI |
 
 ```bash
-dotnet test                       # backend (Docker required for integration tests)
+cd backend && dotnet test         # backend (Docker required for integration tests)
 cd web && npm test                # frontend unit tests
 ```
 
