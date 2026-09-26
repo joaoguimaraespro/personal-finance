@@ -346,3 +346,143 @@ export interface ImportSummary {
   committedAtUtc: string | null;
   rolledBackAtUtc: string | null;
 }
+
+// ---- Investments
+
+export type AssetClass = 'Stock' | 'Etf' | 'Bond' | 'Fund' | 'Crypto' | 'Cash' | 'Other';
+export type Broker = 'Trading212' | 'InteractiveBrokers' | 'Demo';
+
+export interface PortfolioSummary {
+  totalValue: number;
+  marketValue: number;
+  cash: number;
+  netContributions: number;
+  totalReturn: number;
+  totalReturnPercent: number | null;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  dividends: number;
+  fees: number;
+  positions: number;
+  lastSyncUtc: string | null;
+  accounts: { accountId: string; name: string; broker: Broker; marketValue: number; cash: number }[];
+}
+
+export interface PositionLine {
+  securityId: string;
+  symbol: string;
+  isin: string | null;
+  name: string;
+  currency: string;
+  assetClass: AssetClass;
+  quantity: number;
+  averagePrice: number;
+  lastPrice: number;
+  marketValueBase: number;
+  costBase: number;
+  unrealizedPnlBase: number;
+  unrealizedPnlPercent: number | null;
+  portfolioWeight: number;
+  holdings: { accountId: string; accountName: string; broker: Broker; quantity: number; averagePrice: number }[];
+}
+
+export interface AllocationLine {
+  assetClass: AssetClass;
+  value: number;
+  actual: number;
+  target: number | null;
+  difference: number | null;
+}
+
+export interface DividendSummary {
+  totalNetBase: number;
+  byMonth: { period: string; amount: number }[];
+  bySecurity: { symbol: string; name: string; amount: number }[];
+  items: {
+    paidOn: string;
+    symbol: string;
+    name: string;
+    broker: Broker;
+    gross: number;
+    withholdingTax: number;
+    net: number;
+    currency: string;
+    netBase: number;
+    withholdingDerived: boolean;
+  }[];
+}
+
+export interface PerformanceReport {
+  from: string;
+  to: string;
+  timeWeightedReturn: number | null;
+  moneyWeightedReturn: number | null;
+  startValue: number;
+  endValue: number;
+  netFlows: number;
+  gain: number;
+  series: { date: string; value: number; netContributions: number }[];
+}
+
+export type ManualAssetKind = 'RealEstate' | 'Vehicle' | 'Crypto' | 'Pension' | 'Other' | 'Loan' | 'Mortgage' | 'OtherDebt';
+
+export interface ManualAsset {
+  id: string;
+  name: string;
+  kind: ManualAssetKind;
+  currency: string;
+  isLiability: boolean;
+  currentValue: number | null;
+  valuedOn: string | null;
+  history: { date: string; value: number }[];
+}
+
+export interface NetWorthHistory {
+  current: {
+    date: string;
+    assets: number;
+    liabilities: number;
+    netWorth: number;
+    cash: number;
+    investments: number;
+    manualAssets: number;
+    lines: { group: 'cash' | 'investments' | 'manual' | 'liability'; name: string; value: number }[];
+  };
+  changeSinceStart: number | null;
+  changeSinceStartPercent: number | null;
+  startDate: string | null;
+  series: { date: string; assets: number; liabilities: number; netWorth: number }[];
+}
+
+// ---- Integrations
+
+export interface ProviderInfo {
+  kind: Broker;
+  name: string;
+  fields: { key: string; label: string; secret: boolean; required: boolean; hint: string | null }[];
+  setupHint: string;
+}
+
+export interface SyncJob {
+  id: string;
+  trigger: 'Scheduled' | 'Manual' | 'CsvImport';
+  outcome: 'Running' | 'Succeeded' | 'PartiallySucceeded' | 'Failed';
+  startedAtUtc: string;
+  finishedAtUtc: string | null;
+  imported: number;
+  updated: number;
+  ignored: number;
+  errors: string[];
+}
+
+export interface Connection {
+  id: string;
+  kind: Broker;
+  displayName: string;
+  accountId: string;
+  status: 'Active' | 'NeedsAttention' | 'Disabled';
+  lastError: string | null;
+  lastSuccessfulSyncUtc: string | null;
+  credentialsExpireOn: string | null;
+  lastJob: SyncJob | null;
+}

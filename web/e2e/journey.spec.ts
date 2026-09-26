@@ -70,6 +70,32 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await expect(page.getByText('Income allocation')).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/budgets.png` });
 
+  // Read-only broker connections (fictitious demo broker): same ETF at two "brokers" is consolidated.
+  await page.goto('/connections');
+  for (const profile of ['a', 'b']) {
+    await page.getByRole('button', { name: /Demo broker/ }).click();
+    await page.getByLabel('Name').fill(`Demo broker ${profile.toUpperCase()}`);
+    await page.getByLabel('Profile').fill(profile);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText(`Demo broker ${profile.toUpperCase()}`, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByText('Succeeded', { exact: false })).toHaveCount(2, { timeout: 60_000 });
+  if (shots) await page.screenshot({ path: `${shots}/connections.png` });
+
+  await page.goto('/portfolio');
+  const vwce = page.getByRole('row').filter({ hasText: 'VWCE' }).first();
+  await expect(vwce).toBeVisible();
+  await expect(vwce.getByText('Demo broker A')).toBeVisible();
+  await expect(vwce.getByText('Demo broker B')).toBeVisible();
+  await expect(page.getByText('TWR')).toBeVisible();
+  await page.waitForTimeout(1000);
+  if (shots) await page.screenshot({ path: `${shots}/portfolio.png`, fullPage: true });
+
+  await page.goto('/net-worth');
+  await expect(page.getByText('Net worth over time')).toBeVisible();
+  await page.waitForTimeout(800);
+  if (shots) await page.screenshot({ path: `${shots}/net-worth.png`, fullPage: true });
+
   // Language switch is instant and total.
   await page.goto('/dashboard');
   await page.getByLabel('Language').selectOption('pt-PT');

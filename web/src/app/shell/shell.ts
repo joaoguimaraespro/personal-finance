@@ -100,8 +100,16 @@ export class ShellComponent {
       ],
     },
     {
+      title: 'nav.wealth',
+      items: [
+        { path: '/portfolio', label: 'nav.portfolio', icon: '◆' },
+        { path: '/net-worth', label: 'nav.netWorth', icon: '△' },
+      ],
+    },
+    {
       title: 'nav.setup',
       items: [
+        { path: '/connections', label: 'nav.connections', icon: '⇄' },
         { path: '/accounts', label: 'nav.accounts', icon: '▭' },
         { path: '/categories', label: 'nav.categories', icon: '#' },
         { path: '/import', label: 'nav.import', icon: '⇪' },

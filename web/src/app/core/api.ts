@@ -3,6 +3,18 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   Account,
+  AllocationLine,
+  AssetClass,
+  Broker,
+  Connection,
+  DividendSummary,
+  ManualAsset,
+  NetWorthHistory,
+  PerformanceReport,
+  PortfolioSummary,
+  PositionLine,
+  ProviderInfo,
+  SyncJob,
   AllocationCheck,
   AllocationStatus,
   AnnualSummary,
@@ -128,4 +140,67 @@ export class Api {
       {},
     );
   undoImport = (id: string) => this.http.post<{ removed: number }>(`/api/imports/${id}/undo`, {});
+
+  // Portfolio (read-only broker data)
+  portfolioSummary = (scope: PortfolioScope = {}) =>
+    this.http.get<PortfolioSummary>('/api/portfolio/summary', { params: scopeParams(scope) });
+  positions = (scope: PortfolioScope = {}) =>
+    this.http.get<PositionLine[]>('/api/portfolio/positions', { params: scopeParams(scope) });
+  allocation = (scope: PortfolioScope = {}) =>
+    this.http.get<AllocationLine[]>('/api/portfolio/allocation', { params: scopeParams(scope) });
+  dividends = (scope: PortfolioScope = {}) =>
+    this.http.get<DividendSummary>('/api/portfolio/dividends', { params: scopeParams(scope) });
+  performance = (scope: PortfolioScope = {}, from?: string) =>
+    this.http.get<PerformanceReport>('/api/portfolio/performance', {
+      params: from ? { ...scopeParams(scope), from } : scopeParams(scope),
+    });
+  targets = () => this.http.get<{ assetClass: AssetClass; percent: number }[]>('/api/portfolio/targets');
+  saveTargets = (items: { assetClass: AssetClass; percent: number }[]) =>
+    this.http.put<void>('/api/portfolio/targets', items);
+  overrideAssetClass = (securityId: string, assetClass: AssetClass | null) =>
+    this.http.put<void>(`/api/portfolio/securities/${securityId}/asset-class`, null, {
+      params: assetClass ? { assetClass } : {},
+    });
+
+  // Net worth
+  netWorth = () => this.http.get<NetWorthHistory>('/api/net-worth');
+  manualAssets = () => this.http.get<ManualAsset[]>('/api/assets');
+  createManualAsset = (body: unknown) => this.http.post<{ id: string }>('/api/assets', body);
+  valueManualAsset = (id: string, value: number, on?: string) =>
+    this.http.post<void>(`/api/assets/${id}/valuations`, { value, on });
+  archiveManualAsset = (id: string) => this.http.post<void>(`/api/assets/${id}/archive`, {});
+  fx = (currency: string, date?: string) =>
+    this.http.get<{ currency: string; date: string; eurPerUnit: number }>(`/api/fx/${currency}`, {
+      params: date ? { date } : {},
+    });
+
+  // Integrations
+  providers = () => this.http.get<ProviderInfo[]>('/api/integrations/providers');
+  connections = () => this.http.get<Connection[]>('/api/integrations/connections');
+  createConnection = (body: unknown) => this.http.post<{ id: string }>('/api/integrations/connections', body);
+  updateCredentials = (id: string, body: unknown) =>
+    this.http.put<void>(`/api/integrations/connections/${id}/credentials`, body);
+  syncConnection = (id: string) => this.http.post<void>(`/api/integrations/connections/${id}/sync`, {});
+  setConnectionEnabled = (id: string, enabled: boolean) =>
+    this.http.post<void>(`/api/integrations/connections/${id}/${enabled ? 'enable' : 'disable'}`, {});
+  deleteConnection = (id: string, purge: boolean) =>
+    this.http.delete<void>(`/api/integrations/connections/${id}`, { params: { purge } });
+  syncJobs = (id: string) => this.http.get<SyncJob[]>(`/api/integrations/connections/${id}/jobs`);
+  importBrokerCsv(id: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<SyncJob>(`/api/integrations/connections/${id}/csv`, form);
+  }
+}
+
+export interface PortfolioScope {
+  broker?: Broker;
+  accountId?: string;
+}
+
+function scopeParams(scope: PortfolioScope): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (scope.broker) params['broker'] = scope.broker;
+  if (scope.accountId) params['accountId'] = scope.accountId;
+  return params;
 }

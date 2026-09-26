@@ -1,7 +1,10 @@
 namespace Investments.Application.Calculations;
 
-/// <summary>A daily valuation with the external cash flow (deposits − withdrawals) that happened that day.</summary>
-public readonly record struct ValuationPoint(DateOnly Date, decimal Value, decimal NetFlow);
+/// <summary>
+/// A daily valuation. <see cref="NetFlow"/> arrives at the start of the day (deposits: the market acts on them);
+/// <see cref="EndOfDayFlow"/> is already included in the value and must not count as return (a newly connected account).
+/// </summary>
+public readonly record struct ValuationPoint(DateOnly Date, decimal Value, decimal NetFlow, decimal EndOfDayFlow = 0);
 
 public readonly record struct CashFlow(DateOnly Date, decimal Amount);
 
@@ -30,7 +33,7 @@ public static class Performance
                 continue; // Empty account: no exposure, no return for this period.
             }
 
-            growth *= ordered[i].Value / start;
+            growth *= (ordered[i].Value - ordered[i].EndOfDayFlow) / start;
             linked++;
         }
 

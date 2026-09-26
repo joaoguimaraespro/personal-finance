@@ -233,48 +233,31 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
     {
         var ids = (await BrokerAccountsAsync(scope, ct)).Keys.ToList();
         var end = to ?? Today;
-        var snapshots = await db.PortfolioSnapshots.AsNoTracking()
-            .Where(s => ids.Contains(s.AccountId) && s.Date <= end && (from == null || s.Date >= from))
-            .GroupBy(s => s.Date)
-            .Select(g => new { Date = g.Key, Value = g.Sum(s => s.MarketValueBase + s.CashBase), Flow = g.Sum(s => s.NetFlowBase) })
-            .OrderBy(x => x.Date)
+        var valuations = await db.PortfolioSnapshots.AsNoTracking()
+            .Where(s => ids.Contains(s.AccountId) && s.Date <= end)
+            .Select(s => new AccountValuation(s.AccountId, s.Date, s.MarketValueBase + s.CashBase))
             .ToListAsync(ct);
-        var start = from ?? (snapshots.Count > 0 ? snapshots[0].Date : end);
+        var flows = (await db.CashMovements.AsNoTracking()
+                .Where(c => ids.Contains(c.AccountId) &&
+                            (c.Type == CashMovementType.Deposit || c.Type == CashMovementType.Withdrawal))
+                .Select(c => new { c.AccountId, c.OccurredAtUtc, c.BaseAmount })
+                .ToListAsync(ct))
+            .Select(f => new AccountFlow(f.AccountId, DateOnly.FromDateTime(f.OccurredAtUtc.UtcDateTime), f.BaseAmount))
+            .ToList();
 
-        var flows = await db.CashMovements.AsNoTracking()
-            .Where(c => ids.Contains(c.AccountId) &&
-                        (c.Type == CashMovementType.Deposit || c.Type == CashMovementType.Withdrawal))
-            .Select(c => new { c.OccurredAtUtc, c.BaseAmount })
-            .ToListAsync(ct);
-        var flowsInRange = flows.Select(f => new CashFlow(DateOnly.FromDateTime(f.OccurredAtUtc.UtcDateTime), f.BaseAmount))
-            .Where(f => f.Date > start && f.Date <= end).ToList();
-
-        var startValue = snapshots.FirstOrDefault()?.Value ?? 0;
-        var endValue = snapshots.LastOrDefault()?.Value ?? 0;
-        var netFlows = flowsInRange.Sum(f => f.Amount);
-
-        // XIRR from the investor's side: starting value and deposits go in (negative), the ending value comes out.
-        var xirrFlows = new List<CashFlow>();
-        if (startValue != 0)
+        var series = PortfolioSeries.Build(valuations, flows, from, end);
+        var points = series.Points;
+        if (points.Count == 0)
         {
-            xirrFlows.Add(new CashFlow(start, -startValue));
+            return new PerformanceReport(from ?? end, end, null, null, 0, 0, 0, 0, []);
         }
 
-        xirrFlows.AddRange(flowsInRange.Select(f => f with { Amount = -f.Amount }));
-        xirrFlows.Add(new CashFlow(end, endValue));
-
-        var cumulative = 0m;
-        var series = new List<ValuePoint>();
-        foreach (var s in snapshots)
-        {
-            cumulative += s.Flow;
-            series.Add(new ValuePoint(s.Date, s.Value, cumulative));
-        }
-
-        return new PerformanceReport(start, end,
-            Performance.TimeWeightedReturn(snapshots.Select(s => new ValuationPoint(s.Date, s.Value, s.Flow)).ToList()),
-            Performance.Xirr(xirrFlows), startValue, endValue, netFlows, endValue - startValue - netFlows,
-            Thin(series));
+        var netFlows = points.Skip(1).Sum(p => p.TotalFlow);
+        return new PerformanceReport(points[0].Date, points[^1].Date,
+            Performance.TimeWeightedReturn(points.Select(p => p.ToValuation()).ToList()),
+            Performance.Xirr(series.InvestorFlows), points[0].Value, points[^1].Value, netFlows,
+            points[^1].Value - points[0].Value - netFlows,
+            Thin(points.Select(p => new ValuePoint(p.Date, p.Value, p.CumulativeContributions)).ToList()));
     }
 
     public async Task<IReadOnlyList<(Guid AccountId, decimal Value)>> CashAsync(PortfolioScope scope,
