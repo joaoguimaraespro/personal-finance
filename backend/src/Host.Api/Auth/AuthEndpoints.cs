@@ -168,12 +168,10 @@ public static class AuthEndpoints
                 return ResultHttp.Problem(Error.Conflict("Auth.Mfa", "MFA is already enabled."));
             }
 
+            // A fresh secret on every visit until MFA is enabled: a key that was seen, copied or photographed
+            // during an abandoned enrolment is never the one that ends up protecting the account.
+            await users.ResetAuthenticatorKeyAsync(user);
             var key = await users.GetAuthenticatorKeyAsync(user);
-            if (string.IsNullOrEmpty(key))
-            {
-                await users.ResetAuthenticatorKeyAsync(user);
-                key = await users.GetAuthenticatorKeyAsync(user);
-            }
 
             var label = UrlEncoder.Default.Encode($"{Issuer}:{user.Email}");
             var uri = string.Create(CultureInfo.InvariantCulture,

@@ -49,8 +49,10 @@ export class MfaSetupComponent implements OnInit {
     try {
       const setup = await this.auth.mfaSetup();
       this.key.set(setup.sharedKey);
-      const QRCode = await import('qrcode');
-      this.qr.set(await QRCode.toDataURL(setup.otpAuthUri, { margin: 1, width: 384 }));
+      // qrcode is CommonJS: the production bundle exposes it under `default`, the dev server does not.
+      const mod = await import('qrcode');
+      const { toDataURL } = mod.default ?? mod;
+      this.qr.set(await toDataURL(setup.otpAuthUri, { margin: 1, width: 384 }));
     } catch (err) {
       this.error.set(problemMessage(err));
     }

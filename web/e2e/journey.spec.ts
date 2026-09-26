@@ -30,6 +30,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
 
   // MFA enrolment is mandatory before any financial page is reachable.
   await expect(page).toHaveURL(/\/mfa-setup$/);
+  await expect(page.getByAltText('QR code for your authenticator app')).toBeVisible();
   const key = (await page.locator('p.font-mono').innerText()).trim();
   if (shots) await page.screenshot({ path: `${shots}/mfa-setup.png` });
   await page.getByRole('textbox').last().fill(totp(key));
