@@ -4,45 +4,80 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
 import { problemMessage } from '../../core/toast';
 import { AuthLayoutComponent } from './auth-layout';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmInputImports } from '@spartan-ng/helm/input';
 
 @Component({
   selector: 'app-login',
-  imports: [AuthLayoutComponent, TranslatePipe],
+  imports: [HlmInputImports, HlmButtonImports, AuthLayoutComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-auth-layout [title]="'auth.signIn' | translate" [subtitle]="'auth.privateNotice' | translate">
+    <app-auth-layout
+      [title]="'auth.signIn' | translate"
+      [subtitle]="'auth.privateNotice' | translate"
+    >
       @if (step() === 'password') {
         <form class="space-y-4" (submit)="$event.preventDefault(); signIn()">
           <div>
             <label class="label" for="email">{{ 'auth.email' | translate }}</label>
-            <input id="email" class="input" type="email" autocomplete="username" required [value]="email()" (input)="email.set($any($event.target).value)" />
+            <input
+              id="email"
+              hlmInput
+              type="email"
+              autocomplete="username"
+              required
+              [value]="email()"
+              (input)="email.set($any($event.target).value)"
+            />
           </div>
           <div>
             <label class="label" for="password">{{ 'auth.password' | translate }}</label>
-            <input id="password" class="input" type="password" autocomplete="current-password" required (input)="password.set($any($event.target).value)" />
+            <input
+              id="password"
+              hlmInput
+              type="password"
+              autocomplete="current-password"
+              required
+              (input)="password.set($any($event.target).value)"
+            />
           </div>
-          <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input type="checkbox" (change)="remember.set($any($event.target).checked)" /> {{ 'auth.remember' | translate }}
+          <label class="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" (change)="remember.set($any($event.target).checked)" />
+            {{ 'auth.remember' | translate }}
           </label>
-          @if (error()) { <p class="text-sm text-rose-600">{{ error() }}</p> }
-          <button class="btn btn-primary w-full" [disabled]="busy()">{{ 'auth.continue' | translate }}</button>
+          @if (error()) {
+            <p class="text-sm text-rose-600">{{ error() }}</p>
+          }
+          <button hlmBtn class="w-full" [disabled]="busy()">
+            {{ 'auth.continue' | translate }}
+          </button>
         </form>
       } @else {
         <form class="space-y-4" (submit)="$event.preventDefault(); verify()">
-          <p class="text-sm text-slate-600 dark:text-slate-300">
+          <p class="text-sm text-muted-foreground">
             {{ (useRecovery() ? 'auth.recoveryPrompt' : 'auth.codePrompt') | translate }}
           </p>
           <input
-            class="input num text-center !text-2xl tracking-[0.4em]"
+            hlmInput
+            class="num text-center h-12 text-2xl md:text-2xl tracking-[0.4em]"
             [attr.inputmode]="useRecovery() ? 'text' : 'numeric'"
             autocomplete="one-time-code"
             autofocus
             [attr.maxlength]="useRecovery() ? 20 : 6"
             (input)="code.set($any($event.target).value)"
           />
-          @if (error()) { <p class="text-sm text-rose-600">{{ error() }}</p> }
-          <button class="btn btn-primary w-full" [disabled]="busy()">{{ 'auth.verify' | translate }}</button>
-          <button type="button" class="btn btn-ghost w-full text-xs" (click)="useRecovery.set(!useRecovery())">
+          @if (error()) {
+            <p class="text-sm text-rose-600">{{ error() }}</p>
+          }
+          <button hlmBtn class="w-full" [disabled]="busy()">{{ 'auth.verify' | translate }}</button>
+          <button
+            type="button"
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="w-full"
+            (click)="useRecovery.set(!useRecovery())"
+          >
             {{ (useRecovery() ? 'auth.useCode' : 'auth.useRecovery') | translate }}
           </button>
         </form>
@@ -75,7 +110,11 @@ export class LoginComponent {
   protected async verify() {
     await this.run(async () => {
       const value = this.code().trim();
-      await this.auth.verifyMfa(this.useRecovery() ? null : value, this.useRecovery() ? value : null, this.remember());
+      await this.auth.verifyMfa(
+        this.useRecovery() ? null : value,
+        this.useRecovery() ? value : null,
+        this.remember(),
+      );
       await this.router.navigateByUrl('/dashboard');
     });
   }

@@ -1,5 +1,6 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
+import { injectBrnCalendarI18n } from '@spartan-ng/brain/calendar';
 
 type Theme = 'light' | 'dark' | 'system';
 export type Lang = 'en' | 'pt-PT';
@@ -27,8 +28,11 @@ function write(key: string, value: string) {
 @Injectable({ providedIn: 'root' })
 export class Prefs {
   private readonly translate = inject(TranslateService);
+  private readonly calendarI18n = injectBrnCalendarI18n();
   readonly theme = signal<Theme>((read('pf.theme') as Theme) ?? 'system');
-  readonly lang = signal<Lang>((read('pf.lang') as Lang) ?? (navigator.language.startsWith('pt') ? 'pt-PT' : 'en'));
+  readonly lang = signal<Lang>(
+    (read('pf.lang') as Lang) ?? (navigator.language.startsWith('pt') ? 'pt-PT' : 'en'),
+  );
   readonly locale = computed(() => (this.lang() === 'pt-PT' ? 'pt-PT' : 'en-IE'));
   readonly lastAccountId = signal<string | null>(read('pf.lastAccount'));
   /** Bumps when a translation file finishes loading, so computed labels (charts) re-evaluate. */
@@ -40,7 +44,8 @@ export class Prefs {
       const theme = this.theme();
       write('pf.theme', theme);
       const dark =
-        theme === 'dark' || (theme === 'system' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+        theme === 'dark' ||
+        (theme === 'system' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
       document.documentElement.classList.toggle('dark', dark);
     });
     effect(() => {
@@ -48,10 +53,40 @@ export class Prefs {
       write('pf.lang', lang);
       document.documentElement.lang = lang;
       this.translate.use(lang);
+      // untracked: the calendar service reads its own config signal while updating it.
+      untracked(() => this.localiseCalendar(lang === 'pt-PT' ? 'pt-PT' : 'en-IE'));
     });
     effect(() => {
       const id = this.lastAccountId();
       if (id) write('pf.lastAccount', id);
+    });
+  }
+
+  /** Calendar vocabulary from Intl, so pickers match the rest of the app's date formatting. Weeks start on Monday. */
+  private localiseCalendar(locale: string) {
+    const month = (m: number, style: 'long' | 'short') =>
+      new Intl.DateTimeFormat(locale, { month: style })
+        .format(new Date(2024, m, 1))
+        .replace('.', '');
+    // 2024-01-07 was a Sunday: index 0 = Sunday, as the calendar expects.
+    const weekday = (i: number, style: 'long' | 'short') =>
+      new Intl.DateTimeFormat(locale, { weekday: style })
+        .format(new Date(2024, 0, 7 + i))
+        .replace('.', '');
+    const months = Array.from({ length: 12 }, (_, m) => month(m, 'long'));
+    const pt = locale.startsWith('pt');
+    this.calendarI18n.use({
+      formatWeekdayName: (i) => weekday(i, 'short').slice(0, 2),
+      labelWeekday: (i) => weekday(i, 'long'),
+      formatHeader: (m, y) =>
+        new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(
+          new Date(y, m, 1),
+        ),
+      formatMonth: (m) => month(m, 'short'),
+      months: () => months as never,
+      firstDayOfWeek: () => 1,
+      labelPrevious: () => (pt ? 'Mês anterior' : 'Previous month'),
+      labelNext: () => (pt ? 'Mês seguinte' : 'Next month'),
     });
   }
 }

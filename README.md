@@ -193,7 +193,8 @@ cd web && npm test                # frontend unit tests
 ## Tech
 
 .NET 10 · ASP.NET Core minimal APIs · EF Core 10 + Npgsql · FluentValidation · ClosedXML ·
-OpenTelemetry · Angular 22 (zoneless, signals) · Tailwind CSS 4 · ECharts · ngx-translate ·
+OpenTelemetry · Angular 22 (zoneless, signals) · spartan/ui (shadcn-style, Angular CDK) · Tailwind CSS 4 ·
+ECharts · lucide icons · ngx-translate ·
 PostgreSQL 17 · Caddy · Docker Compose · Tailscale · xUnit v3 · Testcontainers · Playwright
 
 ## License

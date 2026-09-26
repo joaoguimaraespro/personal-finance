@@ -41,7 +41,8 @@
   "bucket": "Bucket",
   "viewAll": "View all",
   "showArchived": "Show archived",
-  "error": "Something went wrong"
+  "error": "Something went wrong",
+  "confirm": "Confirm"
  },
  "auth": {
   "signIn": "Sign in",

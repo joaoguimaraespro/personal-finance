@@ -41,7 +41,8 @@
   "bucket": "Alocação",
   "viewAll": "Ver tudo",
   "showArchived": "Mostrar arquivadas",
-  "error": "Ocorreu um erro"
+  "error": "Ocorreu um erro",
+  "confirm": "Confirmar"
  },
  "auth": {
   "signIn": "Entrar",

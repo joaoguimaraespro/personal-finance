@@ -1,32 +1,94 @@
-@import "tailwindcss";
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import 'tailwindcss/utilities.css';
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* spartan/ui (shadcn-style) tokens and variants; components live in src/app/ui (generated, owned by us). */
+@import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --color-brand-50: #eef6ff;
-  --color-brand-100: #d9eaff;
-  --color-brand-500: #2f6fed;
-  --color-brand-600: #1f5ad6;
-  --color-brand-700: #1a48ab;
-  --color-income: #16a34a;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-income: #10b981;
   --color-expense: #e11d48;
   --color-invest: #7c3aed;
   --color-save: #0891b2;
 }
 
-@layer base {
-  html {
-    color-scheme: light;
-  }
+/* Neutral zinc surfaces with an emerald accent. */
+:root {
+  color-scheme: light;
+  --radius: 0.75rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.596 0.145 163.225);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.586 0.253 17.585);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.696 0.17 162.48);
+  --chart-1: oklch(0.696 0.17 162.48);
+  --chart-2: oklch(0.645 0.246 16.439);
+  --chart-3: oklch(0.606 0.25 292.717);
+  --chart-4: oklch(0.715 0.143 215.221);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.596 0.145 163.225);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.979 0.021 166.113);
+  --sidebar-accent-foreground: oklch(0.432 0.095 166.913);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.696 0.17 162.48);
+}
 
-  html.dark {
-    color-scheme: dark;
+:root.dark {
+  color-scheme: dark;
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(0.262 0.051 172.552);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.645 0.246 16.439);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.696 0.17 162.48);
+  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.696 0.17 162.48);
+  --sidebar-primary-foreground: oklch(0.262 0.051 172.552);
+  --sidebar-accent: oklch(0.696 0.17 162.48 / 15%);
+  --sidebar-accent-foreground: oklch(0.905 0.093 164.15);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.696 0.17 162.48);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
   }
 
   .num {
@@ -34,46 +96,27 @@
   }
 }
 
+/* App-level building blocks on the same tokens as the spartan components. */
 @layer components {
   /* min-w-0: let grid/flex tracks shrink instead of being pushed wide by charts and tables. */
   .card {
-    @apply min-w-0 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    @apply bg-card text-card-foreground min-w-0 rounded-2xl border p-5 shadow-xs;
   }
 
   .card-title {
-    @apply mb-4 text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400;
-  }
-
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
-  }
-
-  .btn-primary {
-    @apply border-transparent bg-brand-600 text-white hover:bg-brand-700 dark:bg-brand-600 dark:text-white dark:hover:bg-brand-500;
-  }
-
-  .btn-danger {
-    @apply border-transparent bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500;
-  }
-
-  .btn-ghost {
-    @apply border-transparent bg-transparent shadow-none hover:bg-slate-100 dark:bg-transparent dark:hover:bg-slate-800;
-  }
-
-  .input {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100;
+    @apply text-muted-foreground mb-4 text-xs font-semibold tracking-wider uppercase;
   }
 
   .label {
-    @apply mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400;
+    @apply text-muted-foreground mb-1.5 block text-xs font-medium;
   }
 
   .chip {
-    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition select-none hover:border-slate-300 dark:border-slate-700 dark:text-slate-300;
+    @apply border-input text-muted-foreground hover:border-ring/60 hover:text-foreground inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition select-none;
   }
 
   .chip.chip-active {
-    @apply border-brand-600 bg-brand-600 text-white hover:border-brand-600 dark:border-brand-500 dark:bg-brand-500 dark:text-white;
+    @apply border-primary bg-primary text-primary-foreground hover:text-primary-foreground;
   }
 
   /* Keep the colour dot legible on the filled chip. */
@@ -81,31 +124,32 @@
     @apply ring-2 ring-white/70;
   }
 
-  .table {
-    @apply w-full text-sm;
-  }
-
-  .table th {
-    @apply border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:border-slate-800 dark:text-slate-400;
-  }
-
-  .table td {
-    @apply border-b border-slate-100 px-3 py-2.5 dark:border-slate-800/70;
-  }
-
   .badge {
     @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium;
   }
 
+  /* Chevron for native selects styled by the uiSelect directive (data: images are allowed by the CSP). */
+  select[data-slot='native-select'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem;
+  }
+
+  /* Segmented control with the spartan tabs-list look. */
   .segmented {
-    @apply inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800;
+    @apply bg-muted text-muted-foreground inline-flex h-9 items-center rounded-lg p-[3px];
   }
 
   .segmented > button {
-    @apply rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 transition dark:text-slate-300;
+    @apply hover:text-foreground focus-visible:ring-ring/50 inline-flex h-full items-center justify-center rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-3;
   }
 
   .segmented > button.active {
-    @apply bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white;
+    @apply bg-background text-foreground dark:bg-input/30 shadow-sm;
+  }
+
+  .nav-link.nav-active {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
   }
 }

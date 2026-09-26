@@ -8,11 +8,15 @@ import { MoneyPipe, PercentPipe } from '../core/format';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="card h-full !p-4">
-      <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+      <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <span class="h-2 w-2 rounded-full" [style.background]="color()"></span>{{ label() }}
       </div>
       <div class="num mt-2 text-2xl font-semibold tracking-tight">
-        @if (kind() === 'percent') { {{ value() | pct }} } @else { {{ value() | money }} }
+        @if (kind() === 'percent') {
+          {{ value() | pct }}
+        } @else {
+          {{ value() | money }}
+        }
       </div>
       @if (deltaText()) {
         <div class="num mt-1 text-xs" [class]="deltaClass()">{{ deltaText() }}</div>
@@ -24,7 +28,7 @@ export class KpiComponent {
   readonly label = input.required<string>();
   readonly value = input<number | null>(null);
   readonly kind = input<'money' | 'percent'>('money');
-  readonly color = input('#64748b');
+  readonly color = input('#71717a');
   /** Reference value and its caption, e.g. previous month. */
   readonly reference = input<number | null>(null);
   readonly referenceLabel = input('');
@@ -50,7 +54,7 @@ export class KpiComponent {
 
   readonly deltaClass = computed(() => {
     const d = this.delta();
-    if (!d) return 'text-slate-400';
+    if (!d) return 'text-muted-foreground';
     const good = d > 0 === this.higherIsBetter();
     return good ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
   });

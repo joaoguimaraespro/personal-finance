@@ -48,7 +48,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   const amount = page.getByLabel('Amount');
   await expect(amount).toBeFocused();
   await amount.fill('45,90');
-  const chip = page.locator('app-quick-add').getByRole('button', { name: 'Restaurants' }).first();
+  const chip = page.getByRole('dialog').getByRole('button', { name: 'Restaurants' }).first();
   await chip.click();
   await expect(chip).toHaveClass(/chip-active/);
   await page.getByLabel('Description').fill('Dinner with friends');
@@ -110,7 +110,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await page.getByRole('button', { name: /New AI client/ }).click();
   await page.locator('#ai-name').fill('Claude Code');
   await page.getByRole('button', { name: 'Save' }).click();
-  const tokenBlock = page.locator('dialog[open] pre').first();
+  const tokenBlock = page.getByRole('dialog').locator('pre').first();
   await expect(tokenBlock).toContainText('pf_');
   const token = (await tokenBlock.innerText()).trim();
   expect(token).toMatch(/^pf_[0-9a-f]{8}_/);
@@ -145,7 +145,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
 
   // Language switch is instant and total.
   await page.goto('/dashboard');
-  await page.getByLabel('Language').selectOption('pt-PT');
+  await page.getByRole('group', { name: 'Language' }).getByRole('button', { name: 'PT', exact: true }).click();
   await expect(page.getByText('Visão mensal')).toBeVisible();
   await page.waitForTimeout(800);
   if (shots) await page.screenshot({ path: `${shots}/dashboard-pt.png` });
@@ -153,7 +153,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   expect(cspViolations).toEqual([]);
 
   // Dark mode.
-  await page.getByLabel('Language').selectOption('en');
+  await page.getByRole('group', { name: 'Language' }).getByRole('button', { name: 'EN', exact: true }).click();
   await page.goto('/monthly');
   await page.evaluate(() => localStorage.setItem('pf.theme', 'dark'));
   await page.reload();

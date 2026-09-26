@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, of } from 'rxjs';
@@ -10,12 +19,32 @@ import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { CategoryLabelPipe } from '../../shared/category-label';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
+import { UiSelect } from '../../shared/select';
+import { DateFieldComponent } from '../../shared/date-field';
 
-const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'InvestmentContribution'];
+const TYPES: TransactionType[] = [
+  'Expense',
+  'Income',
+  'Transfer',
+  'Savings',
+  'InvestmentContribution',
+];
 
 @Component({
   selector: 'app-quick-add',
-  imports: [ModalComponent, TranslatePipe, CategoryLabelPipe],
+  imports: [
+    DateFieldComponent,
+    UiSelect,
+    HlmTextareaImports,
+    HlmInputImports,
+    HlmButtonImports,
+    ModalComponent,
+    TranslatePipe,
+    CategoryLabelPipe,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal
@@ -24,7 +53,11 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
       width="34rem"
       (closed)="quick.close()"
     >
-      <form class="space-y-4" (submit)="$event.preventDefault(); save(false)" (keydown.control.enter)="save(true)">
+      <form
+        class="space-y-4"
+        (submit)="$event.preventDefault(); save(false)"
+        (keydown.control.enter)="save(true)"
+      >
         <div class="segmented flex w-full flex-wrap">
           @for (t of types; track t) {
             <button type="button" class="flex-1" [class.active]="type() === t" (click)="setType(t)">
@@ -39,7 +72,8 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
             <input
               #amountInput
               id="qa-amount"
-              class="input num !py-3 !text-2xl font-semibold"
+              hlmInput
+              class="num h-12 text-2xl font-semibold md:text-2xl"
               inputmode="decimal"
               autocomplete="off"
               placeholder="0,00"
@@ -49,16 +83,33 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
           </div>
           <div>
             <label class="label" for="qa-currency">{{ 'tx.currency' | translate }}</label>
-            <select id="qa-currency" class="input !py-3" [value]="currency()" (change)="currency.set($any($event.target).value)">
-              @for (c of currencies; track c) { <option [value]="c">{{ c }}</option> }
+            <select
+              id="qa-currency"
+              uiSelect
+              class="h-12 w-24"
+              [value]="currency()"
+              (change)="currency.set($any($event.target).value)"
+            >
+              @for (c of currencies; track c) {
+                <option [value]="c">{{ c }}</option>
+              }
             </select>
           </div>
         </div>
 
         @if (currency() !== 'EUR') {
           <div>
-            <label class="label" for="qa-fx">{{ 'tx.fxRate' | translate: { currency: currency() } }}</label>
-            <input id="qa-fx" class="input num" inputmode="decimal" [value]="fxRate()" (input)="fxRate.set($any($event.target).value)" />
+            <label class="label" for="qa-fx">{{
+              'tx.fxRate' | translate: { currency: currency() }
+            }}</label>
+            <input
+              id="qa-fx"
+              hlmInput
+              class="num"
+              inputmode="decimal"
+              [value]="fxRate()"
+              (input)="fxRate.set($any($event.target).value)"
+            />
           </div>
         }
 
@@ -67,12 +118,23 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
             <span class="label">{{ 'tx.category' | translate }}</span>
             <div class="flex flex-wrap gap-2">
               @for (c of suggested(); track c.id) {
-                <button type="button" class="chip" [class.chip-active]="categoryId() === c.id" (click)="pickCategory(c.id)">
-                  <span class="h-2 w-2 rounded-full" [style.background]="c.color"></span>{{ c | categoryLabel }}
+                <button
+                  type="button"
+                  class="chip"
+                  [class.chip-active]="categoryId() === c.id"
+                  (click)="pickCategory(c.id)"
+                >
+                  <span class="h-2 w-2 rounded-full" [style.background]="c.color"></span
+                  >{{ c | categoryLabel }}
                 </button>
               }
             </div>
-            <select class="input mt-2" [value]="categoryId() ?? ''" (change)="pickCategory($any($event.target).value)">
+            <select
+              uiSelect
+              class="mt-2"
+              [value]="categoryId() ?? ''"
+              (change)="pickCategory($any($event.target).value)"
+            >
               <option value="">{{ 'tx.allCategories' | translate }}</option>
               @for (c of categoryOptions(); track c.id) {
                 <option [value]="c.id">{{ c.parentId ? '— ' : '' }}{{ c | categoryLabel }}</option>
@@ -84,7 +146,9 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
         @if (type() === 'Expense') {
           <div class="segmented">
             @for (n of natures; track n) {
-              <button type="button" [class.active]="nature() === n" (click)="nature.set(n)">{{ 'nature.' + n | translate }}</button>
+              <button type="button" [class.active]="nature() === n" (click)="nature.set(n)">
+                {{ 'nature.' + n | translate }}
+              </button>
             }
           </div>
         }
@@ -92,33 +156,58 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
         @if (type() === 'Savings' || type() === 'InvestmentContribution') {
           <div>
             <label class="label" for="qa-bucket">{{ 'tx.bucket' | translate }}</label>
-            <select id="qa-bucket" class="input" [value]="bucketId() ?? ''" (change)="bucketId.set($any($event.target).value || null)">
+            <select
+              id="qa-bucket"
+              uiSelect
+              [value]="bucketId() ?? ''"
+              (change)="bucketId.set($any($event.target).value || null)"
+            >
               <option value="">—</option>
-              @for (b of bucketOptions(); track b.id) { <option [value]="b.id">{{ b.name }}</option> }
+              @for (b of bucketOptions(); track b.id) {
+                <option [value]="b.id">{{ b.name }}</option>
+              }
             </select>
           </div>
         }
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="label" for="qa-account">{{ (isMovement() ? 'tx.fromAccount' : 'tx.account') | translate }}</label>
-            <select id="qa-account" class="input" [value]="accountId() ?? ''" (change)="accountId.set($any($event.target).value)">
-              @for (a of manualAccounts(); track a.id) { <option [value]="a.id">{{ a.name }}</option> }
+            <label class="label" for="qa-account">{{
+              (isMovement() ? 'tx.fromAccount' : 'tx.account') | translate
+            }}</label>
+            <select
+              id="qa-account"
+              uiSelect
+              [value]="accountId() ?? ''"
+              (change)="accountId.set($any($event.target).value)"
+            >
+              @for (a of manualAccounts(); track a.id) {
+                <option [value]="a.id">{{ a.name }}</option>
+              }
             </select>
           </div>
           <div>
             <label class="label" for="qa-date">{{ 'tx.date' | translate }}</label>
-            <input id="qa-date" type="date" class="input" [value]="date()" (input)="date.set($any($event.target).value)" />
+            <app-date-field inputId="qa-date" [value]="date()" (valueChange)="date.set($event)" />
           </div>
         </div>
 
         @if (isMovement()) {
           <div>
             <label class="label" for="qa-to">{{ 'tx.toAccount' | translate }}</label>
-            <select id="qa-to" class="input" [value]="counterAccountId() ?? ''" (change)="counterAccountId.set($any($event.target).value || null)">
-              <option value="">{{ type() === 'Transfer' ? '—' : ('tx.external' | translate) }}</option>
+            <select
+              id="qa-to"
+              uiSelect
+              [value]="counterAccountId() ?? ''"
+              (change)="counterAccountId.set($any($event.target).value || null)"
+            >
+              <option value="">
+                {{ type() === 'Transfer' ? '—' : ('tx.external' | translate) }}
+              </option>
               @for (a of accounts.value() ?? []; track a.id) {
-                @if (a.id !== accountId() && !a.archived) { <option [value]="a.id">{{ a.name }}</option> }
+                @if (a.id !== accountId() && !a.archived) {
+                  <option [value]="a.id">{{ a.name }}</option>
+                }
               }
             </select>
           </div>
@@ -127,34 +216,73 @@ const TYPES: TransactionType[] = ['Expense', 'Income', 'Transfer', 'Savings', 'I
         @if (type() === 'Savings' && (goals.value() ?? []).length) {
           <div>
             <label class="label" for="qa-goal">{{ 'tx.goal' | translate }}</label>
-            <select id="qa-goal" class="input" [value]="goalId() ?? ''" (change)="goalId.set($any($event.target).value || null)">
+            <select
+              id="qa-goal"
+              uiSelect
+              [value]="goalId() ?? ''"
+              (change)="goalId.set($any($event.target).value || null)"
+            >
               <option value="">—</option>
-              @for (g of goals.value() ?? []; track g.id) { <option [value]="g.id">{{ g.name }}</option> }
+              @for (g of goals.value() ?? []; track g.id) {
+                <option [value]="g.id">{{ g.name }}</option>
+              }
             </select>
           </div>
         }
 
         <div>
           <label class="label" for="qa-desc">{{ 'tx.description' | translate }}</label>
-          <input id="qa-desc" class="input" maxlength="200" [value]="description()" (input)="description.set($any($event.target).value)" />
+          <input
+            id="qa-desc"
+            hlmInput
+            maxlength="200"
+            [value]="description()"
+            (input)="description.set($any($event.target).value)"
+          />
         </div>
 
         <details class="text-sm" [open]="!!notes()">
-          <summary class="cursor-pointer text-slate-500">{{ 'tx.notes' | translate }}</summary>
-          <textarea class="input mt-2" rows="2" maxlength="2000" [value]="notes()" (input)="notes.set($any($event.target).value)"></textarea>
+          <summary class="cursor-pointer text-muted-foreground">
+            {{ 'tx.notes' | translate }}
+          </summary>
+          <textarea
+            hlmTextarea
+            class="mt-2"
+            rows="2"
+            maxlength="2000"
+            [value]="notes()"
+            (input)="notes.set($any($event.target).value)"
+          ></textarea>
         </details>
 
         @if (error()) {
-          <p class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ error() }}</p>
+          <p
+            class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+          >
+            {{ error() }}
+          </p>
         }
 
         <div class="flex items-center justify-between gap-2 pt-2">
-          <span class="hidden text-xs text-slate-400 sm:inline">{{ 'tx.shortcuts' | translate }}</span>
+          <span class="hidden text-xs text-muted-foreground sm:inline">{{
+            'tx.shortcuts' | translate
+          }}</span>
           <div class="flex gap-2">
             @if (!quick.editing()) {
-              <button type="button" class="btn whitespace-nowrap" [disabled]="saving()" (click)="save(true)">{{ 'tx.saveAndNew' | translate }}</button>
+              <button
+                type="button"
+                hlmBtn
+                variant="outline"
+                class="whitespace-nowrap"
+                [disabled]="saving()"
+                (click)="save(true)"
+              >
+                {{ 'tx.saveAndNew' | translate }}
+              </button>
             }
-            <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ 'common.save' | translate }}</button>
+            <button type="submit" hlmBtn [disabled]="saving()">
+              {{ 'common.save' | translate }}
+            </button>
           </div>
         </div>
       </form>
@@ -172,7 +300,20 @@ export class QuickAddComponent {
 
   protected readonly types = TYPES;
   protected readonly natures: ExpenseNature[] = ['Variable', 'Fixed'];
-  protected readonly currencies = ['EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'SEK', 'NOK', 'DKK', 'PLN', 'BRL'];
+  protected readonly currencies = [
+    'EUR',
+    'USD',
+    'GBP',
+    'CHF',
+    'JPY',
+    'CAD',
+    'AUD',
+    'SEK',
+    'NOK',
+    'DKK',
+    'PLN',
+    'BRL',
+  ];
 
   protected readonly type = signal<TransactionType>('Expense');
   protected readonly amount = signal('');
@@ -191,17 +332,33 @@ export class QuickAddComponent {
   protected readonly error = signal('');
 
   private readonly active = computed(() => this.quick.open());
-  protected readonly accounts = rxResource({ params: () => this.active() || undefined, stream: () => this.api.accounts() });
-  protected readonly categories = rxResource({ params: () => this.active() || undefined, stream: () => this.api.categories() });
-  protected readonly buckets = rxResource({ params: () => this.active() || undefined, stream: () => this.api.buckets() });
-  protected readonly goals = rxResource({ params: () => this.active() || undefined, stream: () => this.api.goals() });
+  protected readonly accounts = rxResource({
+    params: () => this.active() || undefined,
+    stream: () => this.api.accounts(),
+  });
+  protected readonly categories = rxResource({
+    params: () => this.active() || undefined,
+    stream: () => this.api.categories(),
+  });
+  protected readonly buckets = rxResource({
+    params: () => this.active() || undefined,
+    stream: () => this.api.buckets(),
+  });
+  protected readonly goals = rxResource({
+    params: () => this.active() || undefined,
+    stream: () => this.api.goals(),
+  });
   protected readonly defaults = rxResource({
     params: () => (this.active() && !this.quick.editing()) || undefined,
     stream: () => this.api.quickAddDefaults(),
   });
 
-  protected readonly manualAccounts = computed(() => (this.accounts.value() ?? []).filter((a) => a.isManual && !a.archived));
-  protected readonly isMovement = computed(() => ['Transfer', 'Savings', 'InvestmentContribution'].includes(this.type()));
+  protected readonly manualAccounts = computed(() =>
+    (this.accounts.value() ?? []).filter((a) => a.isManual && !a.archived),
+  );
+  protected readonly isMovement = computed(() =>
+    ['Transfer', 'Savings', 'InvestmentContribution'].includes(this.type()),
+  );
   protected readonly categoryOptions = computed(() => {
     const wanted = this.type() === 'Income' ? 'Income' : 'Expense';
     return (this.categories.value() ?? []).filter((c) => c.type === wanted && !c.archived);
@@ -212,7 +369,10 @@ export class QuickAddComponent {
   });
   protected readonly suggested = computed(() => {
     const d = this.defaults.value();
-    const recent = this.type() === 'Income' ? (d?.recentIncomeCategories ?? []) : (d?.recentExpenseCategories ?? []);
+    const recent =
+      this.type() === 'Income'
+        ? (d?.recentIncomeCategories ?? [])
+        : (d?.recentExpenseCategories ?? []);
     const options = this.categoryOptions();
     const byId = new Map(options.map((c) => [c.id, c]));
     const picks = recent.map((id) => byId.get(id)).filter((c) => !!c);
@@ -250,7 +410,11 @@ export class QuickAddComponent {
     effect(() => {
       if (this.quick.editing() || this.accountId()) return;
       const manual = this.manualAccounts();
-      const preferred = [this.prefs.lastAccountId(), this.defaults.value()?.accountId, manual[0]?.id];
+      const preferred = [
+        this.prefs.lastAccountId(),
+        this.defaults.value()?.accountId,
+        manual[0]?.id,
+      ];
       const id = preferred.find((p) => p && manual.some((a) => a.id === p));
       if (id) this.accountId.set(id);
     });
@@ -313,7 +477,11 @@ export class QuickAddComponent {
       }
     } catch (err) {
       const e = err as { error?: { detail?: string; errors?: Record<string, string[]> } };
-      this.error.set(Object.values(e.error?.errors ?? {})[0]?.[0] ?? e.error?.detail ?? this.i18n.instant('common.error'));
+      this.error.set(
+        Object.values(e.error?.errors ?? {})[0]?.[0] ??
+          e.error?.detail ??
+          this.i18n.instant('common.error'),
+      );
     } finally {
       this.saving.set(false);
     }

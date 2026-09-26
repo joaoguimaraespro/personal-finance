@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { HlmProgressImports } from '@spartan-ng/helm/progress';
 
 @Component({
   selector: 'app-progress',
+  imports: [HlmProgressImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-      <div class="h-full rounded-full transition-all" [style.width.%]="width()" [class]="barClass()"></div>
-    </div>
+    <hlm-progress class="h-2" [value]="width()">
+      <hlm-progress-indicator class="bg-(--bar)" [style.--bar]="barColor()" />
+    </hlm-progress>
   `,
 })
 export class ProgressComponent {
@@ -15,9 +17,14 @@ export class ProgressComponent {
   readonly tone = input<'brand' | 'auto'>('brand');
 
   readonly width = computed(() => Math.max(0, Math.min(100, this.value() * 100)));
-  readonly barClass = computed(() => {
-    if (this.tone() === 'brand') return 'bg-brand-500';
+  /** Over budget = rose, close to it = amber, otherwise the accent. */
+  readonly barColor = computed(() => {
+    if (this.tone() === 'brand') return 'var(--primary)';
     const v = this.value();
-    return v > 1 ? 'bg-rose-500' : v >= 0.9 ? 'bg-amber-500' : 'bg-emerald-500';
+    return v > 1
+      ? 'var(--color-rose-500)'
+      : v >= 0.9
+        ? 'var(--color-amber-500)'
+        : 'var(--color-emerald-500)';
   });
 }

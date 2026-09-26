@@ -18,7 +18,7 @@ backend/                             .NET solution: PersonalFinance.slnx, global
       Imports/Imports.Application/      Workbook reader, planner, reconciliation, commit/undo
     Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel
   tests/                             Unit, architecture and Testcontainers integration tests
-web/                                 Angular SPA
+web/                                 Angular SPA; spartan/ui components in src/app/ui (ADR-0007)
 deploy/                              Compose, Caddy, Postgres roles, backup/restore
 ```
 
