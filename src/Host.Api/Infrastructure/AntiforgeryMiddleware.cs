@@ -4,7 +4,8 @@ namespace Host.Api.Infrastructure;
 
 /// <summary>
 /// CSRF protection for the cookie-authenticated SPA API: every state-changing /api request must echo the
-/// XSRF-TOKEN cookie in the X-XSRF-TOKEN header. Bearer-token AI endpoints never use cookies and are excluded.
+/// XSRF-TOKEN cookie in the X-XSRF-TOKEN header. The bearer-token AI gateway (/api/ai/*) never reads cookies and is
+/// excluded; AI client management (/api/ai-admin) is a normal cookie endpoint and is protected.
 /// </summary>
 internal sealed class AntiforgeryMiddleware(RequestDelegate next, IAntiforgery antiforgery)
 {

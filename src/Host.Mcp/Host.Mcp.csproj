@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Deliberately the ONLY project reference: the MCP server has no database access of any kind. -->
+    <ProjectReference Include="..\Modules\Ai\Ai.Contracts\Ai.Contracts.csproj" />
+  </ItemGroup>
+</Project>

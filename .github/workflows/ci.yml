@@ -62,6 +62,8 @@ jobs:
             echo "HTTP_PORT=18080"
             echo "API_IMAGE=personal-finance-api:ci"
             echo "WEB_IMAGE=personal-finance-web:ci"
+            echo "MCP_IMAGE=personal-finance-mcp:ci"
+            echo "INTEGRATIONS_ENABLE_DEMO=true"
           } > .env
           docker compose --env-file .env build
           docker compose --env-file .env up -d --wait

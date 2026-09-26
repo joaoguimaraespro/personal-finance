@@ -14,5 +14,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Host.Api\Host.Api.csproj" />
+    <ProjectReference Include="..\..\src\Host.Mcp\Host.Mcp.csproj" Aliases="mcp" />
   </ItemGroup>
 </Project>

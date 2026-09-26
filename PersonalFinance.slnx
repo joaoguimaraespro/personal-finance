@@ -1,9 +1,15 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Host.Api/Host.Api.csproj" />
+    <Project Path="src/Host.Mcp/Host.Mcp.csproj" />
     <Project Path="src/SharedKernel/SharedKernel.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Ai/">
+    <Project Path="src/Modules/Ai/Ai.Application/Ai.Application.csproj" />
+    <Project Path="src/Modules/Ai/Ai.Contracts/Ai.Contracts.csproj" />
+    <Project Path="src/Modules/Ai/Ai.Infrastructure/Ai.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Exports/">
     <Project Path="src/Modules/Exports/Exports.Application/Exports.Application.csproj" />
   </Folder>

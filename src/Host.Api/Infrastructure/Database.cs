@@ -2,6 +2,7 @@ using Finance.Infrastructure.Persistence;
 using Host.Api.Auth;
 using Investments.Infrastructure.Persistence;
 using Integrations.Infrastructure.Persistence;
+using Ai.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace Host.Api.Infrastructure;
@@ -19,5 +20,6 @@ internal static class Database
         await FinanceSeeder.SeedAsync(finance, ct);
         await scope.ServiceProvider.GetRequiredService<InvestmentsDbContext>().Database.MigrateAsync(ct);
         await scope.ServiceProvider.GetRequiredService<IntegrationsDbContext>().Database.MigrateAsync(ct);
+        await scope.ServiceProvider.GetRequiredService<AiDbContext>().Database.MigrateAsync(ct);
     }
 }

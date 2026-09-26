@@ -32,6 +32,14 @@
 		reverse_proxy api:8080
 	}
 
+	# MCP (Streamable HTTP) for AI clients; authenticated per client token by the MCP host and the AI gateway.
+	handle /mcp* {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy mcp:8080
+	}
+
 	handle {
 		root * /srv
 		@immutable path *.js *.css *.woff2 *.svg

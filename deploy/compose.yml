@@ -64,6 +64,8 @@ services:
       DataProtection__KeyPath: /keys
       ReverseProxy__KnownNetworks__0: 172.30.10.0/24
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # Fictitious demo broker for demos/CI only. Keep false on a real server.
+      Integrations__EnableDemo: ${INTEGRATIONS_ENABLE_DEMO:-false}
       TZ: Europe/Lisbon
     volumes:
       - dp-keys:/keys
@@ -75,6 +77,20 @@ services:
       resources:
         limits: { memory: 768m }
 
+  # MCP server for AI clients. No database access: it forwards to the API's AI gateway with the client's token.
+  mcp:
+    <<: *hardening
+    image: ${MCP_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-mcp:latest}
+    build: { context: .., dockerfile: src/Host.Mcp/Dockerfile }
+    environment:
+      Gateway__BaseUrl: http://api:8080
+    tmpfs: [/tmp]
+    networks: [edge]
+    depends_on: [api]
+    deploy:
+      resources:
+        limits: { memory: 256m }
+
   web:
     <<: *hardening
     image: ${WEB_IMAGE:-ghcr.io/joaoguimaraespro/personal-finance-web:latest}
@@ -83,7 +99,7 @@ services:
       - "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
     tmpfs: [/tmp]
     networks: [edge]
-    depends_on: [api]
+    depends_on: [api, mcp]
     deploy:
       resources:
         limits: { memory: 128m }

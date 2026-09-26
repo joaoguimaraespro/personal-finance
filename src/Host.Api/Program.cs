@@ -12,6 +12,8 @@ using Investments.Infrastructure;
 using Integrations.Application;
 using Integrations.Infrastructure;
 using Exports.Application;
+using Ai.Application;
+using Ai.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -69,6 +71,8 @@ builder.Services.AddInvestmentsApplication();
 builder.Services.AddIntegrationsInfrastructure(connectionString);
 builder.Services.AddIntegrationsApplication();
 builder.Services.AddExports();
+builder.Services.AddAiInfrastructure(connectionString);
+builder.Services.AddAi();
 
 // ---- Identity (single owner, mandatory TOTP MFA)
 builder.Services.AddDbContext<AuthDbContext>(o => o
@@ -185,6 +189,7 @@ if (app.Environment.IsDevelopment())
 
 var api = app.MapGroup("/api");
 api.MapAuth();
+api.MapAiGateway();
 
 var owner = api.MapGroup("").RequireAuthorization(AuthEndpoints.MfaPolicy);
 owner.MapFinanceEndpoints();
@@ -193,6 +198,7 @@ owner.MapImports();
 owner.MapInvestments();
 owner.MapIntegrations();
 owner.MapExports();
+owner.MapAiManagement();
 
 await app.RunAsync();
 return 0;

@@ -18,7 +18,8 @@
   "portfolio": "Carteira",
   "netWorth": "Património líquido",
   "connections": "Ligações",
-  "export": "Exportar"
+  "export": "Exportar",
+  "ai": "Acesso de IA"
  },
  "common": {
   "save": "Guardar",
@@ -538,5 +539,38 @@
   "restore": "Restaurar de JSON",
   "restoreHelp": "Importa os dados financeiros de um arquivo para este servidor. Registos existentes mantêm-se; importar duas vezes não altera nada.",
   "restored": "Restaurados {{transactions}} movimentos e {{accounts}} contas ({{skipped}} já existiam)."
+ },
+ "ai": {
+  "subtitle": "Cada cliente de IA tem o seu token revogável e permissões só de leitura. Nenhum cliente pode alterar dados, negociar ou mover dinheiro.",
+  "newClient": "Novo cliente de IA",
+  "editClient": "Editar cliente de IA",
+  "scopes": "Permissões",
+  "tools": "Ferramentas",
+  "lastUsed": "Última utilização",
+  "calls24h": "Pedidos (24h)",
+  "expires": "expira",
+  "noScopes": "sem permissões",
+  "revoke": "Revogar",
+  "revoked": "Revogado",
+  "empty": "Sem clientes de IA. Cria um para o Claude Code, ChatGPT ou um modelo local.",
+  "audit": "Registo de auditoria",
+  "auditNote": "Regista o que foi pedido e quanto foi devolvido — nunca os valores.",
+  "client": "Cliente",
+  "tool": "Ferramenta",
+  "arguments": "Argumentos",
+  "decision": "Decisão",
+  "records": "Registos",
+  "noAudit": "Ainda sem pedidos de IA.",
+  "sensitive": "Sensível — desligado salvo se precisares mesmo",
+  "expiresInDays": "Expira em (dias)",
+  "rateLimit": "Pedidos por minuto",
+  "tokenTitle": "O teu novo token",
+  "tokenOnce": "Copia-o agora: só é mostrado uma vez e é guardado apenas como hash. Quem tiver este token pode ler os dados permitidos.",
+  "claudeCode": "Ligar o Claude Code (pela VPN):",
+  "copyCommand": "Copiar comando",
+  "copyToken": "Copiar token",
+  "copied": "Copiado",
+  "copyFailed": "Falhou a cópia — seleciona o texto manualmente.",
+  "confirmRevoke": "Revogar \"{{name}}\"? Deixa de funcionar de imediato."
  }
 }

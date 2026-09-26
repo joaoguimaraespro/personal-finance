@@ -26,6 +26,7 @@ export const routes: Routes = [
       { path: 'categories', loadComponent: () => import('./features/categories/categories').then((m) => m.CategoriesComponent) },
       { path: 'import', loadComponent: () => import('./features/import/import').then((m) => m.ImportComponent) },
       { path: 'export', loadComponent: () => import('./features/export/export').then((m) => m.ExportComponent) },
+      { path: 'ai', loadComponent: () => import('./features/ai/ai-access').then((m) => m.AiAccessComponent) },
       { path: 'settings', loadComponent: () => import('./features/settings/settings').then((m) => m.SettingsComponent) },
     ],
   },

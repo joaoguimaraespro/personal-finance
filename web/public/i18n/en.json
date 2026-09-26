@@ -18,7 +18,8 @@
   "portfolio": "Portfolio",
   "netWorth": "Net worth",
   "connections": "Connections",
-  "export": "Export"
+  "export": "Export",
+  "ai": "AI access"
  },
  "common": {
   "save": "Save",
@@ -538,5 +539,38 @@
   "restore": "Restore from JSON",
   "restoreHelp": "Imports the finance data of an archive into this server. Existing records are kept; importing twice changes nothing.",
   "restored": "Restored {{transactions}} transactions and {{accounts}} accounts ({{skipped}} already present)."
+ },
+ "ai": {
+  "subtitle": "Each AI client gets its own revocable token and read-only permissions. No client can change data, trade or move money.",
+  "newClient": "New AI client",
+  "editClient": "Edit AI client",
+  "scopes": "Permissions",
+  "tools": "Tools",
+  "lastUsed": "Last used",
+  "calls24h": "Calls (24h)",
+  "expires": "expires",
+  "noScopes": "no permissions",
+  "revoke": "Revoke",
+  "revoked": "Revoked",
+  "empty": "No AI clients. Create one for Claude Code, ChatGPT or a local model.",
+  "audit": "Audit log",
+  "auditNote": "Records what was asked and how much was returned — never the values.",
+  "client": "Client",
+  "tool": "Tool",
+  "arguments": "Arguments",
+  "decision": "Decision",
+  "records": "Records",
+  "noAudit": "No AI requests yet.",
+  "sensitive": "Sensitive — off unless you really need them",
+  "expiresInDays": "Expires in (days)",
+  "rateLimit": "Requests per minute",
+  "tokenTitle": "Your new token",
+  "tokenOnce": "Copy it now: it is shown only once and stored only as a hash. Anyone with this token can read the permitted data.",
+  "claudeCode": "Connect Claude Code (over your VPN):",
+  "copyCommand": "Copy command",
+  "copyToken": "Copy token",
+  "copied": "Copied",
+  "copyFailed": "Copy failed — select the text manually.",
+  "confirmRevoke": "Revoke \"{{name}}\"? It stops working immediately."
  }
 }
