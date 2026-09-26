@@ -104,6 +104,7 @@ export class ShellComponent {
       items: [
         { path: '/portfolio', label: 'nav.portfolio', icon: '◆' },
         { path: '/net-worth', label: 'nav.netWorth', icon: '△' },
+        { path: '/assistant', label: 'nav.assistant', icon: '✧' },
       ],
     },
     {

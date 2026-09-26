@@ -22,6 +22,9 @@ public sealed class AiClient : Entity
     public DateTimeOffset? RevokedAtUtc { get; private set; }
     public DateTimeOffset? LastUsedAtUtc { get; private set; }
 
+    /// <summary>In-process client used by the in-app assistant. Its token is never issued to anyone.</summary>
+    public bool Internal { get; private set; }
+
     public bool IsUsable(DateTimeOffset now) => RevokedAtUtc is null && (ExpiresAtUtc is null || ExpiresAtUtc > now);
 
     public static AiClient Create(string name, string prefix, string hash, IEnumerable<string> scopes, int rateLimit,
@@ -35,6 +38,14 @@ public sealed class AiClient : Entity
         CreatedAtUtc = now,
         ExpiresAtUtc = expiresAt,
     };
+
+    public static AiClient CreateInternal(string name, string prefix, string hash, IEnumerable<string> scopes,
+        DateTimeOffset now)
+    {
+        var client = Create(name, prefix, hash, scopes, 30, now, null);
+        client.Internal = true;
+        return client;
+    }
 
     public void SetScopes(IEnumerable<string> scopes) => Scopes = scopes.Distinct().Order().ToList();
 

@@ -12,7 +12,7 @@ interface Tool { name: string; title: string; description: string; scope: string
 interface AiClient {
   id: string; name: string; tokenPrefix: string; scopes: string[]; rateLimitPerMinute: number;
   createdAtUtc: string; expiresAtUtc: string | null; revokedAtUtc: string | null; lastUsedAtUtc: string | null;
-  callsLast24h: number; deniedLast24h: number;
+  callsLast24h: number; deniedLast24h: number; internal: boolean;
 }
 interface AuditEvent {
   id: number; clientName: string | null; tool: string; scope: string | null; decision: string; arguments: string;
@@ -40,7 +40,7 @@ interface AuditEvent {
           @for (c of clients.value() ?? []; track c.id) {
             <tr [class.opacity-50]="!!c.revokedAtUtc">
               <td>
-                <div class="font-medium">{{ c.name }}</div>
+                <div class="font-medium">{{ c.name }}@if (c.internal) { <span class="badge ml-1 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-100">{{ 'ai.internal' | translate }}</span> }</div>
                 <div class="font-mono text-xs text-slate-400">{{ c.tokenPrefix }}_…@if (c.expiresAtUtc) { · {{ 'ai.expires' | translate }} {{ c.expiresAtUtc | day }} }</div>
               </td>
               <td class="max-w-md">

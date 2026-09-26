@@ -51,6 +51,7 @@ public static class AiInfrastructure
             .UseNpgsql(connectionString, n => n.MigrationsHistoryTable("__ef_migrations", AiDbContext.Schema))
             .UseSnakeCaseNamingConvention());
         services.AddScoped<IAiDb>(sp => sp.GetRequiredService<AiDbContext>());
+        services.AddSingleton<Ai.Application.Assistant.IAssistantModel, AnthropicAssistantModel>();
         return services;
     }
 }

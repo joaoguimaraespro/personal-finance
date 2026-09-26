@@ -34,10 +34,17 @@ monthly checklist — and rebuilds it on a database.
 | **Recurring** | Salary, rent, subscriptions propose *expected* transactions; nothing is booked until you confirm, edit or skip. |
 | **Goals** | Emergency fund, trips, house deposit — progress from linked savings, monthly amount needed. |
 | **Excel migration** | Analyze → map → validate → preview → import → undo. Reconciles every month against the workbook's own totals to the cent before anything is written. Idempotent re-imports. |
+| **Investments** | Read-only sync from Trading 212 (Public API + CSV) and Interactive Brokers (Flex Web Service). Consolidated portfolio by ISIN with per-broker holdings, allocation vs target, dividends with withholding tax, TWR and XIRR, net worth history. [Setup](docs/broker-integrations.md). |
+| **Export** | Real .xlsx (Excel tables, native charts, schema-validated), CSV per dataset (Excel-PT dialect), complete JSON archive with restore. |
+| **AI** | Read-only MCP server for Claude Code / ChatGPT / local models and an optional in-app assistant, both behind a policy gateway: per-client revocable tokens, explicit scopes, question-specific minimal answers, untrusted-text wrapping, audit. [Details](docs/ai.md). |
 | **Security** | Single owner, mandatory TOTP MFA, CSRF protection, rate limiting, encrypted identifiers, least-privilege database roles, VPN-only exposure, encrypted backups. |
 | **i18n** | English and European Portuguese, light/dark theme. |
 
 <table>
+<tr>
+<td><img src="docs/screenshots/portfolio.png" alt="Portfolio" /></td>
+<td><img src="docs/screenshots/ai-access.png" alt="AI access" /></td>
+</tr>
 <tr>
 <td><img src="docs/screenshots/monthly.png" alt="Monthly summary" /></td>
 <td><img src="docs/screenshots/quick-add.png" alt="Quick add" /></td>
@@ -61,16 +68,19 @@ flowchart LR
   end
   TS["tailscale serve\nHTTPS :443"]
   Browser --> TS
-  AI -. planned .-> TS
+  AI --> TS
   subgraph Host["Home server — rootless Docker, user 'finance'"]
     Web["web\nCaddy + Angular\n127.0.0.1:8080"]
     API["api\nASP.NET Core"]
     DB[("PostgreSQL\ninternal network\nno egress")]
+    MCP["mcp\nMCP server\n(no DB access)"]
     Web -->|/api| API
+    Web -->|/mcp| MCP
+    MCP -->|AI gateway| API
     API --> DB
   end
   TS --> Web
-  Brokers["Trading 212 / IBKR\n(read-only)"] -. planned .-> API
+  Brokers["Trading 212 / IBKR\n(read-only)"] --> API
 ```
 
 | Module | Responsibility |
@@ -79,7 +89,12 @@ flowchart LR
 | `Finance` | Accounts, categories, buckets, transactions, recurring, budgets, goals, audit |
 | `Reporting` | Monthly/annual calculators — a formula-by-formula port of the workbook, unit-tested cell by cell |
 | `Imports` | Finance Tracker workbook reader, mapping, reconciliation, idempotent commit/undo |
-| `Host.Api` | Identity + MFA, CSRF, rate limiting, health, OpenTelemetry, migrations |
+| `Investments` | Securities, positions, trades, dividends, cash, FX (ECB), snapshots, TWR/XIRR, net worth |
+| `Integrations` | `IInvestmentProvider` (reads only), sync pipeline, Trading 212, IBKR Flex, CSV, demo |
+| `Exports` | XLSX with native charts, CSV, JSON archive and restore |
+| `Ai` | Scopes and tool catalogue, policy gateway, audit, assistant |
+| `Host.Api` | Identity + MFA, CSRF, rate limiting, health, OpenTelemetry, migrations, background jobs |
+| `Host.Mcp` | MCP server — references only the AI contracts, never the database |
 
 More in [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr).
 
@@ -92,7 +107,7 @@ More in [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr).
 4. **Nothing financial happens silently.** Recurring items are proposals; imports preview and reconcile;
    every change is audited.
 5. **AI is optional and least-privilege.** Scoped, revocable clients; query-specific data minimisation;
-   no SQL, shell or file access. *(Phase 7–8.)*
+   no SQL, shell, file or write access — enforced by the gateway and by architecture tests.
 
 ## Security model (summary)
 
@@ -150,12 +165,12 @@ cd web && npm test                # frontend unit tests
 - [x] Phase 0 — Workbook analysis and migration plan ([docs/excel-migration.md](docs/excel-migration.md))
 - [x] Phase 1 — Finance core, Excel migration, auth
 - [x] Phase 2 — Dashboards (monthly, annual, trends)
-- [ ] Phase 3 — Investment engine: securities, positions, dividends, TWR/XIRR, net worth
-- [ ] Phase 4 — Trading 212 (official Public API, read-only key) + CSV import
-- [ ] Phase 5 — Interactive Brokers (Flex Web Service — structurally cannot trade)
-- [ ] Phase 6 — XLSX / CSV / JSON export
-- [ ] Phase 7–8 — Read-only MCP server behind an AI policy gateway
-- [ ] Phase 9 — In-app assistant through the same gateway
+- [x] Phase 3 — Investment engine: securities, positions, dividends, TWR/XIRR, net worth
+- [x] Phase 4 — Trading 212 (official Public API, read-only key) + CSV import
+- [x] Phase 5 — Interactive Brokers (Flex Web Service — structurally cannot trade)
+- [x] Phase 6 — XLSX / CSV / JSON export and JSON restore
+- [x] Phase 7–8 — Read-only MCP server behind an AI policy gateway
+- [x] Phase 9 — In-app assistant through the same gateway
 
 ## Tech
 

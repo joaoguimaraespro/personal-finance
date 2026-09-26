@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ai.Application.Assistant;
 using Ai.Application.Domain;
 using Ai.Application.Gateway;
 using Ai.Application.Tools;
@@ -20,7 +21,9 @@ public sealed record UpdateAiClientRequest(List<string> Scopes, int? RateLimitPe
 
 public sealed record AiClientDto(Guid Id, string Name, string TokenPrefix, IReadOnlyList<string> Scopes, int RateLimitPerMinute,
     DateTimeOffset CreatedAtUtc, DateTimeOffset? ExpiresAtUtc, DateTimeOffset? RevokedAtUtc, DateTimeOffset? LastUsedAtUtc,
-    int CallsLast24h, int DeniedLast24h);
+    int CallsLast24h, int DeniedLast24h, bool Internal);
+
+public sealed record ChatRequest(List<ChatTurn> Messages);
 
 public sealed class CreateAiClientValidator : AbstractValidator<CreateAiClientRequest>
 {
@@ -41,6 +44,7 @@ public static class AiEndpoints
         services.AddScoped<FinanceTools>();
         services.AddScoped<AiGateway>();
         services.AddSingleton<AiRateLimiter>();
+        services.AddScoped<AssistantService>();
         return services;
     }
 
@@ -120,7 +124,7 @@ public static class AiEndpoints
             {
                 var u = usage.FirstOrDefault(x => x.Id == c.Id);
                 return new AiClientDto(c.Id, c.Name, c.TokenPrefix, c.Scopes, c.RateLimitPerMinute, c.CreatedAtUtc,
-                    c.ExpiresAtUtc, c.RevokedAtUtc, c.LastUsedAtUtc, u?.Calls ?? 0, u?.Denied ?? 0);
+                    c.ExpiresAtUtc, c.RevokedAtUtc, c.LastUsedAtUtc, u?.Calls ?? 0, u?.Denied ?? 0, c.Internal);
             });
         });
 
@@ -171,6 +175,36 @@ public static class AiEndpoints
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
+
+        // In-app assistant (owner session). Conversations are not stored; tools run through the gateway above.
+        var assistant = api.MapGroup("/assistant").WithTags("Assistant");
+
+        assistant.MapGet("/status", async (IAssistantModel model, AssistantService service, CancellationToken ct) =>
+        {
+            var client = model.Enabled ? await service.InternalClientAsync(ct) : null;
+            return new
+            {
+                enabled = model.Enabled && client?.RevokedAtUtc is null,
+                model = model.Enabled ? model.ModelName : null,
+                scopes = client?.Scopes ?? [],
+            };
+        });
+
+        assistant.MapPost("/chat", async (ChatRequest req, IAssistantModel model, AssistantService service, CancellationToken ct) =>
+        {
+            if (!model.Enabled)
+            {
+                return ResultHttp.Problem(Error.Failure("Assistant.Disabled", "Set ANTHROPIC_API_KEY on the server to enable the assistant.") with { Type = ErrorType.Conflict });
+            }
+
+            if (req.Messages is not { Count: > 0 and <= 20 } || req.Messages[^1].Role != "user" ||
+                req.Messages.Any(m => m.Role is not ("user" or "assistant") || string.IsNullOrWhiteSpace(m.Text) || m.Text.Length > 2000))
+            {
+                return ResultHttp.Problem(Error.Validation("Assistant.Messages", "Send 1-20 turns of at most 2000 characters, ending with the user's question."));
+            }
+
+            return Results.Ok(await service.AskAsync(req.Messages, ct));
+        }).RequireRateLimiting("assistant");
 
         group.MapGet("/audit", async (IAiDb db, Guid? clientId, int? limit, CancellationToken ct) =>
             await db.AuditEvents.AsNoTracking()

@@ -19,7 +19,8 @@
   "netWorth": "Património líquido",
   "connections": "Ligações",
   "export": "Exportar",
-  "ai": "Acesso de IA"
+  "ai": "Acesso de IA",
+  "assistant": "Assistente"
  },
  "common": {
   "save": "Guardar",
@@ -571,6 +572,22 @@
   "copyToken": "Copiar token",
   "copied": "Copiado",
   "copyFailed": "Falhou a cópia — seleciona o texto manualmente.",
-  "confirmRevoke": "Revogar \"{{name}}\"? Deixa de funcionar de imediato."
+  "confirmRevoke": "Revogar \"{{name}}\"? Deixa de funcionar de imediato.",
+  "internal": "interno"
+ },
+ "assistant": {
+  "subtitle": "Pergunta sobre as tuas finanças. As respostas usam as mesmas ferramentas só de leitura e com permissões dos clientes MCP.",
+  "clear": "Nova conversa",
+  "disabled": "O assistente está desligado.",
+  "enableHelp": "É opcional. Para o ativar, define ANTHROPIC_API_KEY em deploy/.env e reinicia. Podes limitar o que pode ler em Acesso de IA → Assistente interno.",
+  "try": "Experimenta:",
+  "q1": "Quanto gastei em restaurantes este mês?",
+  "q2": "Como está a correr a minha carteira este ano?",
+  "q3": "Estou dentro do orçamento?",
+  "thinking": "A pensar…",
+  "placeholder": "Faz uma pergunta…",
+  "send": "Perguntar",
+  "used": "Usou:",
+  "privacy": "A tua pergunta e apenas os resultados mínimos das ferramentas são enviados para {{model}} (API da Anthropic). As conversas não são guardadas. Permissões: {{scopes}}."
  }
 }

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
 namespace Integration.Tests.Infrastructure;
@@ -17,6 +19,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private OwnerSession? _owner;
 
+    /// <summary>Replaces Claude in tests; scripted per test.</summary>
+    public ScriptedAssistantModel Assistant { get; } = new();
+
     public async ValueTask InitializeAsync() => await _db.StartAsync();
 
     public override async ValueTask DisposeAsync()
@@ -33,6 +38,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("RateLimits:LoginPerMinute", "1000");
         builder.UseSetting("Integrations:EnableDemo", "true");
+        builder.ConfigureTestServices(services =>
+            services.AddSingleton<Ai.Application.Assistant.IAssistantModel>(Assistant));
     }
 
     public ApiClient NewClient() => new(CreateDefaultClient(new CookieAndCsrfHandler()));

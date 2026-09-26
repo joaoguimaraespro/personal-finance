@@ -19,7 +19,8 @@
   "netWorth": "Net worth",
   "connections": "Connections",
   "export": "Export",
-  "ai": "AI access"
+  "ai": "AI access",
+  "assistant": "Assistant"
  },
  "common": {
   "save": "Save",
@@ -571,6 +572,22 @@
   "copyToken": "Copy token",
   "copied": "Copied",
   "copyFailed": "Copy failed — select the text manually.",
-  "confirmRevoke": "Revoke \"{{name}}\"? It stops working immediately."
+  "confirmRevoke": "Revoke \"{{name}}\"? It stops working immediately.",
+  "internal": "in-app"
+ },
+ "assistant": {
+  "subtitle": "Ask about your finances. Answers use the same read-only, permission-checked tools as MCP clients.",
+  "clear": "New conversation",
+  "disabled": "The assistant is off.",
+  "enableHelp": "It is optional. To enable it, set ANTHROPIC_API_KEY in deploy/.env and restart. You can limit what it can read under AI access → In-app assistant.",
+  "try": "Try:",
+  "q1": "How much did I spend on restaurants this month?",
+  "q2": "How is my portfolio doing this year?",
+  "q3": "Am I on track with my budget?",
+  "thinking": "Thinking…",
+  "placeholder": "Ask a question…",
+  "send": "Ask",
+  "used": "Used:",
+  "privacy": "Your question and only the minimal tool results are sent to {{model}} (Anthropic API). Conversations are not stored. Permissions: {{scopes}}."
  }
 }

@@ -33,6 +33,7 @@
   </ItemGroup>
   <ItemGroup Label="AI">
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+    <PackageVersion Include="Anthropic" Version="12.50.0" />
   </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="xunit.v3" Version="4.0.1" />

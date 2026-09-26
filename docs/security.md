@@ -64,11 +64,18 @@ every push; CodeQL scans C# and TypeScript weekly.
 Encrypted with `age` to a public key; the private key is kept offline. See
 [disaster-recovery.md](disaster-recovery.md).
 
-## Broker access (Phases 4–5)
+## Broker access
 
 Read-only by construction ([ADR-0005](adr/0005-read-only-broker-integrations.md)): Trading 212 keys
 without order/pie permissions; IBKR via Flex Web Service, which has no trading surface at all; an
 allow-list HTTP handler rejects any other method/path before it leaves the process.
+
+## AI access
+
+See [ai.md](ai.md). AI clients never touch the database: the MCP server has no database dependency at all and
+calls a gateway that enforces per-client tokens (hashed), scopes, strict arguments, minimal answers, redaction of
+identifiers and notes, untrusted-text wrapping, response caps, rate limits and an audit log that never stores
+returned values. The in-app assistant uses the same gateway under its own revocable identity.
 
 ## Reporting a vulnerability
 

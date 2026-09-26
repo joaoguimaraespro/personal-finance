@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Anthropic" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ai.Application\Ai.Application.csproj" />

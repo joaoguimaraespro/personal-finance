@@ -66,6 +66,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # Fictitious demo broker for demos/CI only. Keep false on a real server.
       Integrations__EnableDemo: ${INTEGRATIONS_ENABLE_DEMO:-false}
+      # Optional in-app assistant (Claude). Leave empty to keep it disabled.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      Assistant__Model: ${ASSISTANT_MODEL:-claude-opus-5}
       TZ: Europe/Lisbon
     volumes:
       - dp-keys:/keys

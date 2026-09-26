@@ -46,11 +46,20 @@ public sealed class AiGateway(IAiDb db, FinanceTools tools, AiRateLimiter limite
             AiTools.All.Where(t => client.Scopes.Contains(t.Scope)).Select(t => t.Name).ToList());
     }
 
-    public async Task<GatewayResult> InvokeAsync(string? token, string toolName, JsonElement args, CancellationToken ct)
+    public async Task<GatewayResult> InvokeAsync(string? token, string toolName, JsonElement args, CancellationToken ct) =>
+        await InvokeCoreAsync(await AuthenticateAsync(token, ct), toolName, args, ct);
+
+    /// <summary>
+    /// In-process entry for the in-app assistant: identical pipeline (limits, scopes, minimisation, audit), but the
+    /// caller is the internal client rather than a presented token.
+    /// </summary>
+    public Task<GatewayResult> InvokeAsClientAsync(AiClient client, string toolName, JsonElement args, CancellationToken ct) =>
+        InvokeCoreAsync(client.Internal && client.IsUsable(clock.GetUtcNow()) ? client : null, toolName, args, ct);
+
+    private async Task<GatewayResult> InvokeCoreAsync(AiClient? client, string toolName, JsonElement args, CancellationToken ct)
     {
         var started = Stopwatch.GetTimestamp();
         var tool = AiTools.Find(toolName);
-        var client = await AuthenticateAsync(token, ct);
 
         async Task<GatewayResult> Reject(int status, AiDecision decision, string message, string? argsJson = null)
         {
@@ -127,7 +136,8 @@ public sealed class AiGateway(IAiDb db, FinanceTools tools, AiRateLimiter limite
         }
 
         var client = await db.Clients.FirstOrDefaultAsync(c => c.TokenPrefix == prefix, ct);
-        return client is not null && AiTokens.Matches(secret, client.TokenHash) && client.IsUsable(clock.GetUtcNow())
+        return client is not null && !client.Internal && AiTokens.Matches(secret, client.TokenHash) &&
+               client.IsUsable(clock.GetUtcNow())
             ? client
             : null;
     }
