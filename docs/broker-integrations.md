@@ -77,3 +77,24 @@ The first sync backfills history in 365-day windows (5 years by default,
 `Integrations:EnableDemo=true` (on by default in Development only) adds a *Demo broker* that generates a
 deterministic, fictitious portfolio. Profiles *a* and *b* both hold the same world ETF, which demonstrates the
 consolidated view. It is used by the end-to-end tests and README screenshots.
+
+## Autofill
+
+The add-transaction form (*Investments → Buy / Sell*) offers search-as-you-type for **stocks, ETFs, funds and
+bonds**. **Crypto is never looked up**: symbol, name, quantity and price are always typed in by hand, and the
+server records crypto entries as manually priced whatever the client sends.
+
+Keys come from environment variables only (never from the database, never committed): `T212_API_KEY`,
+`T212_API_SECRET`, `T212_ENVIRONMENT`, `IBKR_FLEX_TOKEN`, `IBKR_FLEX_QUERY_ID` in `deploy/.env`, mapped to
+`MarketData__*`. Use read-only keys, as for connections. Without them the form still works: suggestions come from
+securities already synced through *Connections*, and everything can be entered manually.
+
+| Source | Search | Price on the transaction date |
+|---|---|---|
+| Trading 212 | Full tradable-instrument list (`/equity/metadata/instruments`, cached 12 h, searched locally — the API has no search endpoint) | Only the live price of an instrument you **hold**, and only for **today** — the API has no historical prices |
+| IBKR (Flex) | Only instruments in your last 365 days of statements (positions + trades) — Flex has no instrument search | Your own fill price on that day, else the latest end-of-day mark price (statement date or later) |
+| Synced holdings | Securities already synced from any connection | Your fill that day, else the last recorded close (≤ 7 days earlier) |
+
+When the chosen provider has no price, the server falls back to synced holdings by ISIN. Anything missing is left
+empty with a note, never guessed. The first IBKR search after start-up waits for a Flex statement (can take tens of
+seconds); the form says "still loading" and the next keystroke uses the cache.

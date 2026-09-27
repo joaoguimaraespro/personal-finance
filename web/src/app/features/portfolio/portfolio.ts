@@ -68,7 +68,7 @@ type Range = '1Y' | '3Y' | 'ALL';
       </div>
       <select
         uiSelect
-        class="w-auto"
+        class="w-full sm:w-auto"
         [value]="scopeKey()"
         (change)="scopeKey.set($any($event.target).value)"
         [attr.aria-label]="'portfolio.scope' | translate"
@@ -138,7 +138,7 @@ type Range = '1Y' | '3Y' | 'ALL';
           <div class="card">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 class="card-title !mb-0">{{ 'portfolio.performance' | translate }}</h2>
-              <div class="flex items-center gap-4">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                 @if (performance.value(); as p) {
                   <span
                     class="text-xs text-muted-foreground"
