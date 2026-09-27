@@ -23,7 +23,7 @@ import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 
 const CLASS_COLORS: Record<AssetClass, string> = {
   Stock: '#8b5cf6',
@@ -41,7 +41,7 @@ type Range = '1Y' | '3Y' | 'ALL';
 @Component({
   selector: 'app-portfolio',
   imports: [
-    UiSelect,
+    SelectComponent,
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
@@ -66,21 +66,13 @@ type Range = '1Y' | '3Y' | 'ALL';
           }
         </p>
       </div>
-      <select
-        uiSelect
-        class="w-full sm:w-auto"
+      <app-select
+        class="w-full sm:w-56"
+        [options]="scopeOptions()"
         [value]="scopeKey()"
-        (change)="scopeKey.set($any($event.target).value)"
-        [attr.aria-label]="'portfolio.scope' | translate"
-      >
-        <option value="">{{ 'portfolio.consolidated' | translate }}</option>
-        @for (b of brokers(); track b) {
-          <option [value]="'broker:' + b">{{ 'source.' + b | translate }}</option>
-        }
-        @for (a of summary.value()?.accounts ?? []; track a.accountId) {
-          <option [value]="'account:' + a.accountId">{{ a.name }}</option>
-        }
-      </select>
+        (valueChange)="scopeKey.set($event)"
+        [ariaLabel]="'portfolio.scope' | translate"
+      />
     </div>
 
     @if (summary.value(); as s) {
@@ -433,6 +425,20 @@ export class PortfolioComponent {
   protected readonly brokers = computed(() => [
     ...new Set((this.summary.value()?.accounts ?? []).map((a) => a.broker)),
   ]);
+  protected readonly scopeOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('portfolio.consolidated') },
+      ...this.brokers().map((b) => ({
+        value: `broker:${b}`,
+        label: this.i18n.instant(`source.${b}`),
+      })),
+      ...(this.summary.value()?.accounts ?? []).map((a) => ({
+        value: `account:${a.accountId}`,
+        label: a.name,
+      })),
+    ];
+  });
   protected classColor = (c: AssetClass) => CLASS_COLORS[c];
 
   protected readonly valueChart = computed<EChartsOption>(() => {

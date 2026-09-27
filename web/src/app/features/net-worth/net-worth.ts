@@ -17,7 +17,7 @@ import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus } from '@ng-icons/lucide';
@@ -27,7 +27,7 @@ import { lucidePlus } from '@ng-icons/lucide';
   imports: [
     NgIcon,
     DateFieldComponent,
-    UiSelect,
+    SelectComponent,
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
@@ -180,16 +180,12 @@ import { lucidePlus } from '@ng-icons/lucide';
           </div>
           <div>
             <label class="label" for="m-kind">{{ 'accounts.kind' | translate }}</label>
-            <select
-              id="m-kind"
-              uiSelect
+            <app-select
+              inputId="m-kind"
+              [options]="kindOptions()"
               [value]="kind()"
-              (change)="kind.set($any($event.target).value)"
-            >
-              @for (k of kinds; track k) {
-                <option [value]="k">{{ 'assetKind.' + k | translate }}</option>
-              }
-            </select>
+              (valueChange)="kind.set($any($event))"
+            />
           </div>
           <div>
             <label class="label" for="m-cur">{{ 'tx.currency' | translate }}</label>
@@ -248,6 +244,10 @@ export class NetWorthComponent {
     'Loan',
     'OtherDebt',
   ];
+  protected readonly kindOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return this.kinds.map((k) => ({ value: k, label: this.i18n.instant(`assetKind.${k}`) }));
+  });
 
   protected readonly data = rxResource({
     params: () => this.events.version(),

@@ -6,12 +6,13 @@ import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { MoneyPipe, today } from '../../core/format';
 import { Account, AccountKind } from '../../core/models';
+import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus } from '@ng-icons/lucide';
@@ -41,7 +42,7 @@ const EMPTY: AccountForm = {
   imports: [
     NgIcon,
     DateFieldComponent,
-    UiSelect,
+    SelectComponent,
     HlmInputImports,
     HlmButtonImports,
     TranslatePipe,
@@ -131,17 +132,13 @@ const EMPTY: AccountForm = {
         </div>
         <div>
           <label class="label" for="a-kind">{{ 'accounts.kind' | translate }}</label>
-          <select
-            id="a-kind"
-            uiSelect
+          <app-select
+            inputId="a-kind"
             [disabled]="!!editingId()"
+            [options]="kindOptions()"
             [value]="form().kind"
-            (change)="patch({ kind: $any($event.target).value })"
-          >
-            @for (k of kinds; track k) {
-              <option [value]="k">{{ 'accountKind.' + k | translate }}</option>
-            }
-          </select>
+            (valueChange)="patch({ kind: $any($event) })"
+          />
         </div>
         <div>
           <label class="label" for="a-cur">{{ 'tx.currency' | translate }}</label>
@@ -214,6 +211,7 @@ export class AccountsComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
   protected readonly kinds: AccountKind[] = [
     'Bank',
     'Cash',
@@ -222,6 +220,10 @@ export class AccountsComponent {
     'Loan',
     'Other',
   ];
+  protected readonly kindOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return this.kinds.map((k) => ({ value: k, label: this.i18n.instant(`accountKind.${k}`) }));
+  });
   protected readonly showArchived = signal(false);
   protected readonly formOpen = signal(false);
   protected readonly editingId = signal<string | null>(null);
