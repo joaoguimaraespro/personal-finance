@@ -6,12 +6,13 @@ import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, MonthNamePipe } from '../../core/format';
 import { ImportPreview } from '../../core/models';
+import { Prefs } from '../../core/prefs';
 import { Toasts, problemMessage } from '../../core/toast';
-import { CategoryLabelPipe } from '../../shared/category-label';
+import { categoryLabel } from '../../shared/category-label';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
@@ -28,7 +29,7 @@ type Step = 'upload' | 'map' | 'done';
   selector: 'app-import',
   imports: [
     NgIcon,
-    UiSelect,
+    SelectComponent,
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
@@ -36,7 +37,6 @@ type Step = 'upload' | 'map' | 'done';
     MoneyPipe,
     MonthNamePipe,
     DayPipe,
-    CategoryLabelPipe,
   ],
   providers: [
     provideIcons({ lucideCheck, lucideCircleCheck, lucideCircleX, lucideTriangleAlert, lucideX }),
@@ -114,47 +114,32 @@ type Step = 'upload' | 'map' | 'done';
                 </div>
                 <div>
                   <label class="label" for="m-main">{{ 'import.mainAccount' | translate }}</label>
-                  <select
-                    id="m-main"
-                    uiSelect
+                  <app-select
+                    inputId="m-main"
+                    [options]="mainAccountOptions()"
                     [value]="p.preview.mapping.mainAccountId ?? ''"
-                    (change)="remap({ mainAccountId: $any($event.target).value || null })"
-                  >
-                    <option value="">—</option>
-                    @for (a of accounts.value() ?? []; track a.id) {
-                      <option [value]="a.id">{{ a.name }}</option>
-                    }
-                  </select>
+                    (valueChange)="remap({ mainAccountId: $event || null })"
+                  />
                 </div>
                 <div>
                   <label class="label" for="m-inv">{{
                     'import.investmentAccount' | translate
                   }}</label>
-                  <select
-                    id="m-inv"
-                    uiSelect
+                  <app-select
+                    inputId="m-inv"
+                    [options]="optionalAccountOptions()"
                     [value]="p.preview.mapping.investmentAccountId ?? ''"
-                    (change)="remap({ investmentAccountId: $any($event.target).value || null })"
-                  >
-                    <option value="">{{ 'import.none' | translate }}</option>
-                    @for (a of accounts.value() ?? []; track a.id) {
-                      <option [value]="a.id">{{ a.name }}</option>
-                    }
-                  </select>
+                    (valueChange)="remap({ investmentAccountId: $event || null })"
+                  />
                 </div>
                 <div>
                   <label class="label" for="m-sav">{{ 'import.savingsAccount' | translate }}</label>
-                  <select
-                    id="m-sav"
-                    uiSelect
+                  <app-select
+                    inputId="m-sav"
+                    [options]="optionalAccountOptions()"
                     [value]="p.preview.mapping.savingsAccountId ?? ''"
-                    (change)="remap({ savingsAccountId: $any($event.target).value || null })"
-                  >
-                    <option value="">{{ 'import.none' | translate }}</option>
-                    @for (a of accounts.value() ?? []; track a.id) {
-                      <option [value]="a.id">{{ a.name }}</option>
-                    }
-                  </select>
+                    (valueChange)="remap({ savingsAccountId: $event || null })"
+                  />
                 </div>
               </div>
               @if (!(accounts.value() ?? []).length) {
@@ -169,15 +154,12 @@ type Step = 'upload' | 'map' | 'done';
                 @for (m of p.workbookCategories; track m.label) {
                   <div class="grid grid-cols-2 items-center gap-2">
                     <span class="truncate text-sm">{{ m.label }}</span>
-                    <select
-                      uiSelect
+                    <app-select
+                      [options]="categoryOptions()"
                       [value]="m.categoryId"
-                      (change)="remapCategory(m.label, $any($event.target).value)"
-                    >
-                      @for (c of expenseCategories(); track c.id) {
-                        <option [value]="c.id">{{ c | categoryLabel }}</option>
-                      }
-                    </select>
+                      [ariaLabel]="m.label"
+                      (valueChange)="remapCategory(m.label, $event)"
+                    />
                   </div>
                 }
               </div>
@@ -370,6 +352,7 @@ export class ImportComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
 
   protected readonly stepsList: Step[] = ['upload', 'map', 'done'];
   protected readonly step = signal<Step>('upload');
@@ -393,6 +376,24 @@ export class ImportComponent {
   protected readonly expenseCategories = computed(() =>
     (this.categories.value() ?? []).filter((c) => c.type === 'Expense'),
   );
+  protected readonly categoryOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return this.expenseCategories().map((c) => ({
+      value: c.id,
+      label: categoryLabel(this.i18n, c),
+    }));
+  });
+  private readonly accountItems = computed<SelectOption[]>(() =>
+    (this.accounts.value() ?? []).map((a) => ({ value: a.id, label: a.name })),
+  );
+  protected readonly mainAccountOptions = computed<SelectOption[]>(() => [
+    { value: '', label: '—' },
+    ...this.accountItems(),
+  ]);
+  protected readonly optionalAccountOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [{ value: '', label: this.i18n.instant('import.none') }, ...this.accountItems()];
+  });
 
   protected async analyze() {
     const file = this.file();

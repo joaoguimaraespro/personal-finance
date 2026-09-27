@@ -128,14 +128,6 @@
     @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium;
   }
 
-  /* Chevron for native selects styled by the uiSelect directive (data: images are allowed by the CSP). */
-  select[data-slot='native-select'] {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-position: right 0.6rem center;
-    background-repeat: no-repeat;
-    background-size: 1rem;
-  }
-
   /* Segmented control with the spartan tabs-list look. */
   .segmented {
     @apply bg-muted text-muted-foreground inline-flex h-9 items-center rounded-lg p-[3px];
@@ -187,13 +179,6 @@
   /* Full-width rows inside .form-grid, whether it currently has one column or two. */
   .form-grid > .col-span-2 {
     grid-column: 1 / -1;
-  }
-
-  /* Prevent iOS Safari from zooming into native selects (font-size < 16px) on phones. */
-  @media (max-width: 767px) {
-    select[data-slot='native-select'] {
-      font-size: 1rem;
-    }
   }
 }
 

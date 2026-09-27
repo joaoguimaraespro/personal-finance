@@ -30,11 +30,11 @@ import {
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
-import { CategoryLabelPipe } from '../../shared/category-label';
+import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { InstrumentSearchComponent } from './instrument-search';
 
@@ -55,7 +55,7 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
   selector: 'app-quick-add',
   imports: [
     DateFieldComponent,
-    UiSelect,
+    SelectComponent,
     HlmTextareaImports,
     HlmInputImports,
     HlmButtonImports,
@@ -207,17 +207,14 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
           </div>
           <div>
             <label class="label" for="qa-currency">{{ 'tx.currency' | translate }}</label>
-            <select
-              id="qa-currency"
-              uiSelect
-              class="h-12 w-24"
+            <app-select
+              inputId="qa-currency"
+              class="w-24"
+              triggerClass="data-[size=default]:h-12"
+              [options]="currencyOptions"
               [value]="currency()"
-              (change)="currency.set($any($event.target).value)"
-            >
-              @for (c of currencies; track c) {
-                <option [value]="c">{{ c }}</option>
-              }
-            </select>
+              (valueChange)="currency.set($event)"
+            />
           </div>
         </div>
 
@@ -253,17 +250,13 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
                 </button>
               }
             </div>
-            <select
-              uiSelect
+            <app-select
               class="mt-2"
+              [options]="categorySelectOptions()"
               [value]="categoryId() ?? ''"
-              (change)="pickCategory($any($event.target).value)"
-            >
-              <option value="">{{ 'tx.allCategories' | translate }}</option>
-              @for (c of categoryOptions(); track c.id) {
-                <option [value]="c.id">{{ c.parentId ? '— ' : '' }}{{ c | categoryLabel }}</option>
-              }
-            </select>
+              [ariaLabel]="'tx.category' | translate"
+              (valueChange)="pickCategory($event)"
+            />
           </div>
         }
 
@@ -280,33 +273,24 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
         @if (type() === 'Savings' || isInvestment()) {
           <div>
             <label class="label" for="qa-bucket">{{ 'tx.bucket' | translate }}</label>
-            <select
-              id="qa-bucket"
-              uiSelect
+            <app-select
+              inputId="qa-bucket"
+              [options]="bucketSelectOptions()"
               [value]="bucketId() ?? ''"
-              (change)="bucketId.set($any($event.target).value || null)"
-            >
-              <option value="">—</option>
-              @for (b of bucketOptions(); track b.id) {
-                <option [value]="b.id">{{ b.name }}</option>
-              }
-            </select>
+              (valueChange)="bucketId.set($event || null)"
+            />
           </div>
         }
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label class="label" for="qa-account">{{ accountLabel() | translate }}</label>
-            <select
-              id="qa-account"
-              uiSelect
+            <app-select
+              inputId="qa-account"
+              [options]="accountOptions()"
               [value]="accountId() ?? ''"
-              (change)="accountId.set($any($event.target).value)"
-            >
-              @for (a of manualAccounts(); track a.id) {
-                <option [value]="a.id">{{ a.name }}</option>
-              }
-            </select>
+              (valueChange)="accountId.set($event)"
+            />
           </div>
           <div>
             <label class="label" for="qa-date">{{ 'tx.date' | translate }}</label>
@@ -319,38 +303,24 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
             <label class="label" for="qa-to">{{
               (isInvestment() ? 'tx.brokerAccount' : 'tx.toAccount') | translate
             }}</label>
-            <select
-              id="qa-to"
-              uiSelect
+            <app-select
+              inputId="qa-to"
+              [options]="counterAccountOptions()"
               [value]="counterAccountId() ?? ''"
-              (change)="counterAccountId.set($any($event.target).value || null)"
-            >
-              <option value="">
-                {{ type() === 'Transfer' ? '—' : ('tx.external' | translate) }}
-              </option>
-              @for (a of accounts.value() ?? []; track a.id) {
-                @if (a.id !== accountId() && !a.archived) {
-                  <option [value]="a.id">{{ a.name }}</option>
-                }
-              }
-            </select>
+              (valueChange)="counterAccountId.set($event || null)"
+            />
           </div>
         }
 
         @if (type() === 'Savings' && (goals.value() ?? []).length) {
           <div>
             <label class="label" for="qa-goal">{{ 'tx.goal' | translate }}</label>
-            <select
-              id="qa-goal"
-              uiSelect
+            <app-select
+              inputId="qa-goal"
+              [options]="goalOptions()"
               [value]="goalId() ?? ''"
-              (change)="goalId.set($any($event.target).value || null)"
-            >
-              <option value="">—</option>
-              @for (g of goals.value() ?? []; track g.id) {
-                <option [value]="g.id">{{ g.name }}</option>
-              }
-            </select>
+              (valueChange)="goalId.set($event || null)"
+            />
           </div>
         }
 
@@ -443,6 +413,10 @@ export class QuickAddComponent {
     'PLN',
     'BRL',
   ];
+  protected readonly currencyOptions: SelectOption[] = this.currencies.map((c) => ({
+    value: c,
+    label: c,
+  }));
 
   protected readonly type = signal<TransactionType>('Expense');
   protected readonly amount = signal('');
@@ -515,6 +489,37 @@ export class QuickAddComponent {
     const group = this.type() === 'Savings' ? 'Savings' : 'Investment';
     return (this.buckets.value() ?? []).filter((b) => b.group === group && !b.archived);
   });
+  protected readonly categorySelectOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('tx.allCategories') },
+      ...this.categoryOptions().map((c) => ({
+        value: c.id,
+        label: (c.parentId ? '— ' : '') + categoryLabel(this.i18n, c),
+      })),
+    ];
+  });
+  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
+    { value: '', label: '—' },
+    ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
+  ]);
+  protected readonly accountOptions = computed<SelectOption[]>(() =>
+    this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
+  );
+  protected readonly counterAccountOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    const none = this.type() === 'Transfer' ? '—' : this.i18n.instant('tx.external');
+    return [
+      { value: '', label: none },
+      ...(this.accounts.value() ?? [])
+        .filter((a) => a.id !== this.accountId() && !a.archived)
+        .map((a) => ({ value: a.id, label: a.name })),
+    ];
+  });
+  protected readonly goalOptions = computed<SelectOption[]>(() => [
+    { value: '', label: '—' },
+    ...(this.goals.value() ?? []).map((g) => ({ value: g.id, label: g.name })),
+  ]);
   protected readonly suggested = computed(() => {
     const d = this.defaults.value();
     const recent =

@@ -5,12 +5,13 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { Category, ExpenseNature } from '../../core/models';
+import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
-import { CategoryLabelPipe } from '../../shared/category-label';
+import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus } from '@ng-icons/lucide';
 
@@ -18,7 +19,7 @@ import { lucidePlus } from '@ng-icons/lucide';
   selector: 'app-categories',
   imports: [
     NgIcon,
-    UiSelect,
+    SelectComponent,
     HlmInputImports,
     HlmButtonImports,
     TranslatePipe,
@@ -49,15 +50,15 @@ import { lucidePlus } from '@ng-icons/lucide';
                 <span class="h-3 w-3 rounded-full" [style.background]="c.color"></span>
                 <span class="flex-1 text-sm">{{ c | categoryLabel }}</span>
                 @if (c.type === 'Expense') {
-                  <select
-                    uiSelect
-                    class="w-auto text-xs"
+                  <app-select
+                    class="w-32"
+                    size="sm"
+                    triggerClass="text-xs"
+                    [options]="natureOptions()"
                     [value]="c.defaultNature"
-                    (change)="setNature(c, $any($event.target).value)"
-                  >
-                    <option value="Fixed">{{ 'nature.Fixed' | translate }}</option>
-                    <option value="Variable">{{ 'nature.Variable' | translate }}</option>
-                  </select>
+                    [ariaLabel]="c | categoryLabel"
+                    (valueChange)="setNature(c, $any($event))"
+                  />
                 }
                 @if (!c.isSystem) {
                   <span class="badge bg-muted text-muted-foreground">{{
@@ -118,12 +119,12 @@ import { lucidePlus } from '@ng-icons/lucide';
         }
         <div>
           <label class="label" for="c-parent">{{ 'categories.parent' | translate }}</label>
-          <select id="c-parent" uiSelect (change)="parentId.set($any($event.target).value || null)">
-            <option value="">—</option>
-            @for (p of parents(); track p.id) {
-              <option [value]="p.id">{{ p | categoryLabel }}</option>
-            }
-          </select>
+          <app-select
+            inputId="c-parent"
+            [options]="parentOptions()"
+            [value]="parentId() ?? ''"
+            (valueChange)="parentId.set($event || null)"
+          />
         </div>
         <div>
           <label class="label" for="c-color">{{ 'categories.color' | translate }}</label>
@@ -150,6 +151,7 @@ export class CategoriesComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
   protected readonly categories = rxResource({
     params: () => this.events.version(),
     stream: () => this.api.categories(true),
@@ -178,6 +180,20 @@ export class CategoriesComponent {
       (c) => c.type === this.type() && !c.parentId && !c.archived,
     ),
   );
+  protected readonly parentOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: '—' },
+      ...this.parents().map((p) => ({ value: p.id, label: categoryLabel(this.i18n, p) })),
+    ];
+  });
+  protected readonly natureOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return (['Fixed', 'Variable'] as const).map((n) => ({
+      value: n,
+      label: this.i18n.instant(`nature.${n}`),
+    }));
+  });
 
   protected openNew() {
     this.name.set('');

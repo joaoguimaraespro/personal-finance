@@ -13,13 +13,14 @@ import {
   TransactionFlow,
   TransactionType,
 } from '../../core/models';
+import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
-import { CategoryLabelPipe } from '../../shared/category-label';
+import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -52,7 +53,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
   imports: [
     NgIcon,
     DateFieldComponent,
-    UiSelect,
+    SelectComponent,
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
@@ -121,26 +122,18 @@ const SIGN: Partial<Record<TransactionType, string>> = {
         [ariaLabel]="'common.to' | translate"
         clearable
       />
-      <select
-        uiSelect
+      <app-select
+        [options]="accountOptions()"
         [value]="accountId()"
-        (change)="accountId.set($any($event.target).value); pageNo.set(1)"
-      >
-        <option value="">{{ 'tx.allAccounts' | translate }}</option>
-        @for (a of accounts.value() ?? []; track a.id) {
-          <option [value]="a.id">{{ a.name }}</option>
-        }
-      </select>
-      <select
-        uiSelect
+        [ariaLabel]="'tx.account' | translate"
+        (valueChange)="accountId.set($event); pageNo.set(1)"
+      />
+      <app-select
+        [options]="categoryOptions()"
         [value]="categoryId()"
-        (change)="categoryId.set($any($event.target).value); pageNo.set(1)"
-      >
-        <option value="">{{ 'tx.allCategories' | translate }}</option>
-        @for (c of categories.value() ?? []; track c.id) {
-          <option [value]="c.id">{{ c.parentId ? '— ' : '' }}{{ c | categoryLabel }}</option>
-        }
-      </select>
+        [ariaLabel]="'tx.category' | translate"
+        (valueChange)="categoryId.set($event); pageNo.set(1)"
+      />
       <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-6">
         @for (t of visibleTypes(); track t) {
           <button
@@ -385,6 +378,7 @@ export class TransactionsComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
   protected readonly quick = inject(QuickAdd);
   private readonly query = toSignal(inject(ActivatedRoute).queryParamMap);
 
@@ -409,6 +403,23 @@ export class TransactionsComponent {
 
   protected readonly accounts = rxResource({ stream: () => this.api.accounts(true) });
   protected readonly categories = rxResource({ stream: () => this.api.categories() });
+  protected readonly accountOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('tx.allAccounts') },
+      ...(this.accounts.value() ?? []).map((a) => ({ value: a.id, label: a.name })),
+    ];
+  });
+  protected readonly categoryOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('tx.allCategories') },
+      ...(this.categories.value() ?? []).map((c) => ({
+        value: c.id,
+        label: (c.parentId ? '— ' : '') + categoryLabel(this.i18n, c),
+      })),
+    ];
+  });
 
   private readonly filter = computed<TransactionFilter & { v: number }>(() => ({
     search: this.search(),

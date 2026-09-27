@@ -14,12 +14,13 @@ import { DataEvents } from '../../core/data-events';
 import { MonthNamePipe, currentPeriod } from '../../core/format';
 import { Budget, BudgetItem, BudgetMode } from '../../core/models';
 import { Toasts } from '../../core/toast';
-import { CategoryLabelPipe } from '../../shared/category-label';
+import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { MonthPickerComponent } from '../../shared/month-picker';
 import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
+import { Prefs } from '../../core/prefs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideX } from '@ng-icons/lucide';
 
@@ -37,7 +38,7 @@ interface Row {
   selector: 'app-budgets',
   imports: [
     NgIcon,
-    UiSelect,
+    SelectComponent,
     HlmInputImports,
     HlmButtonImports,
     TranslatePipe,
@@ -69,17 +70,13 @@ interface Row {
                 class="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem] items-center gap-2 sm:grid-cols-[1fr_9rem_8rem]"
               >
                 <span class="truncate text-sm">{{ bucketName(row.bucketId) }}</span>
-                <select
-                  uiSelect
+                <app-select
+                  size="sm"
+                  [options]="bucketModes()"
                   [value]="row.mode"
-                  (change)="update(row.key, { mode: $any($event.target).value })"
-                >
-                  <option value="None">—</option>
-                  <option value="PercentOfIncome">
-                    {{ 'budgetMode.PercentOfIncome' | translate }}
-                  </option>
-                  <option value="FixedAmount">{{ 'budgetMode.FixedAmount' | translate }}</option>
-                </select>
+                  [ariaLabel]="bucketName(row.bucketId)"
+                  (valueChange)="update(row.key, { mode: $any($event) })"
+                />
                 <input
                   hlmInput
                   class="num h-8 text-right"
@@ -95,18 +92,13 @@ interface Row {
                 class="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem] items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_9rem_8rem]"
               >
                 <span class="truncate text-sm font-medium">{{ 'kpi.expenseBudget' | translate }}</span>
-                <select
-                  uiSelect
+                <app-select
+                  size="sm"
+                  [options]="poolModes()"
                   [value]="pool.mode"
-                  (change)="update(pool.key, { mode: $any($event.target).value })"
-                >
-                  <option value="None">—</option>
-                  <option value="Remainder">{{ 'budgetMode.Remainder' | translate }}</option>
-                  <option value="PercentOfIncome">
-                    {{ 'budgetMode.PercentOfIncome' | translate }}
-                  </option>
-                  <option value="FixedAmount">{{ 'budgetMode.FixedAmount' | translate }}</option>
-                </select>
+                  [ariaLabel]="'kpi.expenseBudget' | translate"
+                  (valueChange)="update(pool.key, { mode: $any($event) })"
+                />
                 <input
                   hlmInput
                   class="num h-8 text-right"
@@ -124,16 +116,13 @@ interface Row {
         <section class="card">
           <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 class="card-title !mb-0">{{ 'budgets.categoryLimits' | translate }}</h2>
-            <select
-              uiSelect
-              class="w-full text-sm sm:w-auto"
-              (change)="addCategory($any($event.target).value); $any($event.target).value = ''"
-            >
-              <option value="">+ {{ 'budgets.addCategory' | translate }}</option>
-              @for (c of availableCategories(); track c.id) {
-                <option [value]="c.id">{{ c | categoryLabel }}</option>
-              }
-            </select>
+            <app-select
+              class="w-full sm:w-56"
+              resetOnPick
+              value=""
+              [options]="addCategoryOptions()"
+              (valueChange)="addCategory($event)"
+            />
           </div>
           <div class="space-y-2">
             @for (row of categoryRows(); track row.key) {
@@ -141,16 +130,13 @@ interface Row {
                 class="grid grid-cols-[minmax(0,1fr)_6.5rem_5rem_2rem] items-center gap-2 sm:grid-cols-[1fr_9rem_8rem_2rem]"
               >
                 <span class="truncate text-sm">{{ categoryFor(row.categoryId) | categoryLabel }}</span>
-                <select
-                  uiSelect
+                <app-select
+                  size="sm"
+                  [options]="categoryModes()"
                   [value]="row.mode"
-                  (change)="update(row.key, { mode: $any($event.target).value })"
-                >
-                  <option value="FixedAmount">{{ 'budgetMode.FixedAmount' | translate }}</option>
-                  <option value="PercentOfIncome">
-                    {{ 'budgetMode.PercentOfIncome' | translate }}
-                  </option>
-                </select>
+                  [ariaLabel]="categoryFor(row.categoryId) | categoryLabel"
+                  (valueChange)="update(row.key, { mode: $any($event) })"
+                />
                 <input
                   hlmInput
                   class="num h-8 text-right"
@@ -226,6 +212,7 @@ export class BudgetsComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
   protected readonly period = signal(currentPeriod());
   protected readonly note = signal('');
   protected readonly rows = signal<Row[]>([]);
@@ -246,6 +233,25 @@ export class BudgetsComponent {
     const used = new Set(this.categoryRows().map((r) => r.categoryId));
     return (this.categories.value() ?? []).filter((c) => c.type === 'Expense' && !used.has(c.id));
   });
+  protected readonly addCategoryOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: `+ ${this.i18n.instant('budgets.addCategory')}` },
+      ...this.availableCategories().map((c) => ({
+        value: c.id,
+        label: categoryLabel(this.i18n, c),
+      })),
+    ];
+  });
+  protected readonly bucketModes = computed(() =>
+    this.modeOptions(['PercentOfIncome', 'FixedAmount'], true),
+  );
+  protected readonly poolModes = computed(() =>
+    this.modeOptions(['Remainder', 'PercentOfIncome', 'FixedAmount'], true),
+  );
+  protected readonly categoryModes = computed(() =>
+    this.modeOptions(['FixedAmount', 'PercentOfIncome']),
+  );
 
   constructor() {
     // Start from the version effective in the chosen month (or blank), so edits are always relative to reality.
@@ -270,6 +276,12 @@ export class BudgetsComponent {
     this.buckets.value()?.find((b) => b.id === id)?.name ?? '';
   protected categoryFor = (id: string | null) =>
     this.categories.value()?.find((c) => c.id === id) ?? null;
+
+  private modeOptions(modes: BudgetMode[], withNone = false): SelectOption[] {
+    this.prefs.translations();
+    const options = modes.map((m) => ({ value: m, label: this.i18n.instant(`budgetMode.${m}`) }));
+    return withNone ? [{ value: 'None', label: '—' }, ...options] : options;
+  }
 
   protected update(key: string, patch: Partial<Row>) {
     this.rows.update((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));

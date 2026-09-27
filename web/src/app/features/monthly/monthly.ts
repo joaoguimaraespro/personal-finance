@@ -24,14 +24,14 @@ import { KpiComponent } from '../../shared/kpi';
 import { MonthPickerComponent } from '../../shared/month-picker';
 import { ProgressComponent } from '../../shared/progress';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 
 type Reference = 'previous' | 'average' | 'budget';
 
 @Component({
   selector: 'app-monthly',
   imports: [
-    UiSelect,
+    SelectComponent,
     HlmTableImports,
     MonthPickerComponent,
     KpiComponent,
@@ -168,16 +168,15 @@ type Reference = 'previous' | 'average' | 'budget';
                     {{ b.difference | money: 'EUR' : true }}
                   </td>
                   <td hlmTd>
-                    <select
-                      uiSelect
-                      class="w-auto text-xs"
+                    <app-select
+                      class="w-36"
+                      size="sm"
+                      triggerClass="text-xs"
+                      [options]="statusOptions()"
                       [value]="checkFor(b.bucketId)"
-                      (change)="setCheck(b.bucketId, $any($event.target).value)"
-                    >
-                      @for (s of statuses; track s) {
-                        <option [value]="s">{{ 'allocation.' + s | translate }}</option>
-                      }
-                    </select>
+                      [ariaLabel]="b.name"
+                      (valueChange)="setCheck(b.bucketId, $any($event))"
+                    />
                   </td>
                 </tr>
               } @empty {
@@ -306,6 +305,10 @@ export class MonthlyComponent {
   protected readonly colors = SERIES_COLORS;
   protected readonly references: Reference[] = ['previous', 'average', 'budget'];
   protected readonly statuses: AllocationStatus[] = ['Todo', 'Done', 'Partial', 'NotApplicable'];
+  protected readonly statusOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return this.statuses.map((s) => ({ value: s, label: this.i18n.instant(`allocation.${s}`) }));
+  });
 
   private readonly queryPeriod = toSignal(
     this.route.queryParamMap.pipe(map((q) => q.get('period'))),

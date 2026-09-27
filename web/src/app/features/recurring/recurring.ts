@@ -6,14 +6,15 @@ import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, today } from '../../core/format';
 import { Expected, Frequency, Recurring, TransactionType } from '../../core/models';
+import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
-import { CategoryLabelPipe } from '../../shared/category-label';
+import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { ModalComponent } from '../../shared/modal';
 import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { UiSelect } from '../../shared/select';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus } from '@ng-icons/lucide';
@@ -36,7 +37,7 @@ interface Form {
   imports: [
     NgIcon,
     DateFieldComponent,
-    UiSelect,
+    SelectComponent,
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
@@ -164,16 +165,12 @@ interface Form {
         </div>
         <div>
           <label class="label" for="r-type">{{ 'recurring.type' | translate }}</label>
-          <select
-            id="r-type"
-            uiSelect
+          <app-select
+            inputId="r-type"
+            [options]="typeOptions()"
             [value]="form().type"
-            (change)="patch({ type: $any($event.target).value, categoryId: '', bucketId: '' })"
-          >
-            @for (t of types; track t) {
-              <option [value]="t">{{ 'type.' + t | translate }}</option>
-            }
-          </select>
+            (valueChange)="patch({ type: $any($event), categoryId: '', bucketId: '' })"
+          />
         </div>
         <div>
           <label class="label" for="r-amount">{{ 'tx.amount' | translate }}</label>
@@ -190,59 +187,41 @@ interface Form {
         @if (form().type === 'Expense' || form().type === 'Income') {
           <div class="col-span-2">
             <label class="label" for="r-cat">{{ 'tx.category' | translate }}</label>
-            <select
-              id="r-cat"
-              uiSelect
+            <app-select
+              inputId="r-cat"
+              [options]="categorySelectOptions()"
               [value]="form().categoryId"
-              (change)="patch({ categoryId: $any($event.target).value })"
-            >
-              <option value="">—</option>
-              @for (c of categoryOptions(); track c.id) {
-                <option [value]="c.id">{{ c | categoryLabel }}</option>
-              }
-            </select>
+              (valueChange)="patch({ categoryId: $event })"
+            />
           </div>
         } @else if (form().type !== 'Transfer') {
           <div class="col-span-2">
             <label class="label" for="r-bucket">{{ 'tx.bucket' | translate }}</label>
-            <select
-              id="r-bucket"
-              uiSelect
+            <app-select
+              inputId="r-bucket"
+              [options]="bucketSelectOptions()"
               [value]="form().bucketId"
-              (change)="patch({ bucketId: $any($event.target).value })"
-            >
-              <option value="">—</option>
-              @for (b of bucketOptions(); track b.id) {
-                <option [value]="b.id">{{ b.name }}</option>
-              }
-            </select>
+              (valueChange)="patch({ bucketId: $event })"
+            />
           </div>
         }
         <div class="col-span-2">
           <label class="label" for="r-acc">{{ 'tx.account' | translate }}</label>
-          <select
-            id="r-acc"
-            uiSelect
+          <app-select
+            inputId="r-acc"
+            [options]="accountOptions()"
             [value]="form().accountId"
-            (change)="patch({ accountId: $any($event.target).value })"
-          >
-            @for (a of manualAccounts(); track a.id) {
-              <option [value]="a.id">{{ a.name }}</option>
-            }
-          </select>
+            (valueChange)="patch({ accountId: $event })"
+          />
         </div>
         <div>
           <label class="label" for="r-freq">{{ 'recurring.frequency' | translate }}</label>
-          <select
-            id="r-freq"
-            uiSelect
+          <app-select
+            inputId="r-freq"
+            [options]="frequencyOptions()"
             [value]="form().frequency"
-            (change)="patch({ frequency: $any($event.target).value })"
-          >
-            <option value="Monthly">{{ 'frequency.Monthly' | translate }}</option>
-            <option value="Weekly">{{ 'frequency.Weekly' | translate }}</option>
-            <option value="Yearly">{{ 'frequency.Yearly' | translate }}</option>
-          </select>
+            (valueChange)="patch({ frequency: $any($event) })"
+          />
         </div>
         @if (form().frequency !== 'Weekly') {
           <div>
@@ -291,6 +270,7 @@ export class RecurringComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
   protected readonly types: TransactionType[] = [
     'Expense',
     'Income',
@@ -325,6 +305,31 @@ export class RecurringComponent {
     (this.buckets.value() ?? []).filter(
       (b) => b.group === (this.form().type === 'Savings' ? 'Savings' : 'Investment'),
     ),
+  );
+  protected readonly typeOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return this.types.map((t) => ({ value: t, label: this.i18n.instant(`type.${t}`) }));
+  });
+  protected readonly frequencyOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return (['Monthly', 'Weekly', 'Yearly'] as const).map((f) => ({
+      value: f,
+      label: this.i18n.instant(`frequency.${f}`),
+    }));
+  });
+  protected readonly categorySelectOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: '—' },
+      ...this.categoryOptions().map((c) => ({ value: c.id, label: categoryLabel(this.i18n, c) })),
+    ];
+  });
+  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
+    { value: '', label: '—' },
+    ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
+  ]);
+  protected readonly accountOptions = computed<SelectOption[]>(() =>
+    this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
   );
 
   protected categoryFor = (id: string | null) =>
