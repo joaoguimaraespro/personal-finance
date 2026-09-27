@@ -335,6 +335,6 @@ public static class TransactionEndpoints
             t.CreatedAtUtc, t.UpdatedAtUtc, TransactionTypes.FlowOf(t.Type),
             t.AssetKind == null || t.AssetSymbol == null
                 ? null
-                : new InvestmentAssetDto(t.AssetKind.Value, t.AssetSymbol!, t.AssetName, t.AssetIsin, t.AssetQuantity,
+                : new InvestmentAssetDto(t.AssetKind!.Value, t.AssetSymbol!, t.AssetName, t.AssetIsin, t.AssetQuantity,
                     t.AssetUnitPrice, t.AssetPriceSource));
 }
