@@ -59,8 +59,10 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.21 0.006 285.885);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.696 0.17 162.48);
-  --primary-foreground: oklch(0.262 0.051 172.552);
+  /* Darker, less saturated emerald than the preset's emerald-500, which glows on the near-black
+     background. Foreground deepened with it to keep AA contrast (≈4.7:1). */
+  --primary: oklch(0.6 0.125 162.5);
+  --primary-foreground: oklch(0.21 0.04 172.5);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);
@@ -70,15 +72,15 @@
   --destructive: oklch(0.645 0.246 16.439);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.696 0.17 162.48);
+  --ring: oklch(0.6 0.125 162.5);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.696 0.17 162.48);
-  --sidebar-primary-foreground: oklch(0.262 0.051 172.552);
-  --sidebar-accent: oklch(0.696 0.17 162.48 / 15%);
-  --sidebar-accent-foreground: oklch(0.905 0.093 164.15);
+  --sidebar-primary: oklch(0.6 0.125 162.5);
+  --sidebar-primary-foreground: oklch(0.21 0.04 172.5);
+  --sidebar-accent: oklch(0.6 0.125 162.5 / 15%);
+  --sidebar-accent-foreground: oklch(0.88 0.07 163.5);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.696 0.17 162.48);
+  --sidebar-ring: oklch(0.6 0.125 162.5);
 }
 
 @layer base {
