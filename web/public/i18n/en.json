@@ -76,7 +76,49 @@
   "Income": "Income",
   "Transfer": "Transfer",
   "Savings": "Savings",
-  "InvestmentContribution": "Investment"
+  "InvestmentContribution": "Buy",
+  "InvestmentSale": "Sell"
+ },
+ "flow": {
+  "Everyday": "Everyday",
+  "Investment": "Investments",
+  "Movement": "Transfers & savings",
+  "all": "All"
+ },
+ "assetKind": {
+  "Stock": "Stock",
+  "Etf": "ETF",
+  "Crypto": "Crypto",
+  "Fund": "Fund",
+  "Bond": "Bond",
+  "Other": "Other"
+ },
+ "asset": {
+  "kind": "Asset type",
+  "search": "Search ticker, name or ISIN",
+  "searchPlaceholder": "e.g. AAPL, VWCE, Apple…",
+  "searching": "Searching…",
+  "noResults": "No match — fill in the details manually.",
+  "notConfigured": "Live search is off (no Trading 212 / IBKR keys configured). Results come from synced holdings only; you can always type the details in.",
+  "cryptoManual": "Crypto is entered manually: symbol, name, quantity and price.",
+  "symbol": "Ticker / symbol",
+  "name": "Name",
+  "quantity": "Quantity",
+  "unitPrice": "Price per unit",
+  "priceFrom": "Price from {{provider}} ({{basis}}, {{date}})",
+  "priceMissing": "No price for this date from the provider — enter it manually.",
+  "fetchingPrice": "Fetching price…",
+  "clear": "Clear selection",
+  "basis": {
+   "trade": "your fill",
+   "close": "close",
+   "current": "live"
+  },
+  "provider": {
+   "Trading212": "Trading 212",
+   "InteractiveBrokers": "IBKR",
+   "Portfolio": "Portfolio"
+  }
  },
  "nature": {
   "Fixed": "Fixed",
@@ -163,7 +205,16 @@
   "title": "Dashboard",
   "subtitle": "Your year at a glance",
   "monthlyView": "Monthly view",
-  "weightedRate": "Income-weighted savings rate: {{rate}}"
+  "weightedRate": "Income-weighted savings rate: {{rate}}",
+  "everyday": "Everyday money",
+  "everydayHint": "Income and expenses only — investments are not included.",
+  "investments": "Investments",
+  "investmentsHint": "Assets bought and sold (stocks, ETFs, crypto…), shown apart from everyday money.",
+  "purchases": "Bought",
+  "sales": "Sold",
+  "netInvested": "Net invested",
+  "investmentRate": "% of income invested",
+  "overall": "Overall summary"
  },
  "monthly": {
   "title": "Monthly summary",
@@ -227,8 +278,12 @@
   "history": "Change history",
   "errors": {
    "amount": "Enter an amount greater than zero.",
-   "account": "Choose an account."
-  }
+   "account": "Choose an account.",
+   "symbol": "Enter the ticker or symbol of the asset."
+  },
+  "cashAccount": "Cash account",
+  "brokerAccount": "Broker / wallet (optional)",
+  "investmentHint": "Investments are reported separately from everyday income and expenses."
  },
  "recurring": {
   "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.",
