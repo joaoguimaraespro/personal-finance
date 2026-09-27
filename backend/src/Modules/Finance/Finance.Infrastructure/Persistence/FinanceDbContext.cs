@@ -93,6 +93,11 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.Property(x => x.TimeZone).HasMaxLength(64);
             e.Property(x => x.Notes).HasMaxLength(2000);
             e.Property(x => x.ExternalId).HasMaxLength(128);
+            e.Property(x => x.AssetSymbol).HasMaxLength(32);
+            e.Property(x => x.AssetIsin).HasMaxLength(12);
+            e.Property(x => x.AssetPriceSource).HasMaxLength(32);
+            e.Property(x => x.AssetQuantity).HasPrecision(28, 10);
+            e.Property(x => x.AssetUnitPrice).HasPrecision(28, 10);
             e.HasIndex(x => x.OccurredOn);
             e.HasIndex(x => new { x.Type, x.OccurredOn });
             e.HasIndex(x => x.CategoryId);

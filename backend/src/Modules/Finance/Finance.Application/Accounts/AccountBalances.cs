@@ -42,13 +42,17 @@ public static class AccountBalances
             var balance = account.OpeningBalance;
             foreach (var s in sums)
             {
+                // Income and sale proceeds flow into the account; for a sale the counter account is the source.
+                var inflow = s.Type is TransactionType.Income or TransactionType.InvestmentSale;
                 if (s.AccountId == account.Id)
                 {
-                    balance += s.Type == TransactionType.Income ? Amount(s.Base, s.Original) : -Amount(s.Base, s.Original);
+                    balance += inflow ? Amount(s.Base, s.Original) : -Amount(s.Base, s.Original);
                 }
                 else if (s.CounterAccountId == account.Id)
                 {
-                    balance += Amount(s.Base, s.Original);
+                    balance += s.Type == TransactionType.InvestmentSale
+                        ? -Amount(s.Base, s.Original)
+                        : Amount(s.Base, s.Original);
                 }
             }
 

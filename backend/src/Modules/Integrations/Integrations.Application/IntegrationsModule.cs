@@ -1,4 +1,5 @@
 using FluentValidation;
+using Integrations.Application.Instruments;
 using Integrations.Application.Sync;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,7 @@ public static class IntegrationsModule
         services.AddValidatorsFromAssemblyContaining<CreateConnectionValidator>();
         services.AddSingleton<SyncQueue>();
         services.AddScoped<SyncPipeline>();
+        services.AddScoped<PortfolioInstrumentSource>();
         return services;
     }
 }

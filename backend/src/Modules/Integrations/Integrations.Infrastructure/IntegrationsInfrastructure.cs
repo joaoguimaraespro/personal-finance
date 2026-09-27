@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Integrations.Application;
 using Integrations.Application.Contracts;
+using Integrations.Application.Instruments;
 using Integrations.Application.Sync;
 using Integrations.Infrastructure.Demo;
 using Integrations.Infrastructure.Ibkr;
@@ -68,6 +69,11 @@ public static class IntegrationsInfrastructure
         services.AddSingleton<RateGate>();
         services.AddScoped<IInvestmentProviderFactory, InvestmentProviderFactory>();
         services.AddSingleton<ICsvHistoryParser, Trading212CsvHistoryParser>();
+
+        // Add-transaction autofill. Keys come from environment configuration only (MarketData__*); without them
+        // the sources report "not configured" and the form falls back to manual entry.
+        services.AddSingleton<IInstrumentSource, Trading212InstrumentSource>();
+        services.AddSingleton<IInstrumentSource, IbkrInstrumentSource>();
 
         // Broker HTTP clients: allow-listed to read endpoints only; no automatic retries of non-idempotent calls.
         services.AddHttpClient<Trading212Client>(c =>

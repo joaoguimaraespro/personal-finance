@@ -32,7 +32,9 @@ public sealed record MonthlySummary(
     decimal? Unallocated,
     BalanceStatus Status,
     IReadOnlyList<BucketLine> Buckets,
-    int TransactionCount);
+    int TransactionCount,
+    decimal InvestmentPurchases = 0,
+    decimal InvestmentSales = 0);
 
 /// <summary>
 /// Deterministic port of the spreadsheet's month sheet ("RESUMO MENSAL" block). Formula references are to the
@@ -78,7 +80,9 @@ public static class MonthlyCalculator
             Unallocated: budget is null ? null : t.Income - targets.PoolTotal, // C16
             Status: netBalance >= 0 ? BalanceStatus.Positive : BalanceStatus.Negative,
             lines,
-            t.TransactionCount);
+            t.TransactionCount,
+            InvestmentPurchases: t.InvestmentPurchases,
+            InvestmentSales: t.InvestmentSales);
     }
 
     private static decimal? SumTargets(List<BucketLine> lines, bool investment)

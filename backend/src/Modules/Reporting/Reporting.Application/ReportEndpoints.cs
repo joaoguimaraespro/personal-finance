@@ -43,7 +43,16 @@ public sealed record OverviewDto(
     decimal NetBalance,
     decimal? AverageMonthlySavingsRate,
     decimal? WeightedSavingsRate,
-    int PendingExpected);
+    int PendingExpected,
+    EverydayTotals Everyday,
+    InvestmentTotals Investments);
+
+/// <summary>Day-to-day money only: income and expenses. Investments are never part of these figures.</summary>
+public sealed record EverydayTotals(decimal Income, decimal Expenses, decimal FixedExpenses, decimal VariableExpenses,
+    decimal NetBalance);
+
+/// <summary>Investing only: what was put into and taken out of investments, and the share of income invested.</summary>
+public sealed record InvestmentTotals(decimal Purchases, decimal Sales, decimal NetInvested, decimal? InvestmentRate);
 
 public sealed record TrendPoint(string Period, decimal Income, decimal Expenses, decimal Invested, decimal Saved,
     decimal NetBalance, decimal? SavingsRate);
@@ -86,7 +95,9 @@ public static class ReportEndpoints
                 e => e.Status == Finance.Domain.Recurring.ExpectedStatus.Pending, ct);
             var t = annual.Totals;
             return Results.Ok(new OverviewDto(year, t.Income, t.TotalExpenses, t.Invested, t.Saved, t.NetBalance,
-                t.AverageMonthlySavingsRate, t.WeightedSavingsRate, pending));
+                t.AverageMonthlySavingsRate, t.WeightedSavingsRate, pending,
+                new EverydayTotals(t.Income, t.TotalExpenses, t.FixedExpenses, t.VariableExpenses, t.NetBalance),
+                new InvestmentTotals(t.InvestmentPurchases, t.InvestmentSales, t.Invested, t.WeightedInvestmentRate)));
         });
 
         group.MapGet("/categories/{period}", async (string period, LedgerAggregates ledger, IFinanceDb db,

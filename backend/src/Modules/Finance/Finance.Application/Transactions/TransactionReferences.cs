@@ -58,7 +58,8 @@ public static class TransactionReferences
             nature ??= category.DefaultNature;
         }
 
-        if (draft.Type is TransactionType.Savings or TransactionType.InvestmentContribution && draft.BucketId is { } bucketId)
+        if ((draft.Type == TransactionType.Savings || TransactionTypes.IsInvestment(draft.Type)) &&
+            draft.BucketId is { } bucketId)
         {
             var bucket = await db.Buckets.AsNoTracking().FirstOrDefaultAsync(b => b.Id == bucketId, ct);
             var expected = draft.Type == TransactionType.Savings ? BucketGroup.Savings : BucketGroup.Investment;

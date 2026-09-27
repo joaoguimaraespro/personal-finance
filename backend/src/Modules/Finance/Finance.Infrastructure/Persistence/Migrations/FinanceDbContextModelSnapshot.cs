@@ -623,6 +623,41 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("AssetIsin")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("asset_isin");
+
+                    b.Property<string>("AssetKind")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("asset_kind");
+
+                    b.Property<string>("AssetName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("asset_name");
+
+                    b.Property<string>("AssetPriceSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("asset_price_source");
+
+                    b.Property<decimal?>("AssetQuantity")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)")
+                        .HasColumnName("asset_quantity");
+
+                    b.Property<string>("AssetSymbol")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("asset_symbol");
+
+                    b.Property<decimal?>("AssetUnitPrice")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)")
+                        .HasColumnName("asset_unit_price");
+
                     b.Property<decimal>("BaseAmount")
                         .HasPrecision(19, 4)
                         .HasColumnType("numeric(19,4)")
