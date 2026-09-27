@@ -73,9 +73,9 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
 
   await page.goto('/transactions');
   // Responsive layout renders the row in both the desktop table and the
-  // mobile card list (one hidden via CSS depending on viewport) — use
-  // .first() to avoid a strict-mode violation on the duplicate match.
-  await expect(page.getByText('Dinner with friends').first()).toBeVisible();
+  // mobile card list (one hidden via CSS depending on viewport) — filter
+  // to the one that is actually visible to avoid a strict-mode violation.
+  await expect(page.getByText('Dinner with friends').and(page.locator(':visible'))).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/transactions.png` });
 
   await page.goto('/budgets');
