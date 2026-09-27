@@ -51,13 +51,17 @@ public sealed class LedgerAggregates(IFinanceDb db)
                 month.Where(r => r.Type == TransactionType.Income).Sum(r => r.Amount),
                 expenses.Where(r => r.Nature == ExpenseNature.Fixed).Sum(r => r.Amount),
                 expenses.Where(r => r.Nature != ExpenseNature.Fixed).Sum(r => r.Amount),
+                // Sales give money back to the bucket: "invested" is net of them and never counted as income.
                 month.Where(r => r.BucketId != null).GroupBy(r => r.BucketId!.Value)
-                    .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount)),
+                    .ToDictionary(g => g.Key,
+                        g => g.Sum(r => r.Type == TransactionType.InvestmentSale ? -r.Amount : r.Amount)),
                 expenses.Where(r => r.CategoryId != null).GroupBy(r => r.CategoryId!.Value)
                     .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount)),
                 month.Where(r => r.Type == TransactionType.Income && r.CategoryId != null)
                     .GroupBy(r => r.CategoryId!.Value).ToDictionary(g => g.Key, g => g.Sum(r => r.Amount)),
-                month.Sum(r => r.Count)));
+                month.Sum(r => r.Count),
+                month.Where(r => r.Type == TransactionType.InvestmentContribution).Sum(r => r.Amount),
+                month.Where(r => r.Type == TransactionType.InvestmentSale).Sum(r => r.Amount)));
         }
 
         return result;

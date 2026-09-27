@@ -28,6 +28,9 @@ import {
   Goal,
   ImportPreview,
   ImportSummary,
+  InstrumentProvider,
+  InstrumentQuoteResult,
+  InstrumentSearchResult,
   MonthlyComparison,
   Overview,
   Page,
@@ -42,6 +45,7 @@ export interface TransactionFilter {
   from?: string;
   to?: string;
   type?: string[];
+  flow?: string;
   accountId?: string;
   categoryId?: string;
   nature?: string;
@@ -94,6 +98,14 @@ export class Api {
   deleteTransaction = (id: string) => this.http.delete<void>(`/api/transactions/${id}`);
   restoreTransaction = (id: string) => this.http.post<void>(`/api/transactions/${id}/restore`, {});
   transactionHistory = (id: string) => this.http.get<AuditEntry[]>(`/api/transactions/${id}/history`);
+
+  // Instrument lookup for the add-transaction form (stocks/ETFs only; crypto is always manual)
+  searchInstruments = (q: string) =>
+    this.http.get<InstrumentSearchResult>('/api/instruments/search', { params: { q, limit: 10 } });
+  instrumentQuote = (provider: InstrumentProvider, symbol: string, date: string, isin?: string | null) =>
+    this.http.get<InstrumentQuoteResult>('/api/instruments/quote', {
+      params: isin ? { provider, symbol, date, isin } : { provider, symbol, date },
+    });
 
   // Recurring
   recurring = () => this.http.get<Recurring[]>('/api/recurring');

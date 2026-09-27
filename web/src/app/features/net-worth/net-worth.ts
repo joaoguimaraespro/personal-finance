@@ -50,7 +50,7 @@ import { lucidePlus } from '@ng-icons/lucide';
     </div>
 
     @if (data.value(); as d) {
-      <section class="card mb-6 flex flex-wrap items-end justify-between gap-6">
+      <section class="card mb-6 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p class="text-sm text-muted-foreground">{{ 'nav.netWorth' | translate }}</p>
           <p class="num text-4xl font-semibold tracking-tight">{{ d.current.netWorth | money }}</p>
@@ -95,7 +95,7 @@ import { lucidePlus } from '@ng-icons/lucide';
           <h2 class="card-title">{{ 'netWorth.history' | translate }}</h2>
           <app-chart class="h-72" [option]="chart()" />
         </div>
-        <div class="card !p-0">
+        <div class="card table-wrap !p-0">
           <h2 class="card-title px-5 pt-5">{{ 'netWorth.breakdown' | translate }}</h2>
           <table hlmTable>
             <tbody hlmTBody>
@@ -166,7 +166,7 @@ import { lucidePlus } from '@ng-icons/lucide';
       [title]="(editing() ? 'netWorth.update' : 'netWorth.addAsset') | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="grid grid-cols-2 gap-3" (submit)="$event.preventDefault(); save()">
+      <form class="form-grid" (submit)="$event.preventDefault(); save()">
         @if (!editing()) {
           <div class="col-span-2">
             <label class="label" for="m-name">{{ 'common.name' | translate }}</label>

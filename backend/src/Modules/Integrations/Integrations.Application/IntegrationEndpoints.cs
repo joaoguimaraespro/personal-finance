@@ -5,6 +5,7 @@ using Finance.Application.Http;
 using Finance.Domain.Accounts;
 using Integrations.Application.Connections;
 using Integrations.Application.Contracts;
+using Integrations.Application.Instruments;
 using Integrations.Application.Sync;
 using Investments.Application.Portfolio;
 using Investments.Application.Sync;
@@ -179,6 +180,7 @@ public static class IntegrationEndpoints
         group.MapPost("/connections/{id:guid}/csv", ImportCsvAsync).DisableAntiforgery()
             .Accepts<IFormFile>("multipart/form-data");
 
+        app.MapInstruments();
         return app;
     }
 

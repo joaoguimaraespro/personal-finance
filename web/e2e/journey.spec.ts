@@ -72,7 +72,10 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   if (shots) await page.screenshot({ path: `${shots}/annual.png`, fullPage: true });
 
   await page.goto('/transactions');
-  await expect(page.getByText('Dinner with friends')).toBeVisible();
+  // Responsive layout renders the row in both the desktop table and the
+  // mobile card list (one hidden via CSS depending on viewport) — filter
+  // to the one that is actually visible to avoid a strict-mode violation.
+  await expect(page.getByText('Dinner with friends').and(page.locator(':visible'))).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/transactions.png` });
 
   await page.goto('/budgets');

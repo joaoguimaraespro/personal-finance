@@ -62,7 +62,7 @@ public sealed class WorkbookBuilder(ExportData data)
         if (Has(ExportKind.Year, ExportKind.Period, ExportKind.All, ExportKind.Investments))
         {
             await TransactionsSheetAsync(wb, "Investments", request,
-                [TransactionType.InvestmentContribution, TransactionType.Savings], ct);
+                [TransactionType.InvestmentContribution, TransactionType.InvestmentSale, TransactionType.Savings], ct);
         }
 
         if (Has(ExportKind.All, ExportKind.Investments, ExportKind.Portfolio))

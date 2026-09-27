@@ -65,8 +65,10 @@ interface Row {
           <h2 class="card-title">{{ 'budgets.allocation' | translate }}</h2>
           <div class="space-y-2">
             @for (row of bucketRows(); track row.key) {
-              <div class="grid grid-cols-[1fr_9rem_8rem] items-center gap-2">
-                <span class="text-sm">{{ bucketName(row.bucketId) }}</span>
+              <div
+                class="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem] items-center gap-2 sm:grid-cols-[1fr_9rem_8rem]"
+              >
+                <span class="truncate text-sm">{{ bucketName(row.bucketId) }}</span>
                 <select
                   uiSelect
                   [value]="row.mode"
@@ -90,9 +92,9 @@ interface Row {
             }
             @if (poolRow(); as pool) {
               <div
-                class="grid grid-cols-[1fr_9rem_8rem] items-center gap-2 border-t border-border pt-3"
+                class="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem] items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_9rem_8rem]"
               >
-                <span class="text-sm font-medium">{{ 'kpi.expenseBudget' | translate }}</span>
+                <span class="truncate text-sm font-medium">{{ 'kpi.expenseBudget' | translate }}</span>
                 <select
                   uiSelect
                   [value]="pool.mode"
@@ -120,11 +122,11 @@ interface Row {
         </section>
 
         <section class="card">
-          <div class="mb-4 flex items-center justify-between">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 class="card-title !mb-0">{{ 'budgets.categoryLimits' | translate }}</h2>
             <select
               uiSelect
-              class="w-auto text-sm"
+              class="w-full text-sm sm:w-auto"
               (change)="addCategory($any($event.target).value); $any($event.target).value = ''"
             >
               <option value="">+ {{ 'budgets.addCategory' | translate }}</option>
@@ -135,8 +137,10 @@ interface Row {
           </div>
           <div class="space-y-2">
             @for (row of categoryRows(); track row.key) {
-              <div class="grid grid-cols-[1fr_9rem_8rem_2rem] items-center gap-2">
-                <span class="text-sm">{{ categoryFor(row.categoryId) | categoryLabel }}</span>
+              <div
+                class="grid grid-cols-[minmax(0,1fr)_6.5rem_5rem_2rem] items-center gap-2 sm:grid-cols-[1fr_9rem_8rem_2rem]"
+              >
+                <span class="truncate text-sm">{{ categoryFor(row.categoryId) | categoryLabel }}</span>
                 <select
                   uiSelect
                   [value]="row.mode"
@@ -173,10 +177,10 @@ interface Row {
           </div>
         </section>
 
-        <div class="flex items-center justify-end gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <input
             hlmInput
-            class="max-w-sm"
+            class="sm:max-w-sm"
             [placeholder]="'budgets.note' | translate"
             [value]="note()"
             (input)="note.set($any($event.target).value)"

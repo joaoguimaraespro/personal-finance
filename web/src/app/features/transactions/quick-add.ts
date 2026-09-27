@@ -14,7 +14,19 @@ import { firstValueFrom, of } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents, QuickAdd } from '../../core/data-events';
 import { today } from '../../core/format';
-import { ExpenseNature, TransactionRequest, TransactionType } from '../../core/models';
+import {
+  AssetClass,
+  AssetPriceSource,
+  ExpenseNature,
+  FLOW_TYPES,
+  InstrumentMatch,
+  InvestmentAsset,
+  InvestmentAssetKind,
+  TransactionFlow,
+  TransactionRequest,
+  TransactionType,
+  flowOf,
+} from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
@@ -24,14 +36,20 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import { UiSelect } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
+import { InstrumentSearchComponent } from './instrument-search';
 
-const TYPES: TransactionType[] = [
-  'Expense',
-  'Income',
-  'Transfer',
-  'Savings',
-  'InvestmentContribution',
-];
+const FLOWS: TransactionFlow[] = ['Everyday', 'Investment', 'Movement'];
+const ASSET_KINDS: InvestmentAssetKind[] = ['Stock', 'Etf', 'Crypto', 'Fund', 'Bond', 'Other'];
+
+/** Default allocation bucket (by system key) for each asset type. */
+const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
+  Stock: 'stocks-etfs',
+  Etf: 'stocks-etfs',
+  Fund: 'stocks-etfs',
+  Other: 'stocks-etfs',
+  Crypto: 'crypto',
+  Bond: 'bonds',
+};
 
 @Component({
   selector: 'app-quick-add',
@@ -44,6 +62,7 @@ const TYPES: TransactionType[] = [
     ModalComponent,
     TranslatePipe,
     CategoryLabelPipe,
+    InstrumentSearchComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -58,15 +77,120 @@ const TYPES: TransactionType[] = [
         (submit)="$event.preventDefault(); save(false)"
         (keydown.control.enter)="save(true)"
       >
-        <div class="segmented flex w-full flex-wrap">
-          @for (t of types; track t) {
-            <button type="button" class="flex-1" [class.active]="type() === t" (click)="setType(t)">
-              {{ 'type.' + t | translate }}
-            </button>
-          }
+        <!-- Two levels: everyday money, investments and transfers are different things and reported apart. -->
+        <div class="space-y-2">
+          <div class="segmented flex h-auto min-h-9 w-full">
+            @for (f of flows; track f) {
+              <button
+                type="button"
+                class="min-w-0 flex-1 !whitespace-normal py-1 text-center leading-tight"
+                [class.active]="flow() === f"
+                (click)="setFlow(f)"
+              >
+                {{ 'flow.' + f | translate }}
+              </button>
+            }
+          </div>
+          <div class="flex flex-wrap gap-2">
+            @for (t of flowTypes(); track t) {
+              <button
+                type="button"
+                class="chip"
+                [class.chip-active]="type() === t"
+                (click)="setType(t)"
+              >
+                {{ 'type.' + t | translate }}
+              </button>
+            }
+          </div>
         </div>
 
-        <div class="grid grid-cols-[1fr_auto] gap-3">
+        @if (isInvestment()) {
+          <section class="space-y-3 rounded-xl border border-dashed p-3">
+            <div>
+              <span class="label">{{ 'asset.kind' | translate }}</span>
+              <div class="flex flex-wrap gap-2">
+                @for (k of assetKinds; track k) {
+                  <button
+                    type="button"
+                    class="chip"
+                    [class.chip-active]="assetKind() === k"
+                    (click)="setAssetKind(k)"
+                  >
+                    {{ 'investmentKind.' + k | translate }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (assetKind() === 'Crypto') {
+              <p class="text-muted-foreground text-xs">{{ 'asset.cryptoManual' | translate }}</p>
+            } @else {
+              <app-instrument-search (picked)="pickInstrument($event)" />
+            }
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-[8rem_1fr]">
+              <div>
+                <label class="label" for="qa-symbol">{{ 'asset.symbol' | translate }}</label>
+                <input
+                  id="qa-symbol"
+                  hlmInput
+                  class="uppercase"
+                  maxlength="32"
+                  autocomplete="off"
+                  [value]="symbol()"
+                  (input)="symbol.set($any($event.target).value); markManual()"
+                />
+              </div>
+              <div>
+                <label class="label" for="qa-asset-name">{{ 'asset.name' | translate }}</label>
+                <input
+                  id="qa-asset-name"
+                  hlmInput
+                  maxlength="200"
+                  autocomplete="off"
+                  [value]="assetName()"
+                  (input)="assetName.set($any($event.target).value)"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="qa-qty">{{ 'asset.quantity' | translate }}</label>
+                <input
+                  id="qa-qty"
+                  hlmInput
+                  class="num"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  [value]="quantity()"
+                  (input)="quantity.set($any($event.target).value); recalcAmount()"
+                />
+              </div>
+              <div>
+                <label class="label" for="qa-price">{{ 'asset.unitPrice' | translate }}</label>
+                <input
+                  id="qa-price"
+                  hlmInput
+                  class="num"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  [value]="unitPrice()"
+                  (input)="unitPrice.set($any($event.target).value); priceNote.set(''); recalcAmount()"
+                />
+              </div>
+            </div>
+            @if (priceNote()) {
+              <p class="text-muted-foreground text-xs" aria-live="polite">{{ priceNote() }}</p>
+            }
+            @if (isin()) {
+              <p class="text-muted-foreground text-xs">ISIN {{ isin() }}</p>
+            }
+          </section>
+        }
+
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
           <div>
             <label class="label" for="qa-amount">{{ 'tx.amount' | translate }}</label>
             <input
@@ -78,7 +202,7 @@ const TYPES: TransactionType[] = [
               autocomplete="off"
               placeholder="0,00"
               [value]="amount()"
-              (input)="amount.set($any($event.target).value)"
+              (input)="amount.set($any($event.target).value); amountTouched.set(true)"
             />
           </div>
           <div>
@@ -153,7 +277,7 @@ const TYPES: TransactionType[] = [
           </div>
         }
 
-        @if (type() === 'Savings' || type() === 'InvestmentContribution') {
+        @if (type() === 'Savings' || isInvestment()) {
           <div>
             <label class="label" for="qa-bucket">{{ 'tx.bucket' | translate }}</label>
             <select
@@ -170,11 +294,9 @@ const TYPES: TransactionType[] = [
           </div>
         }
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label class="label" for="qa-account">{{
-              (isMovement() ? 'tx.fromAccount' : 'tx.account') | translate
-            }}</label>
+            <label class="label" for="qa-account">{{ accountLabel() | translate }}</label>
             <select
               id="qa-account"
               uiSelect
@@ -188,13 +310,15 @@ const TYPES: TransactionType[] = [
           </div>
           <div>
             <label class="label" for="qa-date">{{ 'tx.date' | translate }}</label>
-            <app-date-field inputId="qa-date" [value]="date()" (valueChange)="date.set($event)" />
+            <app-date-field inputId="qa-date" [value]="date()" (valueChange)="setDate($event)" />
           </div>
         </div>
 
-        @if (isMovement()) {
+        @if (isMovement() || isInvestment()) {
           <div>
-            <label class="label" for="qa-to">{{ 'tx.toAccount' | translate }}</label>
+            <label class="label" for="qa-to">{{
+              (isInvestment() ? 'tx.brokerAccount' : 'tx.toAccount') | translate
+            }}</label>
             <select
               id="qa-to"
               uiSelect
@@ -263,11 +387,15 @@ const TYPES: TransactionType[] = [
           </p>
         }
 
-        <div class="flex items-center justify-between gap-2 pt-2">
+        @if (isInvestment()) {
+          <p class="text-muted-foreground text-xs">{{ 'tx.investmentHint' | translate }}</p>
+        }
+
+        <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
           <span class="hidden text-xs text-muted-foreground sm:inline">{{
             'tx.shortcuts' | translate
           }}</span>
-          <div class="flex gap-2">
+          <div class="grid auto-cols-fr grid-flow-col gap-2 sm:flex">
             @if (!quick.editing()) {
               <button
                 type="button"
@@ -298,7 +426,8 @@ export class QuickAddComponent {
   private readonly i18n = inject(TranslateService);
   private readonly amountInput = viewChild<ElementRef<HTMLInputElement>>('amountInput');
 
-  protected readonly types = TYPES;
+  protected readonly flows = FLOWS;
+  protected readonly assetKinds = ASSET_KINDS;
   protected readonly natures: ExpenseNature[] = ['Variable', 'Fixed'];
   protected readonly currencies = [
     'EUR',
@@ -331,6 +460,21 @@ export class QuickAddComponent {
   protected readonly saving = signal(false);
   protected readonly error = signal('');
 
+  // Investment entries: what was bought or sold.
+  protected readonly assetKind = signal<InvestmentAssetKind>('Etf');
+  protected readonly symbol = signal('');
+  protected readonly assetName = signal('');
+  protected readonly isin = signal<string | null>(null);
+  protected readonly quantity = signal('');
+  protected readonly unitPrice = signal('');
+  protected readonly priceSource = signal<AssetPriceSource>('Manual');
+  protected readonly priceNote = signal('');
+  /** Once the user types an amount, quantity × price no longer overwrites it. */
+  protected readonly amountTouched = signal(false);
+  /** The instrument picked from the search, kept to refresh its price when the date changes. */
+  private readonly picked = signal<InstrumentMatch | null>(null);
+  private quoteRequest = 0;
+
   private readonly active = computed(() => this.quick.open());
   protected readonly accounts = rxResource({
     params: () => this.active() || undefined,
@@ -356,8 +500,12 @@ export class QuickAddComponent {
   protected readonly manualAccounts = computed(() =>
     (this.accounts.value() ?? []).filter((a) => a.isManual && !a.archived),
   );
-  protected readonly isMovement = computed(() =>
-    ['Transfer', 'Savings', 'InvestmentContribution'].includes(this.type()),
+  protected readonly flow = computed(() => flowOf(this.type()));
+  protected readonly flowTypes = computed(() => FLOW_TYPES[this.flow()]);
+  protected readonly isMovement = computed(() => this.flow() === 'Movement');
+  protected readonly isInvestment = computed(() => this.flow() === 'Investment');
+  protected readonly accountLabel = computed(() =>
+    this.isInvestment() ? 'tx.cashAccount' : this.isMovement() ? 'tx.fromAccount' : 'tx.account',
   );
   protected readonly categoryOptions = computed(() => {
     const wanted = this.type() === 'Income' ? 'Income' : 'Expense';
@@ -400,6 +548,17 @@ export class QuickAddComponent {
         this.date.set(t.occurredOn);
         this.description.set(t.description ?? '');
         this.notes.set(t.notes ?? '');
+        this.resetAsset();
+        this.amountTouched.set(true);
+        if (t.asset) {
+          this.assetKind.set(t.asset.kind);
+          this.symbol.set(t.asset.symbol);
+          this.assetName.set(t.asset.name ?? '');
+          this.isin.set(t.asset.isin);
+          this.quantity.set(formatInput(t.asset.quantity));
+          this.unitPrice.set(formatInput(t.asset.unitPrice));
+          this.priceSource.set(t.asset.priceSource ?? 'Manual');
+        }
       } else {
         this.reset(true);
       }
@@ -418,13 +577,133 @@ export class QuickAddComponent {
       const id = preferred.find((p) => p && manual.some((a) => a.id === p));
       if (id) this.accountId.set(id);
     });
+
+    // Investment entries need a bucket; pick the one matching the asset type once buckets have loaded.
+    effect(() => {
+      if (this.isInvestment() && !this.bucketId() && this.bucketOptions().length) this.defaultBucket();
+    });
+  }
+
+  protected setFlow(f: TransactionFlow) {
+    if (this.flow() !== f) this.setType(FLOW_TYPES[f][0]);
   }
 
   protected setType(t: TransactionType) {
+    const wasInvestment = this.isInvestment();
     this.type.set(t);
     this.categoryId.set(null);
-    this.bucketId.set(null);
     this.counterAccountId.set(null);
+    // Buy ↔ sell keeps the instrument and bucket; anything else starts clean.
+    if (!(wasInvestment && this.isInvestment())) {
+      this.bucketId.set(null);
+      this.resetAsset();
+    }
+    if (this.isInvestment()) this.defaultBucket();
+  }
+
+  protected setAssetKind(kind: InvestmentAssetKind) {
+    const wasCrypto = this.assetKind() === 'Crypto';
+    this.assetKind.set(kind);
+    // Switching to/from crypto: provider-filled details no longer apply (crypto is always manual).
+    if (wasCrypto !== (kind === 'Crypto')) this.clearInstrument();
+    this.bucketId.set(null);
+    this.defaultBucket();
+  }
+
+  /** Autofill from a search suggestion: identity, currency and — when the provider has one — the price that day. */
+  protected pickInstrument(m: InstrumentMatch) {
+    this.picked.set(m);
+    this.symbol.set(m.symbol);
+    this.assetName.set(m.name);
+    this.isin.set(m.isin);
+    this.priceSource.set(m.provider);
+    const kind = KIND_FOR_CLASS[m.assetClass];
+    if (kind && kind !== this.assetKind()) {
+      this.assetKind.set(kind);
+      this.bucketId.set(null);
+      this.defaultBucket();
+    }
+    if (this.currencies.includes(m.currency)) this.currency.set(m.currency);
+    if (!this.description()) this.description.set(m.name);
+    void this.fetchQuote();
+  }
+
+  /** Typing the symbol by hand means the details no longer come from a provider. */
+  protected markManual() {
+    if (this.picked()) {
+      this.picked.set(null);
+      this.isin.set(null);
+    }
+    this.priceSource.set('Manual');
+    this.priceNote.set('');
+  }
+
+  protected setDate(value: string) {
+    this.date.set(value);
+    if (this.picked()) void this.fetchQuote();
+  }
+
+  protected recalcAmount() {
+    if (this.amountTouched()) return;
+    const qty = parseDecimal(this.quantity());
+    const price = parseDecimal(this.unitPrice());
+    if (qty && price !== null) {
+      this.amount.set(formatInput(Math.round(qty * price * 100) / 100));
+    }
+  }
+
+  private async fetchQuote() {
+    const m = this.picked();
+    if (!m || this.assetKind() === 'Crypto') return;
+    const request = ++this.quoteRequest;
+    this.priceNote.set(this.i18n.instant('asset.fetchingPrice'));
+    try {
+      const result = await firstValueFrom(
+        this.api.instrumentQuote(m.provider, m.brokerSymbol, this.date(), m.isin),
+      );
+      if (request !== this.quoteRequest) return; // a newer pick or date change won
+      const q = result.quote;
+      if (!q) {
+        this.priceNote.set(result.message ?? this.i18n.instant('asset.priceMissing'));
+        return;
+      }
+      this.unitPrice.set(formatInput(q.price));
+      if (this.currencies.includes(q.currency)) this.currency.set(q.currency);
+      this.priceNote.set(
+        this.i18n.instant('asset.priceFrom', {
+          provider: this.i18n.instant('asset.provider.' + q.provider),
+          basis: this.i18n.instant('asset.basis.' + q.basis),
+          date: q.date,
+        }),
+      );
+      this.recalcAmount();
+    } catch {
+      if (request === this.quoteRequest) this.priceNote.set(this.i18n.instant('asset.priceMissing'));
+    }
+  }
+
+  private defaultBucket() {
+    if (this.bucketId()) return;
+    const key = BUCKET_FOR_KIND[this.assetKind()];
+    const bucket = this.bucketOptions().find((b) => b.key === key) ?? this.bucketOptions()[0];
+    if (bucket) this.bucketId.set(bucket.id);
+  }
+
+  private clearInstrument() {
+    this.picked.set(null);
+    this.quoteRequest++;
+    this.symbol.set('');
+    this.assetName.set('');
+    this.isin.set(null);
+    this.unitPrice.set('');
+    this.priceSource.set('Manual');
+    this.priceNote.set('');
+  }
+
+  private resetAsset() {
+    this.clearInstrument();
+    this.quantity.set('');
+    this.amountTouched.set(false);
   }
 
   protected pickCategory(id: string) {
@@ -443,6 +722,11 @@ export class QuickAddComponent {
       this.error.set(this.i18n.instant('tx.errors.account'));
       return;
     }
+    const asset = this.isInvestment() ? this.assetBody() : null;
+    if (asset === undefined) {
+      this.error.set(this.i18n.instant('tx.errors.symbol'));
+      return;
+    }
 
     const body: TransactionRequest = {
       type: this.type(),
@@ -458,6 +742,7 @@ export class QuickAddComponent {
       goalId: this.type() === 'Savings' ? this.goalId() : null,
       description: this.description() || null,
       notes: this.notes() || null,
+      asset,
     };
 
     this.saving.set(true);
@@ -487,8 +772,29 @@ export class QuickAddComponent {
     }
   }
 
+  /** null = no instrument details given (allowed); undefined = details given without a symbol (invalid). */
+  private assetBody(): InvestmentAsset | null | undefined {
+    const symbol = this.symbol().trim();
+    const quantity = parseDecimal(this.quantity());
+    const unitPrice = parseDecimal(this.unitPrice());
+    const name = this.assetName().trim();
+    if (!symbol) return quantity !== null || unitPrice !== null || name ? undefined : null;
+    const kind = this.assetKind();
+    return {
+      kind,
+      symbol,
+      name: name || null,
+      isin: kind === 'Crypto' ? null : this.isin(),
+      quantity,
+      unitPrice,
+      // Crypto never has a provider; the server enforces this too.
+      priceSource: kind === 'Crypto' ? 'Manual' : this.priceSource(),
+    };
+  }
+
   /** Keeps type, account, currency and date between entries so a batch of receipts is fast to type in. */
   private reset(full: boolean) {
+    this.resetAsset();
     this.amount.set('');
     this.description.set('');
     this.notes.set('');
@@ -508,7 +814,13 @@ export class QuickAddComponent {
 
 /** Accepts "1.234,56", "1234.56", "45,9" and "€ 45.90". */
 export function parseAmount(text: string): number | null {
-  const cleaned = text.replace(/[€\s]/g, '');
+  const value = parseDecimal(text);
+  return value === null ? null : Math.round(value * 10000) / 10000;
+}
+
+/** Same formats as {@link parseAmount}, without rounding (crypto quantities need many decimals). */
+export function parseDecimal(text: string): number | null {
+  const cleaned = text.replace(/[€$£\s]/g, '');
   if (!cleaned) return null;
   const lastComma = cleaned.lastIndexOf(',');
   const lastDot = cleaned.lastIndexOf('.');
@@ -516,5 +828,17 @@ export function parseAmount(text: string): number | null {
   const thousandSep = decimalSep === ',' ? '.' : ',';
   const normalised = cleaned.split(thousandSep).join('').replace(decimalSep, '.');
   const value = Number(normalised);
-  return Number.isFinite(value) ? Math.round(value * 10000) / 10000 : null;
+  return Number.isFinite(value) ? Math.round(value * 1e10) / 1e10 : null;
 }
+
+/** Number → input text with a decimal comma, as the fields accept it. */
+function formatInput(value: number | null): string {
+  return value === null ? '' : String(value).replace('.', ',');
+}
+
+const KIND_FOR_CLASS: Partial<Record<AssetClass, InvestmentAssetKind>> = {
+  Stock: 'Stock',
+  Etf: 'Etf',
+  Fund: 'Fund',
+  Bond: 'Bond',
+};

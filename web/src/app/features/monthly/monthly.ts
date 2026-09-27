@@ -46,8 +46,8 @@ type Reference = 'previous' | 'average' | 'budget';
   template: `
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-2xl font-semibold tracking-tight">{{ 'monthly.title' | translate }}</h1>
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="segmented">
+      <div class="flex max-w-full flex-wrap items-center gap-3">
+        <div class="segmented max-w-full overflow-x-auto">
           @for (r of references; track r) {
             <button [class.active]="reference() === r" (click)="reference.set(r)">
               {{ 'monthly.vs.' + r | translate }}
@@ -59,7 +59,8 @@ type Reference = 'previous' | 'average' | 'budget';
     </div>
 
     @if (report.value(); as r) {
-      <section class="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <h2 class="mb-2 text-sm font-semibold">{{ 'dashboard.everyday' | translate }}</h2>
+      <section class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <app-kpi
           [label]="'kpi.income' | translate"
           [value]="r.current.income"
@@ -92,6 +93,19 @@ type Reference = 'previous' | 'average' | 'budget';
           [higherIsBetter]="false"
         />
         <app-kpi
+          [label]="'kpi.netBalance' | translate"
+          [value]="r.current.netBalance"
+          [color]="colors.net"
+          [reference]="ref('netBalance')"
+          [referenceLabel]="refLabel()"
+        />
+      </section>
+
+      <h2 class="mt-6 mb-2 text-sm font-semibold">
+        {{ 'dashboard.investments' | translate }} / {{ 'kpi.saved' | translate }}
+      </h2>
+      <section class="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <app-kpi
           [label]="'kpi.invested' | translate"
           [value]="r.current.invested"
           [color]="colors.invested"
@@ -103,13 +117,6 @@ type Reference = 'previous' | 'average' | 'budget';
           [value]="r.current.saved"
           [color]="colors.saved"
           [reference]="ref('saved')"
-          [referenceLabel]="refLabel()"
-        />
-        <app-kpi
-          [label]="'kpi.netBalance' | translate"
-          [value]="r.current.netBalance"
-          [color]="colors.net"
-          [reference]="ref('netBalance')"
           [referenceLabel]="refLabel()"
         />
         <app-kpi

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseAmount } from './quick-add';
+import { parseAmount, parseDecimal } from './quick-add';
 
 describe('parseAmount', () => {
   it.each([
@@ -16,5 +16,20 @@ describe('parseAmount', () => {
 
   it.each(['', 'abc', '   '])('rejects %j', (input) => {
     expect(parseAmount(input)).toBeNull();
+  });
+});
+
+describe('parseDecimal', () => {
+  it.each([
+    ['0,00012345', 0.00012345],
+    ['0.00012345', 0.00012345],
+    ['$ 187.2', 187.2],
+    ['1.234,5678', 1234.5678],
+  ])('keeps the precision of %s (crypto quantities)', (input, expected) => {
+    expect(parseDecimal(input)).toBe(expected);
+  });
+
+  it('rounds money to 4 decimals only in parseAmount', () => {
+    expect(parseAmount('0,00012345')).toBe(0.0001);
   });
 });

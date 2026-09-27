@@ -77,36 +77,91 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
     </div>
 
     @if (overview.value(); as o) {
-      <section class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <app-kpi [label]="'kpi.income' | translate" [value]="o.income" [color]="colors.income" />
-        <app-kpi
-          [label]="'kpi.expenses' | translate"
-          [value]="o.totalExpenses"
-          [color]="colors.expenses"
-        />
-        <app-kpi
-          [label]="'kpi.invested' | translate"
-          [value]="o.invested"
-          [color]="colors.invested"
-        />
-        <app-kpi [label]="'kpi.saved' | translate" [value]="o.saved" [color]="colors.saved" />
-        <app-kpi
-          [label]="'kpi.netBalance' | translate"
-          [value]="o.netBalance"
-          [color]="colors.net"
-        />
-        <app-kpi
-          [label]="'kpi.avgSavingsRate' | translate"
-          [value]="o.averageMonthlySavingsRate"
-          kind="percent"
-          color="#f59e0b"
-        />
+      <!-- Everyday money and investments are never added together; the overall row is the explicit summary. -->
+      <div class="grid gap-6 xl:grid-cols-2">
+        <section aria-labelledby="dash-everyday">
+          <div class="mb-2">
+            <h2 id="dash-everyday" class="text-sm font-semibold">
+              {{ 'dashboard.everyday' | translate }}
+            </h2>
+            <p class="text-xs text-muted-foreground">{{ 'dashboard.everydayHint' | translate }}</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <app-kpi
+              [label]="'kpi.income' | translate"
+              [value]="o.everyday.income"
+              [color]="colors.income"
+            />
+            <app-kpi
+              [label]="'kpi.expenses' | translate"
+              [value]="o.everyday.expenses"
+              [color]="colors.expenses"
+            />
+            <app-kpi
+              class="col-span-2 sm:col-span-1"
+              [label]="'kpi.netBalance' | translate"
+              [value]="o.everyday.netBalance"
+              [color]="colors.net"
+            />
+          </div>
+        </section>
+
+        <section aria-labelledby="dash-investments">
+          <div class="mb-2">
+            <h2 id="dash-investments" class="text-sm font-semibold">
+              {{ 'dashboard.investments' | translate }}
+            </h2>
+            <p class="text-xs text-muted-foreground">
+              {{ 'dashboard.investmentsHint' | translate }}
+            </p>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <app-kpi
+              [label]="'dashboard.purchases' | translate"
+              [value]="o.investments.purchases"
+              [color]="colors.invested"
+            />
+            <app-kpi
+              [label]="'dashboard.sales' | translate"
+              [value]="o.investments.sales"
+              [color]="colors.invested"
+            />
+            <app-kpi
+              [label]="'dashboard.netInvested' | translate"
+              [value]="o.investments.netInvested"
+              [color]="colors.invested"
+            />
+            <app-kpi
+              [label]="'dashboard.investmentRate' | translate"
+              [value]="o.investments.investmentRate"
+              kind="percent"
+              [color]="colors.invested"
+            />
+          </div>
+        </section>
+      </div>
+
+      <section class="mt-6" aria-labelledby="dash-overall">
+        <h2 id="dash-overall" class="mb-2 text-sm font-semibold">
+          {{ 'dashboard.overall' | translate }}
+        </h2>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <app-kpi [label]="'kpi.saved' | translate" [value]="o.saved" [color]="colors.saved" />
+          <app-kpi
+            [label]="'kpi.avgSavingsRate' | translate"
+            [value]="o.averageMonthlySavingsRate"
+            kind="percent"
+            color="#f59e0b"
+          />
+          @if (o.weightedSavingsRate !== null) {
+            <p
+              class="col-span-2 self-center text-xs text-muted-foreground sm:col-span-1 sm:text-right"
+            >
+              {{ 'dashboard.weightedRate' | translate: { rate: (o.weightedSavingsRate | pct) } }}
+            </p>
+          }
+        </div>
       </section>
-      @if (o.weightedSavingsRate !== null) {
-        <p class="mt-2 text-right text-xs text-muted-foreground">
-          {{ 'dashboard.weightedRate' | translate: { rate: (o.weightedSavingsRate | pct) } }}
-        </p>
-      }
     }
 
     @if ((pending.value() ?? []).length) {
@@ -150,6 +205,16 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
         <h2 class="card-title px-5 pt-5">{{ 'dashboard.monthlyView' | translate }}</h2>
         <table hlmTable>
           <thead hlmTHead>
+            <tr hlmTr class="border-b-0">
+              <th hlmTh></th>
+              <th hlmTh colspan="4" class="border-b text-center text-xs text-muted-foreground">
+                {{ 'dashboard.everyday' | translate }}
+              </th>
+              <th hlmTh colspan="3" class="border-b text-center text-xs text-muted-foreground">
+                {{ 'dashboard.investments' | translate }} / {{ 'kpi.saved' | translate }}
+              </th>
+              <th hlmTh></th>
+            </tr>
             <tr hlmTr>
               <th hlmTh>{{ 'common.month' | translate }}</th>
               <th hlmTh class="text-right">{{ 'kpi.income' | translate }}</th>

@@ -21,7 +21,9 @@ public sealed record AnnualTotals(
     decimal? AverageMonthlySavingsRate,
     decimal? WeightedSavingsRate,
     decimal? WeightedInvestmentRate,
-    decimal? WeightedSavingsOnlyRate);
+    decimal? WeightedSavingsOnlyRate,
+    decimal InvestmentPurchases = 0,
+    decimal InvestmentSales = 0);
 
 public sealed record AnnualSummary(int Year, IReadOnlyList<AnnualRow> Months, AnnualTotals Totals);
 
@@ -65,7 +67,9 @@ public static class AnnualCalculator
             // Income-weighted rates: what share of the year's income was actually set aside.
             WeightedSavingsRate: MonthlyCalculator.Ratio(invested + saved, income),
             WeightedInvestmentRate: MonthlyCalculator.Ratio(invested, income),
-            WeightedSavingsOnlyRate: MonthlyCalculator.Ratio(saved, income));
+            WeightedSavingsOnlyRate: MonthlyCalculator.Ratio(saved, income),
+            InvestmentPurchases: ordered.Sum(m => m.InvestmentPurchases),
+            InvestmentSales: ordered.Sum(m => m.InvestmentSales));
 
         return new AnnualSummary(year, rows, totals);
     }

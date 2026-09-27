@@ -36,7 +36,22 @@ public sealed record TransactionDto(
     DataSource Source,
     bool Editable,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    TransactionFlow Flow,
+    InvestmentAssetDto? Asset);
+
+/// <summary>Instrument details of an investment entry. Also the request shape.</summary>
+public sealed record InvestmentAssetDto(
+    InvestmentAssetKind Kind,
+    string Symbol,
+    string? Name,
+    string? Isin,
+    decimal? Quantity,
+    decimal? UnitPrice,
+    string? PriceSource)
+{
+    public InvestmentAsset ToDomain() => new(Kind, Symbol, Name, Isin, Quantity, UnitPrice, PriceSource);
+}
 
 public sealed record TransactionRequest(
     TransactionType Type,
@@ -51,10 +66,12 @@ public sealed record TransactionRequest(
     Guid? GoalId,
     decimal? FxRate,
     string? Description,
-    string? Notes)
+    string? Notes,
+    InvestmentAssetDto? Asset = null)
 {
     public TransactionDraft ToDraft() => new(Type, OccurredOn, Amount, Currency ?? SharedKernel.Currency.Base,
-        AccountId, CategoryId, Nature, CounterAccountId, BucketId, GoalId, FxRate, Description, Notes);
+        AccountId, CategoryId, Nature, CounterAccountId, BucketId, GoalId, FxRate, Description, Notes,
+        Asset: Asset?.ToDomain());
 }
 
 public sealed class TransactionRequestValidator : AbstractValidator<TransactionRequest>
@@ -68,6 +85,18 @@ public sealed class TransactionRequestValidator : AbstractValidator<TransactionR
         RuleFor(x => x.Description).MaximumLength(200);
         RuleFor(x => x.Notes).MaximumLength(2000);
         RuleFor(x => x.FxRate).GreaterThan(0).When(x => x.FxRate is not null);
+        When(x => x.Asset is not null, () =>
+        {
+            RuleFor(x => x.Asset!.Kind).IsInEnum();
+            RuleFor(x => x.Asset!.Symbol).NotEmpty().MaximumLength(32);
+            RuleFor(x => x.Asset!.Name).MaximumLength(200);
+            RuleFor(x => x.Asset!.Isin).Length(12).Matches("^[A-Za-z0-9]{12}$").When(x => !string.IsNullOrEmpty(x.Asset!.Isin));
+            RuleFor(x => x.Asset!.Quantity).GreaterThan(0).PrecisionScale(28, 10, true).When(x => x.Asset!.Quantity is not null);
+            RuleFor(x => x.Asset!.UnitPrice).GreaterThanOrEqualTo(0).PrecisionScale(28, 10, true)
+                .When(x => x.Asset!.UnitPrice is not null);
+            RuleFor(x => x.Asset!.PriceSource).Must(s => s is null || AssetPriceSources.All.Contains(s))
+                .WithMessage("Unknown price source.");
+        });
     }
 }
 
@@ -190,6 +219,7 @@ public static class TransactionEndpoints
         DateOnly? from,
         DateOnly? to,
         [FromQuery] TransactionType[]? type,
+        TransactionFlow? flow,
         Guid? accountId,
         Guid? categoryId,
         Guid? bucketId,
@@ -214,6 +244,12 @@ public static class TransactionEndpoints
         if (type is { Length: > 0 })
         {
             query = query.Where(t => type.Contains(t.Type));
+        }
+
+        if (flow is { } f)
+        {
+            var flowTypes = TransactionTypes.Of(f).ToArray();
+            query = query.Where(t => flowTypes.Contains(t.Type));
         }
 
         if (accountId is not null)
@@ -248,7 +284,9 @@ public static class TransactionEndpoints
         {
             var term = search.Trim().ToLower();
             query = query.Where(t => (t.Description != null && t.Description.ToLower().Contains(term)) ||
-                                     (t.Notes != null && t.Notes.ToLower().Contains(term)));
+                                     (t.Notes != null && t.Notes.ToLower().Contains(term)) ||
+                                     (t.AssetSymbol != null && t.AssetSymbol.ToLower().Contains(term)) ||
+                                     (t.AssetName != null && t.AssetName.ToLower().Contains(term)));
         }
 
         var size = Math.Clamp(pageSize ?? 50, 1, MaxPageSize);
@@ -294,5 +332,9 @@ public static class TransactionEndpoints
             c == null ? null : c.Key, c == null ? null : c.Name, t.Nature, t.BucketId, b == null ? null : b.Name,
             t.GoalId, t.Description, t.Notes, t.Source,
             t.Source != DataSource.Trading212 && t.Source != DataSource.InteractiveBrokers,
-            t.CreatedAtUtc, t.UpdatedAtUtc);
+            t.CreatedAtUtc, t.UpdatedAtUtc, TransactionTypes.FlowOf(t.Type),
+            t.AssetKind == null || t.AssetSymbol == null
+                ? null
+                : new InvestmentAssetDto(t.AssetKind!.Value, t.AssetSymbol!, t.AssetName, t.AssetIsin, t.AssetQuantity,
+                    t.AssetUnitPrice, t.AssetPriceSource));
 }

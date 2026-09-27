@@ -6,7 +6,13 @@ import { firstValueFrom } from 'rxjs';
 import { Api, TransactionFilter } from '../../core/api';
 import { DataEvents, QuickAdd } from '../../core/data-events';
 import { DayPipe, MoneyPipe } from '../../core/format';
-import { AuditEntry, Transaction, TransactionType } from '../../core/models';
+import {
+  AuditEntry,
+  FLOW_TYPES,
+  Transaction,
+  TransactionFlow,
+  TransactionType,
+} from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe } from '../../shared/category-label';
 import { ModalComponent } from '../../shared/modal';
@@ -31,6 +37,14 @@ const TYPE_TONE: Record<TransactionType, string> = {
   Transfer: 'text-muted-foreground',
   Savings: 'text-cyan-600 dark:text-cyan-400',
   InvestmentContribution: 'text-violet-600 dark:text-violet-400',
+  InvestmentSale: 'text-violet-600 dark:text-violet-400',
+};
+
+const SIGN: Partial<Record<TransactionType, string>> = {
+  Expense: '−',
+  Income: '+',
+  InvestmentContribution: '−',
+  InvestmentSale: '+',
 };
 
 @Component({
@@ -60,17 +74,34 @@ const TYPE_TONE: Record<TransactionType, string> = {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.transactions' | translate }}</h1>
       <span class="text-sm text-muted-foreground">{{
         'tx.count' | translate: { count: page.value()?.total ?? 0 }
       }}</span>
     </div>
 
-    <section class="card mb-4 grid gap-3 !p-4 md:grid-cols-6">
+    <!-- Everyday money and investments are listed separately; "All" is the explicit combined view. -->
+    <div class="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div class="segmented" role="tablist">
+        @for (f of flowTabs; track f) {
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="flow() === f"
+            [class.active]="flow() === f"
+            (click)="setFlow(f)"
+          >
+            {{ 'flow.' + (f || 'all') | translate }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <section class="card mb-4 grid grid-cols-1 gap-3 !p-4 sm:grid-cols-2 lg:grid-cols-6">
       <input
         hlmInput
-        class="md:col-span-2"
+        class="sm:col-span-2"
         type="search"
         [placeholder]="'common.search' | translate"
         [value]="search()"
@@ -110,8 +141,8 @@ const TYPE_TONE: Record<TransactionType, string> = {
           <option [value]="c.id">{{ c.parentId ? '— ' : '' }}{{ c | categoryLabel }}</option>
         }
       </select>
-      <div class="flex flex-wrap gap-2 md:col-span-6">
-        @for (t of types; track t) {
+      <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-6">
+        @for (t of visibleTypes(); track t) {
           <button
             class="chip"
             [class.chip-active]="typeFilter().includes(t)"
@@ -128,7 +159,71 @@ const TYPE_TONE: Record<TransactionType, string> = {
       </div>
     </section>
 
-    <section class="card overflow-x-auto !p-0">
+    <section class="card overflow-hidden !p-0">
+      <!-- Phones: one card per row instead of a wide table. -->
+      <ul class="divide-y md:hidden">
+        @for (t of page.value()?.items ?? []; track t.id) {
+          <li class="flex items-start gap-3 px-4 py-3">
+            <div class="min-w-0 flex-1">
+              <div class="truncate font-medium">{{ title(t) }}</div>
+              <div class="text-muted-foreground truncate text-xs">
+                {{ t.occurredOn | day: 'short' }} · {{ 'type.' + t.type | translate }} ·
+                {{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? t.accountName) }}
+              </div>
+              @if (t.asset; as a) {
+                <div class="text-muted-foreground num truncate text-xs">
+                  {{ a.symbol }}
+                  @if (a.quantity !== null) {
+                    · {{ a.quantity }} ×
+                    {{ a.unitPrice !== null ? (a.unitPrice | money: t.currency) : '—' }}
+                  }
+                </div>
+              }
+            </div>
+            <div class="flex shrink-0 flex-col items-end gap-1">
+              <span class="num font-semibold whitespace-nowrap" [class]="tone(t.type)">
+                {{ sign(t.type) }}{{ t.amount | money: t.currency }}
+              </span>
+              <div class="flex">
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="icon-sm"
+                  (click)="showHistory(t)"
+                  [attr.aria-label]="'tx.history' | translate"
+                >
+                  <ng-icon name="lucideHistory" />
+                </button>
+                @if (t.editable) {
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="icon-sm"
+                    (click)="quick.edit(t)"
+                    [attr.aria-label]="'common.edit' | translate"
+                  >
+                    <ng-icon name="lucidePencil" />
+                  </button>
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-destructive hover:text-destructive"
+                    (click)="remove(t)"
+                    [attr.aria-label]="'common.delete' | translate"
+                  >
+                    <ng-icon name="lucideTrash2" />
+                  </button>
+                }
+              </div>
+            </div>
+          </li>
+        } @empty {
+          <li class="px-4 py-12 text-center text-muted-foreground">{{ 'tx.empty' | translate }}</li>
+        }
+      </ul>
+
+      <div class="hidden overflow-x-auto md:block">
       <table hlmTable>
         <thead hlmTHead>
           <tr hlmTr>
@@ -148,11 +243,18 @@ const TYPE_TONE: Record<TransactionType, string> = {
               </td>
               <td hlmTd class="max-w-72 whitespace-normal">
                 <!-- Descriptions are user/imported data; rendered as text only, never as HTML. -->
-                <div class="truncate font-medium">
-                  {{ t.description || ('type.' + t.type | translate) }}
-                </div>
+                <div class="truncate font-medium">{{ title(t) }}</div>
                 <div class="text-xs text-muted-foreground">
                   {{ 'type.' + t.type | translate }}
+                  @if (t.asset; as a) {
+                    · <span class="num">{{ a.symbol }}</span>
+                    @if (a.quantity !== null) {
+                      <span class="num">
+                        · {{ a.quantity }} ×
+                        {{ a.unitPrice !== null ? (a.unitPrice | money: t.currency) : '—' }}</span
+                      >
+                    }
+                  }
                   @if (t.nature) {
                     · {{ 'nature.' + t.nature | translate }}
                   }
@@ -176,8 +278,7 @@ const TYPE_TONE: Record<TransactionType, string> = {
                 class="num text-right font-semibold whitespace-nowrap"
                 [class]="tone(t.type)"
               >
-                {{ t.type === 'Expense' ? '−' : t.type === 'Income' ? '+' : ''
-                }}{{ t.amount | money: t.currency }}
+                {{ sign(t.type) }}{{ t.amount | money: t.currency }}
                 @if (t.currency !== 'EUR') {
                   <div class="text-xs font-normal text-muted-foreground">
                     {{ t.baseAmount | money }}
@@ -226,6 +327,7 @@ const TYPE_TONE: Record<TransactionType, string> = {
           }
         </tbody>
       </table>
+      </div>
       @if ((page.value()?.total ?? 0) > pageSize) {
         <div class="flex items-center justify-end gap-2 p-3">
           <button
@@ -286,13 +388,15 @@ export class TransactionsComponent {
   protected readonly quick = inject(QuickAdd);
   private readonly query = toSignal(inject(ActivatedRoute).queryParamMap);
 
-  protected readonly types: TransactionType[] = [
-    'Expense',
-    'Income',
-    'Transfer',
-    'Savings',
-    'InvestmentContribution',
-  ];
+  /** '' is the explicit combined view. */
+  protected readonly flowTabs: (TransactionFlow | '')[] = ['Everyday', 'Investment', 'Movement', ''];
+  protected readonly flow = signal<TransactionFlow | ''>(
+    (this.query()?.get('flow') as TransactionFlow | null) ?? 'Everyday',
+  );
+  protected readonly visibleTypes = computed<TransactionType[]>(() => {
+    const f = this.flow();
+    return f ? FLOW_TYPES[f] : Object.values(FLOW_TYPES).flat();
+  });
   protected readonly pageSize = 50;
   protected readonly search = signal('');
   protected readonly from = signal(this.query()?.get('from') ?? '');
@@ -313,6 +417,7 @@ export class TransactionsComponent {
     accountId: this.accountId(),
     categoryId: this.categoryId(),
     type: this.typeFilter(),
+    flow: this.flow(),
     page: this.pageNo(),
     pageSize: this.pageSize,
     v: this.events.version(),
@@ -342,6 +447,21 @@ export class TransactionsComponent {
   );
 
   protected tone = (type: TransactionType) => TYPE_TONE[type];
+  protected sign = (type: TransactionType) => SIGN[type] ?? '';
+
+  /** Descriptions are user/imported data and rendered as text only. */
+  protected title(t: Transaction) {
+    return (
+      t.description ||
+      (t.asset ? (t.asset.name ?? t.asset.symbol) : this.i18n.instant('type.' + t.type))
+    );
+  }
+
+  protected setFlow(f: TransactionFlow | '') {
+    this.flow.set(f);
+    this.typeFilter.set([]);
+    this.pageNo.set(1);
+  }
 
   protected toggleType(t: TransactionType) {
     this.typeFilter.update((list) =>

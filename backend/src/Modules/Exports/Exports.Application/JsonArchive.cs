@@ -56,6 +56,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     t.Id, t.Type, t.OccurredOn, t.OccurredAtUtc, t.TimeZone, t.AccountId, t.CounterAccountId, t.CategoryId,
                     t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount,
                     t.BaseCurrency, t.Description, t.Notes, t.Source, t.ExternalId, t.CreatedAtUtc, t.UpdatedAtUtc,
+                    t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetIsin, t.AssetQuantity, t.AssetUnitPrice,
+                    t.AssetPriceSource,
                 }).ToListAsync(ct),
                 recurring = await finance.RecurringTransactions.AsNoTracking().ToListAsync(ct),
                 budgets = (await finance.Budgets.AsNoTracking().Include(b => b.Items).ToListAsync(ct)).Select(b => new
@@ -228,7 +230,11 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     DateOnly.Parse(Str(t, "occurredOn")!, System.Globalization.CultureInfo.InvariantCulture), Dec(t, "originalAmount") ?? 0,
                     Str(t, "originalCurrency") ?? Currency.Base, accountId, Mapped(t, "categoryId", map),
                     Str(t, "nature") is { } n ? Enum.Parse<ExpenseNature>(n) : null, Mapped(t, "counterAccountId", map),
-                    Mapped(t, "bucketId", map), Mapped(t, "goalId", map), Dec(t, "fxRate"), Str(t, "description"), Str(t, "notes"));
+                    Mapped(t, "bucketId", map), Mapped(t, "goalId", map), Dec(t, "fxRate"), Str(t, "description"), Str(t, "notes"),
+                    Asset: Str(t, "assetKind") is { } kind && Str(t, "assetSymbol") is { } symbol
+                        ? new InvestmentAsset(Enum.Parse<InvestmentAssetKind>(kind), symbol, Str(t, "assetName"),
+                            Str(t, "assetIsin"), Dec(t, "assetQuantity"), Dec(t, "assetUnitPrice"), Str(t, "assetPriceSource"))
+                        : null);
                 var created = Transaction.Create(draft, DataSource.Json, externalId: $"json:{originalId}");
                 if (created.IsSuccess)
                 {

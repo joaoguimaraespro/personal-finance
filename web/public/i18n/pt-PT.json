@@ -76,7 +76,49 @@
   "Income": "Rendimento",
   "Transfer": "Transferência",
   "Savings": "Poupança",
-  "InvestmentContribution": "Investimento"
+  "InvestmentContribution": "Compra",
+  "InvestmentSale": "Venda"
+ },
+ "flow": {
+  "Everyday": "Dia a dia",
+  "Investment": "Investimentos",
+  "Movement": "Transferências e poupança",
+  "all": "Todos"
+ },
+ "investmentKind": {
+  "Stock": "Ação",
+  "Etf": "ETF",
+  "Crypto": "Cripto",
+  "Fund": "Fundo",
+  "Bond": "Obrigação",
+  "Other": "Outro"
+ },
+ "asset": {
+  "kind": "Tipo de ativo",
+  "search": "Pesquisar ticker, nome ou ISIN",
+  "searchPlaceholder": "ex.: AAPL, VWCE, Apple…",
+  "searching": "A pesquisar…",
+  "noResults": "Sem resultados — preenche os dados manualmente.",
+  "notConfigured": "Pesquisa ao vivo desligada (sem chaves Trading 212 / IBKR configuradas). Os resultados vêm só das posições sincronizadas; podes sempre escrever os dados.",
+  "cryptoManual": "Cripto é introduzida manualmente: símbolo, nome, quantidade e preço.",
+  "symbol": "Ticker / símbolo",
+  "name": "Nome",
+  "quantity": "Quantidade",
+  "unitPrice": "Preço por unidade",
+  "priceFrom": "Preço de {{provider}} ({{basis}}, {{date}})",
+  "priceMissing": "O fornecedor não tem preço para esta data — introduz manualmente.",
+  "fetchingPrice": "A obter preço…",
+  "clear": "Limpar seleção",
+  "basis": {
+   "trade": "a tua execução",
+   "close": "fecho",
+   "current": "ao vivo"
+  },
+  "provider": {
+   "Trading212": "Trading 212",
+   "InteractiveBrokers": "IBKR",
+   "Portfolio": "Carteira"
+  }
  },
  "nature": {
   "Fixed": "Fixa",
@@ -163,7 +205,16 @@
   "title": "Dashboard",
   "subtitle": "O teu ano num relance",
   "monthlyView": "Visão mensal",
-  "weightedRate": "Taxa de poupança ponderada pelo rendimento: {{rate}}"
+  "weightedRate": "Taxa de poupança ponderada pelo rendimento: {{rate}}",
+  "everyday": "Dia a dia",
+  "everydayHint": "Só receitas e despesas — os investimentos não entram aqui.",
+  "investments": "Investimentos",
+  "investmentsHint": "Ativos comprados e vendidos (ações, ETFs, cripto…), separados do dia a dia.",
+  "purchases": "Comprado",
+  "sales": "Vendido",
+  "netInvested": "Investido líquido",
+  "investmentRate": "% do rendimento investido",
+  "overall": "Resumo geral"
  },
  "monthly": {
   "title": "Resumo mensal",
@@ -227,8 +278,12 @@
   "history": "Histórico de alterações",
   "errors": {
    "amount": "Introduz um valor superior a zero.",
-   "account": "Escolhe uma conta."
-  }
+   "account": "Escolhe uma conta.",
+   "symbol": "Indica o ticker ou símbolo do ativo."
+  },
+  "cashAccount": "Conta à ordem",
+  "brokerAccount": "Corretora / carteira (opcional)",
+  "investmentHint": "Os investimentos são apresentados separadamente das receitas e despesas do dia a dia."
  },
  "recurring": {
   "subtitle": "Os modelos propõem movimentos; nada é registado sem a tua confirmação.",

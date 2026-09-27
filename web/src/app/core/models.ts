@@ -1,4 +1,72 @@
-export type TransactionType = 'Expense' | 'Income' | 'Transfer' | 'Savings' | 'InvestmentContribution';
+export type TransactionType =
+  | 'Expense'
+  | 'Income'
+  | 'Transfer'
+  | 'Savings'
+  | 'InvestmentContribution'
+  | 'InvestmentSale';
+/** Day-to-day money vs investing vs moving money between own accounts — reported separately. */
+export type TransactionFlow = 'Everyday' | 'Investment' | 'Movement';
+export type InvestmentAssetKind = 'Stock' | 'Etf' | 'Crypto' | 'Fund' | 'Bond' | 'Other';
+export type AssetPriceSource = 'Manual' | 'Trading212' | 'InteractiveBrokers' | 'Portfolio';
+export type InstrumentProvider = 'Trading212' | 'InteractiveBrokers' | 'Portfolio';
+
+export const FLOW_TYPES: Record<TransactionFlow, TransactionType[]> = {
+  Everyday: ['Expense', 'Income'],
+  Investment: ['InvestmentContribution', 'InvestmentSale'],
+  Movement: ['Transfer', 'Savings'],
+};
+
+export function flowOf(type: TransactionType): TransactionFlow {
+  if (type === 'Expense' || type === 'Income') return 'Everyday';
+  if (type === 'InvestmentContribution' || type === 'InvestmentSale') return 'Investment';
+  return 'Movement';
+}
+
+export interface InvestmentAsset {
+  kind: InvestmentAssetKind;
+  symbol: string;
+  name: string | null;
+  isin: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  priceSource: AssetPriceSource | null;
+}
+
+export interface InstrumentMatch {
+  provider: InstrumentProvider;
+  brokerSymbol: string;
+  symbol: string;
+  name: string;
+  isin: string | null;
+  currency: string;
+  assetClass: AssetClass;
+  exchange: string | null;
+}
+
+export interface ProviderState {
+  provider: InstrumentProvider;
+  configured: boolean;
+  message: string | null;
+}
+
+export interface InstrumentSearchResult {
+  items: InstrumentMatch[];
+  providers: ProviderState[];
+}
+
+export interface InstrumentQuote {
+  provider: InstrumentProvider;
+  date: string;
+  price: number;
+  currency: string;
+  basis: 'trade' | 'close' | 'current';
+}
+
+export interface InstrumentQuoteResult {
+  quote: InstrumentQuote | null;
+  message: string | null;
+}
 export type ExpenseNature = 'Fixed' | 'Variable';
 export type AccountKind = 'Bank' | 'Cash' | 'CreditCard' | 'Savings' | 'Broker' | 'Loan' | 'Other';
 export type DataSource = 'Manual' | 'Recurring' | 'Xlsx' | 'Csv' | 'Json' | 'Trading212' | 'InteractiveBrokers';
@@ -70,6 +138,8 @@ export interface Transaction {
   editable: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
+  flow: TransactionFlow;
+  asset: InvestmentAsset | null;
 }
 
 export interface TransactionRequest {
@@ -86,6 +156,7 @@ export interface TransactionRequest {
   fxRate?: number | null;
   description?: string | null;
   notes?: string | null;
+  asset?: InvestmentAsset | null;
 }
 
 export interface Page<T> {
@@ -195,6 +266,20 @@ export interface Overview {
   averageMonthlySavingsRate: number | null;
   weightedSavingsRate: number | null;
   pendingExpected: number;
+  /** Day-to-day money only; never includes investments. */
+  everyday: {
+    income: number;
+    expenses: number;
+    fixedExpenses: number;
+    variableExpenses: number;
+    netBalance: number;
+  };
+  investments: {
+    purchases: number;
+    sales: number;
+    netInvested: number;
+    investmentRate: number | null;
+  };
 }
 
 export interface CategoryLine {

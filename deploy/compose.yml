@@ -69,6 +69,12 @@ services:
       # Optional in-app assistant (Claude). Leave empty to keep it disabled.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       Assistant__Model: ${ASSISTANT_MODEL:-claude-opus-5}
+      # Optional add-transaction autofill (read-only keys). Empty = manual entry only.
+      MarketData__Trading212__ApiKey: ${T212_API_KEY:-}
+      MarketData__Trading212__ApiSecret: ${T212_API_SECRET:-}
+      MarketData__Trading212__Environment: ${T212_ENVIRONMENT:-live}
+      MarketData__Ibkr__Token: ${IBKR_FLEX_TOKEN:-}
+      MarketData__Ibkr__QueryId: ${IBKR_FLEX_QUERY_ID:-}
       TZ: Europe/Lisbon
     volumes:
       - dp-keys:/keys
