@@ -269,7 +269,7 @@ interface AuditEvent {
             </label>
           }
         </fieldset>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="form-grid">
           @if (!editing()) {
             <div>
               <label class="label" for="ai-exp">{{ 'ai.expiresInDays' | translate }}</label>

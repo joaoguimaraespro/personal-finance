@@ -152,4 +152,53 @@
   .nav-link.nav-active {
     @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
   }
+
+  /* Responsive building blocks, used on every page so breakpoints behave the same everywhere:
+     phones < 640px (sm) · tablets 640–1023px (sm/md, sidebar as drawer) · desktop ≥ 1024px (lg, sidebar pinned). */
+
+  /* Page title row: title and actions stack on phones, sit side by side from sm up. */
+  .page-header {
+    @apply mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between;
+  }
+
+  /* Forms (pages and dialogs): one column on phones, two from sm up. */
+  .form-grid {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2;
+  }
+
+  /* KPI tiles: 2 per row on phones, then 3/4 as space allows. */
+  .kpi-grid {
+    @apply grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4;
+  }
+
+  /* Any data table: scroll horizontally inside its card instead of widening the page. */
+  .table-wrap {
+    @apply w-full overflow-x-auto overscroll-x-contain;
+  }
+
+  /* Tab bars/segmented controls that may not fit a phone: scroll instead of overflowing. */
+  .scroll-x {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
+    scrollbar-width: none;
+  }
+}
+
+@layer utilities {
+  /* Full-width rows inside .form-grid, whether it currently has one column or two. */
+  .form-grid > .col-span-2 {
+    grid-column: 1 / -1;
+  }
+
+  /* Prevent iOS Safari from zooming into native selects (font-size < 16px) on phones. */
+  @media (max-width: 767px) {
+    select[data-slot='native-select'] {
+      font-size: 1rem;
+    }
+  }
+}
+
+/* Respect the notch / home indicator on phones when installed or in landscape. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }

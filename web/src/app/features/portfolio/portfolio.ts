@@ -168,6 +168,7 @@ type Range = '1Y' | '3Y' | 'ALL';
               </button>
             </div>
             <app-chart class="h-44" [option]="allocationChart()" />
+            <div class="table-wrap">
             <table hlmTable class="mt-2">
               <thead hlmTHead>
                 <tr hlmTr>
@@ -205,6 +206,7 @@ type Range = '1Y' | '3Y' | 'ALL';
                 }
               </tbody>
             </table>
+            </div>
             <p class="mt-2 text-[11px] text-muted-foreground">
               {{ 'portfolio.noRebalance' | translate }}
             </p>

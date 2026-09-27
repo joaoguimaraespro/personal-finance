@@ -117,7 +117,7 @@ const EMPTY: AccountForm = {
       [title]="(editingId() ? 'accounts.edit' : 'accounts.new') | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="grid grid-cols-2 gap-3" (submit)="$event.preventDefault(); save()">
+      <form class="form-grid" (submit)="$event.preventDefault(); save()">
         <div class="col-span-2">
           <label class="label" for="a-name">{{ 'common.name' | translate }}</label>
           <input

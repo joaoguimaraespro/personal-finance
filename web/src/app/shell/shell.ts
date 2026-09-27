@@ -134,7 +134,7 @@ interface NavItem {
 
       <div class="flex min-w-0 flex-1 flex-col">
         <header
-          class="bg-background/80 sticky top-0 z-10 flex h-16 items-center gap-2 border-b px-4 backdrop-blur lg:px-8"
+          class="bg-background/80 sticky top-0 z-10 flex h-14 items-center gap-1.5 border-b px-3 backdrop-blur sm:h-16 sm:gap-2 sm:px-4 lg:px-8"
         >
           <button
             hlmBtn
@@ -147,11 +147,15 @@ interface NavItem {
             <ng-icon name="lucideMenu" />
           </button>
           <div class="flex-1"></div>
-          <button hlmBtn (click)="quick.add()">
-            <ng-icon name="lucidePlus" />{{ 'tx.add' | translate }}
-            <kbd hlmKbd class="ml-1 hidden bg-black/15 text-inherit sm:inline-flex">N</kbd>
+          <!-- Phones: icon-only actions so the header never overflows at 320–400px. -->
+          <button hlmBtn (click)="quick.add()" [attr.aria-label]="'tx.add' | translate">
+            <ng-icon name="lucidePlus" /><span class="hidden sm:inline">{{
+              'tx.add' | translate
+            }}</span>
+            <kbd hlmKbd class="ml-1 hidden bg-black/15 text-inherit lg:inline-flex">N</kbd>
           </button>
           <hlm-toggle-group
+            class="hidden sm:flex"
             type="single"
             variant="outline"
             size="sm"
@@ -191,7 +195,7 @@ interface NavItem {
             <ng-icon name="lucideLogOut" />
           </button>
         </header>
-        <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">
+        <main class="mx-auto w-full max-w-7xl min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
           <router-outlet />
         </main>
       </div>

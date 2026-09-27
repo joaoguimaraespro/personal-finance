@@ -85,7 +85,7 @@
   "Movement": "Transfers & savings",
   "all": "All"
  },
- "assetKind": {
+ "investmentKind": {
   "Stock": "Stock",
   "Etf": "ETF",
   "Crypto": "Crypto",

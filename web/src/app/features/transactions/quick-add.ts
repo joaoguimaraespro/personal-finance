@@ -117,7 +117,7 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
                     [class.chip-active]="assetKind() === k"
                     (click)="setAssetKind(k)"
                   >
-                    {{ 'assetKind.' + k | translate }}
+                    {{ 'investmentKind.' + k | translate }}
                   </button>
                 }
               </div>
