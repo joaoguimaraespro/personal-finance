@@ -7,7 +7,7 @@ COPY web/ ./
 RUN npx ng build --configuration production
 
 # Caddy serves the SPA and reverse-proxies /api to the API container. Runs unprivileged on :8080.
-FROM caddy:2.10-alpine
+FROM caddy:2.11-alpine
 # The upstream binary carries cap_net_bind_service; we listen on :8080 and run with all capabilities dropped,
 # so remove the file capability (otherwise exec fails under no-new-privileges).
 RUN apk add --no-cache libcap && setcap -r /usr/bin/caddy && apk del libcap
