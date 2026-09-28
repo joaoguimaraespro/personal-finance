@@ -73,6 +73,43 @@ comparison. No other categories, no accounts, no descriptions, no portfolio. *"H
 The MCP server lists only the tools the token's scopes allow, and every tool is annotated
 `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`.
 
+## Using it from the Claude app (phone, desktop, web)
+
+A **custom connector** in the Claude app doesn't work with this setup:
+
+- Anthropic's cloud opens those connections, not your device, so it can't reach a VPN-only server ([ADR-0003](adr/0003-vpn-only-exposure.md)).
+- Custom connectors authenticate with OAuth. Request headers are a limited beta, so the `pf_…` client token can't be sent.
+
+Instead, use Claude Code **[Remote Control](https://code.claude.com/docs/en/remote-control)** on the server. A `claude remote-control` process on the host connects out to Anthropic, and the Claude app (Code tab) drives that session. MCP runs on the host against `127.0.0.1`, so nothing new is exposed. It's billed to the Claude subscription (Pro/Max), not the API.
+
+```mermaid
+flowchart LR
+  P["Claude app (phone / web)"] --> A["Anthropic (relay)"]
+  A <-->|"outbound only"| RC["claude remote-control\n(on the host)"]
+  RC -->|"MCP, Bearer pf_…"| MCP["127.0.0.1:8080/mcp"]
+```
+
+Templates are in [`deploy/remote-control/`](../deploy/remote-control/):
+
+- **`.claude/settings.json`**: allows only the `personal-finance` MCP tools and denies shell, file, web and subagent tools. A remote session can't do anything on the host except these read-only tools.
+- **`.mcp.json`**: points at `http://127.0.0.1:8080/mcp` and reads the token from `PF_MCP_TOKEN`.
+- **`CLAUDE.md`**: keeps the session on finance questions only.
+- **`finance-chat.service`**: a systemd user unit that keeps the server running and restarts it if it fails.
+
+Setup, as the user that runs Claude Code on the host:
+
+```bash
+cp -r deploy/remote-control ~/finance-chat           # includes .claude/ and .mcp.json
+install -d -m 700 ~/.config/finance-chat
+( umask 077; echo 'PF_MCP_TOKEN=pf_…' > ~/.config/finance-chat/env )   # AI access → New AI client
+cd ~/finance-chat && claude                           # once: accept workspace trust, then exit
+cp finance-chat.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now finance-chat
+loginctl enable-linger "$USER"                        # keep it running after logout (needs sudo once)
+```
+
+Then open the Claude app → **Code** → the **Finance** session. Revoking the client on the AI access page cuts access immediately. The audit log records each call as for any other client.
+
 ## In-app assistant
 
 Optional; enabled by setting `ANTHROPIC_API_KEY` (and optionally `ASSISTANT_MODEL`, default `claude-opus-5`).
