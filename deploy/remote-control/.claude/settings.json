@@ -1,0 +1,11 @@
+{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": ["mcp__personal-finance__*"],
+    "deny": [
+      "Bash", "Edit", "Write", "NotebookEdit", "Read", "Glob", "Grep",
+      "WebFetch", "WebSearch", "Agent", "Skill"
+    ]
+  }
+}

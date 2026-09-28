@@ -1,0 +1,15 @@
+[Unit]
+Description=Claude Remote Control — personal finance chat (read-only MCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=%h/finance-chat
+EnvironmentFile=%h/.config/finance-chat/env
+# Server mode is interactive (QR code, key toggles), so give it a pseudo-terminal.
+ExecStart=/usr/bin/script -qfec "%h/.local/bin/claude remote-control --name 'Finance' --spawn same-dir --capacity 4" /dev/null
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target
