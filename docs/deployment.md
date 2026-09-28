@@ -48,8 +48,37 @@ docker compose --env-file .env logs -f api
 ~/personal-finance/deploy/scripts/backup.sh      # on-demand backup
 ```
 
-Copy `backups/` off the machine regularly (another disk, rclone to object storage — the files are
-already encrypted).
+### Off-site copy
+
+Local backups share a disk with the database, so a dead disk or lost server takes both. Set
+`BACKUP_REMOTE` in `deploy/.env` and each daily run also uploads every archive not already there, using
+[rclone](https://rclone.org) (70+ providers). The files are age-encrypted before they leave the server,
+so the provider can't read them.
+
+Example with Backblaze B2 (first 10 GB free; any rclone backend works the same way):
+
+1. Create a **private** bucket, e.g. `pf-backups-<random>`, and add a **lifecycle rule** that deletes
+   files after e.g. 90 days.
+2. Create an **application key restricted to that bucket without `deleteFiles`**: read + write only.
+   A compromised server can then add backups but can't delete the existing ones. The lifecycle rule
+   handles retention.
+3. As the `finance` user:
+
+   ```bash
+   sudo -iu finance
+   rclone config create b2 b2 account <keyID> key <applicationKey>
+   sed -i 's#^BACKUP_REMOTE=.*#BACKUP_REMOTE=b2:pf-backups-<random>/finance#' ~/personal-finance/deploy/.env
+   ~/personal-finance/deploy/scripts/backup.sh     # uploads now; prints "Off-site copy up to date"
+   rclone ls b2:pf-backups-<random>/finance
+   ```
+
+Leave `BACKUP_REMOTE_RETENTION_DAYS` empty with a key that can't delete. Set it only if the remote has no
+lifecycle rules and the credential can delete. If the upload fails, the local backup is kept, the
+`finance-backup` unit is marked failed (`systemctl --user status finance-backup`), and the next run
+uploads whatever is missing.
+
+Also keep a copy of `deploy/.env` and the rclone config (`~/.config/rclone/rclone.conf`) in your password
+manager. The age **private** key never goes on the server or in the bucket.
 
 ## Upgrades
 
