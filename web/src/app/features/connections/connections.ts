@@ -20,7 +20,11 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { Confirm } from '../../core/confirm';
 import { DateFieldComponent } from '../../shared/date-field';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { lucideBookOpen, lucideLoaderCircle, lucidePlus } from '@ng-icons/lucide';
+import { BrokerGuideComponent, GuideBroker } from './broker-guide';
+import { FieldProblem, friendlyError, validateCredentials } from './credentials';
+
+type CredentialField = ProviderInfo['fields'][number];
 
 /** Credentials are write-only: the form can set them, the page never displays them. */
 @Component({
@@ -33,11 +37,12 @@ import { lucidePlus } from '@ng-icons/lucide';
     TranslatePipe,
     DayPipe,
     ModalComponent,
+    BrokerGuideComponent,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [provideIcons({ lucidePlus, lucideBookOpen, lucideLoaderCircle })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div class="page-header">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.connections' | translate }}</h1>
         <p class="text-sm text-muted-foreground">{{ 'connections.subtitle' | translate }}</p>
@@ -80,6 +85,14 @@ import { lucidePlus } from '@ng-icons/lucide';
                   @if (j.outcome !== 'Running') {
                     · +{{ j.imported }} / ~{{ j.updated }}
                   }
+                } @else if (c.status !== 'Disabled') {
+                  <span class="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <ng-icon
+                      name="lucideLoaderCircle"
+                      class="motion-safe:animate-spin"
+                      aria-hidden="true"
+                    />{{ 'connections.checking' | translate }}
+                  </span>
                 } @else {
                   —
                 }
@@ -95,11 +108,25 @@ import { lucidePlus } from '@ng-icons/lucide';
             }
           </dl>
           @if (c.lastError) {
-            <p
+            <div
               class="mt-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
             >
-              {{ c.lastError }}
-            </p>
+              @if (friendly(c.lastError); as key) {
+                <!-- The broker's original message stays available on hover for troubleshooting. -->
+                <p [title]="c.lastError">{{ key | translate }}</p>
+              } @else {
+                <p>{{ c.lastError }}</p>
+              }
+              @if (guideFor(c.kind); as g) {
+                <button
+                  type="button"
+                  class="mt-1 font-medium underline underline-offset-2"
+                  (click)="showGuide(g)"
+                >
+                  {{ 'connections.fixHint' | translate }}
+                </button>
+              }
+            </div>
           }
           <div class="mt-4 flex flex-wrap gap-2">
             <button
@@ -152,16 +179,86 @@ import { lucidePlus } from '@ng-icons/lucide';
           </div>
         </section>
       } @empty {
-        <section class="card col-span-full py-12 text-center text-muted-foreground">
-          {{ 'connections.empty' | translate }}
-        </section>
+        @if (connections.hasValue()) {
+          <section class="card col-span-full py-10 text-center">
+            <p class="font-semibold">{{ 'connections.emptyTitle' | translate }}</p>
+            <p class="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
+              {{ 'connections.emptyBody' | translate }}
+            </p>
+          </section>
+        }
       }
     </div>
 
-    <app-modal [open]="!!provider()" [title]="provider()?.name ?? ''" (closed)="provider.set(null)">
+    @if (guideBrokers().length) {
+      <details
+        id="connection-guide"
+        class="card group mt-6"
+        [open]="guideOpen()"
+        (toggle)="guideToggled.set($any($event.target).open)"
+      >
+        <summary
+          class="-m-5 flex cursor-pointer list-none items-center gap-3 rounded-2xl p-5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <ng-icon name="lucideBookOpen" class="shrink-0 text-lg text-primary" aria-hidden="true" />
+          <span class="min-w-0 flex-1">
+            <span class="block font-semibold">{{ 'connections.guide.title' | translate }}</span>
+            <span class="block text-sm text-muted-foreground">{{
+              'connections.guide.subtitle' | translate
+            }}</span>
+          </span>
+          <span
+            class="text-muted-foreground transition-transform group-open:rotate-180"
+            aria-hidden="true"
+            >▾</span
+          >
+        </summary>
+        <div class="mt-8">
+          @if (guideBrokers().length > 1) {
+            <div class="segmented mb-4" role="tablist">
+              @for (b of guideBrokers(); track b) {
+                <button
+                  type="button"
+                  role="tab"
+                  [class.active]="guideKind() === b"
+                  [attr.aria-selected]="guideKind() === b"
+                  (click)="pickedGuide.set(b)"
+                >
+                  {{ 'source.' + b | translate }}
+                </button>
+              }
+            </div>
+          }
+          <app-broker-guide [kind]="guideKind()" />
+        </div>
+      </details>
+    }
+
+    <app-modal
+      [open]="!!provider()"
+      [title]="provider()?.name ?? ''"
+      width="42rem"
+      (closed)="provider.set(null)"
+    >
       @if (provider(); as p) {
-        <form class="space-y-3" (submit)="$event.preventDefault(); save()" autocomplete="off">
-          <p class="rounded-xl bg-muted p-3 text-xs text-muted-foreground">{{ p.setupHint }}</p>
+        <form
+          class="space-y-3"
+          (submit)="$event.preventDefault(); save()"
+          autocomplete="off"
+          novalidate
+        >
+          @if (guideFor(p.kind); as g) {
+            <details class="rounded-xl border border-border p-3">
+              <summary class="cursor-pointer text-sm font-medium">
+                {{ 'connections.setupGuide' | translate }}
+              </summary>
+              <div class="mt-3">
+                <app-broker-guide [kind]="g" compact />
+              </div>
+            </details>
+          } @else {
+            <p class="rounded-xl bg-muted p-3 text-xs text-muted-foreground">{{ p.setupHint }}</p>
+          }
           @if (!editingId()) {
             <div>
               <label class="label" for="c-name">{{ 'common.name' | translate }}</label>
@@ -176,24 +273,57 @@ import { lucidePlus } from '@ng-icons/lucide';
             </div>
           }
           @for (f of p.fields; track f.key) {
-            <div>
-              <label class="label" [for]="'c-' + f.key"
-                >{{ f.label }}{{ f.required ? ' *' : '' }}</label
-              >
-              <input
-                [id]="'c-' + f.key"
-                hlmInput
-                class="font-mono"
-                [type]="f.secret ? 'password' : 'text'"
-                autocomplete="off"
-                spellcheck="false"
-                [required]="f.required"
-                (input)="setField(f.key, $any($event.target).value)"
-              />
-              @if (f.hint) {
-                <p class="mt-1 text-[11px] text-muted-foreground">{{ f.hint }}</p>
-              }
-            </div>
+            @let problem = problemFor(f.key);
+            @if (f.key === 'environment') {
+              <div role="radiogroup" [attr.aria-labelledby]="'c-' + f.key + '-label'">
+                <p class="label" [id]="'c-' + f.key + '-label'">{{ fieldLabel(f) }}</p>
+                <div class="segmented">
+                  @for (env of environments; track env) {
+                    <button
+                      type="button"
+                      role="radio"
+                      [class.active]="(fields()[f.key] || 'live') === env"
+                      [attr.aria-checked]="(fields()[f.key] || 'live') === env"
+                      (click)="setField(f.key, env)"
+                    >
+                      {{ 'connections.env.' + env | translate }}
+                    </button>
+                  }
+                </div>
+                <p class="mt-1 text-[11px] text-muted-foreground">{{ fieldHint(f) }}</p>
+              </div>
+            } @else {
+              <div>
+                <label class="label" [for]="'c-' + f.key"
+                  >{{ fieldLabel(f) }}{{ f.required ? ' *' : '' }}</label
+                >
+                <input
+                  [id]="'c-' + f.key"
+                  hlmInput
+                  class="font-mono"
+                  [type]="f.secret ? 'password' : 'text'"
+                  autocomplete="off"
+                  spellcheck="false"
+                  [required]="f.required"
+                  [attr.aria-invalid]="problem ? true : null"
+                  [attr.aria-describedby]="'c-' + f.key + '-hint'"
+                  (input)="setField(f.key, $any($event.target).value)"
+                />
+                @if (problem) {
+                  <p
+                    [id]="'c-' + f.key + '-hint'"
+                    class="mt-1 text-[11px] text-destructive"
+                    role="alert"
+                  >
+                    {{ problem.message | translate }}
+                  </p>
+                } @else if (fieldHint(f); as hint) {
+                  <p [id]="'c-' + f.key + '-hint'" class="mt-1 text-[11px] text-muted-foreground">
+                    {{ hint }}
+                  </p>
+                }
+              </div>
+            }
           }
           @if (p.kind === 'InteractiveBrokers') {
             <div>
@@ -204,6 +334,9 @@ import { lucidePlus } from '@ng-icons/lucide';
                 (valueChange)="expires.set($event)"
                 clearable
               />
+              <p class="mt-1 text-[11px] text-muted-foreground">
+                {{ 'connections.expiresHint' | translate }}
+              </p>
             </div>
           }
           <p class="text-[11px] text-muted-foreground">
@@ -275,7 +408,12 @@ export class ConnectionsComponent implements OnDestroy {
     const waiting = this.awaitingFirstSync() && Date.now() - this.pendingSince < 120_000;
     if (this.running() || waiting || this.pendingSince) {
       this.refresh.update((v) => v + 1);
-      if (this.pendingSince && !this.running() && !waiting && Date.now() - this.pendingSince > 4000) {
+      if (
+        this.pendingSince &&
+        !this.running() &&
+        !waiting &&
+        Date.now() - this.pendingSince > 4000
+      ) {
         this.pendingSince = 0;
         this.events.bump();
       }
@@ -290,6 +428,23 @@ export class ConnectionsComponent implements OnDestroy {
   protected readonly expires = signal('');
   protected readonly busy = signal(false);
   protected readonly jobs = signal<SyncJob[] | null>(null);
+  protected readonly problems = signal<FieldProblem[]>([]);
+  protected readonly environments = ['live', 'demo'];
+  protected readonly friendly = friendlyError;
+
+  /** Brokers with a step-by-step guide, in the order the server lists them. */
+  protected readonly guideBrokers = computed(() =>
+    (this.providers.value() ?? []).map((p) => p.kind).filter((k) => this.isGuided(k)),
+  );
+  protected readonly pickedGuide = signal<GuideBroker | null>(null);
+  protected readonly guideKind = computed(
+    () => this.pickedGuide() ?? this.guideBrokers()[0] ?? 'Trading212',
+  );
+  /** The guide is open until the first broker is connected; afterwards the user decides. */
+  protected readonly guideToggled = signal<boolean | null>(null);
+  protected readonly guideOpen = computed(
+    () => this.guideToggled() ?? (this.connections.value()?.length ?? 0) === 0,
+  );
 
   ngOnDestroy() {
     clearInterval(this.poll);
@@ -310,10 +465,46 @@ export class ConnectionsComponent implements OnDestroy {
     );
   }
 
+  protected isGuided(kind: Broker): kind is GuideBroker {
+    return kind === 'Trading212' || kind === 'InteractiveBrokers';
+  }
+
+  protected guideFor(kind: Broker): GuideBroker | null {
+    return this.isGuided(kind) ? kind : null;
+  }
+
+  /** Opens the page guide on a broker's tab and scrolls to it (from a connection's error). */
+  protected showGuide(kind: GuideBroker) {
+    this.pickedGuide.set(kind);
+    this.guideToggled.set(true);
+    setTimeout(() =>
+      document.getElementById('connection-guide')?.scrollIntoView({ behavior: 'smooth' }),
+    );
+  }
+
+  /** Field labels and hints are translated here; the server's English text is the fallback. */
+  protected fieldLabel(f: CredentialField) {
+    return this.translated(`connections.fields.${f.key}.label`) ?? f.label;
+  }
+
+  protected fieldHint(f: CredentialField) {
+    return this.translated(`connections.fields.${f.key}.hint`) ?? f.hint;
+  }
+
+  private translated(key: string): string | null {
+    const text: unknown = this.i18n.instant(key);
+    return typeof text === 'string' && text !== key ? text : null;
+  }
+
+  protected problemFor(key: string) {
+    return this.problems().find((p) => p.key === key) ?? null;
+  }
+
   protected openNew(p: ProviderInfo) {
     this.editingId.set(null);
     this.name.set(p.name);
     this.fields.set({});
+    this.problems.set([]);
     this.expires.set('');
     this.provider.set(p);
   }
@@ -323,17 +514,25 @@ export class ConnectionsComponent implements OnDestroy {
     if (!p) return;
     this.editingId.set(c.id);
     this.fields.set({});
+    this.problems.set([]);
     this.expires.set(c.credentialsExpireOn ?? '');
     this.provider.set(p);
   }
 
   protected setField(key: string, value: string) {
     this.fields.update((f) => ({ ...f, [key]: value }));
+    this.problems.update((list) => list.filter((p) => p.key !== key));
   }
 
   protected async save() {
     const p = this.provider();
     if (!p) return;
+    const problems = validateCredentials(p.kind, this.fields());
+    this.problems.set(problems);
+    if (problems.length) {
+      document.getElementById('c-' + problems[0].key)?.focus();
+      return;
+    }
     this.busy.set(true);
     try {
       const body = { credentials: this.fields(), credentialsExpireOn: this.expires() || null };

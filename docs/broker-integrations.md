@@ -7,16 +7,50 @@ method or path other than the read endpoints below — before a request leaves t
 Credentials are encrypted with ASP.NET Data Protection, used only by the sync service, never returned by the
 API, never logged and never available to AI clients.
 
+The same step-by-step guide is built into the app (*Connections → How to connect*, and *Where do I find
+these?* in the add dialog), in English and Portuguese. Keep both in sync when the brokers change their UI.
+
+**Why no "Log in with …" button?** Neither broker offers delegated sign-in to a self-hosted app:
+
+- Trading 212 has no OAuth. Access is only through API keys that the account holder generates in the app;
+  third-party apps ask users to paste them ([Help Centre](https://helpcentre.trading212.com/hc/en-us/articles/14584770928157-Trading-212-API-key),
+  [API authentication](https://docs.trading212.com/api/section/authentication)).
+- IBKR's Web API OAuth 1.0a is only for third-party vendors that pass IBKR's onboarding and compliance approval
+  (weeks, company-level); OAuth 2.0 is not available to individual accounts, and retail Web API access otherwise
+  needs the Client Portal Gateway with daily 2FA ([Web API authentication](https://www.interactivebrokers.com/docs/web-api/authentication/introduction)).
+  The Flex Web Service token is the only unattended, reporting-only option.
+
 ## Trading 212 — official Public API v0
 
-**Create the key** (Trading 212 app → Settings → API (Beta) → Generate API key):
+**Create the key** (about 3 minutes, app or web):
 
-1. Leave **"Orders – Execute"** and **"Pies – Write"** unticked.
-2. Keep account data, history and portfolio read permissions.
-3. Restrict the key to your home IP address.
-4. Copy the key and the secret (shown once) into *Connections → Trading 212*.
+1. Switch to the account to track — **Invest** or **Stocks ISA** (CFD and SIPP are not supported; one key per account).
+2. **Menu (☰) → Settings → API (Beta)**, accept the risk warning, tap **Generate API key** and name it
+   (e.g. `personal-finance`).
+3. Permissions — switch **on** only what the app reads:
 
-Supported accounts: Invest and Stocks ISA.
+   | Permission | Needed for |
+   |---|---|
+   | **Account data** | `account/summary` — currency, cash, total value |
+   | **Metadata** | `metadata/instruments` — names, ISIN, ETF vs stock |
+   | **Portfolio** | `positions` — open positions |
+   | **History** (orders, dividends, transactions) | trades, dividends, cash movements |
+
+   Leave **off**: **Orders – Execute** and **Pies – Write** (Orders/Pies read are not needed either). The
+   allow-list would block those calls anyway, but a leaked key with trade permissions is still dangerous.
+4. IP access: **Restrict access to trusted IPs** with your server's public IP (recommended); *Unrestricted* only
+   if that IP changes often.
+5. **Generate**, then copy the **API key** and the **API secret** — the secret is shown **only once**. Both are
+   required: requests use HTTP Basic auth, `Authorization: Basic base64(<key>:<secret>)`.
+6. In the app: *Connections → + Trading 212*, paste both, keep account type **Live** (Demo only for a practice
+   account, which uses `demo.trading212.com`; live uses `live.trading212.com`) and save. The first sync starts
+   immediately.
+
+**Errors you may see.** `401` → the key/secret pair is wrong or deleted: generate a new key and use *Update
+credentials*. `403` → a read permission is missing (usually Metadata or History): generate a new key with the
+four permissions above. The connection card explains both and links back to the guide.
+
+**Revoke** anytime: Settings → API (Beta) → select the key → Delete (immediate and permanent).
 
 **Endpoints used** (and nothing else):
 
@@ -47,25 +81,39 @@ The Flex Web Service delivers pre-configured reports over two GET endpoints (`Se
 `GetStatement`). It has **no trading surface**; Client Portal Gateway and TWS APIs were rejected because
 they need a full trading session and daily manual 2FA.
 
-**Create the Activity Flex Query** (Client Portal → Performance & Reports → Flex Queries → Activity):
+**1. Create the Activity Flex Query** — Client Portal → **Performance & Reports → Flex Queries** → next to
+*Activity Flex Query* click **+** and name it (e.g. `personal-finance`). Tick these sections; in each, **Select
+All** fields is simplest (the parser reads the attributes listed):
 
-| Section | Needed for |
-|---|---|
-| Account Information | base currency |
-| Open Positions (Summary) | holdings, mark price, cost basis |
-| Trades (Execution) | trades, commissions, realised P&L |
-| Cash Transactions (Detail) | deposits/withdrawals, dividends, withholding tax, fees, interest |
-| Cash Report | ending cash |
-| Change in NAV | ending value |
-| Equity Summary in Base (by report date) | **daily NAV history** — true TWR/XIRR from day one |
-| Financial Instrument Information | ISIN, asset category |
+| Section (option) | XML element | Needed for | Attributes read |
+|---|---|---|---|
+| Account Information | `AccountInformation` | base currency | `currency` |
+| Open Positions (**Summary**) | `OpenPosition` | holdings, mark price, cost basis | `symbol`, `conid`, `isin`, `description`, `assetCategory`, `subCategory`, `listingExchange`, `currency`, `position`, `markPrice`, `costBasisPrice` |
+| Trades (**Execution**) | `Trade` | trades, commissions, realised P&L | `tradeID`, `dateTime`/`tradeDate`, `buySell`, `quantity`, `tradePrice`, `ibCommission`, `ibCommissionCurrency`, `taxes`, `netCash`, `fifoPnlRealized`, `currency`, `fxRateToBase` + instrument fields |
+| Cash Transactions (**Detail**) | `CashTransaction` | deposits/withdrawals, dividends, withholding tax, fees, interest | `type`, `amount`, `currency`, `fxRateToBase`, `dateTime`, `reportDate`, `transactionID`, `actionID`, `description` + instrument fields |
+| Cash Report | `CashReport` | ending cash | `endingCash` (BASE_SUMMARY row) |
+| Change in NAV | `ChangeInNAV` | ending value | `endingValue` |
+| Net Asset Value (NAV) in Base | `EquitySummaryInBase` | **daily NAV history** — true TWR/XIRR from day one | `reportDate`, `cash`, `total` |
 
-Format **XML**, date format `yyyyMMdd`, time format `HHmmss`, date/time separator `;`, period
-*Last 365 Calendar Days*.
+Financial Instrument Information is optional: ISIN and asset category are read from the position and trade rows.
+Section labels have changed across Client Portal versions — match on the XML element if in doubt.
 
-**Enable Flex Web Service**, generate a token with the longest expiry you are comfortable with, restrict it
-to your home IP, and enter the token, query id and expiry date in *Connections → Interactive Brokers*.
-The app warns before the token expires; error 1012 (expired) marks the connection *Needs attention*.
+**2. Delivery configuration**: format **XML**, period *Last 365 Calendar Days*, date format `yyyyMMdd`, time
+format `HHmmss`, date/time separator `;` (semicolon). Save. The **Query ID** is the number shown for the query
+in the list (info icon).
+
+**3. Enable Flex Web Service** — on the same page, **Flex Web Service Configuration** (gear icon) → enable →
+**Generate A New Token**. Choose the expiry (6 hours to 1 year) and optionally restrict it to your server's IP
+([IBKR guide](https://www.ibkrguides.com/clientportal/performanceandstatements/flex-web-service.htm)). Generating
+a new token invalidates the previous one — that is also how you **revoke** it (or switch the service off).
+
+**4. In the app**: *Connections → + Interactive Brokers*, paste the token and the numeric query ID and enter
+the expiry date. The app warns 30 days before expiry; error 1012 (expired) marks the connection *Needs
+attention*, as do 1013 (IP restriction), 1014 (invalid query) and 1015 (invalid token), each with a translated
+explanation on the card.
+
+Requests go to `https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService/{SendRequest,GetStatement}`
+with `v=3` and a `User-Agent` header, which IBKR requires for programmatic access.
 
 **Behaviour.** Pacing ≤ 1 request/s and ≤ 10/min per token. "Statement generating" (1019) and other
 transient codes are retried with backoff; token/query errors (1012–1015) stop and ask for your attention.
