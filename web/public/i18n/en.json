@@ -563,7 +563,157 @@
   "csvDone": "CSV imported: {{imported}} new, {{updated}} updated.",
   "counts": "{{imported}} imported · {{updated}} updated · {{ignored}} unchanged",
   "confirmDelete": "Delete the connection \"{{name}}\"? Its credentials are erased immediately.",
-  "confirmPurge": "Also delete all data imported from it? (Cancel keeps the history.)"
+  "confirmPurge": "Also delete all data imported from it? (Cancel keeps the history.)",
+  "emptyTitle": "Connect your first broker",
+  "emptyBody": "Links are read-only: they import holdings, trades, dividends and cash movements, and can never place orders or move money. Follow the guide below — it takes about five minutes.",
+  "checking": "Checking connection…",
+  "setupGuide": "Where do I find these? Step-by-step guide",
+  "fixHint": "How to fix it",
+  "fields": {
+   "apiKey": {
+    "label": "API key",
+    "hint": "From Trading 212 → Settings → API (Beta)."
+   },
+   "apiSecret": {
+    "label": "API secret",
+    "hint": "Shown once, right after the key is generated. Both key and secret are needed."
+   },
+   "environment": {
+    "label": "Account type",
+    "hint": "Use Demo only for a Trading 212 practice account."
+   },
+   "token": {
+    "label": "Flex Web Service token",
+    "hint": "Client Portal → Flex Queries → Flex Web Service Configuration."
+   },
+   "queryId": {
+    "label": "Activity Flex Query ID",
+    "hint": "The number shown next to your query, not its name."
+   },
+   "profile": {
+    "label": "Profile",
+    "hint": "a or b — both hold the same ETF to show consolidation."
+   }
+  },
+  "env": {
+   "live": "Live (real money)",
+   "demo": "Demo (practice)"
+  },
+  "expiresHint": "Optional. Enter the token's expiry date and the app reminds you 30 days before.",
+  "validation": {
+   "required": "Required.",
+   "noSpaces": "Contains spaces — paste it again without extra characters.",
+   "t212SameValue": "The secret is the same as the key. Copy the second value shown by Trading 212.",
+   "ibkrQueryIdDigits": "The query ID is a number (e.g. 123456), shown next to the query name — not the name itself.",
+   "ibkrSameValue": "The query ID and the token are the same value. The token is the long value from Flex Web Service Configuration."
+  },
+  "errors": {
+   "t212Unauthorized": "Trading 212 did not accept the key and secret. Check you copied both (the secret is shown only once), or generate a new key and update the credentials.",
+   "t212Forbidden": "The key is missing a read permission. Generate a new key with Account data, Metadata, Portfolio and History switched on (see step 3 of the guide).",
+   "t212RateLimited": "Trading 212 is rate-limiting requests. Nothing to do — the next sync retries automatically.",
+   "ibkrExpired": "The Flex token has expired. Generate a new one in Client Portal and update the credentials with its new expiry date.",
+   "ibkrIp": "The Flex token is restricted to a different IP address. Update the IP in Flex Web Service Configuration or generate a token without IP restriction.",
+   "ibkrQueryId": "IBKR does not recognise the query ID. Use the number shown next to your Activity Flex Query.",
+   "ibkrToken": "IBKR does not recognise the token. Copy it again from Flex Web Service Configuration (a new token invalidates the old one)."
+  },
+  "guide": {
+   "title": "How to connect",
+   "subtitle": "Step-by-step: create read-only credentials at your broker and paste them here.",
+   "stepsLabel": "Steps",
+   "securityTitle": "Read-only and private",
+   "security": "This app only calls the brokers' read endpoints and blocks anything else before a request leaves your server. Credentials are stored encrypted on your server, never shown again, never logged and never shared with AI clients.",
+   "csvTitle": "Prefer files?",
+   "t212": {
+    "intro": "Trading 212 has no \"log in with Trading 212\" option: you create an API key in the app. Each key covers one account (Invest or Stocks ISA — CFD and SIPP are not supported).",
+    "steps": {
+     "1": {
+      "title": "Open Trading 212 on the right account",
+      "body": "In the app or on the web, switch to the <strong>Invest</strong> or <strong>Stocks ISA</strong> account you want to track."
+     },
+     "2": {
+      "title": "Open the API settings",
+      "body": "Go to <strong>Menu (☰) → Settings → API (Beta)</strong>, accept the risk warning and tap <strong>Generate API key</strong>. Name it e.g. <code>personal-finance</code>."
+     },
+     "3": {
+      "title": "Choose read-only permissions",
+      "body": "Switch on only what the app reads. Anything that places orders or edits pies must stay off — the app would never use it, but a leaked key could."
+     },
+     "4": {
+      "title": "Restrict the IP (recommended)",
+      "body": "Choose <strong>Restrict access to trusted IPs</strong> and enter your server's public IP. Pick Unrestricted only if that IP changes often."
+     },
+     "5": {
+      "title": "Copy the key and the secret",
+      "body": "Tap <strong>Generate</strong>. You get an <strong>API key</strong> and an <strong>API secret</strong> — the secret is shown <strong>only once</strong>, so copy both now."
+     },
+     "6": {
+      "title": "Paste them here",
+      "body": "Click <strong>+ Trading 212</strong>, paste the key and secret, keep <strong>Live</strong> and save. The first sync starts right away; if something is wrong the card tells you what to fix."
+     }
+    },
+    "onTitle": "Switch ON",
+    "on": {
+     "1": "<strong>Account data</strong> — cash and total value",
+     "2": "<strong>Metadata</strong> — instrument names, ISIN, ETF or stock",
+     "3": "<strong>Portfolio</strong> — open positions",
+     "4": "<strong>History</strong> — orders, dividends and transactions"
+    },
+    "offTitle": "Leave OFF",
+    "off": {
+     "1": "<strong>Orders – Execute</strong> (placing and cancelling orders)",
+     "2": "<strong>Pies – Write</strong> (creating or changing pies)"
+    },
+    "revoke": "Revoke anytime: Trading 212 → Settings → API (Beta) → select the key → Delete. The key stops working immediately.",
+    "csv": "The API has no valuation history and no dividend withholding tax. Export your history (Trading 212 → History → Export, CSV) and use Import CSV on the connection card to backfill older data — duplicates are ignored. Without any key you can still record trades by hand in Portfolio."
+   },
+   "ibkr": {
+    "intro": "IBKR only offers OAuth to approved companies, so individual accounts connect through the Flex Web Service: a report (Flex Query) plus a token. It is reporting-only — it cannot trade.",
+    "steps": {
+     "1": {
+      "title": "Open Flex Queries",
+      "body": "Log in to <strong>Client Portal</strong> and go to <strong>Performance & Reports → Flex Queries</strong>."
+     },
+     "2": {
+      "title": "Create an Activity Flex Query",
+      "body": "Next to <strong>Activity Flex Query</strong> click <strong>+</strong> and name it e.g. <code>personal-finance</code>."
+     },
+     "3": {
+      "title": "Tick these sections",
+      "body": "In each section choose <strong>Select All</strong> fields (simplest), with the option shown in brackets."
+     },
+     "4": {
+      "title": "Set the delivery configuration",
+      "body": "Format <strong>XML</strong> · Period <strong>Last 365 Calendar Days</strong> · Date format <code>yyyyMMdd</code> · Time format <code>HHmmss</code> · Date/time separator <code>;</code> (semicolon). Save and confirm."
+     },
+     "5": {
+      "title": "Note the Query ID",
+      "body": "Back in the list, the <strong>Query ID</strong> is the number shown for your query (use the info icon if it is hidden)."
+     },
+     "6": {
+      "title": "Generate the Flex token",
+      "body": "On the same page open <strong>Flex Web Service Configuration</strong> (gear icon), enable it and click <strong>Generate A New Token</strong>. Pick the expiry (up to 1 year), optionally restrict it to your server's IP, and copy the token."
+     },
+     "7": {
+      "title": "Paste them here",
+      "body": "Click <strong>+ Interactive Brokers</strong>, paste the token and the query ID and enter the token's expiry date. The first sync backfills several years and can take a few minutes."
+     }
+    },
+    "onTitle": "Sections to include",
+    "on": {
+     "1": "<strong>Account Information</strong> — base currency",
+     "2": "<strong>Open Positions</strong> (Summary) — holdings and prices",
+     "3": "<strong>Trades</strong> (Execution) — buys, sells, commissions",
+     "4": "<strong>Cash Transactions</strong> (Detail) — deposits, dividends, withholding tax, fees, interest",
+     "5": "<strong>Cash Report</strong> — ending cash",
+     "6": "<strong>Change in NAV</strong> — ending value",
+     "7": "<strong>Net Asset Value (NAV) in Base</strong> — daily value history"
+    },
+    "offTitle": "",
+    "off": {},
+    "revoke": "Revoke anytime: Flex Web Service Configuration → Generate A New Token (the old one stops working) or switch the service off.",
+    "csv": "IBKR has no CSV import here — the Flex query already delivers the full history. Without a token you can still record trades by hand in Portfolio."
+   }
+  }
  },
  "export": {
   "title": "Export & backup",

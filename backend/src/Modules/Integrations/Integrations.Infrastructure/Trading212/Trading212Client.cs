@@ -104,7 +104,7 @@ internal sealed class Trading212Client(HttpClient http, RateGate gate, TimeProvi
                         "Trading 212 rejected the API key (401). Create a new key and update the connection.");
                 case HttpStatusCode.Forbidden:
                     throw new ProviderConfigurationException(
-                        "The Trading 212 key lacks a required read permission (403). Enable account data, history and portfolio.");
+                        "The Trading 212 key lacks a required read permission (403). Enable account data, metadata, portfolio and history.");
                 case HttpStatusCode.TooManyRequests when attempt < 3:
                     gate.BlockUntil($"t212:{_host}:{limitKey}", ResetTime(response));
                     continue;

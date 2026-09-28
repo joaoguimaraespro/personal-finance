@@ -563,7 +563,157 @@
   "csvDone": "CSV importado: {{imported}} novos, {{updated}} atualizados.",
   "counts": "{{imported}} importados · {{updated}} atualizados · {{ignored}} sem alteração",
   "confirmDelete": "Eliminar a ligação \"{{name}}\"? As credenciais são apagadas de imediato.",
-  "confirmPurge": "Apagar também todos os dados importados? (Cancelar mantém o histórico.)"
+  "confirmPurge": "Apagar também todos os dados importados? (Cancelar mantém o histórico.)",
+  "emptyTitle": "Liga a tua primeira corretora",
+  "emptyBody": "As ligações são só de leitura: importam posições, negócios, dividendos e movimentos de caixa, e nunca podem dar ordens nem mover dinheiro. Segue o guia abaixo — demora cerca de cinco minutos.",
+  "checking": "A verificar a ligação…",
+  "setupGuide": "Onde encontro isto? Guia passo a passo",
+  "fixHint": "Como resolver",
+  "fields": {
+   "apiKey": {
+    "label": "Chave API",
+    "hint": "No Trading 212 → Definições → API (Beta)."
+   },
+   "apiSecret": {
+    "label": "Segredo API",
+    "hint": "Mostrado uma só vez, logo após gerar a chave. São precisos a chave e o segredo."
+   },
+   "environment": {
+    "label": "Tipo de conta",
+    "hint": "Usa Demo apenas para uma conta de prática do Trading 212."
+   },
+   "token": {
+    "label": "Token do Flex Web Service",
+    "hint": "Client Portal → Flex Queries → Flex Web Service Configuration."
+   },
+   "queryId": {
+    "label": "ID da Activity Flex Query",
+    "hint": "O número mostrado junto à query, não o nome."
+   },
+   "profile": {
+    "label": "Perfil",
+    "hint": "a ou b — ambos têm o mesmo ETF para mostrar a consolidação."
+   }
+  },
+  "env": {
+   "live": "Real (dinheiro real)",
+   "demo": "Demo (prática)"
+  },
+  "expiresHint": "Opcional. Indica a data de expiração do token e a app avisa-te 30 dias antes.",
+  "validation": {
+   "required": "Obrigatório.",
+   "noSpaces": "Contém espaços — cola novamente sem caracteres a mais.",
+   "t212SameValue": "O segredo é igual à chave. Copia o segundo valor mostrado pelo Trading 212.",
+   "ibkrQueryIdDigits": "O ID da query é um número (ex.: 123456), mostrado junto ao nome da query — não o próprio nome.",
+   "ibkrSameValue": "O ID da query e o token têm o mesmo valor. O token é o valor longo da Flex Web Service Configuration."
+  },
+  "errors": {
+   "t212Unauthorized": "O Trading 212 não aceitou a chave e o segredo. Confirma que copiaste ambos (o segredo só é mostrado uma vez) ou gera uma nova chave e atualiza as credenciais.",
+   "t212Forbidden": "Falta uma permissão de leitura à chave. Gera uma nova chave com Account data, Metadata, Portfolio e History ativos (ver passo 3 do guia).",
+   "t212RateLimited": "O Trading 212 está a limitar os pedidos. Não precisas de fazer nada — a próxima sincronização tenta de novo.",
+   "ibkrExpired": "O token Flex expirou. Gera um novo no Client Portal e atualiza as credenciais com a nova data de expiração.",
+   "ibkrIp": "O token Flex está restrito a outro endereço IP. Atualiza o IP na Flex Web Service Configuration ou gera um token sem restrição de IP.",
+   "ibkrQueryId": "O IBKR não reconhece o ID da query. Usa o número mostrado junto à tua Activity Flex Query.",
+   "ibkrToken": "O IBKR não reconhece o token. Copia-o de novo da Flex Web Service Configuration (um novo token invalida o anterior)."
+  },
+  "guide": {
+   "title": "Como ligar",
+   "subtitle": "Passo a passo: cria credenciais só de leitura na corretora e cola-as aqui.",
+   "stepsLabel": "Passos",
+   "securityTitle": "Só leitura e privado",
+   "security": "Esta app só chama os endpoints de leitura das corretoras e bloqueia qualquer outro pedido antes de sair do teu servidor. As credenciais ficam cifradas no teu servidor, nunca mais são mostradas, nunca vão para logs e nunca são partilhadas com IA.",
+   "csvTitle": "Preferes ficheiros?",
+   "t212": {
+    "intro": "O Trading 212 não tem \"entrar com Trading 212\": crias uma chave API na app. Cada chave cobre uma conta (Invest ou Stocks ISA — CFD e SIPP não são suportadas).",
+    "steps": {
+     "1": {
+      "title": "Abre o Trading 212 na conta certa",
+      "body": "Na app ou na web, muda para a conta <strong>Invest</strong> ou <strong>Stocks ISA</strong> que queres acompanhar."
+     },
+     "2": {
+      "title": "Abre as definições da API",
+      "body": "Vai a <strong>Menu (☰) → Settings → API (Beta)</strong>, aceita o aviso de risco e toca em <strong>Generate API key</strong>. Dá-lhe um nome, ex.: <code>personal-finance</code>."
+     },
+     "3": {
+      "title": "Escolhe permissões só de leitura",
+      "body": "Ativa apenas o que a app lê. Tudo o que dá ordens ou altera pies tem de ficar desligado — a app nunca o usaria, mas uma chave exposta poderia."
+     },
+     "4": {
+      "title": "Restringe o IP (recomendado)",
+      "body": "Escolhe <strong>Restrict access to trusted IPs</strong> e indica o IP público do teu servidor. Escolhe Unrestricted só se esse IP muda com frequência."
+     },
+     "5": {
+      "title": "Copia a chave e o segredo",
+      "body": "Toca em <strong>Generate</strong>. Recebes uma <strong>API key</strong> e um <strong>API secret</strong> — o segredo só é mostrado <strong>uma vez</strong>, copia ambos já."
+     },
+     "6": {
+      "title": "Cola-os aqui",
+      "body": "Clica em <strong>+ Trading 212</strong>, cola a chave e o segredo, mantém <strong>Real</strong> e guarda. A primeira sincronização começa logo; se algo estiver mal, o cartão diz-te o que corrigir."
+     }
+    },
+    "onTitle": "ATIVAR",
+    "on": {
+     "1": "<strong>Account data</strong> — caixa e valor total",
+     "2": "<strong>Metadata</strong> — nomes, ISIN, ETF ou ação",
+     "3": "<strong>Portfolio</strong> — posições abertas",
+     "4": "<strong>History</strong> — ordens, dividendos e transações"
+    },
+    "offTitle": "Deixar DESLIGADO",
+    "off": {
+     "1": "<strong>Orders – Execute</strong> (dar e cancelar ordens)",
+     "2": "<strong>Pies – Write</strong> (criar ou alterar pies)"
+    },
+    "revoke": "Revoga quando quiseres: Trading 212 → Settings → API (Beta) → escolhe a chave → Delete. A chave deixa de funcionar de imediato.",
+    "csv": "A API não tem histórico de valorização nem retenção na fonte dos dividendos. Exporta o histórico (Trading 212 → History → Export, CSV) e usa Importar CSV no cartão da ligação para completar dados antigos — duplicados são ignorados. Sem chave podes sempre registar negócios à mão no Portfólio."
+   },
+   "ibkr": {
+    "intro": "O IBKR só oferece OAuth a empresas aprovadas, por isso contas individuais ligam-se pelo Flex Web Service: um relatório (Flex Query) mais um token. É só de relatórios — não consegue negociar.",
+    "steps": {
+     "1": {
+      "title": "Abre as Flex Queries",
+      "body": "Entra no <strong>Client Portal</strong> e vai a <strong>Performance & Reports → Flex Queries</strong>."
+     },
+     "2": {
+      "title": "Cria uma Activity Flex Query",
+      "body": "Junto a <strong>Activity Flex Query</strong> clica em <strong>+</strong> e dá-lhe um nome, ex.: <code>personal-finance</code>."
+     },
+     "3": {
+      "title": "Marca estas secções",
+      "body": "Em cada secção escolhe <strong>Select All</strong> nos campos (mais simples), com a opção indicada entre parênteses."
+     },
+     "4": {
+      "title": "Define a entrega",
+      "body": "Formato <strong>XML</strong> · Período <strong>Last 365 Calendar Days</strong> · Formato de data <code>yyyyMMdd</code> · Formato de hora <code>HHmmss</code> · Separador data/hora <code>;</code> (ponto e vírgula). Guarda e confirma."
+     },
+     "5": {
+      "title": "Anota o ID da query",
+      "body": "De volta à lista, o <strong>Query ID</strong> é o número mostrado para a tua query (usa o ícone de informação se estiver escondido)."
+     },
+     "6": {
+      "title": "Gera o token Flex",
+      "body": "Na mesma página abre <strong>Flex Web Service Configuration</strong> (ícone de engrenagem), ativa-o e clica em <strong>Generate A New Token</strong>. Escolhe a validade (até 1 ano), restringe opcionalmente ao IP do teu servidor e copia o token."
+     },
+     "7": {
+      "title": "Cola-os aqui",
+      "body": "Clica em <strong>+ Interactive Brokers</strong>, cola o token e o ID da query e indica a data de expiração do token. A primeira sincronização importa vários anos e pode demorar alguns minutos."
+     }
+    },
+    "onTitle": "Secções a incluir",
+    "on": {
+     "1": "<strong>Account Information</strong> — moeda base",
+     "2": "<strong>Open Positions</strong> (Summary) — posições e preços",
+     "3": "<strong>Trades</strong> (Execution) — compras, vendas, comissões",
+     "4": "<strong>Cash Transactions</strong> (Detail) — depósitos, dividendos, retenção na fonte, comissões, juros",
+     "5": "<strong>Cash Report</strong> — caixa final",
+     "6": "<strong>Change in NAV</strong> — valor final",
+     "7": "<strong>Net Asset Value (NAV) in Base</strong> — histórico diário do valor"
+    },
+    "offTitle": "",
+    "off": {},
+    "revoke": "Revoga quando quiseres: Flex Web Service Configuration → Generate A New Token (o anterior deixa de funcionar) ou desliga o serviço.",
+    "csv": "O IBKR não tem importação CSV aqui — a Flex query já traz o histórico completo. Sem token podes sempre registar negócios à mão no Portfólio."
+   }
+  }
  },
  "export": {
   "title": "Exportar e cópia de segurança",
