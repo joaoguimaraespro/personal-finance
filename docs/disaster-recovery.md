@@ -6,7 +6,8 @@ Everything needed to rebuild the system:
 |---|---|
 | Code, Compose files, Caddyfile, DB role scripts | This repository |
 | Secrets (`deploy/.env`) | Password manager (copy it there after first setup) |
-| Database + Data Protection key ring | `backups/finance-<timestamp>.tar.age` (encrypted) |
+| Database + Data Protection key ring | `backups/finance-<timestamp>.tar.age` (encrypted), plus an off-site copy at `BACKUP_REMOTE` |
+| Off-site storage credential (`rclone.conf`) | Password manager |
 | Backup private key (`finance-backup-identity.txt`) | Offline — password manager / USB, never on the server |
 
 Each backup archive contains `finance.dump` (`pg_dump -Fc`), `dp-keys.tar` (the key ring that
@@ -17,7 +18,9 @@ decrypts account identifiers and keeps sessions valid) and a manifest with SHA-2
 1. Prepare the host ([deployment.md](deployment.md) steps 1–2) and restore `deploy/.env` from the
    password manager.
 2. `docker compose --env-file .env up -d --build` — creates an empty database with the right roles.
-3. Copy the latest `finance-*.tar.age` and the identity file to the machine (temporarily).
+3. Copy the latest `finance-*.tar.age` and the identity file to the machine (temporarily). If the old
+   disk is gone, fetch the archive from the off-site copy:
+   `rclone copy b2:<bucket>/finance backups/ --include "finance-<timestamp>.tar.age"`.
 4. Restore:
 
    ```bash

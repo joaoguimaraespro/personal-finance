@@ -5,6 +5,11 @@
 #
 # Output: $BACKUP_DIR/finance-<UTC timestamp>.tar.age — encrypted to BACKUP_AGE_RECIPIENT (an age public key).
 # The matching private key must NOT be stored on this server; without it the backups are unreadable.
+#
+# Off-site copy (optional): set BACKUP_REMOTE to an rclone destination (e.g. b2:my-bucket/finance) and every
+# local archive not yet there is uploaded. Files are already encrypted, so any storage provider works.
+# BACKUP_REMOTE_RETENTION_DAYS prunes old remote copies; leave it empty when the remote credential can't
+# delete (recommended — let a bucket lifecycle rule expire files, so a compromised server can't wipe them).
 set -euo pipefail
 umask 077
 trap 'echo "BACKUP FAILED (line ${LINENO}). No backup was written." >&2' ERR
@@ -44,3 +49,18 @@ tar -C "${work}" -cf - finance.dump dp-keys.tar manifest.txt \
 
 find "${BACKUP_DIR}" -name 'finance-*.tar.age' -mtime "+${RETENTION_DAYS}" -delete
 echo "Backup written: ${BACKUP_DIR}/finance-${stamp}.tar.age ($(du -h "${BACKUP_DIR}/finance-${stamp}.tar.age" | cut -f1))"
+
+if [ -n "${BACKUP_REMOTE:-}" ]; then
+  trap - ERR
+  command -v rclone >/dev/null || { echo "OFF-SITE COPY FAILED: rclone is not installed (apt install rclone)." >&2; exit 1; }
+  # copy (not sync): never deletes remotely; also catches up on uploads missed while the remote was down.
+  if ! rclone copy "${BACKUP_DIR}" "${BACKUP_REMOTE}" --include 'finance-*.tar.age' --immutable --retries 5; then
+    echo "OFF-SITE COPY FAILED to ${BACKUP_REMOTE}. The local backup is fine; the next run retries." >&2
+    exit 1
+  fi
+  if [ -n "${BACKUP_REMOTE_RETENTION_DAYS:-}" ]; then
+    rclone delete "${BACKUP_REMOTE}" --include 'finance-*.tar.age' --min-age "${BACKUP_REMOTE_RETENTION_DAYS}d" \
+      || echo "Warning: could not prune old remote copies (credential without delete permission?)." >&2
+  fi
+  echo "Off-site copy up to date: ${BACKUP_REMOTE}"
+fi

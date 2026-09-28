@@ -31,7 +31,7 @@ fi
 step() { printf '\n==> %s\n' "$*"; }
 
 step "Packages"
-apt-get install -y -qq uidmap dbus-user-session slirp4netns age docker-ce-rootless-extras git >/dev/null
+apt-get install -y -qq uidmap dbus-user-session slirp4netns age rclone docker-ce-rootless-extras git >/dev/null
 
 step "User ${APP_USER}"
 id "${APP_USER}" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "${APP_USER}"
@@ -82,6 +82,8 @@ OTEL_EXPORTER_OTLP_ENDPOINT=
 BACKUP_AGE_RECIPIENT=
 BACKUP_DIR=${APP_DIR}/backups
 BACKUP_RETENTION_DAYS=35
+BACKUP_REMOTE=
+BACKUP_REMOTE_RETENTION_DAYS=
 ANTHROPIC_API_KEY=
 ASSISTANT_MODEL=claude-opus-5
 EOF
