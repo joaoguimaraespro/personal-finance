@@ -101,4 +101,34 @@ public sealed class AuthTests(ApiFactory factory)
         (await client.PostAsync("/api/auth/logout", new { })).EnsureSuccessStatusCode();
         (await client.Http.GetAsync("/api/accounts")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task Session_status_reports_expiry_and_extend_renews_it()
+    {
+        var client = await factory.OwnerAsync();
+
+        var session = await client.GetJsonAsync("/api/auth/session");
+        var expires = session.GetProperty("expiresAtUtc").GetDateTimeOffset();
+        expires.ShouldBeGreaterThan(DateTimeOffset.UtcNow);
+        session.GetProperty("idleTimeoutMinutes").GetInt32().ShouldBe(720);
+
+        await Task.Delay(1100);
+        var extended = await client.PostAsync("/api/auth/session/extend", new { });
+        extended.EnsureSuccessStatusCode();
+        var renewed = (await client.GetJsonAsync("/api/auth/session")).GetProperty("expiresAtUtc").GetDateTimeOffset();
+        renewed.ShouldBeGreaterThan(expires);
+
+        // The renewed session is still a full MFA session.
+        (await client.Http.GetAsync("/api/accounts")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        (await client.PostAsync("/api/auth/logout", new { })).EnsureSuccessStatusCode();
+        (await client.Http.GetAsync("/api/auth/session")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Session_status_requires_a_full_mfa_session()
+    {
+        var client = factory.NewClient();
+        (await client.Http.GetAsync("/api/auth/session")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
 }

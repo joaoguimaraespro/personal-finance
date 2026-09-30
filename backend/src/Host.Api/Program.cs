@@ -120,6 +120,16 @@ builder.Services.ConfigureApplicationCookie(o =>
     // An API never redirects to a login page.
     o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
     o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = 403; return Task.CompletedTask; };
+    // Checking how long the session has left must not itself extend it, or an idle open tab would never time out.
+    o.Events.OnCheckSlidingExpiration = ctx =>
+    {
+        if (ctx.Request.Path.Equals("/api/auth" + AuthEndpoints.SessionPath, StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.ShouldRenew = false;
+        }
+
+        return Task.CompletedTask;
+    };
 });
 builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.TwoFactorUserIdScheme, o =>
 {

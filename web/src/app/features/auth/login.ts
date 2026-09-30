@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
 import { problemMessage } from '../../core/toast';
@@ -16,6 +16,14 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
       [title]="'auth.signIn' | translate"
       [subtitle]="'auth.privateNotice' | translate"
     >
+      @if (expired && step() === 'password') {
+        <p
+          class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300"
+          role="status"
+        >
+          {{ 'session.expired' | translate }}
+        </p>
+      }
       @if (step() === 'password') {
         <form class="space-y-4" (submit)="$event.preventDefault(); signIn()">
           <div>
@@ -88,6 +96,15 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 export class LoginComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly query = inject(ActivatedRoute).snapshot.queryParamMap;
+  protected readonly expired = this.query.has('expired');
+  /** Back to where the session ended; only same-app paths, never another origin. */
+  private readonly returnUrl = (() => {
+    const url = this.query.get('returnUrl') ?? '';
+    return url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/login')
+      ? url
+      : '/dashboard';
+  })();
   private readonly i18n = inject(TranslateService);
 
   protected readonly step = signal<'password' | 'mfa'>('password');
@@ -115,7 +132,7 @@ export class LoginComponent {
         this.useRecovery() ? value : null,
         this.remember(),
       );
-      await this.router.navigateByUrl('/dashboard');
+      await this.router.navigateByUrl(this.returnUrl);
     });
   }
 

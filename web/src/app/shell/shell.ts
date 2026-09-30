@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  HostListener,
+  inject,
+  signal,
+} from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -32,6 +39,7 @@ import { HlmKbdImports } from '@spartan-ng/helm/kbd';
 import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 import { Activity } from '../core/activity';
+import { SessionMonitor } from '../core/session';
 import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
@@ -199,11 +207,36 @@ interface NavItem {
       </div>
     </div>
     <app-quick-add />
+    @if (session.secondsLeft(); as left) {
+      <div
+        class="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm space-y-3 rounded-xl border bg-popover p-4 text-sm shadow-lg"
+        role="alert"
+      >
+        <p>
+          {{ 'session.warning' | translate: { time: countdown(left) } }}
+        </p>
+        <div class="flex justify-end gap-2">
+          <button hlmBtn variant="ghost" size="sm" (click)="logout()">
+            {{ 'session.signOut' | translate }}
+          </button>
+          <button hlmBtn size="sm" (click)="session.extend()">
+            {{ 'session.stay' | translate }}
+          </button>
+        </div>
+      </div>
+    }
   `,
 })
 export class ShellComponent {
   protected readonly quick = inject(QuickAdd);
   protected readonly activity = inject(Activity);
+  protected readonly session = inject(SessionMonitor);
+
+  constructor() {
+    // The shell only exists for a full MFA session: watch it while the shell is on screen.
+    this.session.start();
+    inject(DestroyRef).onDestroy(() => this.session.stop());
+  }
   protected readonly prefs = inject(Prefs);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -272,7 +305,12 @@ export class ShellComponent {
     this.prefs.theme.set(order[(order.indexOf(this.prefs.theme()) + 1) % order.length]);
   }
 
+  protected countdown(seconds: number): string {
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
   protected async logout() {
+    this.session.stop();
     await this.auth.logout();
     await this.router.navigateByUrl('/login');
   }
