@@ -83,7 +83,7 @@ const EMPTY: AccountForm = {
                 class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
                 aria-hidden="true"
               >
-                <ng-icon [name]="kindIcon[a.kind]" class="text-lg" />
+                <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
               </span>
               <div class="min-w-0">
                 <p class="truncate font-semibold">{{ a.name }}</p>
