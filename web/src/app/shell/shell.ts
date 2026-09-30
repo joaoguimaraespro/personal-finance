@@ -7,32 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideBriefcase,
-  lucideCalendarDays,
-  lucideChartColumn,
-  lucideChartPie,
-  lucideDownload,
-  lucideKeyRound,
-  lucideLayoutDashboard,
-  lucideLink,
-  lucideList,
-  lucideLogOut,
-  lucideMenu,
-  lucideMonitor,
-  lucideMoon,
-  lucidePlus,
-  lucideRepeat,
-  lucideSettings,
-  lucideSparkles,
-  lucideSun,
-  lucideTags,
-  lucideTarget,
-  lucideTrendingUp,
-  lucideUpload,
-  lucideWallet,
-} from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmKbdImports } from '@spartan-ng/helm/kbd';
@@ -44,6 +19,7 @@ import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
 import { QuickAddComponent } from '../features/transactions/quick-add';
+import { APP_ICONS, PAGE_ICONS } from '../shared/icons';
 import { LogoComponent } from '../shared/logo';
 
 interface NavItem {
@@ -67,33 +43,7 @@ interface NavItem {
     HlmToggleGroupImports,
     HlmTooltipImports,
   ],
-  providers: [
-    provideIcons({
-      lucideBriefcase,
-      lucideCalendarDays,
-      lucideChartColumn,
-      lucideChartPie,
-      lucideDownload,
-      lucideKeyRound,
-      lucideLayoutDashboard,
-      lucideLink,
-      lucideList,
-      lucideLogOut,
-      lucideMenu,
-      lucideMonitor,
-      lucideMoon,
-      lucidePlus,
-      lucideRepeat,
-      lucideSettings,
-      lucideSparkles,
-      lucideSun,
-      lucideTags,
-      lucideTarget,
-      lucideTrendingUp,
-      lucideUpload,
-      lucideWallet,
-    }),
-  ],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="loading-bar" [class.active]="activity.busy()" aria-hidden="true"></div>
@@ -121,7 +71,7 @@ interface NavItem {
                 <a
                   [routerLink]="item.path"
                   routerLinkActive="nav-active"
-                  class="nav-link text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                  class="nav-link text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors duration-150"
                   (click)="menuOpen.set(false)"
                 >
                   <ng-icon [name]="item.icon" class="text-base opacity-80" aria-hidden="true" />{{
@@ -149,6 +99,7 @@ interface NavItem {
             class="lg:hidden"
             (click)="menuOpen.set(true)"
             aria-label="Menu"
+            hlmTooltip="Menu"
           >
             <ng-icon name="lucideMenu" />
           </button>
@@ -246,38 +197,38 @@ export class ShellComponent {
     {
       title: 'nav.overview',
       items: [
-        { path: '/dashboard', label: 'nav.dashboard', icon: 'lucideLayoutDashboard' },
-        { path: '/monthly', label: 'nav.monthly', icon: 'lucideCalendarDays' },
-        { path: '/annual', label: 'nav.annual', icon: 'lucideChartColumn' },
+        { path: '/dashboard', label: 'nav.dashboard', icon: PAGE_ICONS.dashboard },
+        { path: '/monthly', label: 'nav.monthly', icon: PAGE_ICONS.monthly },
+        { path: '/annual', label: 'nav.annual', icon: PAGE_ICONS.annual },
       ],
     },
     {
       title: 'nav.money',
       items: [
-        { path: '/transactions', label: 'nav.transactions', icon: 'lucideList' },
-        { path: '/recurring', label: 'nav.recurring', icon: 'lucideRepeat' },
-        { path: '/budgets', label: 'nav.budgets', icon: 'lucideChartPie' },
-        { path: '/goals', label: 'nav.goals', icon: 'lucideTarget' },
+        { path: '/transactions', label: 'nav.transactions', icon: PAGE_ICONS.transactions },
+        { path: '/recurring', label: 'nav.recurring', icon: PAGE_ICONS.recurring },
+        { path: '/budgets', label: 'nav.budgets', icon: PAGE_ICONS.budgets },
+        { path: '/goals', label: 'nav.goals', icon: PAGE_ICONS.goals },
       ],
     },
     {
       title: 'nav.wealth',
       items: [
-        { path: '/portfolio', label: 'nav.portfolio', icon: 'lucideBriefcase' },
-        { path: '/net-worth', label: 'nav.netWorth', icon: 'lucideTrendingUp' },
-        { path: '/assistant', label: 'nav.assistant', icon: 'lucideSparkles' },
+        { path: '/portfolio', label: 'nav.portfolio', icon: PAGE_ICONS.portfolio },
+        { path: '/net-worth', label: 'nav.netWorth', icon: PAGE_ICONS.netWorth },
+        { path: '/assistant', label: 'nav.assistant', icon: PAGE_ICONS.assistant },
       ],
     },
     {
       title: 'nav.setup',
       items: [
-        { path: '/connections', label: 'nav.connections', icon: 'lucideLink' },
-        { path: '/accounts', label: 'nav.accounts', icon: 'lucideWallet' },
-        { path: '/categories', label: 'nav.categories', icon: 'lucideTags' },
-        { path: '/import', label: 'nav.import', icon: 'lucideUpload' },
-        { path: '/export', label: 'nav.export', icon: 'lucideDownload' },
-        { path: '/ai', label: 'nav.ai', icon: 'lucideKeyRound' },
-        { path: '/settings', label: 'nav.settings', icon: 'lucideSettings' },
+        { path: '/connections', label: 'nav.connections', icon: PAGE_ICONS.connections },
+        { path: '/accounts', label: 'nav.accounts', icon: PAGE_ICONS.accounts },
+        { path: '/categories', label: 'nav.categories', icon: PAGE_ICONS.categories },
+        { path: '/import', label: 'nav.import', icon: PAGE_ICONS.import },
+        { path: '/export', label: 'nav.export', icon: PAGE_ICONS.export },
+        { path: '/ai', label: 'nav.ai', icon: PAGE_ICONS.ai },
+        { path: '/settings', label: 'nav.settings', icon: PAGE_ICONS.settings },
       ],
     },
   ];
