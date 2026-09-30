@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { NgTemplateOutlet } from '@angular/common';
 import { liveResource } from '../../core/resource';
 import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -23,19 +24,15 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideChevronLeft,
-  lucideChevronRight,
-  lucideHistory,
-  lucidePencil,
-  lucideTrash2,
-  lucideX,
-} from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 const TYPE_TONE: Record<TransactionType, string> = {
   Expense: 'text-rose-600 dark:text-rose-400',
-  Income: 'text-emerald-600 dark:text-emerald-400',
+  Income: 'text-emerald-700 dark:text-emerald-400',
   Transfer: 'text-muted-foreground',
   Savings: 'text-cyan-600 dark:text-cyan-400',
   InvestmentContribution: 'text-violet-600 dark:text-violet-400',
@@ -52,6 +49,10 @@ const SIGN: Partial<Record<TransactionType, string>> = {
 @Component({
   selector: 'app-transactions',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    HlmTooltipImports,
+    NgTemplateOutlet,
     NgIcon,
     DateFieldComponent,
     SelectComponent,
@@ -64,24 +65,15 @@ const SIGN: Partial<Record<TransactionType, string>> = {
     CategoryLabelPipe,
     ModalComponent,
   ],
-  providers: [
-    provideIcons({
-      lucideChevronLeft,
-      lucideChevronRight,
-      lucideHistory,
-      lucidePencil,
-      lucideTrash2,
-      lucideX,
-    }),
-  ],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.transactions' | translate }}</h1>
-      <span class="text-sm text-muted-foreground">{{
-        'tx.count' | translate: { count: page.value()?.total ?? 0 }
-      }}</span>
-    </div>
+    <app-page-header
+      class="!mb-4"
+      [icon]="icons.transactions"
+      [title]="'nav.transactions' | translate"
+      [subtitle]="'tx.count' | translate: { count: page.value()?.total ?? 0 }"
+    />
 
     <!-- Everyday money and investments are listed separately; "All" is the explicit combined view. -->
     <div class="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
@@ -101,14 +93,22 @@ const SIGN: Partial<Record<TransactionType, string>> = {
     </div>
 
     <section class="card mb-4 grid grid-cols-1 gap-3 !p-4 sm:grid-cols-2 lg:grid-cols-6">
-      <input
-        hlmInput
-        class="sm:col-span-2"
-        type="search"
-        [placeholder]="'common.search' | translate"
-        [value]="search()"
-        (input)="search.set($any($event.target).value); pageNo.set(1)"
-      />
+      <div class="relative sm:col-span-2">
+        <ng-icon
+          name="lucideSearch"
+          class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+          aria-hidden="true"
+        />
+        <input
+          hlmInput
+          class="w-full pl-9"
+          type="search"
+          [placeholder]="'common.search' | translate"
+          [attr.aria-label]="'common.search' | translate"
+          [value]="search()"
+          (input)="search.set($any($event.target).value); pageNo.set(1)"
+        />
+      </div>
       <app-date-field
         [value]="from()"
         [placeholder]="'common.from' | translate"
@@ -157,7 +157,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
       <!-- Phones: one card per row instead of a wide table. -->
       <ul class="divide-y md:hidden">
         @for (t of page.value()?.items ?? []; track t.id) {
-          <li class="flex items-start gap-3 px-4 py-3">
+          <li class="hover:bg-muted/40 flex items-start gap-3 px-4 py-3 transition-colors">
             <div class="min-w-0 flex-1">
               <div class="truncate font-medium">{{ title(t) }}</div>
               <div class="text-muted-foreground truncate text-xs">
@@ -185,6 +185,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                   size="icon-sm"
                   (click)="showHistory(t)"
                   [attr.aria-label]="'tx.history' | translate"
+                  [hlmTooltip]="'tx.history' | translate"
                 >
                   <ng-icon name="lucideHistory" />
                 </button>
@@ -195,6 +196,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                     size="icon-sm"
                     (click)="quick.edit(t)"
                     [attr.aria-label]="'common.edit' | translate"
+                    [hlmTooltip]="'common.edit' | translate"
                   >
                     <ng-icon name="lucidePencil" />
                   </button>
@@ -205,6 +207,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                     class="text-destructive hover:text-destructive"
                     (click)="remove(t)"
                     [attr.aria-label]="'common.delete' | translate"
+                    [hlmTooltip]="'common.delete' | translate"
                   >
                     <ng-icon name="lucideTrash2" />
                   </button>
@@ -213,114 +216,119 @@ const SIGN: Partial<Record<TransactionType, string>> = {
             </div>
           </li>
         } @empty {
-          <li class="px-4 py-12 text-center text-muted-foreground">{{ 'tx.empty' | translate }}</li>
+          <li>
+            <ng-container *ngTemplateOutlet="empty" />
+          </li>
         }
       </ul>
 
       <div class="hidden overflow-x-auto md:block">
-      <table hlmTable>
-        <thead hlmTHead>
-          <tr hlmTr>
-            <th hlmTh>{{ 'tx.date' | translate }}</th>
-            <th hlmTh>{{ 'tx.description' | translate }}</th>
-            <th hlmTh>{{ 'tx.category' | translate }}</th>
-            <th hlmTh>{{ 'tx.account' | translate }}</th>
-            <th hlmTh class="text-right">{{ 'tx.amount' | translate }}</th>
-            <th hlmTh></th>
-          </tr>
-        </thead>
-        <tbody hlmTBody>
-          @for (t of page.value()?.items ?? []; track t.id) {
-            <tr hlmTr class="group hover:bg-muted/50">
-              <td hlmTd class="text-muted-foreground whitespace-nowrap">
-                {{ t.occurredOn | day: 'short' }}
-              </td>
-              <td hlmTd class="max-w-72 whitespace-normal">
-                <!-- Descriptions are user/imported data; rendered as text only, never as HTML. -->
-                <div class="truncate font-medium">{{ title(t) }}</div>
-                <div class="text-xs text-muted-foreground">
-                  {{ 'type.' + t.type | translate }}
-                  @if (t.asset; as a) {
-                    · <span class="num">{{ a.symbol }}</span>
-                    @if (a.quantity !== null) {
-                      <span class="num">
-                        · {{ a.quantity }} ×
-                        {{ a.unitPrice !== null ? (a.unitPrice | money: t.currency) : '—' }}</span
-                      >
-                    }
-                  }
-                  @if (t.nature) {
-                    · {{ 'nature.' + t.nature | translate }}
-                  }
-                  @if (t.source !== 'Manual') {
-                    ·
-                    <span class="badge bg-muted !px-1.5 !py-0">{{
-                      'source.' + t.source | translate
-                    }}</span>
-                  }
-                </div>
-              </td>
-              <td hlmTd>{{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? '—') }}</td>
-              <td hlmTd class="text-muted-foreground">
-                {{ t.accountName }}
-                @if (t.counterAccountName) {
-                  → {{ t.counterAccountName }}
-                }
-              </td>
-              <td
-                hlmTd
-                class="num text-right font-semibold whitespace-nowrap"
-                [class]="tone(t.type)"
-              >
-                {{ sign(t.type) }}{{ t.amount | money: t.currency }}
-                @if (t.currency !== 'EUR') {
-                  <div class="text-xs font-normal text-muted-foreground">
-                    {{ t.baseAmount | money }}
-                  </div>
-                }
-              </td>
-              <td hlmTd class="text-right whitespace-nowrap">
-                <button
-                  hlmBtn
-                  variant="ghost"
-                  size="icon-sm"
-                  (click)="showHistory(t)"
-                  [attr.aria-label]="'tx.history' | translate"
-                >
-                  <ng-icon name="lucideHistory" />
-                </button>
-                @if (t.editable) {
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="icon-sm"
-                    (click)="quick.edit(t)"
-                    [attr.aria-label]="'common.edit' | translate"
-                  >
-                    <ng-icon name="lucidePencil" />
-                  </button>
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="icon-sm"
-                    class="text-destructive hover:text-destructive"
-                    (click)="remove(t)"
-                    [attr.aria-label]="'common.delete' | translate"
-                  >
-                    <ng-icon name="lucideTrash2" />
-                  </button>
-                }
-              </td>
-            </tr>
-          } @empty {
+        <table hlmTable>
+          <thead hlmTHead>
             <tr hlmTr>
-              <td hlmTd colspan="6" class="py-12 text-center text-muted-foreground">
-                {{ 'tx.empty' | translate }}
-              </td>
+              <th hlmTh>{{ 'tx.date' | translate }}</th>
+              <th hlmTh>{{ 'tx.description' | translate }}</th>
+              <th hlmTh>{{ 'tx.category' | translate }}</th>
+              <th hlmTh>{{ 'tx.account' | translate }}</th>
+              <th hlmTh class="text-right">{{ 'tx.amount' | translate }}</th>
+              <th hlmTh></th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody hlmTBody>
+            @for (t of page.value()?.items ?? []; track t.id) {
+              <tr hlmTr class="group">
+                <td hlmTd class="text-muted-foreground whitespace-nowrap">
+                  {{ t.occurredOn | day: 'short' }}
+                </td>
+                <td hlmTd class="max-w-72 whitespace-normal">
+                  <!-- Descriptions are user/imported data; rendered as text only, never as HTML. -->
+                  <div class="truncate font-medium">{{ title(t) }}</div>
+                  <div class="text-xs text-muted-foreground">
+                    {{ 'type.' + t.type | translate }}
+                    @if (t.asset; as a) {
+                      · <span class="num">{{ a.symbol }}</span>
+                      @if (a.quantity !== null) {
+                        <span class="num">
+                          · {{ a.quantity }} ×
+                          {{ a.unitPrice !== null ? (a.unitPrice | money: t.currency) : '—' }}</span
+                        >
+                      }
+                    }
+                    @if (t.nature) {
+                      · {{ 'nature.' + t.nature | translate }}
+                    }
+                    @if (t.source !== 'Manual') {
+                      ·
+                      <span class="badge bg-muted !px-1.5 !py-0">{{
+                        'source.' + t.source | translate
+                      }}</span>
+                    }
+                  </div>
+                </td>
+                <td hlmTd>{{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? '—') }}</td>
+                <td hlmTd class="text-muted-foreground">
+                  {{ t.accountName }}
+                  @if (t.counterAccountName) {
+                    → {{ t.counterAccountName }}
+                  }
+                </td>
+                <td
+                  hlmTd
+                  class="num text-right font-semibold whitespace-nowrap"
+                  [class]="tone(t.type)"
+                >
+                  {{ sign(t.type) }}{{ t.amount | money: t.currency }}
+                  @if (t.currency !== 'EUR') {
+                    <div class="text-xs font-normal text-muted-foreground">
+                      {{ t.baseAmount | money }}
+                    </div>
+                  }
+                </td>
+                <td hlmTd class="text-right whitespace-nowrap">
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="icon-sm"
+                    (click)="showHistory(t)"
+                    [attr.aria-label]="'tx.history' | translate"
+                    [hlmTooltip]="'tx.history' | translate"
+                  >
+                    <ng-icon name="lucideHistory" />
+                  </button>
+                  @if (t.editable) {
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="icon-sm"
+                      (click)="quick.edit(t)"
+                      [attr.aria-label]="'common.edit' | translate"
+                      [hlmTooltip]="'common.edit' | translate"
+                    >
+                      <ng-icon name="lucidePencil" />
+                    </button>
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="icon-sm"
+                      class="text-destructive hover:text-destructive"
+                      (click)="remove(t)"
+                      [attr.aria-label]="'common.delete' | translate"
+                      [hlmTooltip]="'common.delete' | translate"
+                    >
+                      <ng-icon name="lucideTrash2" />
+                    </button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr hlmTr class="hover:bg-transparent">
+                <td hlmTd colspan="6" class="whitespace-normal">
+                  <ng-container *ngTemplateOutlet="empty" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
       @if ((page.value()?.total ?? 0) > pageSize) {
         <div class="flex items-center justify-end gap-2 p-3">
@@ -330,7 +338,8 @@ const SIGN: Partial<Record<TransactionType, string>> = {
             size="icon"
             [disabled]="pageNo() === 1"
             (click)="pageNo.set(pageNo() - 1)"
-            aria-label="Previous page"
+            [attr.aria-label]="'common.previousPage' | translate"
+            [hlmTooltip]="'common.previousPage' | translate"
           >
             <ng-icon name="lucideChevronLeft" />
           </button>
@@ -341,7 +350,8 @@ const SIGN: Partial<Record<TransactionType, string>> = {
             size="icon"
             [disabled]="pageNo() >= pages()"
             (click)="pageNo.set(pageNo() + 1)"
-            aria-label="Next page"
+            [attr.aria-label]="'common.nextPage' | translate"
+            [hlmTooltip]="'common.nextPage' | translate"
           >
             <ng-icon name="lucideChevronRight" />
           </button>
@@ -349,12 +359,34 @@ const SIGN: Partial<Record<TransactionType, string>> = {
       }
     </section>
 
+    <ng-template #empty>
+      <app-empty-state
+        [icon]="hasFilters() ? 'lucideSearch' : icons.transactions"
+        [title]="'tx.empty' | translate"
+        [text]="(hasFilters() ? 'tx.emptyFiltered' : 'tx.emptyHint') | translate"
+      >
+        @if (hasFilters()) {
+          <button hlmBtn variant="outline" size="sm" (click)="clear()">
+            <ng-icon name="lucideX" />{{ 'common.clear' | translate }}
+          </button>
+        } @else {
+          <button hlmBtn size="sm" (click)="quick.add()">
+            <ng-icon name="lucidePlus" />{{ 'tx.add' | translate }}
+          </button>
+        }
+      </app-empty-state>
+    </ng-template>
+
     <app-modal [open]="!!history()" [title]="'tx.history' | translate" (closed)="history.set(null)">
       <ol class="space-y-3">
         @for (h of history() ?? []; track $index) {
           <li class="rounded-xl border border-border p-3 text-sm">
             <div class="flex justify-between">
-              <span class="font-medium">{{ 'audit.' + h.action | translate }}</span>
+              <span class="inline-flex items-center gap-1.5 font-medium"
+                ><ng-icon [name]="auditIcon[h.action]" class="text-primary" aria-hidden="true" />{{
+                  'audit.' + h.action | translate
+                }}</span
+              >
               <span class="text-xs text-muted-foreground">{{ h.atUtc | day }} · {{ h.actor }}</span>
             </div>
             <ul class="mt-2 space-y-0.5 font-mono text-xs text-muted-foreground">
@@ -375,6 +407,13 @@ const SIGN: Partial<Record<TransactionType, string>> = {
   `,
 })
 export class TransactionsComponent {
+  protected readonly icons = PAGE_ICONS;
+  protected readonly auditIcon: Record<AuditEntry['action'], string> = {
+    Created: 'lucidePlus',
+    Updated: 'lucidePencil',
+    Deleted: 'lucideTrash2',
+    Restored: 'lucideRotateCcw',
+  };
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -384,7 +423,12 @@ export class TransactionsComponent {
   private readonly query = toSignal(inject(ActivatedRoute).queryParamMap);
 
   /** '' is the explicit combined view. */
-  protected readonly flowTabs: (TransactionFlow | '')[] = ['Everyday', 'Investment', 'Movement', ''];
+  protected readonly flowTabs: (TransactionFlow | '')[] = [
+    'Everyday',
+    'Investment',
+    'Movement',
+    '',
+  ];
   protected readonly flow = signal<TransactionFlow | ''>(
     (this.query()?.get('flow') as TransactionFlow | null) ?? 'Everyday',
   );

@@ -13,12 +13,18 @@ import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { DateFieldComponent } from '../../shared/date-field';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { StatusBadgeComponent } from '../../shared/status-badge';
 
 @Component({
   selector: 'app-goals',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
     NgIcon,
     DateFieldComponent,
     HlmInputImports,
@@ -30,32 +36,50 @@ import { lucidePlus } from '@ng-icons/lucide';
     ProgressComponent,
     ModalComponent,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.goals' | translate }}</h1>
-        <p class="text-sm text-muted-foreground">{{ 'goals.subtitle' | translate }}</p>
-      </div>
-      <button hlmBtn (click)="open(null)">
+    <app-page-header
+      [icon]="icons.goals"
+      [title]="'nav.goals' | translate"
+      [subtitle]="'goals.subtitle' | translate"
+    >
+      <button hlmBtn class="self-start sm:self-auto" (click)="open(null)">
         <ng-icon name="lucidePlus" />{{ 'goals.new' | translate }}
       </button>
-    </div>
+    </app-page-header>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       @for (g of goals.value() ?? []; track g.id) {
-        <div class="card">
-          <div class="flex items-start justify-between">
-            <p class="font-semibold">{{ g.name }}</p>
-            @if (g.achieved) {
+        <div class="card card-hover flex flex-col">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
               <span
-                class="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                >{{ 'goals.achieved' | translate }}</span
+                class="flex size-10 shrink-0 items-center justify-center rounded-full"
+                [class]="
+                  g.achieved
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                    : 'bg-primary/10 text-primary dark:bg-primary/20'
+                "
+                aria-hidden="true"
               >
-            }
+                <ng-icon [name]="g.achieved ? 'lucideTrophy' : 'lucideTarget'" class="text-lg" />
+              </span>
+              <div class="min-w-0">
+                <p class="truncate font-semibold">{{ g.name }}</p>
+                @if (g.achieved) {
+                  <app-status-badge class="mt-1" tone="success" icon="lucideTrophy">{{
+                    'goals.achieved' | translate
+                  }}</app-status-badge>
+                } @else {
+                  <app-status-badge class="mt-1" icon="lucideHourglass">{{
+                    'goals.inProgress' | translate
+                  }}</app-status-badge>
+                }
+              </div>
+            </div>
           </div>
-          <p class="num mt-3 text-2xl font-semibold">{{ g.progress | pct: 0 }}</p>
+          <p class="num mt-4 text-2xl font-semibold tracking-tight">{{ g.progress | pct: 0 }}</p>
           <app-progress class="mt-2 block" [value]="g.progress" />
           <dl class="num mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
             <div>
@@ -77,18 +101,27 @@ import { lucidePlus } from '@ng-icons/lucide';
               </div>
             }
           </dl>
-          <div class="mt-4 flex gap-2">
+          <div class="flex-1"></div>
+          <div class="mt-4 flex gap-2 border-t pt-4">
             <button hlmBtn variant="outline" size="sm" (click)="open(g)">
-              {{ 'common.edit' | translate }}
+              <ng-icon name="lucidePencil" />{{ 'common.edit' | translate }}
             </button>
             <button hlmBtn variant="ghost" size="sm" (click)="archive(g)">
-              {{ 'common.archive' | translate }}
+              <ng-icon name="lucideArchive" />{{ 'common.archive' | translate }}
             </button>
           </div>
         </div>
       } @empty {
-        <div class="card col-span-full py-12 text-center text-muted-foreground">
-          {{ 'goals.empty' | translate }}
+        <div class="card col-span-full !p-0">
+          <app-empty-state
+            [icon]="icons.goals"
+            [title]="'goals.empty' | translate"
+            [text]="'goals.subtitle' | translate"
+          >
+            <button hlmBtn size="sm" (click)="open(null)">
+              <ng-icon name="lucidePlus" />{{ 'goals.new' | translate }}
+            </button>
+          </app-empty-state>
         </div>
       }
     </div>
@@ -161,13 +194,14 @@ import { lucidePlus } from '@ng-icons/lucide';
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn>{{ 'common.save' | translate }}</button>
+          <button hlmBtn><ng-icon name="lucideSave" />{{ 'common.save' | translate }}</button>
         </div>
       </form>
     </app-modal>
   `,
 })
 export class GoalsComponent {
+  protected readonly icons = PAGE_ICONS;
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
