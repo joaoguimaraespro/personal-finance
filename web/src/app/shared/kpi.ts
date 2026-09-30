@@ -56,6 +56,6 @@ export class KpiComponent {
     const d = this.delta();
     if (!d) return 'text-muted-foreground';
     const good = d > 0 === this.higherIsBetter();
-    return good ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+    return good ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
   });
 }

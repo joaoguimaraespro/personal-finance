@@ -25,6 +25,6 @@ export class ProgressComponent {
       ? 'var(--color-rose-500)'
       : v >= 0.9
         ? 'var(--color-amber-500)'
-        : 'var(--color-emerald-500)';
+        : 'var(--primary)';
   });
 }

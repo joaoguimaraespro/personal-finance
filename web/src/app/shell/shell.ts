@@ -7,7 +7,6 @@ import {
   lucideChartColumn,
   lucideChartPie,
   lucideDownload,
-  lucideEuro,
   lucideKeyRound,
   lucideLayoutDashboard,
   lucideLink,
@@ -36,6 +35,7 @@ import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
 import { QuickAddComponent } from '../features/transactions/quick-add';
+import { LogoComponent } from '../shared/logo';
 
 interface NavItem {
   path: string;
@@ -46,6 +46,7 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   imports: [
+    LogoComponent,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
@@ -64,7 +65,6 @@ interface NavItem {
       lucideChartColumn,
       lucideChartPie,
       lucideDownload,
-      lucideEuro,
       lucideKeyRound,
       lucideLayoutDashboard,
       lucideLink,
@@ -93,11 +93,7 @@ interface NavItem {
         [class.translate-x-0]="menuOpen()"
       >
         <div class="flex h-16 items-center gap-2.5 px-5">
-          <div
-            class="bg-primary text-primary-foreground grid size-9 place-items-center rounded-xl shadow-xs"
-          >
-            <ng-icon name="lucideEuro" class="text-lg" />
-          </div>
+          <app-logo [size]="36" />
           <div class="leading-tight">
             <div class="text-sm font-semibold">Personal Finance</div>
             <div class="text-muted-foreground text-[11px]">self-hosted</div>
