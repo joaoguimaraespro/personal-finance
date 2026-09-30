@@ -9,6 +9,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { liveResource } from '../../core/resource';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
 import { firstValueFrom, map } from 'rxjs';
@@ -26,12 +27,18 @@ import { MonthPickerComponent } from '../../shared/month-picker';
 import { ProgressComponent } from '../../shared/progress';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
 
 type Reference = 'previous' | 'average' | 'budget';
 
 @Component({
   selector: 'app-monthly',
   imports: [
+    NgIcon,
+    PageHeaderComponent,
+    EmptyStateComponent,
     SelectComponent,
     HlmTableImports,
     MonthPickerComponent,
@@ -43,10 +50,10 @@ type Reference = 'previous' | 'average' | 'budget';
     CategoryLabelPipe,
     RouterLink,
   ],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'monthly.title' | translate }}</h1>
+    <app-page-header [icon]="icons.monthly" [title]="'monthly.title' | translate">
       <div class="flex max-w-full flex-wrap items-center gap-3">
         <div class="segmented max-w-full overflow-x-auto">
           @for (r of references; track r) {
@@ -57,14 +64,19 @@ type Reference = 'previous' | 'average' | 'budget';
         </div>
         <app-month-picker [(period)]="period" />
       </div>
-    </div>
+    </app-page-header>
 
     @if (report.value(); as r) {
-      <h2 class="mb-2 text-sm font-semibold">{{ 'dashboard.everyday' | translate }}</h2>
+      <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <ng-icon name="lucideWallet" class="text-primary" aria-hidden="true" />{{
+          'dashboard.everyday' | translate
+        }}
+      </h2>
       <section class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <app-kpi
           [label]="'kpi.income' | translate"
           [value]="r.current.income"
+          icon="lucideArrowDownLeft"
           [color]="colors.income"
           [reference]="ref('income')"
           [referenceLabel]="refLabel()"
@@ -72,6 +84,7 @@ type Reference = 'previous' | 'average' | 'budget';
         <app-kpi
           [label]="'kpi.fixedExpenses' | translate"
           [value]="r.current.fixedExpenses"
+          icon="lucideReceipt"
           [color]="colors.expenses"
           [reference]="ref('fixedExpenses')"
           [referenceLabel]="refLabel()"
@@ -80,6 +93,7 @@ type Reference = 'previous' | 'average' | 'budget';
         <app-kpi
           [label]="'kpi.variableExpenses' | translate"
           [value]="r.current.variableExpenses"
+          icon="lucideShoppingCart"
           color="#f97316"
           [reference]="ref('variableExpenses')"
           [referenceLabel]="refLabel()"
@@ -88,6 +102,7 @@ type Reference = 'previous' | 'average' | 'budget';
         <app-kpi
           [label]="'kpi.expenses' | translate"
           [value]="r.current.totalExpenses"
+          icon="lucideArrowUpRight"
           [color]="colors.expenses"
           [reference]="ref('totalExpenses')"
           [referenceLabel]="refLabel()"
@@ -96,19 +111,22 @@ type Reference = 'previous' | 'average' | 'budget';
         <app-kpi
           [label]="'kpi.netBalance' | translate"
           [value]="r.current.netBalance"
+          icon="lucideScale"
           [color]="colors.net"
           [reference]="ref('netBalance')"
           [referenceLabel]="refLabel()"
         />
       </section>
 
-      <h2 class="mt-6 mb-2 text-sm font-semibold">
+      <h2 class="mt-6 mb-2 flex items-center gap-2 text-sm font-semibold">
+        <ng-icon name="lucidePiggyBank" class="text-primary" aria-hidden="true" />
         {{ 'dashboard.investments' | translate }} / {{ 'kpi.saved' | translate }}
       </h2>
       <section class="grid grid-cols-2 gap-3 md:grid-cols-3">
         <app-kpi
           [label]="'kpi.invested' | translate"
           [value]="r.current.invested"
+          icon="lucideBriefcase"
           [color]="colors.invested"
           [reference]="ref('invested')"
           [referenceLabel]="refLabel()"
@@ -116,6 +134,7 @@ type Reference = 'previous' | 'average' | 'budget';
         <app-kpi
           [label]="'kpi.saved' | translate"
           [value]="r.current.saved"
+          icon="lucidePiggyBank"
           [color]="colors.saved"
           [reference]="ref('saved')"
           [referenceLabel]="refLabel()"
@@ -123,6 +142,7 @@ type Reference = 'previous' | 'average' | 'budget';
         <app-kpi
           [label]="'kpi.savingsRate' | translate"
           [value]="r.current.savingsRate"
+          icon="lucideGauge"
           kind="percent"
           color="#f59e0b"
           [reference]="ref('savingsRate')"
@@ -133,10 +153,16 @@ type Reference = 'previous' | 'average' | 'budget';
       <section class="mt-6 grid gap-4 lg:grid-cols-[3fr_2fr]">
         <div class="card overflow-x-auto !p-0">
           <div class="flex items-center justify-between px-5 pt-5">
-            <h2 class="card-title">{{ 'monthly.allocation' | translate }}</h2>
-            <a routerLink="/budgets" class="mb-4 text-xs text-primary">{{
-              'monthly.editBudget' | translate
-            }}</a>
+            <h2 class="card-title">
+              <ng-icon name="lucideLayers" />{{ 'monthly.allocation' | translate }}
+            </h2>
+            <a
+              routerLink="/budgets"
+              class="mb-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              ><ng-icon name="lucidePencil" aria-hidden="true" />{{
+                'monthly.editBudget' | translate
+              }}</a
+            >
           </div>
           <table hlmTable>
             <thead hlmTHead>
@@ -163,8 +189,8 @@ type Reference = 'previous' | 'average' | 'budget';
                   <td
                     hlmTd
                     class="num text-right"
-                    [class.text-rose-600]="(b.difference ?? 0) < 0"
-                    [class.text-emerald-600]="(b.difference ?? 0) >= 0"
+                    [class.tone-neg]="(b.difference ?? 0) < 0"
+                    [class.tone-pos]="(b.difference ?? 0) >= 0"
                   >
                     {{ b.difference | money: 'EUR' : true }}
                   </td>
@@ -182,8 +208,12 @@ type Reference = 'previous' | 'average' | 'budget';
                 </tr>
               } @empty {
                 <tr hlmTr>
-                  <td hlmTd colspan="5" class="text-center text-muted-foreground">
-                    {{ 'monthly.noBudget' | translate }}
+                  <td hlmTd colspan="5" class="py-6 text-center text-muted-foreground">
+                    <span class="inline-flex items-center gap-2"
+                      ><ng-icon name="lucideInfo" aria-hidden="true" />{{
+                        'monthly.noBudget' | translate
+                      }}</span
+                    >
                   </td>
                 </tr>
               }
@@ -198,7 +228,7 @@ type Reference = 'previous' | 'average' | 'budget';
                 <td
                   hlmTd
                   class="num text-right"
-                  [class.text-rose-600]="(r.current.expenseBudgetBalance ?? 0) < 0"
+                  [class.tone-neg]="(r.current.expenseBudgetBalance ?? 0) < 0"
                 >
                   {{ r.current.expenseBudgetBalance | money: 'EUR' : true }}
                 </td>
@@ -221,13 +251,17 @@ type Reference = 'previous' | 'average' | 'budget';
         </div>
 
         <div class="card">
-          <h2 class="card-title">{{ 'monthly.byCategory' | translate }}</h2>
+          <h2 class="card-title">
+            <ng-icon name="lucideChartPie" />{{ 'monthly.byCategory' | translate }}
+          </h2>
           <app-chart class="h-64" [option]="donut()" />
         </div>
       </section>
 
       <section class="card mt-6 overflow-x-auto !p-0">
-        <h2 class="card-title px-5 pt-5">{{ 'monthly.categories' | translate }}</h2>
+        <h2 class="card-title px-5 pt-5">
+          <ng-icon name="lucideTags" />{{ 'monthly.categories' | translate }}
+        </h2>
         <table hlmTable>
           <thead hlmTHead>
             <tr hlmTr>
@@ -268,7 +302,7 @@ type Reference = 'previous' | 'average' | 'budget';
                     <app-progress tone="auto" [value]="c.budget ? c.actual / c.budget : 1" />
                     <p
                       class="num mt-1 text-xs"
-                      [class.text-rose-600]="c.status === 'over'"
+                      [class.tone-neg]="c.status === 'over'"
                       [class.text-muted-foreground]="c.status !== 'over'"
                     >
                       {{ c.budget | money }} · {{ 'budgetStatus.' + c.status | translate }}
@@ -284,8 +318,8 @@ type Reference = 'previous' | 'average' | 'budget';
               </tr>
             } @empty {
               <tr hlmTr>
-                <td hlmTd colspan="6" class="py-8 text-center text-muted-foreground">
-                  {{ 'monthly.noExpenses' | translate }}
+                <td hlmTd colspan="6" class="whitespace-normal">
+                  <app-empty-state icon="lucideReceipt" [text]="'monthly.noExpenses' | translate" />
                 </td>
               </tr>
             }
@@ -296,6 +330,7 @@ type Reference = 'previous' | 'average' | 'budget';
   `,
 })
 export class MonthlyComponent {
+  protected readonly icons = PAGE_ICONS;
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly prefs = inject(Prefs);
