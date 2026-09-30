@@ -11,7 +11,7 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { Confirm } from '../../core/confirm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { lucideBan, lucidePencil, lucidePlus, lucideTrash2 } from '@ng-icons/lucide';
 
 interface Scope {
   name: string;
@@ -64,7 +64,7 @@ interface AuditEvent {
     DayPipe,
     ModalComponent,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [provideIcons({ lucideBan, lucidePencil, lucidePlus, lucideTrash2 })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -132,7 +132,9 @@ interface AuditEvent {
               <td hlmTd class="text-right whitespace-nowrap">
                 @if (!c.revokedAtUtc) {
                   <button hlmBtn variant="ghost" size="sm" (click)="openEdit(c)">
-                    {{ 'common.edit' | translate }}
+                    <ng-icon name="lucidePencil" aria-hidden="true" />{{
+                      'common.edit' | translate
+                    }}
                   </button>
                   <button
                     hlmBtn
@@ -141,10 +143,26 @@ interface AuditEvent {
                     class="text-destructive hover:text-destructive"
                     (click)="revoke(c)"
                   >
-                    {{ 'ai.revoke' | translate }}
+                    <ng-icon name="lucideBan" aria-hidden="true" />{{ 'ai.revoke' | translate }}
                   </button>
                 } @else {
-                  <span class="text-xs text-muted-foreground">{{ 'ai.revoked' | translate }}</span>
+                  <span class="mr-2 text-xs text-muted-foreground">{{
+                    'ai.revoked' | translate
+                  }}</span>
+                }
+                @if (!c.internal) {
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="sm"
+                    class="text-destructive hover:text-destructive"
+                    [attr.aria-label]="('common.delete' | translate) + ' ' + c.name"
+                    (click)="remove(c)"
+                  >
+                    <ng-icon name="lucideTrash2" aria-hidden="true" />{{
+                      'common.delete' | translate
+                    }}
+                  </button>
                 }
               </td>
             </tr>
@@ -183,7 +201,9 @@ interface AuditEvent {
               </td>
               <td hlmTd class="text-sm">{{ e.clientName ?? '—' }}</td>
               <td hlmTd class="font-mono text-xs">{{ e.tool }}</td>
-              <td hlmTd class="font-mono text-xs text-muted-foreground whitespace-normal break-all">{{ e.arguments }}</td>
+              <td hlmTd class="font-mono text-xs text-muted-foreground whitespace-normal break-all">
+                {{ e.arguments }}
+              </td>
               <td hlmTd>
                 <span
                   class="badge"
@@ -448,6 +468,22 @@ export class AiAccessComponent {
     )
       return;
     await firstValueFrom(this.http.post(`/api/ai-admin/clients/${c.id}/revoke`, {}));
+    this.refresh.update((v) => v + 1);
+  }
+
+  protected async remove(c: AiClient) {
+    if (
+      !(await this.confirm.ask(this.i18n.instant('ai.confirmDelete', { name: c.name }), {
+        destructive: true,
+      }))
+    )
+      return;
+    try {
+      await firstValueFrom(this.http.delete(`/api/ai-admin/clients/${c.id}`));
+      this.toasts.show(this.i18n.instant('ai.deleted', { name: c.name }), 'info');
+    } catch (err) {
+      this.toasts.error(err);
+    }
     this.refresh.update((v) => v + 1);
   }
 

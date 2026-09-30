@@ -177,6 +177,32 @@ public sealed class AiGatewayTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Deleting_a_client_removes_it_and_its_token_but_keeps_the_audit_trail()
+    {
+        var owner = await OwnerWithDataAsync();
+        var token = await CreateAiClientAsync(owner, "To delete", ["overview.read"]);
+        (await CallAsync(token, "get_financial_overview", new { year = 2036 })).Status.ShouldBe(HttpStatusCode.OK);
+
+        var clients = await owner.GetAsync<JsonElement[]>("/api/ai-admin/clients");
+        var id = clients.Single(c => c.GetProperty("name").GetString() == "To delete").GetProperty("id").GetGuid();
+        await ApiClient.EnsureAsync(await owner.Http.DeleteAsync($"/api/ai-admin/clients/{id}"));
+
+        (await CallAsync(token, "get_financial_overview", new { year = 2036 })).Status.ShouldBe(HttpStatusCode.Unauthorized);
+        (await owner.GetAsync<JsonElement[]>("/api/ai-admin/clients"))
+            .ShouldNotContain(c => c.GetProperty("id").GetGuid() == id);
+        var audit = await owner.GetAsync<JsonElement[]>($"/api/ai-admin/audit?clientId={id}");
+        audit.ShouldContain(e => e.GetProperty("clientName").GetString() == "To delete");
+
+        (await owner.Http.DeleteAsync($"/api/ai-admin/clients/{id}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        // The in-app assistant can be revoked or re-scoped, but not deleted.
+        await owner.GetJsonAsync("/api/assistant/status"); // ensures the internal client exists
+        var assistant = (await owner.GetAsync<JsonElement[]>("/api/ai-admin/clients"))
+            .Single(c => c.GetProperty("internal").GetBoolean()).GetProperty("id").GetGuid();
+        (await owner.Http.DeleteAsync($"/api/ai-admin/clients/{assistant}")).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
     public async Task Rate_limits_and_strict_arguments_apply_per_client()
     {
         var owner = await OwnerWithDataAsync();

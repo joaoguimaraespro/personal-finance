@@ -784,7 +784,9 @@
   "copied": "Copied",
   "copyFailed": "Copy failed — select the text manually.",
   "confirmRevoke": "Revoke \"{{name}}\"? It stops working immediately.",
-  "internal": "in-app"
+  "internal": "in-app",
+  "confirmDelete": "Delete \"{{name}}\" permanently? Its token stops working immediately and it disappears from this list. Its audit history is kept.",
+  "deleted": "\"{{name}}\" deleted."
  },
  "assistant": {
   "subtitle": "Ask about your finances. Answers use the same read-only, permission-checked tools as MCP clients.",
