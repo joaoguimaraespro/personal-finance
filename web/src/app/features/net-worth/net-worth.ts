@@ -19,12 +19,16 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
 
 @Component({
   selector: 'app-net-worth',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
     NgIcon,
     DateFieldComponent,
     SelectComponent,
@@ -39,26 +43,31 @@ import { lucidePlus } from '@ng-icons/lucide';
     PercentPipe,
     DayPipe,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.netWorth' | translate }}</h1>
-      <button hlmBtn (click)="open()">
+    <app-page-header [icon]="icons.netWorth" [title]="'nav.netWorth' | translate">
+      <button hlmBtn class="self-start sm:self-auto" (click)="open()">
         <ng-icon name="lucidePlus" />{{ 'netWorth.addAsset' | translate }}
       </button>
-    </div>
+    </app-page-header>
 
     @if (data.value(); as d) {
       <section class="card mb-6 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p class="text-sm text-muted-foreground">{{ 'nav.netWorth' | translate }}</p>
+          <p class="text-muted-foreground flex items-center gap-1.5 text-sm">
+            <ng-icon name="lucideScale" aria-hidden="true" />{{ 'nav.netWorth' | translate }}
+          </p>
           <p class="num text-4xl font-semibold tracking-tight">{{ d.current.netWorth | money }}</p>
           @if (d.changeSinceStartPercent !== null) {
             <p
-              class="num mt-1 text-sm"
-              [class]="(d.changeSinceStart ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+              class="num mt-1 flex flex-wrap items-center gap-1 text-sm"
+              [class]="(d.changeSinceStart ?? 0) >= 0 ? 'tone-pos' : 'tone-neg'"
             >
+              <ng-icon
+                [name]="(d.changeSinceStart ?? 0) >= 0 ? 'lucideTrendingUp' : 'lucideTrendingDown'"
+                aria-hidden="true"
+              />
               {{ (d.changeSinceStart ?? 0) >= 0 ? '+' : ''
               }}{{ d.changeSinceStartPercent | pct }} ({{
                 d.changeSinceStart | money: 'EUR' : true
@@ -70,21 +79,25 @@ import { lucidePlus } from '@ng-icons/lucide';
           <app-kpi
             [label]="'netWorth.cash' | translate"
             [value]="d.current.cash"
+            icon="lucideBanknote"
             [color]="colors.saved"
           />
           <app-kpi
             [label]="'netWorth.investments' | translate"
             [value]="d.current.investments"
+            icon="lucideBriefcase"
             [color]="colors.invested"
           />
           <app-kpi
             [label]="'netWorth.manual' | translate"
             [value]="d.current.manualAssets"
+            icon="lucideLandmark"
             color="#14b8a6"
           />
           <app-kpi
             [label]="'netWorth.liabilities' | translate"
             [value]="d.current.liabilities"
+            icon="lucideHandCoins"
             [color]="colors.expenses"
           />
         </div>
@@ -92,11 +105,15 @@ import { lucidePlus } from '@ng-icons/lucide';
 
       <section class="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div class="card">
-          <h2 class="card-title">{{ 'netWorth.history' | translate }}</h2>
+          <h2 class="card-title">
+            <ng-icon name="lucideChartArea" />{{ 'netWorth.history' | translate }}
+          </h2>
           <app-chart class="h-72" [option]="chart()" />
         </div>
         <div class="card table-wrap !p-0">
-          <h2 class="card-title px-5 pt-5">{{ 'netWorth.breakdown' | translate }}</h2>
+          <h2 class="card-title px-5 pt-5">
+            <ng-icon name="lucideLayers" />{{ 'netWorth.breakdown' | translate }}
+          </h2>
           <table hlmTable>
             <tbody hlmTBody>
               @for (l of d.current.lines; track $index) {
@@ -107,7 +124,7 @@ import { lucidePlus } from '@ng-icons/lucide';
                       >· {{ 'netWorth.group.' + l.group | translate }}</span
                     >
                   </td>
-                  <td hlmTd class="num text-right" [class.text-rose-600]="l.group === 'liability'">
+                  <td hlmTd class="num text-right" [class.tone-neg]="l.group === 'liability'">
                     {{ l.group === 'liability' ? '−' : '' }}{{ l.value | money }}
                   </td>
                 </tr>
@@ -119,7 +136,9 @@ import { lucidePlus } from '@ng-icons/lucide';
     }
 
     <section class="card mt-6 overflow-x-auto !p-0">
-      <h2 class="card-title px-5 pt-5">{{ 'netWorth.manualTitle' | translate }}</h2>
+      <h2 class="card-title px-5 pt-5">
+        <ng-icon name="lucideLandmark" />{{ 'netWorth.manualTitle' | translate }}
+      </h2>
       <table hlmTable>
         <thead hlmTHead>
           <tr hlmTr>
@@ -137,23 +156,27 @@ import { lucidePlus } from '@ng-icons/lucide';
               <td hlmTd class="text-sm text-muted-foreground">
                 {{ 'assetKind.' + a.kind | translate }}
               </td>
-              <td hlmTd class="num text-right" [class.text-rose-600]="a.isLiability">
+              <td hlmTd class="num text-right" [class.tone-neg]="a.isLiability">
                 {{ a.currentValue | money: a.currency }}
               </td>
               <td hlmTd class="text-sm text-muted-foreground">{{ a.valuedOn | day }}</td>
               <td hlmTd class="text-right whitespace-nowrap">
                 <button hlmBtn variant="ghost" size="sm" (click)="revalue(a)">
-                  {{ 'netWorth.update' | translate }}
+                  <ng-icon name="lucideRefreshCw" />{{ 'netWorth.update' | translate }}
                 </button>
                 <button hlmBtn variant="ghost" size="sm" (click)="archive(a)">
-                  {{ 'common.archive' | translate }}
+                  <ng-icon name="lucideArchive" />{{ 'common.archive' | translate }}
                 </button>
               </td>
             </tr>
           } @empty {
-            <tr hlmTr>
-              <td hlmTd colspan="5" class="py-8 text-center text-muted-foreground">
-                {{ 'netWorth.noManual' | translate }}
+            <tr hlmTr class="hover:bg-transparent">
+              <td hlmTd colspan="5" class="whitespace-normal">
+                <app-empty-state icon="lucideLandmark" [text]="'netWorth.noManual' | translate">
+                  <button hlmBtn variant="outline" size="sm" (click)="open()">
+                    <ng-icon name="lucidePlus" />{{ 'netWorth.addAsset' | translate }}
+                  </button>
+                </app-empty-state>
               </td>
             </tr>
           }
@@ -221,13 +244,14 @@ import { lucidePlus } from '@ng-icons/lucide';
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn>{{ 'common.save' | translate }}</button>
+          <button hlmBtn><ng-icon name="lucideSave" />{{ 'common.save' | translate }}</button>
         </div>
       </form>
     </app-modal>
   `,
 })
 export class NetWorthComponent {
+  protected readonly icons = PAGE_ICONS;
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly prefs = inject(Prefs);
