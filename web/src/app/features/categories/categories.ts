@@ -12,12 +12,16 @@ import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { SelectComponent, SelectOption } from '../../shared/select';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 @Component({
   selector: 'app-categories',
   imports: [
+    PageHeaderComponent,
+    HlmTooltipImports,
     NgIcon,
     SelectComponent,
     HlmInputImports,
@@ -26,29 +30,30 @@ import { lucidePlus } from '@ng-icons/lucide';
     CategoryLabelPipe,
     ModalComponent,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.categories' | translate }}</h1>
-      <button hlmBtn (click)="openNew()">
+    <app-page-header [icon]="icons.categories" [title]="'nav.categories' | translate">
+      <button hlmBtn class="self-start sm:self-auto" (click)="openNew()">
         <ng-icon name="lucidePlus" />{{ 'categories.new' | translate }}
       </button>
-    </div>
+    </app-page-header>
 
     <div class="grid gap-4 lg:grid-cols-2">
       @for (group of groups(); track group.title) {
         <section class="card !p-0">
-          <h2 class="card-title px-5 pt-5">{{ group.title | translate }}</h2>
+          <h2 class="card-title px-5 pt-5">
+            <ng-icon [name]="group.icon" />{{ group.title | translate }}
+          </h2>
           <ul class="divide-y divide-border">
             @for (c of group.items; track c.id) {
               <li
-                class="flex items-center gap-3 px-5 py-2.5"
+                class="hover:bg-muted/40 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5 transition-colors"
                 [class.pl-10]="!!c.parentId"
                 [class.opacity-50]="c.archived"
               >
-                <span class="h-3 w-3 rounded-full" [style.background]="c.color"></span>
-                <span class="flex-1 text-sm">{{ c | categoryLabel }}</span>
+                <span class="h-3 w-3 shrink-0 rounded-full" [style.background]="c.color"></span>
+                <span class="min-w-0 flex-1 text-sm">{{ c | categoryLabel }}</span>
                 @if (c.type === 'Expense') {
                   <app-select
                     class="w-32"
@@ -61,12 +66,21 @@ import { lucidePlus } from '@ng-icons/lucide';
                   />
                 }
                 @if (!c.isSystem) {
-                  <span class="badge bg-muted text-muted-foreground">{{
-                    'categories.custom' | translate
-                  }}</span>
+                  <span class="badge bg-muted text-muted-foreground"
+                    ><ng-icon name="lucideUserRound" aria-hidden="true" />{{
+                      'categories.custom' | translate
+                    }}</span
+                  >
                 }
-                <button hlmBtn variant="ghost" size="sm" (click)="toggleArchive(c)">
-                  {{ (c.archived ? 'common.restore' : 'common.archive') | translate }}
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="icon-sm"
+                  (click)="toggleArchive(c)"
+                  [attr.aria-label]="(c.archived ? 'common.restore' : 'common.archive') | translate"
+                  [hlmTooltip]="(c.archived ? 'common.restore' : 'common.archive') | translate"
+                >
+                  <ng-icon [name]="c.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />
                 </button>
               </li>
             }
@@ -92,11 +106,21 @@ import { lucidePlus } from '@ng-icons/lucide';
           />
         </div>
         <div class="segmented">
-          <button type="button" [class.active]="type() === 'Expense'" (click)="type.set('Expense')">
-            {{ 'type.Expense' | translate }}
+          <button
+            type="button"
+            class="gap-1.5"
+            [class.active]="type() === 'Expense'"
+            (click)="type.set('Expense')"
+          >
+            <ng-icon name="lucideArrowUpRight" aria-hidden="true" />{{ 'type.Expense' | translate }}
           </button>
-          <button type="button" [class.active]="type() === 'Income'" (click)="type.set('Income')">
-            {{ 'type.Income' | translate }}
+          <button
+            type="button"
+            class="gap-1.5"
+            [class.active]="type() === 'Income'"
+            (click)="type.set('Income')"
+          >
+            <ng-icon name="lucideArrowDownLeft" aria-hidden="true" />{{ 'type.Income' | translate }}
           </button>
         </div>
         @if (type() === 'Expense') {
@@ -140,13 +164,14 @@ import { lucidePlus } from '@ng-icons/lucide';
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn>{{ 'common.save' | translate }}</button>
+          <button hlmBtn><ng-icon name="lucideSave" />{{ 'common.save' | translate }}</button>
         </div>
       </form>
     </app-modal>
   `,
 })
 export class CategoriesComponent {
+  protected readonly icons = PAGE_ICONS;
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -170,8 +195,8 @@ export class CategoriesComponent {
       return roots.flatMap((r) => [r, ...all.filter((c) => c.parentId === r.id)]);
     };
     return [
-      { title: 'categories.expenses', items: ordered('Expense') },
-      { title: 'categories.income', items: ordered('Income') },
+      { title: 'categories.expenses', icon: 'lucideArrowUpRight', items: ordered('Expense') },
+      { title: 'categories.income', icon: 'lucideArrowDownLeft', items: ordered('Income') },
     ];
   });
 

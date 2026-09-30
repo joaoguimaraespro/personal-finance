@@ -13,14 +13,11 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideCheck,
-  lucideCircleCheck,
-  lucideCircleX,
-  lucideTriangleAlert,
-  lucideX,
-} from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { StatusBadgeComponent, StatusTone } from '../../shared/status-badge';
 
 type Step = 'upload' | 'map' | 'done';
 
@@ -28,6 +25,9 @@ type Step = 'upload' | 'map' | 'done';
 @Component({
   selector: 'app-import',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
     NgIcon,
     SelectComponent,
     HlmTableImports,
@@ -38,26 +38,27 @@ type Step = 'upload' | 'map' | 'done';
     MonthNamePipe,
     DayPipe,
   ],
-  providers: [
-    provideIcons({ lucideCheck, lucideCircleCheck, lucideCircleX, lucideTriangleAlert, lucideX }),
-  ],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'import.title' | translate }}</h1>
-      <p class="text-sm text-muted-foreground">{{ 'import.subtitle' | translate }}</p>
-    </div>
+    <app-page-header
+      [icon]="icons.import"
+      [title]="'import.title' | translate"
+      [subtitle]="'import.subtitle' | translate"
+    />
 
     <ol class="mb-6 flex flex-wrap gap-2 text-xs font-medium">
       @for (s of stepsList; track s; let i = $index) {
         <li
-          class="rounded-full px-3 py-1"
+          class="inline-flex items-center gap-1.5 rounded-full px-3 py-1"
           [class]="
             stepIndex() >= i
               ? 'bg-primary text-primary-foreground'
               : 'bg-muted text-muted-foreground'
           "
+          [attr.aria-current]="stepIndex() === i ? 'step' : null"
         >
+          <ng-icon [name]="stepIndex() > i ? 'lucideCheck' : stepIcon[s]" aria-hidden="true" />
           {{ i + 1 }}. {{ 'import.steps.' + s | translate }}
         </li>
       }
@@ -80,18 +81,40 @@ type Step = 'upload' | 'map' | 'done';
               (input)="year.set(+$any($event.target).value)"
             />
           </div>
-          <input
-            class="block w-full text-sm"
-            type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            (change)="file.set($any($event.target).files?.[0] ?? null)"
-          />
-          <p class="text-xs text-muted-foreground">{{ 'import.privacy' | translate }}</p>
+          <label
+            class="border-input hover:border-ring/60 hover:bg-muted/40 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed p-6 text-center transition-colors"
+          >
+            <span
+              class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 items-center justify-center rounded-lg"
+              aria-hidden="true"
+            >
+              <ng-icon name="lucideFileSpreadsheet" class="text-xl" />
+            </span>
+            <span class="text-sm font-medium">{{ file()?.name ?? '.xlsx' }}</span>
+            <input
+              class="text-muted-foreground block w-full max-w-xs text-xs file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              (change)="file.set($any($event.target).files?.[0] ?? null)"
+            />
+          </label>
+          <p class="text-muted-foreground flex gap-1.5 text-xs">
+            <ng-icon
+              name="lucideShieldCheck"
+              class="text-primary mt-px shrink-0"
+              aria-hidden="true"
+            />{{ 'import.privacy' | translate }}
+          </p>
           @if (error()) {
-            <p class="text-sm text-rose-600">{{ error() }}</p>
+            <p class="tone-neg flex items-center gap-1.5 text-sm" role="alert">
+              <ng-icon name="lucideCircleAlert" aria-hidden="true" />{{ error() }}
+            </p>
           }
           <button hlmBtn [disabled]="!file() || busy()" (click)="analyze()">
-            {{ 'import.analyze' | translate }}
+            <ng-icon
+              [name]="busy() ? 'lucideLoaderCircle' : 'lucideSearch'"
+              [class]="busy() ? 'motion-safe:animate-spin' : ''"
+            />{{ 'import.analyze' | translate }}
           </button>
         </section>
       }
@@ -99,7 +122,9 @@ type Step = 'upload' | 'map' | 'done';
         @if (preview(); as p) {
           <div class="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <section class="card space-y-3">
-              <h2 class="card-title">{{ 'import.mapping' | translate }}</h2>
+              <h2 class="card-title">
+                <ng-icon name="lucideLayers" />{{ 'import.mapping' | translate }}
+              </h2>
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="label" for="m-year">{{ 'import.year' | translate }}</label>
@@ -144,12 +169,20 @@ type Step = 'upload' | 'map' | 'done';
               </div>
               @if (!(accounts.value() ?? []).length) {
                 <p
-                  class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300"
+                  class="flex gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300"
                 >
-                  {{ 'import.needAccount' | translate }}
+                  <ng-icon
+                    name="lucideTriangleAlert"
+                    class="mt-0.5 shrink-0"
+                    aria-hidden="true"
+                  />{{ 'import.needAccount' | translate }}
                 </p>
               }
-              <h3 class="pt-2 text-sm font-semibold">{{ 'import.categoryMapping' | translate }}</h3>
+              <h3 class="flex items-center gap-2 pt-2 text-sm font-semibold">
+                <ng-icon name="lucideTags" class="text-primary" aria-hidden="true" />{{
+                  'import.categoryMapping' | translate
+                }}
+              </h3>
               <div class="space-y-2">
                 @for (m of p.workbookCategories; track m.label) {
                   <div class="grid grid-cols-2 items-center gap-2">
@@ -167,7 +200,9 @@ type Step = 'upload' | 'map' | 'done';
 
             <section class="space-y-4">
               <div class="card">
-                <h2 class="card-title">{{ 'import.validation' | translate }}</h2>
+                <h2 class="card-title">
+                  <ng-icon name="lucideListChecks" />{{ 'import.validation' | translate }}
+                </h2>
                 <ul class="space-y-1 text-sm">
                   <li>
                     {{
@@ -177,13 +212,14 @@ type Step = 'upload' | 'map' | 'done';
                   </li>
                   <li>
                     @if (p.preview.reconciled) {
-                      <span class="inline-flex items-center gap-1.5 text-emerald-600"
+                      <span class="tone-pos inline-flex items-center gap-1.5"
                         ><ng-icon name="lucideCircleCheck" />{{
                           'import.reconciled' | translate
                         }}</span
                       >
                     } @else {
-                      <span class="inline-flex items-center gap-1.5 text-amber-600"
+                      <span
+                        class="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400"
                         ><ng-icon name="lucideTriangleAlert" />{{
                           'import.notReconciled' | translate
                         }}</span
@@ -205,12 +241,12 @@ type Step = 'upload' | 'map' | 'done';
                     </li>
                   }
                   @for (e of p.preview.errors; track e) {
-                    <li class="flex items-center gap-1.5 text-rose-600">
+                    <li class="tone-neg flex items-center gap-1.5">
                       <ng-icon name="lucideCircleX" />{{ e }}
                     </li>
                   }
                   @for (w of p.preview.warnings; track w) {
-                    <li class="flex items-center gap-1.5 text-amber-600">
+                    <li class="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                       <ng-icon name="lucideTriangleAlert" />{{ w }}
                     </li>
                   }
@@ -218,7 +254,9 @@ type Step = 'upload' | 'map' | 'done';
               </div>
 
               <div class="card overflow-x-auto !p-0">
-                <h2 class="card-title px-5 pt-5">{{ 'import.reconciliation' | translate }}</h2>
+                <h2 class="card-title px-5 pt-5">
+                  <ng-icon name="lucideScale" />{{ 'import.reconciliation' | translate }}
+                </h2>
                 <table hlmTable>
                   <thead hlmTHead>
                     <tr hlmTr>
@@ -240,9 +278,9 @@ type Step = 'upload' | 'map' | 'done';
                         <td hlmTd class="num text-right">{{ r.imported | money }}</td>
                         <td hlmTd>
                           @if (r.matches) {
-                            <ng-icon name="lucideCheck" class="text-emerald-600" />
+                            <ng-icon name="lucideCheck" class="tone-pos" aria-label="OK" />
                           } @else {
-                            <ng-icon name="lucideX" class="text-rose-600" />
+                            <ng-icon name="lucideX" class="tone-neg" aria-label="≠" />
                           }
                         </td>
                       </tr>
@@ -253,17 +291,22 @@ type Step = 'upload' | 'map' | 'done';
 
               <div class="flex justify-end gap-2">
                 <button hlmBtn variant="outline" (click)="reset()">
-                  {{ 'common.cancel' | translate }}
+                  <ng-icon name="lucideX" />{{ 'common.cancel' | translate }}
                 </button>
                 <button hlmBtn [disabled]="!p.preview.canCommit || busy()" (click)="commit()">
-                  {{ 'import.commit' | translate }}
+                  <ng-icon
+                    [name]="busy() ? 'lucideLoaderCircle' : 'lucideUpload'"
+                    [class]="busy() ? 'motion-safe:animate-spin' : ''"
+                  />{{ 'import.commit' | translate }}
                 </button>
               </div>
             </section>
           </div>
 
           <section class="card mt-4 overflow-x-auto !p-0">
-            <h2 class="card-title px-5 pt-5">{{ 'import.preview' | translate }}</h2>
+            <h2 class="card-title px-5 pt-5">
+              <ng-icon name="lucideEye" />{{ 'import.preview' | translate }}
+            </h2>
             <table hlmTable>
               <thead hlmTHead>
                 <tr hlmTr>
@@ -284,7 +327,14 @@ type Step = 'upload' | 'map' | 'done';
                       }
                     </td>
                     <td hlmTd class="whitespace-normal">{{ t.description }}</td>
-                    <td hlmTd class="num text-right">{{ t.amount | money }}</td>
+                    <td
+                      hlmTd
+                      class="num text-right"
+                      [class.tone-pos]="t.type === 'Income'"
+                      [class.tone-neg]="t.type === 'Expense'"
+                    >
+                      {{ t.amount | money }}
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -294,20 +344,22 @@ type Step = 'upload' | 'map' | 'done';
       }
       @case ('done') {
         <section class="card max-w-xl space-y-3">
-          <p class="flex items-center gap-2 text-lg font-semibold text-emerald-600">
+          <p class="tone-pos flex items-center gap-2 text-lg font-semibold">
             <ng-icon name="lucideCircleCheck" />{{
               'import.done' | translate: { created: result()?.created, skipped: result()?.skipped }
             }}
           </p>
           <button hlmBtn variant="outline" (click)="reset()">
-            {{ 'import.another' | translate }}
+            <ng-icon name="lucideFilePlus" />{{ 'import.another' | translate }}
           </button>
         </section>
       }
     }
 
     <section class="card mt-8 overflow-x-auto !p-0">
-      <h2 class="card-title px-5 pt-5">{{ 'import.history' | translate }}</h2>
+      <h2 class="card-title px-5 pt-5">
+        <ng-icon name="lucideHistory" />{{ 'import.history' | translate }}
+      </h2>
       <table hlmTable>
         <thead hlmTHead>
           <tr hlmTr>
@@ -321,9 +373,19 @@ type Step = 'upload' | 'map' | 'done';
         <tbody hlmTBody>
           @for (h of history.value() ?? []; track h.id) {
             <tr hlmTr>
-              <td hlmTd>{{ h.fileName }}</td>
               <td hlmTd>
-                <span class="badge bg-muted">{{ 'importStatus.' + h.status | translate }}</span>
+                <span class="inline-flex items-center gap-2"
+                  ><ng-icon
+                    name="lucideFileSpreadsheet"
+                    class="text-muted-foreground"
+                    aria-hidden="true"
+                  />{{ h.fileName }}</span
+                >
+              </td>
+              <td hlmTd>
+                <app-status-badge [tone]="importTone[h.status]" [icon]="importIcon[h.status]">{{
+                  'importStatus.' + h.status | translate
+                }}</app-status-badge>
               </td>
               <td hlmTd class="num text-right">{{ h.created }}</td>
               <td hlmTd class="text-muted-foreground">{{ h.createdAtUtc | day }}</td>
@@ -336,9 +398,15 @@ type Step = 'upload' | 'map' | 'done';
                     class="text-destructive hover:text-destructive"
                     (click)="undo(h.id)"
                   >
-                    {{ 'import.undo' | translate }}
+                    <ng-icon name="lucideUndo2" />{{ 'import.undo' | translate }}
                   </button>
                 }
+              </td>
+            </tr>
+          } @empty {
+            <tr hlmTr class="hover:bg-transparent">
+              <td hlmTd colspan="5" class="whitespace-normal">
+                <app-empty-state icon="lucideInbox" [text]="'import.noHistory' | translate" />
               </td>
             </tr>
           }
@@ -348,6 +416,24 @@ type Step = 'upload' | 'map' | 'done';
   `,
 })
 export class ImportComponent {
+  protected readonly icons = PAGE_ICONS;
+  protected readonly stepIcon: Record<Step, string> = {
+    upload: 'lucideUpload',
+    map: 'lucideListChecks',
+    done: 'lucideCircleCheck',
+  };
+  protected readonly importTone: Record<ImportPreview['status'], StatusTone> = {
+    Previewed: 'info',
+    Committed: 'success',
+    RolledBack: 'neutral',
+    Failed: 'danger',
+  };
+  protected readonly importIcon: Record<ImportPreview['status'], string> = {
+    Previewed: 'lucideEye',
+    Committed: 'lucideCircleCheck',
+    RolledBack: 'lucideRotateCcw',
+    Failed: 'lucideCircleX',
+  };
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
