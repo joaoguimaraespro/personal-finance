@@ -505,7 +505,11 @@
   "derived": "Inferido pela API; importa o CSV da corretora para o valor reportado",
   "targetsTitle": "Alocação objetivo",
   "targetsHint": "Percentagens da carteira (incluindo liquidez). Deixa vazio para sem objetivo. Total até 100%.",
-  "twrHint": "Ponderado pelo tempo, acumulado no período — depósitos não o distorcem"
+  "twrHint": "Ponderado pelo tempo, acumulado no período — depósitos não o distorcem",
+  "today": "Hoje",
+  "todayPending": "Disponível a partir do segundo dia de sincronizações",
+  "gain": "Lucro",
+  "invested": "Investido"
  },
  "netWorth": {
   "addAsset": "Adicionar ativo ou dívida",

@@ -27,7 +27,8 @@ public sealed record Holding(
     decimal LastPrice,
     decimal MarketValueBase,
     decimal CostBase,
-    DateTimeOffset PriceAsOfUtc);
+    DateTimeOffset PriceAsOfUtc,
+    decimal? DayChangeBase);
 
 public sealed record PositionLine(
     Guid SecurityId,
@@ -44,7 +45,9 @@ public sealed record PositionLine(
     decimal UnrealizedPnlBase,
     decimal? UnrealizedPnlPercent,
     decimal PortfolioWeight,
-    IReadOnlyList<PositionHolding> Holdings);
+    IReadOnlyList<PositionHolding> Holdings,
+    decimal? DayChangeBase,
+    decimal? DayChangePercent);
 
 public sealed record PositionHolding(Guid AccountId, string AccountName, DataSource Broker, decimal Quantity,
     decimal AveragePrice);
@@ -62,7 +65,9 @@ public sealed record PortfolioSummary(
     decimal Fees,
     int Positions,
     DateTimeOffset? LastSyncUtc,
-    IReadOnlyList<AccountTotal> Accounts);
+    IReadOnlyList<AccountTotal> Accounts,
+    decimal? DayChange,
+    decimal? DayChangePercent);
 
 public sealed record AccountTotal(Guid AccountId, string Name, DataSource Broker, decimal MarketValue, decimal Cash);
 
@@ -107,14 +112,23 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 select new { p, s })
             .ToListAsync(ct);
         var factors = await fx.EurPerUnitAsync(rows.Select(r => r.s.Currency), Today, ct);
+        var securityIds = rows.Select(r => r.s.Id).Distinct().ToList();
+        var since = Today.AddDays(-14);
+        var closes = (await db.MarketPrices.AsNoTracking()
+                .Where(m => securityIds.Contains(m.SecurityId) && m.Date >= since)
+                .Select(m => new { m.SecurityId, m.Date, m.Close, m.Currency })
+                .ToListAsync(ct))
+            .ToLookup(m => (m.SecurityId, m.Currency), m => (m.Date, m.Close));
         return rows.Select(r =>
         {
             var factor = factors.GetValueOrDefault(r.s.Currency);
             var account = accounts[r.p.AccountId];
+            var previous = DayChange.PreviousClose(closes[(r.s.Id, r.s.Currency)],
+                DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime));
             return new Holding(r.p.AccountId, account.Name, r.p.Source, r.s.Id, r.s.Symbol, r.s.Isin, r.s.Name,
                 r.s.Currency, r.s.EffectiveAssetClass, r.p.Quantity, r.p.AveragePrice, r.p.LastPrice,
                 decimal.Round(r.p.MarketValue * factor, 2), decimal.Round(r.p.CostBasis * factor, 2),
-                r.p.PriceAsOfUtc);
+                r.p.PriceAsOfUtc, DayChange.Amount(r.p.Quantity, r.p.LastPrice, previous, factor));
         }).ToList();
     }
 
@@ -131,15 +145,24 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 var qty = g.Sum(h => h.Quantity);
                 var mv = g.Sum(h => h.MarketValueBase);
                 var cost = g.Sum(h => h.CostBase);
+                var day = SumKnown(g.Select(h => h.DayChangeBase));
                 return new PositionLine(first.SecurityId, first.Symbol, first.Isin, first.Name, first.Currency,
                     first.AssetClass, qty, qty == 0 ? 0 : decimal.Round(g.Sum(h => h.Quantity * h.AveragePrice) / qty, 4),
                     first.LastPrice, mv, cost, mv - cost, cost == 0 ? null : decimal.Round((mv - cost) / cost, 6),
                     total == 0 ? 0 : decimal.Round(mv / total, 6),
                     g.Select(h => new PositionHolding(h.AccountId, h.AccountName, h.Broker, h.Quantity, h.AveragePrice))
-                        .ToList());
+                        .ToList(),
+                    day, DayChange.Percent(day, mv));
             })
             .OrderByDescending(p => p.MarketValueBase)
             .ToList();
+    }
+
+    /// <summary>Sum of the known values; null when none is known (e.g. before a second day of prices).</summary>
+    private static decimal? SumKnown(IEnumerable<decimal?> values)
+    {
+        var known = values.Where(v => v is not null).ToList();
+        return known.Count == 0 ? null : known.Sum();
     }
 
     public async Task<PortfolioSummary> SummaryAsync(PortfolioScope scope, CancellationToken ct)
@@ -168,6 +191,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             .Sum(f => f.Base);
         var fees = tradeCosts - flows.Where(f => f.Type == CashMovementType.Fee).Sum(f => f.Base);
         var totalValue = marketValue + cashTotal;
+        var dayChange = SumKnown(holdings.Select(h => h.DayChangeBase));
 
         return new PortfolioSummary(
             totalValue, marketValue, cashTotal, contributions, totalValue - contributions,
@@ -175,7 +199,8 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             realized, holdings.Sum(h => h.MarketValueBase - h.CostBase), dividends, fees, holdings.Count, lastSync,
             accounts.Values.Select(a => new AccountTotal(a.Id, a.Name, a.Broker,
                 holdings.Where(h => h.AccountId == a.Id).Sum(h => h.MarketValueBase),
-                cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value))).ToList());
+                cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value))).ToList(),
+            dayChange, DayChange.Percent(dayChange, marketValue));
     }
 
     public async Task<IReadOnlyList<AllocationLine>> AllocationAsync(PortfolioScope scope, CancellationToken ct)
