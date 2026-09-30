@@ -42,7 +42,12 @@
   "viewAll": "Ver tudo",
   "showArchived": "Mostrar arquivadas",
   "error": "Ocorreu um erro",
-  "confirm": "Confirmar"
+  "confirm": "Confirmar",
+  "previousYear": "Ano anterior",
+  "nextYear": "Ano seguinte",
+  "previousPage": "Página anterior",
+  "nextPage": "Página seguinte",
+  "remove": "Remover"
  },
  "auth": {
   "signIn": "Entrar",
@@ -283,7 +288,9 @@
   },
   "cashAccount": "Conta à ordem",
   "brokerAccount": "Corretora / carteira (opcional)",
-  "investmentHint": "Os investimentos são apresentados separadamente das receitas e despesas do dia a dia."
+  "investmentHint": "Os investimentos são apresentados separadamente das receitas e despesas do dia a dia.",
+  "emptyFiltered": "Experimenta outra pesquisa, intervalo de datas ou tipo, ou limpa os filtros.",
+  "emptyHint": "Adiciona o primeiro movimento, ou importa uma folha de cálculo ou extrato bancário."
  },
  "recurring": {
   "subtitle": "Os modelos propõem movimentos; nada é registado sem a tua confirmação.",
@@ -303,7 +310,9 @@
   "frequency": "Frequência",
   "dayOfMonth": "Dia do mês",
   "start": "Início",
-  "end": "Fim (opcional)"
+  "end": "Fim (opcional)",
+  "active": "Ativo",
+  "paused": "Em pausa"
  },
  "budgets": {
   "subtitle": "Cada versão aplica-se a partir do seu mês — alterá-la nunca reescreve meses anteriores.",
@@ -331,7 +340,8 @@
   "starting": "Já poupado",
   "manual": "Substituir valor atual",
   "howProgress": "Progresso = já poupado + poupanças associadas a este objetivo, salvo se o substituíres.",
-  "empty": "Ainda sem objetivos."
+  "empty": "Ainda sem objetivos.",
+  "inProgress": "Em curso"
  },
  "accounts": {
   "new": "Nova conta",
@@ -427,7 +437,8 @@
   "file": "Ficheiro",
   "created": "Criados",
   "undo": "Anular importação",
-  "undone": "{{count}} movimentos removidos"
+  "undone": "{{count}} movimentos removidos",
+  "noHistory": "Ainda não há importações."
  },
  "settings": {
   "appearance": "Aspeto",

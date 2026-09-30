@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, booleanAttribute, input } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { HlmEmptyImports } from '@spartan-ng/helm/empty';
 import { APP_ICONS } from './icons';
@@ -35,5 +35,5 @@ export class EmptyStateComponent {
   readonly icon = input('lucideInbox');
   readonly title = input<string | null | undefined>('');
   readonly text = input<string | null | undefined>('');
-  readonly bordered = input(false);
+  readonly bordered = input(false, { transform: booleanAttribute });
 }

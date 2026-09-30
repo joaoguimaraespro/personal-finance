@@ -12,7 +12,9 @@ import { APP_ICONS } from './icons';
   host: { class: 'block' },
   template: `
     <div class="card @container h-full !p-4">
-      <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <div
+        class="text-muted-foreground flex flex-col items-start gap-2 text-xs font-medium @[8rem]:flex-row @[8rem]:items-center"
+      >
         @if (icon()) {
           <span
             class="flex size-7 shrink-0 items-center justify-center rounded-full"
