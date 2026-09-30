@@ -1,6 +1,7 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { BACKGROUND } from './activity';
 import {
   Account,
   AllocationLine,
@@ -188,7 +189,11 @@ export class Api {
 
   // Integrations
   providers = () => this.http.get<ProviderInfo[]>('/api/integrations/providers');
-  connections = () => this.http.get<Connection[]>('/api/integrations/connections');
+  /** `background` skips the global loading bar (used while polling a running sync). */
+  connections = (background = false) =>
+    this.http.get<Connection[]>('/api/integrations/connections', {
+      context: new HttpContext().set(BACKGROUND, background),
+    });
   createConnection = (body: unknown) => this.http.post<{ id: string }>('/api/integrations/connections', body);
   updateCredentials = (id: string, body: unknown) =>
     this.http.put<void>(`/api/integrations/connections/${id}/credentials`, body);

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource, toSignal } from '@angular/core/rxjs-interop';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { ActivatedRoute } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -401,8 +402,8 @@ export class TransactionsComponent {
   protected readonly pageNo = signal(1);
   protected readonly history = signal<AuditEntry[] | null>(null);
 
-  protected readonly accounts = rxResource({ stream: () => this.api.accounts(true) });
-  protected readonly categories = rxResource({ stream: () => this.api.categories() });
+  protected readonly accounts = liveResource({ stream: () => this.api.accounts(true) });
+  protected readonly categories = liveResource({ stream: () => this.api.categories() });
   protected readonly accountOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
     return [
@@ -434,7 +435,7 @@ export class TransactionsComponent {
     v: this.events.version(),
   }));
 
-  protected readonly page = rxResource({
+  protected readonly page = liveResource({
     params: this.filter,
     stream: ({ params }) => {
       const { v: _v, ...filter } = params;

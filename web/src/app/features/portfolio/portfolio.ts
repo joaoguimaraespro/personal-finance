@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
@@ -401,23 +401,23 @@ export class PortfolioComponent {
     return d.toISOString().slice(0, 10);
   });
 
-  protected readonly summary = rxResource({
+  protected readonly summary = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.portfolioSummary(params.scope),
   });
-  protected readonly positions = rxResource({
+  protected readonly positions = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.positions(params.scope),
   });
-  protected readonly allocation = rxResource({
+  protected readonly allocation = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.allocation(params.scope),
   });
-  protected readonly dividends = rxResource({
+  protected readonly dividends = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.dividends(params.scope),
   });
-  protected readonly performance = rxResource({
+  protected readonly performance = liveResource({
     params: () => ({ ...this.key(), from: this.from() }),
     stream: ({ params }) => this.api.performance(params.scope, params.from),
   });

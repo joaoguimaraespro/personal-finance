@@ -7,7 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { problemMessage } from '../../core/toast';
@@ -109,7 +109,7 @@ export class AssistantComponent {
   private readonly http = inject(HttpClient);
   private readonly i18n = inject(TranslateService);
   private readonly log = viewChild<ElementRef<HTMLDivElement>>('log');
-  protected readonly status = rxResource({
+  protected readonly status = liveResource({
     stream: () =>
       this.http.get<{ enabled: boolean; model: string | null; scopes: string[] }>(
         '/api/assistant/status',

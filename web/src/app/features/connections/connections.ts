@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
@@ -16,6 +16,7 @@ import { Broker, Connection, ProviderInfo, SyncJob } from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { Confirm } from '../../core/confirm';
 import { DateFieldComponent } from '../../shared/date-field';
@@ -38,6 +39,7 @@ type CredentialField = ProviderInfo['fields'][number];
     DayPipe,
     ModalComponent,
     BrokerGuideComponent,
+    HlmSkeletonImports,
   ],
   providers: [provideIcons({ lucidePlus, lucideBookOpen, lucideLoaderCircle })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -58,7 +60,10 @@ type CredentialField = ProviderInfo['fields'][number];
 
     <div class="grid gap-4 lg:grid-cols-2">
       @for (c of connections.value() ?? []; track c.id) {
-        <section class="card">
+        <section class="card relative overflow-hidden" [attr.aria-busy]="isRunning(c)">
+          @if (isRunning(c)) {
+            <div class="loading-strip" aria-hidden="true"></div>
+          }
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="font-semibold">{{ c.displayName }}</p>
@@ -107,6 +112,28 @@ type CredentialField = ProviderInfo['fields'][number];
               </div>
             }
           </dl>
+          @if (isRunning(c)) {
+            <div class="mt-3 flex gap-2 rounded-lg bg-primary/10 p-2.5 text-xs" role="status">
+              <ng-icon
+                name="lucideLoaderCircle"
+                class="mt-px shrink-0 text-primary motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+              <div>
+                <p class="font-medium">
+                  {{ 'connections.syncing' | translate }}
+                  <span class="font-normal text-muted-foreground">
+                    · {{ 'connections.syncingFor' | translate: { time: elapsed(c) } }}
+                  </span>
+                </p>
+                @if (!c.lastSuccessfulSyncUtc) {
+                  <p class="mt-0.5 text-muted-foreground">
+                    {{ 'connections.firstSyncHint' | translate }}
+                  </p>
+                }
+              </div>
+            </div>
+          }
           @if (c.lastError) {
             <div
               class="mt-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
@@ -132,10 +159,19 @@ type CredentialField = ProviderInfo['fields'][number];
             <button
               hlmBtn
               size="sm"
-              [disabled]="c.status === 'Disabled' || c.lastJob?.outcome === 'Running'"
+              [disabled]="c.status === 'Disabled' || isRunning(c)"
               (click)="sync(c)"
             >
-              {{ 'connections.syncNow' | translate }}
+              @if (isRunning(c)) {
+                <ng-icon
+                  name="lucideLoaderCircle"
+                  class="motion-safe:animate-spin"
+                  aria-hidden="true"
+                />
+                {{ 'connections.syncing' | translate }}
+              } @else {
+                {{ 'connections.syncNow' | translate }}
+              }
             </button>
             @if (c.kind === 'Trading212') {
               <button hlmBtn variant="outline" size="sm" (click)="csv.click()">
@@ -179,7 +215,27 @@ type CredentialField = ProviderInfo['fields'][number];
           </div>
         </section>
       } @empty {
-        @if (connections.hasValue()) {
+        @if (!connections.hasValue() && connections.isLoading()) {
+          @for (i of [1, 2]; track i) {
+            <section class="card space-y-3" aria-hidden="true">
+              <div class="flex justify-between">
+                <div class="space-y-2">
+                  <hlm-skeleton class="h-4 w-36" />
+                  <hlm-skeleton class="h-3 w-48" />
+                </div>
+                <hlm-skeleton class="h-5 w-16 rounded-full" />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <hlm-skeleton class="h-8" />
+                <hlm-skeleton class="h-8" />
+              </div>
+              <div class="flex gap-2">
+                <hlm-skeleton class="h-8 w-28" />
+                <hlm-skeleton class="h-8 w-20" />
+              </div>
+            </section>
+          }
+        } @else if (connections.hasValue()) {
           <section class="card col-span-full py-10 text-center">
             <p class="font-semibold">{{ 'connections.emptyTitle' | translate }}</p>
             <p class="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
@@ -391,10 +447,11 @@ export class ConnectionsComponent implements OnDestroy {
   private readonly confirm = inject(Confirm);
 
   private readonly refresh = signal(0);
-  protected readonly providers = rxResource({ stream: () => this.api.providers() });
-  protected readonly connections = rxResource({
+  protected readonly providers = liveResource({ stream: () => this.api.providers() });
+  protected readonly connections = liveResource({
     params: () => ({ v: this.events.version(), r: this.refresh() }),
-    stream: () => this.api.connections(),
+    // Poll refreshes are background requests: the card shows progress, the global bar stays quiet.
+    stream: ({ params }) => this.api.connections(params.r > 0),
   });
   private readonly running = computed(() =>
     (this.connections.value() ?? []).some((c) => c.lastJob?.outcome === 'Running'),
@@ -405,6 +462,7 @@ export class ConnectionsComponent implements OnDestroy {
   );
   // Syncs run in the background: poll while one is running or queued, then refresh every view.
   private readonly poll = setInterval(() => {
+    this.now.set(Date.now());
     const waiting = this.awaitingFirstSync() && Date.now() - this.pendingSince < 120_000;
     if (this.running() || waiting || this.pendingSince) {
       this.refresh.update((v) => v + 1);
@@ -420,6 +478,17 @@ export class ConnectionsComponent implements OnDestroy {
     }
   }, 2000);
   private pendingSince = 0;
+  private readonly now = signal(Date.now());
+
+  protected isRunning = (c: Connection) => c.lastJob?.outcome === 'Running';
+
+  protected elapsed(c: Connection): string {
+    const started = c.lastJob ? Date.parse(c.lastJob.startedAtUtc) : this.now();
+    const minutes = Math.floor((this.now() - started) / 60_000);
+    return minutes < 1
+      ? this.i18n.instant('connections.lessThanMinute')
+      : this.i18n.instant('connections.minutes', { n: minutes });
+  }
 
   protected readonly provider = signal<ProviderInfo | null>(null);
   protected readonly editingId = signal<string | null>(null);

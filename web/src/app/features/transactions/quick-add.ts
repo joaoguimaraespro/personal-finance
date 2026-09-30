@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, of } from 'rxjs';
 import { Api } from '../../core/api';
@@ -450,23 +450,23 @@ export class QuickAddComponent {
   private quoteRequest = 0;
 
   private readonly active = computed(() => this.quick.open());
-  protected readonly accounts = rxResource({
+  protected readonly accounts = liveResource({
     params: () => this.active() || undefined,
     stream: () => this.api.accounts(),
   });
-  protected readonly categories = rxResource({
+  protected readonly categories = liveResource({
     params: () => this.active() || undefined,
     stream: () => this.api.categories(),
   });
-  protected readonly buckets = rxResource({
+  protected readonly buckets = liveResource({
     params: () => this.active() || undefined,
     stream: () => this.api.buckets(),
   });
-  protected readonly goals = rxResource({
+  protected readonly goals = liveResource({
     params: () => this.active() || undefined,
     stream: () => this.api.goals(),
   });
-  protected readonly defaults = rxResource({
+  protected readonly defaults = liveResource({
     params: () => (this.active() && !this.quick.editing()) || undefined,
     stream: () => this.api.quickAddDefaults(),
   });

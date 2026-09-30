@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
@@ -299,19 +299,19 @@ export class DashboardComponent {
   protected readonly year = signal(new Date().getFullYear());
 
   private readonly key = computed(() => ({ year: this.year(), v: this.events.version() }));
-  protected readonly overview = rxResource({
+  protected readonly overview = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.overview(params.year),
   });
-  protected readonly annual = rxResource({
+  protected readonly annual = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.annual(params.year),
   });
-  protected readonly pending = rxResource({
+  protected readonly pending = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.expected(),
   });
-  protected readonly goals = rxResource({
+  protected readonly goals = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.goals(),
   });

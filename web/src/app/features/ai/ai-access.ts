@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { DayPipe } from '../../core/format';
@@ -340,14 +340,14 @@ export class AiAccessComponent {
   private readonly confirm = inject(Confirm);
   private readonly refresh = signal(0);
 
-  protected readonly catalog = rxResource({
+  protected readonly catalog = liveResource({
     stream: () => this.http.get<{ scopes: Scope[]; tools: Tool[] }>('/api/ai-admin/catalog'),
   });
-  protected readonly clients = rxResource({
+  protected readonly clients = liveResource({
     params: () => this.refresh(),
     stream: () => this.http.get<AiClient[]>('/api/ai-admin/clients'),
   });
-  protected readonly audit = rxResource({
+  protected readonly audit = liveResource({
     params: () => this.refresh(),
     stream: () => this.http.get<AuditEvent[]>('/api/ai-admin/audit', { params: { limit: 100 } }),
   });

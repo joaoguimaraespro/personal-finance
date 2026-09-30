@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
@@ -152,7 +152,7 @@ export class CategoriesComponent {
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
   private readonly prefs = inject(Prefs);
-  protected readonly categories = rxResource({
+  protected readonly categories = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.categories(true),
   });
