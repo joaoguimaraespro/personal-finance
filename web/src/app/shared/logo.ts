@@ -1,0 +1,44 @@
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+
+/** App mark: rising bars on a deep-green tile. Same artwork as public/favicon.svg. */
+@Component({
+  selector: 'app-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class: 'inline-block shrink-0',
+    '[style.width.px]': 'size()',
+    '[style.height.px]': 'size()',
+  },
+  template: `
+    <svg viewBox="0 0 64 64" class="block size-full drop-shadow-sm" aria-hidden="true">
+      <defs>
+        <linearGradient id="app-logo-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#0b6b4c" />
+          <stop offset="1" stop-color="#053b2a" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" fill="url(#app-logo-bg)" />
+      <rect x="13" y="38" width="10" height="13" rx="2.5" fill="#6ee7b7" fill-opacity=".5" />
+      <rect x="27" y="32" width="10" height="19" rx="2.5" fill="#6ee7b7" fill-opacity=".7" />
+      <rect x="41" y="26" width="10" height="25" rx="2.5" fill="#6ee7b7" fill-opacity=".9" />
+      <path
+        d="M12 29 L24 20 L32 24 L47 12"
+        fill="none"
+        stroke="#ecfdf5"
+        stroke-width="3.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M40 11.2 L49.5 10 L48.3 19.5 Z"
+        fill="#ecfdf5"
+        stroke="#ecfdf5"
+        stroke-width="1.5"
+        stroke-linejoin="round"
+      />
+    </svg>
+  `,
+})
+export class LogoComponent {
+  readonly size = input(36);
+}

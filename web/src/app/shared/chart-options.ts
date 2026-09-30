@@ -1,7 +1,7 @@
 import type { EChartsOption } from 'echarts';
 
 export const SERIES_COLORS = {
-  income: '#10b981',
+  income: '#059669',
   expenses: '#e11d48',
   invested: '#7c3aed',
   saved: '#0891b2',
