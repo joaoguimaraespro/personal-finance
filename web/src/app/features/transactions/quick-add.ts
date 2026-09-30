@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { liveResource } from '../../core/resource';
+import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, of } from 'rxjs';
 import { Api } from '../../core/api';
@@ -37,6 +38,7 @@ import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { InstrumentSearchComponent } from './instrument-search';
+import { APP_ICONS } from '../../shared/icons';
 
 const FLOWS: TransactionFlow[] = ['Everyday', 'Investment', 'Movement'];
 const ASSET_KINDS: InvestmentAssetKind[] = ['Stock', 'Etf', 'Crypto', 'Fund', 'Bond', 'Other'];
@@ -54,6 +56,7 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
 @Component({
   selector: 'app-quick-add',
   imports: [
+    NgIcon,
     DateFieldComponent,
     SelectComponent,
     HlmTextareaImports,
@@ -64,6 +67,7 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
     CategoryLabelPipe,
     InstrumentSearchComponent,
   ],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal
@@ -177,7 +181,9 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
                   inputmode="decimal"
                   autocomplete="off"
                   [value]="unitPrice()"
-                  (input)="unitPrice.set($any($event.target).value); priceNote.set(''); recalcAmount()"
+                  (input)="
+                    unitPrice.set($any($event.target).value); priceNote.set(''); recalcAmount()
+                  "
                 />
               </div>
             </div>
@@ -361,7 +367,9 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
           <p class="text-muted-foreground text-xs">{{ 'tx.investmentHint' | translate }}</p>
         }
 
-        <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between"
+        >
           <span class="hidden text-xs text-muted-foreground sm:inline">{{
             'tx.shortcuts' | translate
           }}</span>
@@ -375,11 +383,14 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
                 [disabled]="saving()"
                 (click)="save(true)"
               >
-                {{ 'tx.saveAndNew' | translate }}
+                <ng-icon name="lucidePlus" />{{ 'tx.saveAndNew' | translate }}
               </button>
             }
             <button type="submit" hlmBtn [disabled]="saving()">
-              {{ 'common.save' | translate }}
+              <ng-icon
+                [name]="saving() ? 'lucideLoaderCircle' : 'lucideSave'"
+                [class]="saving() ? 'motion-safe:animate-spin' : ''"
+              />{{ 'common.save' | translate }}
             </button>
           </div>
         </div>
@@ -585,7 +596,8 @@ export class QuickAddComponent {
 
     // Investment entries need a bucket; pick the one matching the asset type once buckets have loaded.
     effect(() => {
-      if (this.isInvestment() && !this.bucketId() && this.bucketOptions().length) this.defaultBucket();
+      if (this.isInvestment() && !this.bucketId() && this.bucketOptions().length)
+        this.defaultBucket();
     });
   }
 
@@ -683,7 +695,8 @@ export class QuickAddComponent {
       );
       this.recalcAmount();
     } catch {
-      if (request === this.quoteRequest) this.priceNote.set(this.i18n.instant('asset.priceMissing'));
+      if (request === this.quoteRequest)
+        this.priceNote.set(this.i18n.instant('asset.priceMissing'));
     }
   }
 

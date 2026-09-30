@@ -1,16 +1,19 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
 import { problemMessage } from '../../core/toast';
 import { AuthLayoutComponent } from './auth-layout';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { APP_ICONS } from '../../shared/icons';
 
 /** MFA is mandatory: a password-only session can do nothing but finish this enrolment. */
 @Component({
   selector: 'app-mfa-setup',
-  imports: [HlmInputImports, HlmButtonImports, AuthLayoutComponent, TranslatePipe],
+  imports: [NgIcon, HlmInputImports, HlmButtonImports, AuthLayoutComponent, TranslatePipe],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-auth-layout
@@ -40,10 +43,14 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
               (input)="code.set($any($event.target).value)"
             />
             @if (error()) {
-              <p class="text-sm text-rose-600">{{ error() }}</p>
+              <p class="tone-neg flex items-center gap-1.5 text-sm" role="alert">
+                <ng-icon name="lucideCircleAlert" class="shrink-0" aria-hidden="true" />{{
+                  error()
+                }}
+              </p>
             }
             <button hlmBtn class="w-full" [disabled]="busy()">
-              {{ 'auth.enableMfa' | translate }}
+              <ng-icon name="lucideShieldCheck" />{{ 'auth.enableMfa' | translate }}
             </button>
           </form>
         </div>
@@ -56,7 +63,7 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
             }
           </ul>
           <button hlmBtn class="w-full" (click)="done()">
-            {{ 'auth.savedCodes' | translate }}
+            <ng-icon name="lucideCheck" />{{ 'auth.savedCodes' | translate }}
           </button>
         </div>
       }
