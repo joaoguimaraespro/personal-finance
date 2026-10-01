@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
@@ -364,12 +364,12 @@ export class ImportComponent {
   protected readonly preview = signal<ImportPreview | null>(null);
   protected readonly result = signal<{ created: number; skipped: number } | null>(null);
 
-  protected readonly accounts = rxResource({
+  protected readonly accounts = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.accounts(),
   });
-  protected readonly categories = rxResource({ stream: () => this.api.categories() });
-  protected readonly history = rxResource({
+  protected readonly categories = liveResource({ stream: () => this.api.categories() });
+  protected readonly history = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.imports(),
   });

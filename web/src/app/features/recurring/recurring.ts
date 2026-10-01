@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
@@ -278,17 +278,17 @@ export class RecurringComponent {
     'InvestmentContribution',
     'Transfer',
   ];
-  protected readonly recurring = rxResource({
+  protected readonly recurring = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.recurring(),
   });
-  protected readonly expected = rxResource({
+  protected readonly expected = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.expected(),
   });
-  protected readonly accounts = rxResource({ stream: () => this.api.accounts() });
-  protected readonly categories = rxResource({ stream: () => this.api.categories() });
-  protected readonly buckets = rxResource({ stream: () => this.api.buckets() });
+  protected readonly accounts = liveResource({ stream: () => this.api.accounts() });
+  protected readonly categories = liveResource({ stream: () => this.api.categories() });
+  protected readonly buckets = liveResource({ stream: () => this.api.buckets() });
   protected readonly formOpen = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly form = signal<Form>(this.blank());

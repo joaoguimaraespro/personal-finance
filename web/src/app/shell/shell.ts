@@ -31,6 +31,7 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmKbdImports } from '@spartan-ng/helm/kbd';
 import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
+import { Activity } from '../core/activity';
 import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
@@ -87,6 +88,7 @@ interface NavItem {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <div class="loading-bar" [class.active]="activity.busy()" aria-hidden="true"></div>
     <div class="flex min-h-dvh">
       <aside
         class="bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-30 flex w-64 -translate-x-full flex-col border-r border-sidebar-border transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0"
@@ -201,6 +203,7 @@ interface NavItem {
 })
 export class ShellComponent {
   protected readonly quick = inject(QuickAdd);
+  protected readonly activity = inject(Activity);
   protected readonly prefs = inject(Prefs);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);

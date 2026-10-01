@@ -6,7 +6,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { rxResource, toSignal } from '@angular/core/rxjs-interop';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
@@ -321,15 +322,15 @@ export class MonthlyComponent {
   });
 
   private readonly key = computed(() => ({ period: this.period(), v: this.events.version() }));
-  protected readonly report = rxResource({
+  protected readonly report = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.monthly(params.period),
   });
-  protected readonly categories = rxResource({
+  protected readonly categories = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.categoryBreakdown(params.period),
   });
-  protected readonly checks = rxResource({
+  protected readonly checks = liveResource({
     params: this.key,
     stream: ({ params }) => this.api.allocationChecks(params.period),
   });

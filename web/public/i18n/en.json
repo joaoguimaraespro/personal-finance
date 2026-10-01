@@ -713,7 +713,12 @@
     "revoke": "Revoke anytime: Flex Web Service Configuration → Generate A New Token (the old one stops working) or switch the service off.",
     "csv": "IBKR has no CSV import here — the Flex query already delivers the full history. Without a token you can still record trades by hand in Portfolio."
    }
-  }
+  },
+  "syncing": "Syncing…",
+  "syncingFor": "Running for {{time}}",
+  "firstSyncHint": "First sync: fetching your full history within the broker's rate limits. This can take several minutes — you can leave this page, it continues in the background.",
+  "lessThanMinute": "less than a minute",
+  "minutes": "{{n}} min"
  },
  "export": {
   "title": "Export & backup",

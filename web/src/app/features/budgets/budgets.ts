@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
@@ -217,12 +217,12 @@ export class BudgetsComponent {
   protected readonly note = signal('');
   protected readonly rows = signal<Row[]>([]);
 
-  protected readonly budgets = rxResource({
+  protected readonly budgets = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.budgets(),
   });
-  protected readonly buckets = rxResource({ stream: () => this.api.buckets() });
-  protected readonly categories = rxResource({ stream: () => this.api.categories() });
+  protected readonly buckets = liveResource({ stream: () => this.api.buckets() });
+  protected readonly categories = liveResource({ stream: () => this.api.categories() });
 
   protected readonly bucketRows = computed(() => this.rows().filter((r) => r.target === 'Bucket'));
   protected readonly poolRow = computed(() => this.rows().find((r) => r.target === 'ExpensePool'));

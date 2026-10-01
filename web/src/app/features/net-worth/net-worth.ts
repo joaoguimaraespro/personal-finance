@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
 import { firstValueFrom } from 'rxjs';
@@ -249,11 +249,11 @@ export class NetWorthComponent {
     return this.kinds.map((k) => ({ value: k, label: this.i18n.instant(`assetKind.${k}`) }));
   });
 
-  protected readonly data = rxResource({
+  protected readonly data = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.netWorth(),
   });
-  protected readonly assets = rxResource({
+  protected readonly assets = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.manualAssets(),
   });

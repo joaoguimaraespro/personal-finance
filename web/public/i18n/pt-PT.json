@@ -713,7 +713,12 @@
     "revoke": "Revoga quando quiseres: Flex Web Service Configuration → Generate A New Token (o anterior deixa de funcionar) ou desliga o serviço.",
     "csv": "O IBKR não tem importação CSV aqui — a Flex query já traz o histórico completo. Sem token podes sempre registar negócios à mão no Portfólio."
    }
-  }
+  },
+  "syncing": "A sincronizar…",
+  "syncingFor": "Em curso há {{time}}",
+  "firstSyncHint": "Primeira sincronização: a ir buscar todo o histórico dentro dos limites do broker. Pode demorar vários minutos — podes sair desta página, continua em segundo plano.",
+  "lessThanMinute": "menos de um minuto",
+  "minutes": "{{n}} min"
  },
  "export": {
   "title": "Exportar e cópia de segurança",

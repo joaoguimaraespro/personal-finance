@@ -4,6 +4,7 @@ import { Router, provideRouter, withComponentInputBinding } from '@angular/route
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 import { catchError, throwError } from 'rxjs';
+import { trackActivity } from './core/activity';
 import { routes } from './app.routes';
 
 /** A 401 anywhere means the session ended: go back to sign-in. */
@@ -27,7 +28,7 @@ export const appConfig: ApplicationConfig = {
       withFetch(),
       // The API issues XSRF-TOKEN; Angular echoes it on every mutating same-origin request.
       withXsrfConfiguration({ cookieName: 'XSRF-TOKEN', headerName: 'X-XSRF-TOKEN' }),
-      withInterceptors([sessionExpired]),
+      withInterceptors([trackActivity, sessionExpired]),
     ),
     provideTranslateService({
       loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json' }),

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
 import { Api } from '../../core/api';
@@ -165,7 +165,7 @@ export class AnnualComponent {
   private readonly prefs = inject(Prefs);
   private readonly i18n = inject(TranslateService);
   protected readonly year = signal(new Date().getFullYear());
-  protected readonly annual = rxResource({
+  protected readonly annual = liveResource({
     params: () => ({ year: this.year(), v: this.events.version() }),
     stream: ({ params }) => this.api.annual(params.year),
   });
