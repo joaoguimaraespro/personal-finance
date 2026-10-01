@@ -11,7 +11,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { DayPipe } from '../../core/format';
+import { DateTimePipe, DayPipe } from '../../core/format';
 import { Broker, Connection, ProviderInfo, SyncJob } from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
@@ -45,6 +45,7 @@ type CredentialField = ProviderInfo['fields'][number];
     HlmButtonImports,
     TranslatePipe,
     DayPipe,
+    DateTimePipe,
     ModalComponent,
     BrokerGuideComponent,
     HlmSkeletonImports,
@@ -104,7 +105,7 @@ type CredentialField = ProviderInfo['fields'][number];
                   'connections.lastSync' | translate
                 }}
               </dt>
-              <dd class="mt-0.5">{{ c.lastSuccessfulSyncUtc | day }}</dd>
+              <dd class="mt-0.5">{{ c.lastSuccessfulSyncUtc | dateTime }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground flex items-center gap-1 text-xs">
@@ -530,7 +531,7 @@ type CredentialField = ProviderInfo['fields'][number];
                 />{{ 'connections.outcome.' + j.outcome | translate }} ·
                 {{ 'connections.trigger.' + j.trigger | translate }}</span
               >
-              <span class="text-xs text-muted-foreground">{{ j.startedAtUtc | day }}</span>
+              <span class="text-xs text-muted-foreground">{{ j.startedAtUtc | dateTime }}</span>
             </div>
             <p class="num text-xs text-muted-foreground">
               {{

@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
-import { DayPipe } from '../../core/format';
+import { DateTimePipe, DayPipe } from '../../core/format';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -62,6 +62,7 @@ interface AuditEvent {
     HlmButtonImports,
     TranslatePipe,
     DayPipe,
+    DateTimePipe,
     ModalComponent,
   ],
   providers: [provideIcons({ lucideBan, lucidePencil, lucidePlus, lucideTrash2 })],
@@ -122,7 +123,7 @@ interface AuditEvent {
                   <span class="text-xs text-muted-foreground">{{ 'ai.noScopes' | translate }}</span>
                 }
               </td>
-              <td hlmTd class="text-sm text-muted-foreground">{{ c.lastUsedAtUtc | day }}</td>
+              <td hlmTd class="text-sm text-muted-foreground">{{ c.lastUsedAtUtc | dateTime }}</td>
               <td hlmTd class="num text-right text-sm">
                 {{ c.callsLast24h }}
                 @if (c.deniedLast24h) {
