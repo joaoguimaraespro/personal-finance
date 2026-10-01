@@ -90,13 +90,15 @@ type Range = '1Y' | '3Y' | 'ALL';
           }
         </p>
       </div>
-      <app-select
-        class="w-full sm:w-56"
-        [options]="scopeOptions()"
-        [value]="scopeKey()"
-        (valueChange)="scopeKey.set($event)"
-        [ariaLabel]="'portfolio.scope' | translate"
-      />
+      @if (scopeOptions().length > 1) {
+        <app-select
+          class="w-full sm:w-56"
+          [options]="scopeOptions()"
+          [value]="scopeKey()"
+          (valueChange)="scopeKey.set($event)"
+          [ariaLabel]="'portfolio.scope' | translate"
+        />
+      }
     </div>
 
     @if (summary.value(); as s) {
@@ -566,21 +568,31 @@ export class PortfolioComponent {
     stream: ({ params }) => this.api.performance(params.scope, params.from),
   });
 
+  /** Every broker account regardless of the selected scope, so the scope picker doesn't shrink. */
+  private readonly allAccounts = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.portfolioSummary(),
+  });
   protected readonly brokers = computed(() => [
-    ...new Set((this.summary.value()?.accounts ?? []).map((a) => a.broker)),
+    ...new Set((this.allAccounts.value()?.accounts ?? []).map((a) => a.broker)),
   ]);
   protected readonly scopeOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
+    // Offer only scopes that differ: a broker when there is more than one, and an account only when its
+    // broker has several (otherwise "Trading 212" would appear twice and show the same numbers).
+    const accounts = this.allAccounts.value()?.accounts ?? [];
+    const brokers = this.brokers();
     return [
       { value: '', label: this.i18n.instant('portfolio.consolidated') },
-      ...this.brokers().map((b) => ({
-        value: `broker:${b}`,
-        label: this.i18n.instant(`source.${b}`),
-      })),
-      ...(this.summary.value()?.accounts ?? []).map((a) => ({
-        value: `account:${a.accountId}`,
-        label: a.name,
-      })),
+      ...(brokers.length > 1
+        ? brokers.map((b) => ({ value: `broker:${b}`, label: this.i18n.instant(`source.${b}`) }))
+        : []),
+      ...accounts
+        .filter((a) => accounts.filter((x) => x.broker === a.broker).length > 1)
+        .map((a) => ({
+          value: `account:${a.accountId}`,
+          label: `${this.i18n.instant(`source.${a.broker}`)} · ${a.name}`,
+        })),
     ];
   });
   protected classColor = (c: AssetClass) => CLASS_COLORS[c];

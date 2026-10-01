@@ -354,7 +354,8 @@
   "identifierKeep": "Deixa vazio para manter",
   "identifierNote": "Cifrado em repouso e nunca partilhado com clientes de IA por omissão.",
   "readOnly": "Só leitura",
-  "empty": "Ainda sem contas. Cria primeiro a tua conta bancária principal."
+  "empty": "Ainda sem contas. Cria primeiro a tua conta bancária principal.",
+  "brokerValue": "Valor na carteira · sincronizado"
  },
  "categories": {
   "new": "Nova categoria",
