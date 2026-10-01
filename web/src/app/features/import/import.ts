@@ -24,6 +24,8 @@ type Step = 'upload' | 'map' | 'done';
 /** Analyze → Map → Validate → Preview → Import. Nothing touches the ledger until "Import" is pressed. */
 @Component({
   selector: 'app-import',
+  // Narrow content, centred in the main area like a document rather than pinned to the left.
+  host: { class: 'mx-auto block w-full max-w-4xl' },
   imports: [
     PageHeaderComponent,
     EmptyStateComponent,
@@ -67,7 +69,7 @@ type Step = 'upload' | 'map' | 'done';
 
     @switch (step()) {
       @case ('upload') {
-        <section class="card max-w-xl space-y-4">
+        <section class="card space-y-4">
           <p class="text-sm text-muted-foreground">{{ 'import.uploadHelp' | translate }}</p>
           <div>
             <label class="label" for="i-year">{{ 'import.year' | translate }}</label>
@@ -344,7 +346,7 @@ type Step = 'upload' | 'map' | 'done';
         }
       }
       @case ('done') {
-        <section class="card max-w-xl space-y-3">
+        <section class="card space-y-3">
           <p class="tone-pos flex items-center gap-2 text-lg font-semibold">
             <ng-icon name="lucideCircleCheck" />{{
               'import.done' | translate: { created: result()?.created, skipped: result()?.skipped }

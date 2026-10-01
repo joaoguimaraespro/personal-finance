@@ -67,18 +67,20 @@ interface NavItem {
               >
                 {{ section.title | translate }}
               </p>
-              @for (item of section.items; track item.path) {
-                <a
-                  [routerLink]="item.path"
-                  routerLinkActive="nav-active"
-                  class="nav-link text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors duration-150"
-                  (click)="menuOpen.set(false)"
-                >
-                  <ng-icon [name]="item.icon" class="text-base opacity-80" aria-hidden="true" />{{
-                    item.label | translate
-                  }}
-                </a>
-              }
+              <div class="space-y-1">
+                @for (item of section.items; track item.path) {
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive="nav-active"
+                    class="nav-link text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors duration-150"
+                    (click)="menuOpen.set(false)"
+                  >
+                    <ng-icon [name]="item.icon" class="text-base opacity-80" aria-hidden="true" />{{
+                      item.label | translate
+                    }}
+                  </a>
+                }
+              </div>
             </div>
           }
         </nav>
