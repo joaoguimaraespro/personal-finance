@@ -54,7 +54,7 @@ public static class IntegrationEndpoints
             new("apiSecret", "API secret", true, true, "Shown once when the key is created."),
             new("environment", "Environment", false, false, "live (default) or demo"),
         ], "In the app: Settings → API (Beta) → Generate API key. Enable Account data, Metadata, Portfolio and History; leave \"Orders – Execute\" and \"Pies – Write\" off; restrict to your home IP."),
-        new(BrokerKind.InteractiveBrokers, "Interactive Brokers (Flex)",
+        new(BrokerKind.InteractiveBrokers, "Interactive Brokers",
         [
             new("token", "Flex Web Service token", true, true, null),
             new("queryId", "Activity Flex Query ID", false, true, null),

@@ -634,7 +634,8 @@
    "ibkrExpired": "O token Flex expirou. Gera um novo no Client Portal e atualiza as credenciais com a nova data de expiração.",
    "ibkrIp": "O token Flex está restrito a outro endereço IP. Atualiza o IP na Flex Web Service Configuration ou gera um token sem restrição de IP.",
    "ibkrQueryId": "O IBKR não reconhece o ID da query. Usa o número mostrado junto à tua Activity Flex Query.",
-   "ibkrToken": "O IBKR não reconhece o token. Copia-o de novo da Flex Web Service Configuration (um novo token invalida o anterior)."
+   "ibkrToken": "O IBKR não reconhece o token. Copia-o de novo da Flex Web Service Configuration (um novo token invalida o anterior).",
+   "ibkrNoStatement": "O IBKR ainda não tem extrato para esta conta (erro 1003). Confirma que o ID da query é o número da tua Activity Flex Query, com período \"Last 365 Calendar Days\", e que a conta já tem movimentos."
   },
   "guide": {
    "title": "Como ligar",

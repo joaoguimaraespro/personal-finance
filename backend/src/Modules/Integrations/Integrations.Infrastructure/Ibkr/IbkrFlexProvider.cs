@@ -139,11 +139,51 @@ internal sealed class IbkrFlexProvider(FlexClient client, string token, string q
         var start = since is { } s
             ? DateOnly.FromDateTime(s.UtcDateTime)
             : today.AddDays(-365 * Math.Clamp(backfillYears, 1, 20) + 1);
-        var statements = new List<FlexStatement>();
+        // Newest window first. A window IBKR has no statement for (1003) usually starts before the account
+        // existed: narrow it towards the present until it does, and don't go further back.
+        var windows = new List<(DateOnly From, DateOnly To)>();
         for (var from = start; from <= today; from = from.AddDays(365))
         {
-            var to = from.AddDays(364) < today ? from.AddDays(364) : today;
-            statements.AddRange(Statements(await client.FetchAsync(token, queryId, from, to, ct)));
+            windows.Add((from, from.AddDays(364) < today ? from.AddDays(364) : today));
+        }
+
+        var statements = new List<FlexStatement>();
+        string? unavailable = null;
+        foreach (var (from, to) in Enumerable.Reverse(windows))
+        {
+            var reachedStart = false;
+            for (var f = from; ;)
+            {
+                try
+                {
+                    statements.AddRange(Statements(await client.FetchAsync(token, queryId, f, to, ct)));
+                    break;
+                }
+                catch (FlexStatementUnavailableException ex)
+                {
+                    unavailable = ex.Message;
+                    reachedStart = true;
+                    var span = to.DayNumber - f.DayNumber;
+                    if (span < 7)
+                    {
+                        break;
+                    }
+
+                    f = f.AddDays(span / 2 + 1);
+                }
+            }
+
+            if (reachedStart)
+            {
+                break;
+            }
+        }
+
+        if (statements.Count == 0 && unavailable is not null)
+        {
+            throw new ProviderConfigurationException(
+                "IBKR has no statement for the requested period (Flex error 1003). Check that the Query ID belongs to " +
+                "an Activity Flex Query of this account and that the account already has activity.");
         }
 
         if (statements.Count == 0)

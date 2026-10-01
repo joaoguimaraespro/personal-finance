@@ -634,7 +634,8 @@
    "ibkrExpired": "The Flex token has expired. Generate a new one in Client Portal and update the credentials with its new expiry date.",
    "ibkrIp": "The Flex token is restricted to a different IP address. Update the IP in Flex Web Service Configuration or generate a token without IP restriction.",
    "ibkrQueryId": "IBKR does not recognise the query ID. Use the number shown next to your Activity Flex Query.",
-   "ibkrToken": "IBKR does not recognise the token. Copy it again from Flex Web Service Configuration (a new token invalidates the old one)."
+   "ibkrToken": "IBKR does not recognise the token. Copy it again from Flex Web Service Configuration (a new token invalidates the old one).",
+   "ibkrNoStatement": "IBKR has no statement for this account yet (error 1003). Check that the Query ID is the number of your Activity Flex Query, with Period \"Last 365 Calendar Days\", and that the account already has activity."
   },
   "guide": {
    "title": "How to connect",

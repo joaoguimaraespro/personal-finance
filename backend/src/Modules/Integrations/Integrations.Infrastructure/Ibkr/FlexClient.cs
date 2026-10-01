@@ -17,7 +17,7 @@ internal sealed class FlexClient(HttpClient http, RateGate gate, TimeProvider cl
         [AllowedRequest.Get(Host, $"{BasePath}/(SendRequest|GetStatement)")];
 
     private static readonly int[] Retryable = [1001, 1004, 1005, 1006, 1007, 1008, 1009, 1019, 1021];
-    private static readonly int[] Fatal = [1003, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1020];
+    private static readonly int[] Fatal = [1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1020];
 
     public async Task<XDocument> FetchAsync(string token, string queryId, DateOnly? from, DateOnly? to,
         CancellationToken ct)
@@ -73,6 +73,9 @@ internal sealed class FlexClient(HttpClient http, RateGate gate, TimeProvider cl
         var message = status?.ErrorMessage ?? "Unexpected Flex response.";
         return code switch
         {
+            // "Statement is not available": usually a date range before the account existed. The provider narrows
+            // the range; only when nothing at all is available does it become a configuration problem.
+            1003 => new FlexStatementUnavailableException(message),
             1012 => new ProviderConfigurationException("The IBKR Flex token has expired. Generate a new one in Client Portal."),
             1013 => new ProviderConfigurationException("The IBKR Flex token is restricted to another IP address."),
             1014 => new ProviderConfigurationException("The IBKR Flex query id is invalid."),
@@ -83,3 +86,6 @@ internal sealed class FlexClient(HttpClient http, RateGate gate, TimeProvider cl
         };
     }
 }
+
+/// <summary>IBKR error 1003: no statement for the requested period.</summary>
+internal sealed class FlexStatementUnavailableException(string message) : Exception(message);
