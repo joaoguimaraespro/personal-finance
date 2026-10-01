@@ -4,7 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { DayPipe, MoneyPipe, MonthNamePipe } from '../../core/format';
+import { DateTimePipe, DayPipe, MoneyPipe, MonthNamePipe } from '../../core/format';
 import { ImportPreview } from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts, problemMessage } from '../../core/toast';
@@ -37,6 +37,7 @@ type Step = 'upload' | 'map' | 'done';
     MoneyPipe,
     MonthNamePipe,
     DayPipe,
+    DateTimePipe,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -388,7 +389,7 @@ type Step = 'upload' | 'map' | 'done';
                 }}</app-status-badge>
               </td>
               <td hlmTd class="num text-right">{{ h.created }}</td>
-              <td hlmTd class="text-muted-foreground">{{ h.createdAtUtc | day }}</td>
+              <td hlmTd class="text-muted-foreground">{{ h.createdAtUtc | dateTime }}</td>
               <td hlmTd class="text-right">
                 @if (h.status === 'Committed') {
                   <button

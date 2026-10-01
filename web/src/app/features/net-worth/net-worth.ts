@@ -53,29 +53,34 @@ import { EmptyStateComponent } from '../../shared/empty-state';
     </app-page-header>
 
     @if (data.value(); as d) {
-      <section class="card mb-6 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-        <div>
+      <section
+        class="card mb-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] lg:items-center"
+      >
+        <div class="min-w-0">
           <p class="text-muted-foreground flex items-center gap-1.5 text-sm">
             <ng-icon name="lucideScale" aria-hidden="true" />{{ 'nav.netWorth' | translate }}
           </p>
           <p class="num text-4xl font-semibold tracking-tight">{{ d.current.netWorth | money }}</p>
           @if (d.changeSinceStartPercent !== null) {
             <p
-              class="num mt-1 flex flex-wrap items-center gap-1 text-sm"
+              class="num mt-1 flex items-start gap-1 text-sm"
               [class]="(d.changeSinceStart ?? 0) >= 0 ? 'tone-pos' : 'tone-neg'"
             >
               <ng-icon
+                class="mt-0.5 shrink-0"
                 [name]="(d.changeSinceStart ?? 0) >= 0 ? 'lucideTrendingUp' : 'lucideTrendingDown'"
                 aria-hidden="true"
               />
-              {{ (d.changeSinceStart ?? 0) >= 0 ? '+' : ''
-              }}{{ d.changeSinceStartPercent | pct }} ({{
-                d.changeSinceStart | money: 'EUR' : true
-              }}) {{ 'netWorth.since' | translate }} {{ d.startDate | day }}
+              <span
+                >{{ (d.changeSinceStart ?? 0) >= 0 ? '+' : ''
+                }}{{ d.changeSinceStartPercent | pct }} ({{
+                  d.changeSinceStart | money: 'EUR' : true
+                }}) {{ 'netWorth.since' | translate }} {{ d.startDate | day }}</span
+              >
             </p>
           }
         </div>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4">
           <app-kpi
             [label]="'netWorth.cash' | translate"
             [value]="d.current.cash"
@@ -125,7 +130,7 @@ import { EmptyStateComponent } from '../../shared/empty-state';
                     >
                   </td>
                   <td hlmTd class="num text-right" [class.tone-neg]="l.group === 'liability'">
-                    {{ l.group === 'liability' ? '−' : '' }}{{ l.value | money }}
+                    {{ signed(l) | money }}
                   </td>
                 </tr>
               }
@@ -143,29 +148,54 @@ import { EmptyStateComponent } from '../../shared/empty-state';
         <thead hlmTHead>
           <tr hlmTr>
             <th hlmTh>{{ 'common.name' | translate }}</th>
-            <th hlmTh>{{ 'accounts.kind' | translate }}</th>
+            <th hlmTh class="hidden sm:table-cell">{{ 'accounts.kind' | translate }}</th>
             <th hlmTh class="text-right">{{ 'netWorth.value' | translate }}</th>
-            <th hlmTh>{{ 'netWorth.valuedOn' | translate }}</th>
+            <th hlmTh class="hidden sm:table-cell">{{ 'netWorth.valuedOn' | translate }}</th>
             <th hlmTh></th>
           </tr>
         </thead>
         <tbody hlmTBody>
           @for (a of assets.value() ?? []; track a.id) {
             <tr hlmTr>
-              <td hlmTd class="font-medium">{{ a.name }}</td>
-              <td hlmTd class="text-sm text-muted-foreground">
+              <td hlmTd>
+                <div class="font-medium">{{ a.name }}</div>
+                <div class="text-xs text-muted-foreground sm:hidden">
+                  {{ 'assetKind.' + a.kind | translate }} · {{ a.valuedOn | day }}
+                </div>
+              </td>
+              <td hlmTd class="hidden text-sm text-muted-foreground sm:table-cell">
                 {{ 'assetKind.' + a.kind | translate }}
               </td>
               <td hlmTd class="num text-right" [class.tone-neg]="a.isLiability">
                 {{ a.currentValue | money: a.currency }}
               </td>
-              <td hlmTd class="text-sm text-muted-foreground">{{ a.valuedOn | day }}</td>
+              <td hlmTd class="hidden text-sm text-muted-foreground sm:table-cell">
+                {{ a.valuedOn | day }}
+              </td>
               <td hlmTd class="text-right whitespace-nowrap">
-                <button hlmBtn variant="ghost" size="sm" (click)="revalue(a)">
-                  <ng-icon name="lucideRefreshCw" />{{ 'netWorth.update' | translate }}
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  [attr.aria-label]="'netWorth.update' | translate"
+                  (click)="revalue(a)"
+                >
+                  <ng-icon name="lucideRefreshCw" aria-hidden="true" /><span
+                    class="hidden sm:inline"
+                    >{{ 'netWorth.update' | translate }}</span
+                  >
                 </button>
-                <button hlmBtn variant="ghost" size="sm" (click)="archive(a)">
-                  <ng-icon name="lucideArchive" />{{ 'common.archive' | translate }}
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  [attr.aria-label]="'common.archive' | translate"
+                  (click)="archive(a)"
+                >
+                  <ng-icon name="lucideArchive" aria-hidden="true" /><span
+                    class="hidden sm:inline"
+                    >{{ 'common.archive' | translate }}</span
+                  >
                 </button>
               </td>
             </tr>
@@ -323,6 +353,11 @@ export class NetWorthComponent {
       ],
     };
   });
+
+  /** Liabilities always read as negative, whatever sign the API uses for them. */
+  protected signed(line: { group: string; value: number }): number {
+    return line.group === 'liability' ? -Math.abs(line.value) : line.value;
+  }
 
   protected open() {
     this.editing.set(null);

@@ -37,7 +37,9 @@ export class MonthNamePipe implements PipeTransform {
   private readonly prefs = inject(Prefs);
 
   transform(month: number, style: 'long' | 'short' = 'long'): string {
-    const name = new Intl.DateTimeFormat(this.prefs.locale(), { month: style }).format(new Date(2000, month - 1, 1));
+    const name = new Intl.DateTimeFormat(this.prefs.locale(), { month: style }).format(
+      new Date(2000, month - 1, 1),
+    );
     return name.charAt(0).toUpperCase() + name.slice(1);
   }
 }
@@ -49,7 +51,25 @@ export class DayPipe implements PipeTransform {
   transform(isoDate: string | null | undefined, style: 'short' | 'medium' = 'medium'): string {
     if (!isoDate) return '—';
     const [y, m, d] = isoDate.slice(0, 10).split('-').map(Number);
-    return new Intl.DateTimeFormat(this.prefs.locale(), { dateStyle: style }).format(new Date(y, m - 1, d));
+    return new Intl.DateTimeFormat(this.prefs.locale(), { dateStyle: style }).format(
+      new Date(y, m - 1, d),
+    );
+  }
+}
+
+/** Instant in the viewer's time zone, e.g. "30/09/2026, 14:32". For timestamps (UTC ISO strings), not dates. */
+@Pipe({ name: 'dateTime', pure: false })
+export class DateTimePipe implements PipeTransform {
+  private readonly prefs = inject(Prefs);
+
+  transform(isoInstant: string | null | undefined): string {
+    if (!isoInstant) return '—';
+    const at = new Date(isoInstant);
+    if (Number.isNaN(at.getTime())) return '—';
+    return new Intl.DateTimeFormat(this.prefs.locale(), {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(at);
   }
 }
 
