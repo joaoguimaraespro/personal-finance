@@ -9,7 +9,9 @@ import {
   Broker,
   Connection,
   DividendSummary,
+  CoinMatch,
   ManualAsset,
+  ManualHoldingsView,
   NetWorthHistory,
   PerformanceReport,
   PortfolioSummary,
@@ -208,6 +210,27 @@ export class Api {
     this.http.put<void>(`/api/portfolio/securities/${securityId}/asset-class`, null, {
       params: assetClass ? { assetClass } : {},
     });
+
+  // Coins entered by hand (no exchange or wallet connection)
+  manualHoldings = () => this.http.get<ManualHoldingsView>('/api/portfolio/manual');
+  searchCoins = (q: string) =>
+    this.http.get<CoinMatch[]>('/api/portfolio/manual/coins', { params: { q } });
+  createManualHolding = (body: unknown) =>
+    this.http.post<{ id: string }>('/api/portfolio/manual', body);
+  updateManualHolding = (id: string, body: unknown) =>
+    this.http.put<void>(`/api/portfolio/manual/${id}`, body);
+  deleteManualHolding = (id: string) => this.http.delete<void>(`/api/portfolio/manual/${id}`);
+  addReward = (id: string, body: unknown) =>
+    this.http.post<{ id: string }>(`/api/portfolio/manual/${id}/rewards`, body);
+  deleteReward = (id: string, rewardId: string) =>
+    this.http.delete<void>(`/api/portfolio/manual/${id}/rewards/${rewardId}`);
+  /** Fetches coin prices older than 15 minutes; `updated` says whether anything changed. */
+  refreshCoinPrices = () =>
+    this.http.post<{ updated: boolean }>(
+      '/api/portfolio/manual/refresh-prices',
+      {},
+      { context: new HttpContext().set(BACKGROUND, true) },
+    );
 
   // Net worth
   netWorth = () => this.http.get<NetWorthHistory>('/api/net-worth');

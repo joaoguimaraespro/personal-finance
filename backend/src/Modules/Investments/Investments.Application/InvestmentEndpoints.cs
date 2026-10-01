@@ -2,6 +2,7 @@ using FluentValidation;
 using Finance.Application.Http;
 using Investments.Application.Abstractions;
 using Investments.Application.Fx;
+using Investments.Application.Manual;
 using Investments.Application.NetWorth;
 using Investments.Application.Portfolio;
 using Investments.Domain;
@@ -38,7 +39,7 @@ public sealed class ManualAssetValidator : AbstractValidator<ManualAssetRequest>
 
 /// <summary>
 /// Investment data comes from read-only broker integrations: every endpoint here is GET, except user
-/// preferences (target allocation, asset-class overrides) and manually valued assets.
+/// preferences (target allocation, asset-class overrides), manually valued assets and coins entered by hand.
 /// </summary>
 public static class InvestmentEndpoints
 {
@@ -163,6 +164,7 @@ public static class InvestmentEndpoints
                 : Results.Ok(new { currency, date = on, eurPerUnit = factor });
         }).WithTags("FX");
 
+        app.MapManualHoldings();
         return app;
     }
 

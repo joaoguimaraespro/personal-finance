@@ -157,6 +157,32 @@ fails because of it. **Only ISINs, listing symbols and date ranges leave the ser
 values or account data. The Yahoo endpoints are unofficial and may change or be rate limited; set
 `none` if you prefer no third-party requests.
 
+## Crypto entered by hand
+
+Coins held on an exchange or in a wallet are **never connected**: *Portfolio → Add crypto* records the coin,
+quantity, average buy price (EUR), where it is held (free text, e.g. *Binance*, *Ledger*), an optional "held since"
+date and notes. The app prices it itself.
+
+- **Model.** Each location is a read-only finance account of kind *Broker* (institution `Manual (crypto)`), so the
+  portfolio, the Accounts page, net worth and dashboards include it like a broker account. The holding
+  (`investments.manual_holdings`) is the source of truth; its position (`DataSource.Manual`), one opening lot
+  (a buy plus the money put in, on the "held since" day) and its rewards are rewritten from it on every change.
+  The same coin in two locations is one position line with two holdings. A location left empty is archived.
+- **Coins and prices.** The coin list comes from Yahoo search (crypto results only); only the typed text is sent.
+  The listing is the coin's EUR pair (`BTC-EUR`), else its USD pair (`KAS-USD`; many smaller coins have no EUR
+  pair), cached in `price_listings`. USD closes are stored in EUR at the ECB rate of the day. Daily closes go to
+  `market_prices`; the last days are re-downloaded when the portfolio is opened (at most every 15 minutes) and by
+  the 6-hourly snapshot job, so today's bar is the live price and yesterday's close is final. Crypto trades 24/7:
+  *Today* compares with yesterday's close, weekends included.
+- **History.** Editing a holding drops the location's snapshots and rebuilds them from the daily closes since the
+  "held since" date, so the performance chart never jumps on an edit (it shows the holding as if held at the
+  current quantity since that date).
+- **Rewards** (staking, Earn, airdrops) add coins at zero cost on the day received and are reported as income,
+  valued at that day's close, under *Dividends & rewards* (portfolio income only — the monthly/annual reports
+  cover the ledger and do not include dividends either).
+- **Privacy.** Only the coin's ticker/listing symbol and date ranges leave the server, never quantities or values.
+  With `MARKET_DATA_PROVIDER=none` coins cannot be added.
+
 ## Demo broker
 
 `Integrations:EnableDemo=true` (on by default in Development only) adds a *Demo broker* that generates a
@@ -167,8 +193,9 @@ reconstructed history. It is used by the end-to-end tests and README screenshots
 ## Autofill
 
 The add-transaction form (*Investments → Buy / Sell*) offers search-as-you-type for **stocks, ETFs, funds and
-bonds**. **Crypto is never looked up**: symbol, name, quantity and price are always typed in by hand, and the
-server records crypto entries as manually priced whatever the client sends.
+bonds**. **Crypto is never looked up** in that form: symbol, name, quantity and price are always typed in by hand, and the
+server records crypto entries as manually priced whatever the client sends. (To track coins you hold, use
+*Portfolio → Add crypto* — see [Crypto entered by hand](#crypto-entered-by-hand).)
 
 Keys come from environment variables only (never from the database, never committed): `T212_API_KEY`,
 `T212_API_SECRET`, `T212_ENVIRONMENT`, `IBKR_FLEX_TOKEN`, `IBKR_FLEX_QUERY_ID` in `deploy/.env`, mapped to
