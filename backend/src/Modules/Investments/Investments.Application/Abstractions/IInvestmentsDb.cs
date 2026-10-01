@@ -17,6 +17,7 @@ public interface IInvestmentsDb
     DbSet<CashMovement> CashMovements { get; }
     DbSet<CashBalance> CashBalances { get; }
     DbSet<MarketPrice> MarketPrices { get; }
+    DbSet<PriceListing> PriceListings { get; }
     DbSet<FxRate> FxRates { get; }
     DbSet<PortfolioSnapshot> PortfolioSnapshots { get; }
     DbSet<TargetAllocation> TargetAllocations { get; }
@@ -37,16 +38,4 @@ public enum FxHistory
     Latest = 0,
     Last90Days = 1,
     Full = 2,
-}
-
-/// <summary>
-/// Optional external price source. The default implementation uses only prices reported by brokers, so no
-/// market-data service is contacted unless one is configured.
-/// </summary>
-public interface IMarketDataProvider
-{
-    string Name { get; }
-
-    Task<IReadOnlyList<(DateOnly Date, decimal Close)>> GetDailyClosesAsync(Security security, DateOnly from,
-        DateOnly to, CancellationToken ct);
 }

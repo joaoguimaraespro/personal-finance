@@ -16,6 +16,7 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<CashBalance> CashBalances => Set<CashBalance>();
     public DbSet<MarketPrice> MarketPrices => Set<MarketPrice>();
+    public DbSet<PriceListing> PriceListings => Set<PriceListing>();
     public DbSet<FxRate> FxRates => Set<FxRate>();
     public DbSet<PortfolioSnapshot> PortfolioSnapshots => Set<PortfolioSnapshot>();
     public DbSet<TargetAllocation> TargetAllocations => Set<TargetAllocation>();
@@ -103,6 +104,15 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
             e.HasKey(x => new { x.SecurityId, x.Date });
             e.Property(x => x.Close).HasPrecision(19, 8);
             e.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+        });
+
+        b.Entity<PriceListing>(e =>
+        {
+            e.HasKey(x => x.SecurityId);
+            e.Property(x => x.Provider).HasMaxLength(16);
+            e.Property(x => x.Symbol).HasMaxLength(40);
+            e.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+            e.HasOne<Security>().WithMany().HasForeignKey(x => x.SecurityId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<FxRate>(e =>

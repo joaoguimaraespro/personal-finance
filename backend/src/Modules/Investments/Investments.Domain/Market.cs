@@ -18,6 +18,54 @@ public sealed class MarketPrice
     public void Update(decimal close) => Close = close;
 }
 
+/// <summary>
+/// Which listing of a security a public price provider uses for it (e.g. Yahoo "VWCE.DE"), and which days have
+/// already been fetched, so each day is downloaded once. <see cref="Symbol"/> is null when nothing was found.
+/// </summary>
+public sealed class PriceListing
+{
+    private PriceListing() { }
+
+    public Guid SecurityId { get; private set; }
+    public string Provider { get; private set; } = null!;
+    public string? Symbol { get; private set; }
+    public string? Currency { get; private set; }
+    public DateTimeOffset ResolvedAtUtc { get; private set; }
+    public DateOnly? CoveredFrom { get; private set; }
+    public DateOnly? CoveredTo { get; private set; }
+
+    public static PriceListing Create(Guid securityId, string provider, string? symbol, string? currency,
+        DateTimeOffset at) => new()
+    {
+        SecurityId = securityId,
+        Provider = provider,
+        Symbol = symbol,
+        Currency = currency,
+        ResolvedAtUtc = at,
+    };
+
+    /// <summary>A new resolution (other provider, or a retry after nothing was found) forgets the fetched range.</summary>
+    public void Resolve(string provider, string? symbol, string? currency, DateTimeOffset at)
+    {
+        if (Provider != provider || Symbol != symbol)
+        {
+            CoveredFrom = null;
+            CoveredTo = null;
+        }
+
+        Provider = provider;
+        Symbol = symbol;
+        Currency = currency;
+        ResolvedAtUtc = at;
+    }
+
+    public void Cover(DateOnly from, DateOnly to)
+    {
+        CoveredFrom = CoveredFrom is { } f && f < from ? f : from;
+        CoveredTo = CoveredTo is { } t && t > to ? t : to;
+    }
+}
+
 /// <summary>ECB reference rate: 1 EUR = <see cref="Rate"/> units of <see cref="Quote"/>.</summary>
 public sealed class FxRate
 {
@@ -49,6 +97,12 @@ public sealed class PortfolioSnapshot
     public decimal NetFlowBase { get; private set; }
     public string Origin { get; private set; } = null!;
 
+    /// <summary>
+    /// Reconstructed days only: how many holdings were valued from a trade price because no public close was
+    /// available, so the UI can say the history is partly estimated.
+    /// </summary>
+    public int EstimatedHoldings { get; private set; }
+
     public decimal TotalBase => MarketValueBase + CashBase;
 
     public static PortfolioSnapshot Create(Guid accountId, DateOnly date, decimal marketValue, decimal cash,
@@ -62,12 +116,21 @@ public sealed class PortfolioSnapshot
         Origin = origin,
     };
 
+    public static PortfolioSnapshot Reconstructed(Guid accountId, DateOnly date, decimal marketValue, decimal cash,
+        decimal netFlow, string origin, int estimatedHoldings)
+    {
+        var snapshot = Create(accountId, date, marketValue, cash, netFlow, origin);
+        snapshot.EstimatedHoldings = estimatedHoldings;
+        return snapshot;
+    }
+
     public void Update(decimal marketValue, decimal cash, decimal netFlow, string origin)
     {
         MarketValueBase = marketValue;
         CashBase = cash;
         NetFlowBase = netFlow;
         Origin = origin;
+        EstimatedHoldings = 0;
     }
 }
 

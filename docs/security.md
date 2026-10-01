@@ -70,6 +70,16 @@ Read-only by construction ([ADR-0005](adr/0005-read-only-broker-integrations.md)
 without order/pie permissions; IBKR via Flex Web Service, which has no trading surface at all; an
 allow-list HTTP handler rejects any other method/path before it leaves the process.
 
+## Market data
+
+To rebuild the valuation history of brokers that do not report one (Trading 212), the API downloads public
+end-of-day prices from the provider in `MarketData:Provider` (default `yahoo`; `none` disables it — see
+[broker-integrations.md](broker-integrations.md#reconstructed-history)). **Only ISINs, listing symbols and date
+ranges are sent** — never quantities, values, balances or anything identifying an account. Requests go through
+the same allow-list handler as broker clients (GET on two read-only paths of one host), are rate limited and
+time out; responses are parsed as data and only dates and closing prices are stored. The Yahoo endpoints are
+unofficial: they may change, throttle or disappear, in which case the history falls back to trade prices.
+
 ## AI access
 
 See [ai.md](ai.md). AI clients never touch the database: the MCP server has no database dependency at all and

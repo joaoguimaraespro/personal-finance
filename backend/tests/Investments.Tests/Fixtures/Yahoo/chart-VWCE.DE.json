@@ -1,0 +1,47 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "EUR",
+          "symbol": "VWCE.DE",
+          "exchangeName": "GER",
+          "fullExchangeName": "XETRA",
+          "instrumentType": "ETF",
+          "gmtoffset": 7200,
+          "timezone": "CEST",
+          "exchangeTimezoneName": "Europe/Berlin",
+          "regularMarketPrice": 169.38,
+          "dataGranularity": "1d"
+        },
+        "timestamp": [
+          1756710000,
+          1756796400,
+          1756882800,
+          1756969200,
+          1757055600,
+          1757314800,
+          1757401200,
+          1757487600
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "close": [
+                135.8800048828125,
+                134.39999389648438,
+                135.3000030517578,
+                136.27999877929688,
+                135.55999755859375,
+                136.44000244140625,
+                136.5800018310547,
+                137.3800048828125
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

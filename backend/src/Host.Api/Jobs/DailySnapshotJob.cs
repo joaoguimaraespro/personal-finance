@@ -23,6 +23,17 @@ internal sealed class DailySnapshotJob(IServiceScopeFactory scopes, ILogger<Dail
             {
                 logger.LogError(ex, "Daily snapshot failed");
             }
+
+            try
+            {
+                // Catch-up for reconstructed history (cheap once prices are cached: no network).
+                await using var scope = scopes.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<HistoryReconstructor>().RebuildAllAsync(stoppingToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "History reconstruction failed");
+            }
         } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 }

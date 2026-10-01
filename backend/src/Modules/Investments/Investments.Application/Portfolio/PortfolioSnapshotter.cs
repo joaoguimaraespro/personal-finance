@@ -7,7 +7,8 @@ namespace Investments.Application.Portfolio;
 
 /// <summary>
 /// Writes today's valuation per broker account from positions and cash, so performance history accrues even
-/// for brokers whose APIs expose only current state. Broker-reported history (IBKR NAV) is never overwritten.
+/// for brokers whose APIs expose only current state. Broker-reported history (IBKR NAV) is never overwritten;
+/// a reconstructed estimate for today is replaced by the real valuation.
 /// </summary>
 public sealed class PortfolioSnapshotter(IInvestmentsDb db, PortfolioQueries portfolio, TimeProvider clock)
 {
@@ -34,7 +35,7 @@ public sealed class PortfolioSnapshotter(IInvestmentsDb db, PortfolioQueries por
                     account.Cash, todayFlow, SnapshotOrigins.Computed));
                 written++;
             }
-            else if (existing.Origin == SnapshotOrigins.Computed)
+            else if (existing.Origin is SnapshotOrigins.Computed or SnapshotOrigins.Reconstructed)
             {
                 existing.Update(account.MarketValue, account.Cash, todayFlow, SnapshotOrigins.Computed);
                 written++;

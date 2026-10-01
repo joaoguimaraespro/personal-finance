@@ -22,6 +22,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Replaces Claude in tests; scripted per test.</summary>
     public ScriptedAssistantModel Assistant { get; } = new();
 
+    /// <summary>Replaces the public price provider: no test ever calls Yahoo.</summary>
+    public FakePriceHistory Prices { get; } = new();
+
     public async ValueTask InitializeAsync() => await _db.StartAsync();
 
     public override async ValueTask DisposeAsync()
@@ -39,7 +42,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("RateLimits:LoginPerMinute", "1000");
         builder.UseSetting("Integrations:EnableDemo", "true");
         builder.ConfigureTestServices(services =>
-            services.AddSingleton<Ai.Application.Assistant.IAssistantModel>(Assistant));
+        {
+            services.AddSingleton<Ai.Application.Assistant.IAssistantModel>(Assistant);
+            services.AddSingleton<Investments.Application.Abstractions.IPriceHistorySource>(Prices);
+        });
     }
 
     public ApiClient NewClient() => new(CreateDefaultClient(new CookieAndCsrfHandler()));

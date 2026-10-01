@@ -66,7 +66,7 @@ builder.Services.AddFinanceInfrastructure(connectionString);
 builder.Services.AddFinanceApplication();
 builder.Services.AddReporting();
 builder.Services.AddImports();
-builder.Services.AddInvestmentsInfrastructure(connectionString);
+builder.Services.AddInvestmentsInfrastructure(connectionString, builder.Configuration);
 builder.Services.AddInvestmentsApplication();
 builder.Services.AddIntegrationsInfrastructure(connectionString);
 builder.Services.AddIntegrationsApplication();
@@ -164,6 +164,7 @@ builder.Services.AddRateLimiter(o =>
 builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "postgres", tags: ["ready"]);
 builder.Services.AddHostedService<RecurringProposalJob>();
 builder.Services.AddHostedService<DailySnapshotJob>();
+builder.Services.AddHostedService<HistoryRebuildJob>();
 builder.Services.AddHostedService<BrokerSyncService>();
 builder.Services.Configure<HostOptions>(o =>
     o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);

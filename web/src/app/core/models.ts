@@ -512,6 +512,10 @@ export interface PerformanceReport {
   netFlows: number;
   gain: number;
   series: { date: string; value: number; netContributions: number }[];
+  /** History before this day was reconstructed from transactions and public closing prices. */
+  reconstructedBefore: string | null;
+  /** Reconstructed days on which a holding was valued at a trade price instead of a closing price. */
+  estimatedDays: number;
 }
 
 export type ManualAssetKind = 'RealEstate' | 'Vehicle' | 'Crypto' | 'Pension' | 'Other' | 'Loan' | 'Mortgage' | 'OtherDebt';

@@ -269,4 +269,7 @@ public static class SnapshotOrigins
 {
     public const string Broker = "broker";
     public const string Computed = "computed";
+
+    /// <summary>Rebuilt from the trade ledger and public closing prices; replaced by any real snapshot.</summary>
+    public const string Reconstructed = "reconstructed";
 }

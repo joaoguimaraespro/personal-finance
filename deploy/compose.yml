@@ -75,6 +75,8 @@ services:
       MarketData__Trading212__Environment: ${T212_ENVIRONMENT:-live}
       MarketData__Ibkr__Token: ${IBKR_FLEX_TOKEN:-}
       MarketData__Ibkr__QueryId: ${IBKR_FLEX_QUERY_ID:-}
+      # Public closing prices to rebuild Trading 212 history (yahoo | none). Sends only ISIN/symbol + dates.
+      MarketData__Provider: ${MARKET_DATA_PROVIDER:-yahoo}
       TZ: Europe/Lisbon
     volumes:
       - dp-keys:/keys
