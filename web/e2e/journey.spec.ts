@@ -97,8 +97,11 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await page.goto('/portfolio');
   const vwce = page.getByRole('row').filter({ hasText: 'VWCE' }).first();
   await expect(vwce).toBeVisible();
-  await expect(vwce.getByText('Demo broker A')).toBeVisible();
-  await expect(vwce.getByText('Demo broker B')).toBeVisible();
+  // Same ISIN at two brokers: one consolidated line; expanding it lists each broker holding.
+  await vwce.click();
+  await expect(vwce).toHaveAttribute('aria-expanded', 'true');
+  const holdings = page.getByRole('row').filter({ hasText: 'Demo broker A' }).filter({ hasText: 'Demo broker B' });
+  await expect(holdings).toBeVisible();
   await expect(page.getByText('TWR')).toBeVisible();
   await page.waitForTimeout(1000);
   if (shots) await page.screenshot({ path: `${shots}/portfolio.png`, fullPage: true });
