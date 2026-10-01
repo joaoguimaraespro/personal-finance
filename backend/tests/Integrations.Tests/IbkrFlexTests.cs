@@ -63,18 +63,60 @@ public sealed class IbkrFlexTests
         </FlexQueryResponse>
         """;
 
-    private static IbkrFlexProvider Provider(ScriptedHandler http)
+    private const string Unavailable = """
+        <FlexStatementResponse><Status>Fail</Status><ErrorCode>1003</ErrorCode>
+        <ErrorMessage>Statement is not available.</ErrorMessage></FlexStatementResponse>
+        """;
+
+    private static IbkrFlexProvider Provider(ScriptedHandler http, int backfillYears = 1)
     {
         var clock = new InstantTimeProvider();
         var guard = new AllowListHttpHandler(FlexClient.AllowList()) { InnerHandler = http };
         return new IbkrFlexProvider(new FlexClient(new HttpClient(guard), new RateGate(clock), clock), "tok", "123",
-            backfillYears: 1, clock);
+            backfillYears, clock);
     }
+
+    private static DateOnly FromDate(HttpRequestMessage r) => DateOnly.ParseExact(
+        System.Web.HttpUtility.ParseQueryString(r.RequestUri!.Query)["fd"]!, "yyyyMMdd",
+        System.Globalization.CultureInfo.InvariantCulture);
 
     private static ScriptedHandler Script() => new ScriptedHandler()
         .On($"{Base}/SendRequest", SendOk)
         .On($"{Base}/GetStatement", InProgress)
         .On($"{Base}/GetStatement", Statement);
+
+    [Fact]
+    public async Task A_backfill_window_before_the_account_existed_is_narrowed_instead_of_failing()
+    {
+        // Newest year: fine. Older year: 1003 for the full window, then fine once narrowed towards the present.
+        var http = new ScriptedHandler()
+            .On($"{Base}/SendRequest", SendOk)
+            .On($"{Base}/SendRequest", Unavailable)
+            .On($"{Base}/SendRequest", SendOk)
+            .On($"{Base}/GetStatement", Statement);
+
+        var positions = await Provider(http, backfillYears: 3).GetPositionsAsync(CancellationToken.None);
+
+        positions.ShouldNotBeEmpty();
+        var sends = http.Requests.Where(r => r.RequestUri!.AbsolutePath.EndsWith("SendRequest", StringComparison.Ordinal))
+            .Select(FromDate).ToList();
+        sends.Count.ShouldBe(3); // the third, oldest year is never requested: the account starts inside year two
+        sends[0].ShouldBeGreaterThan(sends[1]); // newest window first
+        sends[2].ShouldBeGreaterThan(sends[1]); // same window, narrowed
+    }
+
+    [Fact]
+    public async Task When_no_period_has_a_statement_the_error_explains_what_to_check()
+    {
+        var http = new ScriptedHandler().On($"{Base}/SendRequest", Unavailable);
+
+        var error = await Should.ThrowAsync<ProviderConfigurationException>(
+            () => Provider(http).GetPositionsAsync(CancellationToken.None));
+
+        error.Message.ShouldContain("1003");
+        error.Message.ShouldContain("Query ID");
+        http.Requests.Count.ShouldBeLessThan(12); // narrowing halves the window, so it gives up quickly
+    }
 
     [Fact]
     public async Task Polls_until_the_statement_is_ready_and_reads_positions()

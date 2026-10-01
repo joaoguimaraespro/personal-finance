@@ -178,7 +178,7 @@ securities already synced through *Connections*, and everything can be entered m
 | Source | Search | Price on the transaction date |
 |---|---|---|
 | Trading 212 | Full tradable-instrument list (`/equity/metadata/instruments`, cached 12 h, searched locally — the API has no search endpoint) | Only the live price of an instrument you **hold**, and only for **today** — the API has no historical prices |
-| IBKR (Flex) | Only instruments in your last 365 days of statements (positions + trades) — Flex has no instrument search | Your own fill price on that day, else the latest end-of-day mark price (statement date or later) |
+| IBKR | Only instruments in your last 365 days of statements (positions + trades) — Flex has no instrument search | Your own fill price on that day, else the latest end-of-day mark price (statement date or later) |
 | Synced holdings | Securities already synced from any connection | Your fill that day, else the last recorded close (≤ 7 days earlier) |
 
 When the chosen provider has no price, the server falls back to synced holdings by ISIN. Anything missing is left

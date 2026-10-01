@@ -55,6 +55,10 @@ describe('friendlyError', () => {
     ['The IBKR Flex token is restricted to another IP address.', 'ibkrIp'],
     ['The IBKR Flex query id is invalid.', 'ibkrQueryId'],
     ['The IBKR Flex token is invalid.', 'ibkrToken'],
+    [
+      'IBKR has no statement for the requested period (Flex error 1003). Check that the Query ID belongs to an Activity Flex Query of this account and that the account already has activity.',
+      'ibkrNoStatement',
+    ],
   ])('explains %s', (message, key) => {
     expect(friendlyError(message)).toBe(`connections.errors.${key}`);
   });
