@@ -88,6 +88,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 snapshots = await investments.PortfolioSnapshots.AsNoTracking().ToListAsync(ct),
                 targetAllocation = await investments.TargetAllocations.AsNoTracking().ToListAsync(ct),
                 manualAssets = await investments.ManualAssets.AsNoTracking().Include(a => a.Valuations).ToListAsync(ct),
+                manualHoldings = await investments.ManualHoldings.AsNoTracking().Include(h => h.Rewards).ToListAsync(ct),
                 netWorth = await investments.NetWorthSnapshots.AsNoTracking().ToListAsync(ct),
             },
         };

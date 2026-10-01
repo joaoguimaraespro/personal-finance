@@ -22,6 +22,7 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
     public DbSet<TargetAllocation> TargetAllocations => Set<TargetAllocation>();
     public DbSet<ManualAsset> ManualAssets => Set<ManualAsset>();
     public DbSet<NetWorthSnapshot> NetWorthSnapshots => Set<NetWorthSnapshot>();
+    public DbSet<ManualHolding> ManualHoldings => Set<ManualHolding>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -57,8 +58,9 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
             e.HasKey(x => new { x.AccountId, x.SecurityId });
             // Fractional shares: quantities need more precision than money.
             e.Property(x => x.Quantity).HasPrecision(28, 10);
-            e.Property(x => x.AveragePrice).HasPrecision(19, 8);
-            e.Property(x => x.LastPrice).HasPrecision(19, 8);
+            // Coins can be worth fractions of a cent: prices keep 12 decimals.
+            e.Property(x => x.AveragePrice).HasPrecision(28, 12);
+            e.Property(x => x.LastPrice).HasPrecision(28, 12);
             e.Ignore(x => x.CostBasis);
             e.Ignore(x => x.MarketValue);
             e.HasOne<Security>().WithMany().HasForeignKey(x => x.SecurityId);
@@ -69,7 +71,7 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
             e.HasIndex(x => new { x.Source, x.ExternalId }).IsUnique();
             e.HasIndex(x => new { x.AccountId, x.ExecutedAtUtc });
             e.Property(x => x.Quantity).HasPrecision(28, 10);
-            e.Property(x => x.Price).HasPrecision(19, 8);
+            e.Property(x => x.Price).HasPrecision(28, 12);
             e.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
             e.Property(x => x.ExternalId).HasMaxLength(128);
             e.HasOne<Security>().WithMany().HasForeignKey(x => x.SecurityId);
@@ -102,7 +104,7 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
         b.Entity<MarketPrice>(e =>
         {
             e.HasKey(x => new { x.SecurityId, x.Date });
-            e.Property(x => x.Close).HasPrecision(19, 8);
+            e.Property(x => x.Close).HasPrecision(28, 12);
             e.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
         });
 
@@ -153,6 +155,30 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
             e.HasKey(x => x.Date);
             e.Property(x => x.Breakdown).HasColumnType("jsonb").HasMaxLength(4000);
             e.Ignore(x => x.NetWorthBase);
+        });
+
+        b.Entity<ManualHolding>(e =>
+        {
+            e.HasIndex(x => new { x.AccountId, x.SecurityId }).IsUnique();
+            e.Property(x => x.Quantity).HasPrecision(28, 10);
+            e.Property(x => x.AveragePrice).HasPrecision(28, 12);
+            e.Property(x => x.Notes).HasMaxLength(ManualHolding.MaxNotes);
+            e.Ignore(x => x.RewardQuantity);
+            e.Ignore(x => x.TotalQuantity);
+            e.Ignore(x => x.Cost);
+            e.Ignore(x => x.AverageCostIncludingRewards);
+            e.HasOne<Security>().WithMany().HasForeignKey(x => x.SecurityId);
+            e.HasMany(x => x.Rewards).WithOne().HasForeignKey(r => r.HoldingId).OnDelete(DeleteBehavior.Cascade);
+            e.Navigation(x => x.Rewards).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        b.Entity<HoldingReward>(e =>
+        {
+            e.ToTable("holding_rewards");
+            // Ids are assigned in the domain: a reward added to a loaded holding is new, not a stale update.
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Quantity).HasPrecision(28, 10);
+            e.Property(x => x.Note).HasMaxLength(ManualHolding.MaxNotes);
         });
     }
 }

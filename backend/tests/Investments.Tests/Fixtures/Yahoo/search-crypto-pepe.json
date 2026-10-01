@@ -1,0 +1,53 @@
+{
+ "quotes": [
+  {
+   "symbol": "PEPE24478-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Pepe USD",
+   "longname": "Pepe USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "PURPE-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Purple Pepe USD",
+   "longname": "Purple Pepe USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "PEP-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Pepecoin USD",
+   "longname": "Pepecoin USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "PEPECOIN-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "PepeCoin USD",
+   "longname": "PepeCoin USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "PEPE24549-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Arbi Pepe USD",
+   "longname": "Arbi Pepe USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "PEPEONTRON-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "PePeonTron USD",
+   "longname": "PePeonTron USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "BABYPEPE31752-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Baby Pepe USD",
+   "longname": "Baby Pepe USD",
+   "exchange": "CCC"
+  }
+ ]
+}

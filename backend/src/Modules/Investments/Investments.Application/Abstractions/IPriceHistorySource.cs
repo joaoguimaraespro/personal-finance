@@ -14,6 +14,11 @@ public sealed record ListingMatch(string Symbol, string Currency);
 
 public readonly record struct DailyClose(DateOnly Date, decimal Close);
 
+/// <summary>A coin offered by the provider's search, e.g. Id "SOL" (Yahoo "SOL-USD"), shown as "SOL · Solana".</summary>
+/// <param name="Id">Provider-neutral coin id used to find its listings ("SOL", "PEPE24478").</param>
+/// <param name="Symbol">Ticker to show ("PEPE").</param>
+public sealed record CoinMatch(string Id, string Symbol, string Name);
+
 /// <summary>Daily closes in <see cref="Currency"/> (minor units such as GBp already converted to GBP).</summary>
 public sealed record PriceSeries(string Currency, IReadOnlyList<DailyClose> Closes);
 
@@ -33,6 +38,13 @@ public interface IPriceHistorySource
 
     /// <summary>Closes for [from, to] (inclusive); null or empty when the provider has no data for that range.</summary>
     Task<PriceSeries?> GetDailyClosesAsync(string symbol, DateOnly from, DateOnly to, CancellationToken ct);
+
+    /// <summary>
+    /// Coins whose name or ticker matches <paramref name="query"/>, best first. Only the typed text is sent.
+    /// Providers without crypto return nothing.
+    /// </summary>
+    Task<IReadOnlyList<CoinMatch>> SearchCoinsAsync(string query, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<CoinMatch>>([]);
 }
 
 /// <summary>Used when <c>MarketData:Provider</c> is <c>none</c>: no request is ever made.</summary>
