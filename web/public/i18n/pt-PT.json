@@ -47,7 +47,8 @@
   "nextYear": "Ano seguinte",
   "previousPage": "Página anterior",
   "nextPage": "Página seguinte",
-  "remove": "Remover"
+  "remove": "Remover",
+  "noData": "Ainda sem dados para este período"
  },
  "auth": {
   "signIn": "Entrar",

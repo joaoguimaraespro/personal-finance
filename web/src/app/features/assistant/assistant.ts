@@ -27,6 +27,8 @@ interface Turn {
 /** Conversation lives only in this page: it is not stored on the server and not remembered across visits. */
 @Component({
   selector: 'app-assistant',
+  // Narrow content, centred in the main area like a document rather than pinned to the left.
+  host: { class: 'mx-auto block w-full max-w-3xl' },
   imports: [
     NgIcon,
     PageHeaderComponent,
@@ -59,7 +61,7 @@ interface Turn {
 
     @if (status.value(); as s) {
       @if (!s.enabled) {
-        <section class="card max-w-2xl !p-0">
+        <section class="card !p-0">
           <app-empty-state
             icon="lucideBot"
             [title]="'assistant.disabled' | translate"

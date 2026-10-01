@@ -12,6 +12,8 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
 
 @Component({
   selector: 'app-settings',
+  // Narrow content, centred in the main area like a document rather than pinned to the left.
+  host: { class: 'mx-auto block w-full max-w-3xl' },
   imports: [
     NgIcon,
     PageHeaderComponent,
@@ -24,7 +26,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-page-header [icon]="icons.settings" [title]="'nav.settings' | translate" />
-    <div class="grid max-w-3xl gap-4">
+    <div class="grid gap-4">
       <section class="card space-y-4">
         <h2 class="card-title">
           <ng-icon name="lucidePalette" />{{ 'settings.appearance' | translate }}

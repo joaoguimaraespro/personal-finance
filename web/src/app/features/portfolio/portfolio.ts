@@ -25,6 +25,7 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
+import { APP_ICONS } from '../../shared/icons';
 import {
   lucideArrowDown,
   lucideArrowUp,
@@ -68,6 +69,7 @@ type Range = '1Y' | '3Y' | 'ALL';
     RouterLink,
   ],
   providers: [
+    APP_ICONS,
     provideIcons({
       lucideArrowDown,
       lucideArrowUp,
@@ -230,9 +232,13 @@ type Range = '1Y' | '3Y' | 'ALL';
           </div>
           <div class="card">
             <div class="mb-4 flex items-center justify-between">
-              <h2 class="card-title !mb-0">{{ 'portfolio.allocation' | translate }}</h2>
-              <button class="text-xs text-primary" (click)="openTargets()">
-                {{ 'portfolio.editTargets' | translate }}
+              <h2 class="card-title !mb-0">
+                <ng-icon name="lucideChartPie" />{{ 'portfolio.allocation' | translate }}
+              </h2>
+              <button hlmBtn variant="ghost" size="sm" class="text-primary" (click)="openTargets()">
+                <ng-icon name="lucideTarget" aria-hidden="true" />{{
+                  'portfolio.editTargets' | translate
+                }}
               </button>
             </div>
             <app-chart class="h-44" [option]="allocationChart()" />
