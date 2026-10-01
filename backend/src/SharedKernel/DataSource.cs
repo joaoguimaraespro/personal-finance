@@ -13,6 +13,9 @@ public enum DataSource
     Trading212 = 10,
     InteractiveBrokers = 11,
 
+    /// <summary>Public end-of-day closing prices from the configured market-data provider (never account data).</summary>
+    MarketData = 20,
+
     /// <summary>Fictitious data for demos and screenshots. Only available when explicitly enabled.</summary>
     Demo = 99,
 }

@@ -3,6 +3,7 @@ using Finance.Domain.Accounts;
 using Investments.Application.Abstractions;
 using Investments.Application.Calculations;
 using Investments.Application.Fx;
+using Investments.Application.Sync;
 using Investments.Domain;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel;
@@ -84,6 +85,9 @@ public sealed record PeriodAmount(string Period, decimal Amount);
 
 public sealed record SecurityAmount(string Symbol, string Name, decimal Amount);
 
+/// <param name="ReconstructedBefore">History before this day was rebuilt from transactions and public closing
+/// prices (null when none was).</param>
+/// <param name="EstimatedDays">Reconstructed days on which some holding was valued at a trade price.</param>
 public sealed record PerformanceReport(
     DateOnly From,
     DateOnly To,
@@ -93,7 +97,9 @@ public sealed record PerformanceReport(
     decimal EndValue,
     decimal NetFlows,
     decimal Gain,
-    IReadOnlyList<ValuePoint> Series);
+    IReadOnlyList<ValuePoint> Series,
+    DateOnly? ReconstructedBefore = null,
+    int EstimatedDays = 0);
 
 public sealed record ValuePoint(DateOnly Date, decimal Value, decimal NetContributions);
 
@@ -258,10 +264,11 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
     {
         var ids = (await BrokerAccountsAsync(scope, ct)).Keys.ToList();
         var end = to ?? Today;
-        var valuations = await db.PortfolioSnapshots.AsNoTracking()
+        var snapshots = await db.PortfolioSnapshots.AsNoTracking()
             .Where(s => ids.Contains(s.AccountId) && s.Date <= end)
-            .Select(s => new AccountValuation(s.AccountId, s.Date, s.MarketValueBase + s.CashBase))
+            .Select(s => new { s.AccountId, s.Date, Value = s.MarketValueBase + s.CashBase, s.Origin, s.EstimatedHoldings })
             .ToListAsync(ct);
+        var valuations = snapshots.Select(s => new AccountValuation(s.AccountId, s.Date, s.Value)).ToList();
         var flows = (await db.CashMovements.AsNoTracking()
                 .Where(c => ids.Contains(c.AccountId) &&
                             (c.Type == CashMovementType.Deposit || c.Type == CashMovementType.Withdrawal))
@@ -278,11 +285,17 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         }
 
         var netFlows = points.Skip(1).Sum(p => p.TotalFlow);
+        var reconstructed = snapshots
+            .Where(s => s.Origin == SnapshotOrigins.Reconstructed && s.Date >= points[0].Date)
+            .ToList();
+        DateOnly? reconstructedBefore = reconstructed.Count == 0 ? null : reconstructed.Max(s => s.Date).AddDays(1);
+        var estimatedDays = reconstructed.Where(s => s.EstimatedHoldings > 0).Select(s => s.Date).Distinct().Count();
         return new PerformanceReport(points[0].Date, points[^1].Date,
             Performance.TimeWeightedReturn(points.Select(p => p.ToValuation()).ToList()),
             Performance.Xirr(series.InvestorFlows), points[0].Value, points[^1].Value, netFlows,
             points[^1].Value - points[0].Value - netFlows,
-            Thin(points.Select(p => new ValuePoint(p.Date, p.Value, p.CumulativeContributions)).ToList()));
+            Thin(points.Select(p => new ValuePoint(p.Date, p.Value, p.CumulativeContributions)).ToList()),
+            reconstructedBefore, estimatedDays);
     }
 
     public async Task<IReadOnlyList<(Guid AccountId, decimal Value)>> CashAsync(PortfolioScope scope,

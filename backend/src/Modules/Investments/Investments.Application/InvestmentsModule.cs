@@ -2,6 +2,7 @@ using FluentValidation;
 using Investments.Application.Fx;
 using Investments.Application.NetWorth;
 using Investments.Application.Portfolio;
+using Investments.Application.Prices;
 using Investments.Application.Sync;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +17,9 @@ public static class InvestmentsModule
         services.AddScoped<PortfolioQueries>();
         services.AddScoped<PortfolioSyncWriter>();
         services.AddScoped<PortfolioSnapshotter>();
+        services.AddScoped<PriceHistoryService>();
+        services.AddScoped<HistoryReconstructor>();
+        services.AddSingleton<HistoryRebuildQueue>();
         services.AddScoped<NetWorthService>();
         return services;
     }

@@ -1,0 +1,29 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "EUR",
+          "symbol": "IE00BK5BQT80.SG",
+          "exchangeName": "STU",
+          "fullExchangeName": "Stuttgart",
+          "instrumentType": "MUTUALFUND",
+          "gmtoffset": 7200,
+          "timezone": "CEST",
+          "exchangeTimezoneName": "Europe/Berlin",
+          "regularMarketPrice": 170.44,
+          "dataGranularity": "1d"
+        },
+        "indicators": {
+          "quote": [
+            {}
+          ],
+          "adjclose": [
+            {}
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

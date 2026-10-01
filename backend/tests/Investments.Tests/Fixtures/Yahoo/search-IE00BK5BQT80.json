@@ -1,0 +1,22 @@
+{
+  "count": 2,
+  "quotes": [
+    {
+      "exchange": "LSE",
+      "shortname": "VANGUARD FUNDS PLC VANGUARD FTS",
+      "quoteType": "ETF",
+      "symbol": "VWRA.L",
+      "typeDisp": "ETF",
+      "longname": "Vanguard FTSE All-World UCITS ETF USD Accumulation",
+      "exchDisp": "London"
+    },
+    {
+      "exchange": "STU",
+      "shortname": "Vanguard FTSE All-World UCITS E",
+      "quoteType": "MUTUALFUND",
+      "symbol": "IE00BK5BQT80.SG",
+      "typeDisp": "Fund",
+      "exchDisp": "Stuttgart"
+    }
+  ]
+}

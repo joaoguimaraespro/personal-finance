@@ -61,7 +61,7 @@ public static class IntegrationEndpoints
         ], "Client Portal → Performance & Reports → Flex Queries. Create the Activity query described in docs/broker-integrations.md, enable Flex Web Service, restrict the token to your IP and set its expiry."),
         new(BrokerKind.Demo, "Demo broker (fictitious data)",
         [
-            new("profile", "Profile", false, false, "a or b — both hold the same ETF to show consolidation"),
+            new("profile", "Profile", false, false, "a or b — both hold the same ETF to show consolidation; c has no valuation history, like Trading 212"),
         ], "For demos only. Generates a deterministic, fictitious portfolio."),
     ];
 
@@ -186,7 +186,7 @@ public static class IntegrationEndpoints
 
     private static async Task<IResult> ImportCsvAsync(Guid id, IFormFile file, IIntegrationsDb db,
         IEnumerable<ICsvHistoryParser> parsers, PortfolioSyncWriter writer, PortfolioSnapshotter snapshotter,
-        TimeProvider clock, CancellationToken ct)
+        HistoryRebuildQueue history, TimeProvider clock, CancellationToken ct)
     {
         var connection = await db.Connections.FindAsync([id], ct);
         if (connection is null)
@@ -217,6 +217,7 @@ public static class IntegrationEndpoints
                          + await writer.AddCashMovementsAsync(connection.AccountId, source, data.Cash, ct)
                          + await writer.AddDividendsAsync(connection.AccountId, source, data.Dividends, ct);
             await snapshotter.SnapshotTodayAsync(ct);
+            history.Enqueue(connection.AccountId);
             job.Finish(data.Warnings.Count == 0 ? SyncOutcome.Succeeded : SyncOutcome.PartiallySucceeded,
                 counts.Imported, counts.Updated, counts.Ignored, JsonSerializer.Serialize(data.Warnings.Take(50)),
                 clock.GetUtcNow());

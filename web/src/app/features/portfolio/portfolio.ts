@@ -205,7 +205,26 @@ type Range = '1Y' | '3Y' | 'ALL';
                 </div>
               </div>
             </div>
-            <app-chart class="h-72" [option]="valueChart()" />
+            @if (hasHistory()) {
+              <app-chart class="h-72" [option]="valueChart()" />
+              @if (performance.value()?.reconstructedBefore; as before) {
+                <p class="mt-2 text-xs text-muted-foreground">
+                  {{ 'portfolio.reconstructedNote' | translate: { date: dayMonth(before) } }}
+                  @if (performance.value()?.estimatedDays) {
+                    {{ 'portfolio.reconstructedEstimated' | translate }}
+                  }
+                </p>
+              }
+            } @else {
+              <div
+                class="flex h-72 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground"
+              >
+                <p class="font-medium text-foreground">
+                  {{ 'portfolio.historyEmptyTitle' | translate }}
+                </p>
+                <p class="max-w-md">{{ 'portfolio.historyEmpty' | translate }}</p>
+              </div>
+            }
           </div>
           <div class="card">
             <div class="mb-4 flex items-center justify-between">
@@ -565,6 +584,20 @@ export class PortfolioComponent {
     ];
   });
   protected classColor = (c: AssetClass) => CLASS_COLORS[c];
+
+  /** A line needs two points; while loading, keep the chart frame instead of flashing the empty state. */
+  protected readonly hasHistory = computed(() => {
+    const p = this.performance.value();
+    return !p || p.series.length >= 2;
+  });
+
+  protected dayMonth(isoDate: string): string {
+    const [y, m, d] = isoDate.slice(0, 10).split('-').map(Number);
+    return new Intl.DateTimeFormat(this.prefs.locale(), {
+      day: '2-digit',
+      month: '2-digit',
+    }).format(new Date(y, m - 1, d));
+  }
 
   protected readonly valueChart = computed<EChartsOption>(() => {
     const series = this.performance.value()?.series ?? [];

@@ -6,7 +6,8 @@ namespace Integrations.Infrastructure.Demo;
 
 /// <summary>
 /// Fictitious, deterministic portfolio for demos, screenshots and end-to-end tests. Profile "a" and "b" both hold
-/// the same world ETF so the consolidated view can be demonstrated. Only registered when explicitly enabled.
+/// the same world ETF so the consolidated view can be demonstrated. Profile "c" behaves like Trading 212: it
+/// reports no valuation history, so its history is reconstructed. Only registered when explicitly enabled.
 /// </summary>
 internal sealed class DemoProvider(string profile, TimeProvider clock) : IInvestmentProvider
 {
@@ -26,13 +27,20 @@ internal sealed class DemoProvider(string profile, TimeProvider clock) : IInvest
         new("MSFT", "US5949181045", "Microsoft Corporation", "USD", AssetClass.Stock, 330m, 0.0045m, 0.83m),
     ];
 
+    private static readonly Instrument[] ProfileC =
+    [
+        new("VWCE", "IE00BK5BQT80", "Vanguard FTSE All-World UCITS ETF (Acc)", "EUR", AssetClass.Etf, 98m, 0.0035m, null),
+        new("AGGH", "IE00BDBRDM35", "iShares Core Global Aggregate Bond UCITS ETF", "EUR", AssetClass.Bond, 4.9m, 0.0004m, null),
+    ];
+
     private const decimal UsdPerEur = 1.10m;
     private const int Months = 24;
 
     public BrokerKind Kind => BrokerKind.Demo;
 
-    private Instrument[] Instruments => profile == "b" ? ProfileB : ProfileA;
+    private Instrument[] Instruments => profile switch { "b" => ProfileB, "c" => ProfileC, _ => ProfileA };
     private decimal MonthlyDeposit => profile == "b" ? 400m : 600m;
+    private bool ReportsHistory => profile != "c";
     private DateOnly Today => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
     private DateOnly Start => new DateOnly(Today.Year, Today.Month, 1).AddMonths(-Months);
 
@@ -82,7 +90,7 @@ internal sealed class DemoProvider(string profile, TimeProvider clock) : IInvest
     public Task<AccountSnapshot> GetAccountSnapshotAsync(CancellationToken ct)
     {
         var history = new List<SnapshotReport>();
-        for (var d = Start.AddDays(3); d <= Today; d = d.AddDays(1))
+        for (var d = Start.AddDays(3); ReportsHistory && d <= Today; d = d.AddDays(1))
         {
             if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
             {
@@ -96,7 +104,11 @@ internal sealed class DemoProvider(string profile, TimeProvider clock) : IInvest
         }
 
         var now = Simulate(Today);
-        return Task.FromResult(new AccountSnapshot("EUR", now.CashBalance, history.LastOrDefault()?.TotalValue ?? 0, history));
+        var total = ReportsHistory
+            ? history.LastOrDefault()?.TotalValue ?? 0
+            : decimal.Round(now.CashBalance + Instruments.Sum(i =>
+                ToEur(i, now.Quantities[i.Isin] * Price(i, Today.DayNumber - Start.DayNumber))), 2);
+        return Task.FromResult(new AccountSnapshot("EUR", now.CashBalance, total, history));
     }
 
     public Task<IReadOnlyList<PositionReport>> GetPositionsAsync(CancellationToken ct)

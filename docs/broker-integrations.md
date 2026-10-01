@@ -69,7 +69,8 @@ Pagination follows `nextPagePath` only within the history path that was requeste
 4 hours and re-read a 10-day overlap; duplicates are ignored.
 
 **Gaps and the CSV export.** The API has no valuation history (the app records a daily snapshot from the
-first sync onward) and reports dividends without withholding tax. Import the history CSV (app → History →
+first sync onward and [reconstructs the days before it](#reconstructed-history)) and reports dividends without
+withholding tax. Import the history CSV (app → History →
 Export) on the connection page to backfill older history and to fill in withholding tax. API and CSV
 records share natural keys (ISIN + timestamp + quantity/amount), so importing both never double counts.
 Withholding tax is only inferred from the API when the dividend and instrument currencies match, and is
@@ -120,11 +121,48 @@ transient codes are retried with backoff; token/query errors (1012–1015) stop 
 The first sync backfills history in 365-day windows (5 years by default,
 `Integrations:Ibkr:BackfillYears`); daily syncs run after 06:00 UTC because Flex data is end-of-day.
 
+## Reconstructed history
+
+Trading 212 reports only current state, so on its own the *Performance* chart would start on the first sync.
+After every sync and CSV import (and every 6 hours as a catch-up) the app rebuilds the daily history of each
+account **without broker-reported history** from its own ledger:
+
+- holdings per day = today's positions minus the fills after that day; cash per day = the first real snapshot's
+  cash minus later deposits, withdrawals, fees, interest, dividends and fills. Rolling back from the real values
+  means the rebuilt series ends exactly where the recorded one starts, even if old records are missing;
+- each holding is valued at that day's public closing price (weekends and holidays carry the last close),
+  converted with the ECB reference rate of the day;
+- when no close is available within a week, the latest trade price is used and the day is counted as
+  *estimated* — the chart then says the history is partly estimated.
+
+Rebuilt days are stored as snapshots with origin `reconstructed`. They are regenerated from scratch on every
+run, never overwrite `broker` (IBKR NAV) or `computed` (daily) snapshots, and are replaced by real ones as they
+arrive. Accounts whose broker reports history (IBKR, demo profiles *a*/*b*) are left alone. Deposits and
+withdrawals stay external flows, so TWR and XIRR treat the rebuilt period like any other.
+
+**Prices.** `MarketData:Provider` (`MARKET_DATA_PROVIDER` in `deploy/.env`) selects the source:
+
+| Value | Behaviour |
+|---|---|
+| `yahoo` (default) | Yahoo Finance's public chart/search endpoints (no key) |
+| `none` | No requests at all; history starts on the first sync |
+
+The listing is found by ISIN and preferably on the exchange the broker reports (Trading 212 `VWCEd_EQ` →
+`VWCE.DE` on Xetra; IBKR `listingExchange`), in the security's currency. The chosen symbol and the range already
+downloaded are cached (`investments.price_listings`), and closes are stored in `investments.market_prices` with
+source `MarketData` — each day is fetched once; broker prices are never overwritten. Requests are spaced
+≥ 0.75 s apart, time out, are retried with backoff and go through an allow-list (`/v1/finance/search`,
+`/v8/finance/chart/{symbol}`); a failure is logged and the rebuild falls back to trade prices — a sync never
+fails because of it. **Only ISINs, listing symbols and date ranges leave the server** — never quantities,
+values or account data. The Yahoo endpoints are unofficial and may change or be rate limited; set
+`none` if you prefer no third-party requests.
+
 ## Demo broker
 
 `Integrations:EnableDemo=true` (on by default in Development only) adds a *Demo broker* that generates a
 deterministic, fictitious portfolio. Profiles *a* and *b* both hold the same world ETF, which demonstrates the
-consolidated view. It is used by the end-to-end tests and README screenshots.
+consolidated view. Profile *c* reports no valuation history, like Trading 212, to demonstrate the
+reconstructed history. It is used by the end-to-end tests and README screenshots.
 
 ## Autofill
 

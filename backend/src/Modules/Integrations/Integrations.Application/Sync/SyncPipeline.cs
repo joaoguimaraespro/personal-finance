@@ -22,6 +22,7 @@ public sealed class SyncPipeline(
     IInvestmentProviderFactory providers,
     PortfolioSyncWriter writer,
     PortfolioSnapshotter snapshotter,
+    HistoryRebuildQueue history,
     TimeProvider clock,
     ILogger<SyncPipeline> logger)
 {
@@ -72,6 +73,9 @@ public sealed class SyncPipeline(
             // Update snapshots
             await snapshotter.SnapshotTodayAsync(ct);
             connection.Succeeded(clock.GetUtcNow());
+
+            // Brokers without valuation history get it rebuilt in the background (prices may need downloading).
+            history.Enqueue(connection.AccountId);
         }
         catch (ProviderConfigurationException ex)
         {

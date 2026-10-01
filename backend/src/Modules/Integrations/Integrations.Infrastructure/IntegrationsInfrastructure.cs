@@ -50,7 +50,8 @@ internal sealed class InvestmentProviderFactory(IServiceProvider services, IConf
                 .Configure(Required("apiKey"), Required("apiSecret"), credentials.GetValueOrDefault("environment") == "demo")),
             BrokerKind.InteractiveBrokers => new IbkrFlexProvider(services.GetRequiredService<FlexClient>(),
                 Required("token"), Required("queryId"), config.GetValue("Integrations:Ibkr:BackfillYears", 5), clock),
-            _ => new DemoProvider(credentials.GetValueOrDefault("profile") == "b" ? "b" : "a", clock),
+            _ => new DemoProvider(credentials.GetValueOrDefault("profile") switch { "b" => "b", "c" => "c", _ => "a" },
+                clock),
         };
     }
 }
