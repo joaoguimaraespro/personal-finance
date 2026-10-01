@@ -13,6 +13,13 @@ public enum AccountKind
     Other = 6,
 }
 
+/// <summary>How often the bank credits interest. Daily payouts compound daily; monthly ones at month end.</summary>
+public enum InterestPayout
+{
+    Monthly = 0,
+    Daily = 1,
+}
+
 public sealed class Account : Entity, IAuditable
 {
     private Account() { }
@@ -33,6 +40,11 @@ public sealed class Account : Entity, IAuditable
     public bool IsManual => Kind != AccountKind.Broker;
 
     public bool IsLiability => Kind is AccountKind.CreditCard or AccountKind.Loan;
+
+    /// <summary>Only savings and current (bank) accounts can carry an interest rate.</summary>
+    public bool SupportsInterest => Kind is AccountKind.Savings or AccountKind.Bank;
+
+    public InterestPayout InterestPayout { get; private set; } = InterestPayout.Monthly;
     public DateTimeOffset? ArchivedAtUtc { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -58,6 +70,8 @@ public sealed class Account : Entity, IAuditable
         Institution = institution?.Trim();
         Identifier = identifier?.Trim();
     }
+
+    public void SetInterestPayout(InterestPayout payout) => InterestPayout = payout;
 
     public void Archive(DateTimeOffset now) => ArchivedAtUtc = now;
 

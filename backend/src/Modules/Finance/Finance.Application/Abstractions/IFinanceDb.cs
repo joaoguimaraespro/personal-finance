@@ -4,6 +4,7 @@ using Finance.Domain.Budgets;
 using Finance.Domain.Categories;
 using Finance.Domain.Goals;
 using Finance.Domain.Imports;
+using Finance.Domain.Interest;
 using Finance.Domain.Recurring;
 using Finance.Domain.Transactions;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,8 @@ public interface IFinanceDb
     DbSet<Budget> Budgets { get; }
     DbSet<FinancialGoal> Goals { get; }
     DbSet<ImportBatch> Imports { get; }
+    DbSet<AccountInterestRate> InterestRates { get; }
+    DbSet<InterestMonth> InterestMonths { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

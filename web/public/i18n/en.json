@@ -156,7 +156,8 @@
   "Json": "JSON",
   "Trading212": "Trading 212",
   "InteractiveBrokers": "IBKR",
-  "Demo": "Demo"
+  "Demo": "Demo",
+  "InterestEstimate": "Estimated"
  },
  "audit": {
   "Created": "Created",
@@ -829,5 +830,34 @@
   "signOut": "Sign out",
   "expired": "Your session ended. Sign in again to continue where you left off.",
   "timeout": "The server didn't respond. Check your connection (Tailscale) and try again."
+ },
+ "interest": {
+  "pendingTitle": "Interest to confirm",
+  "pendingHint": "Estimated from your rate and daily balances. Confirm it, or type what the bank really paid (0 if nothing). Unanswered months stay estimated.",
+  "question": "Did {{bank}} pay {{amount}} interest in {{month}}?",
+  "realAmount": "Amount actually paid",
+  "confirm": "Confirm",
+  "reconciled": "Interest reconciled",
+  "invalidAmount": "Enter a valid amount (0 or more).",
+  "invalidRate": "Enter a rate between 0 and 100 %.",
+  "tanb": "TANB",
+  "thisYear": "{{amount}} interest this year",
+  "estimated": "estimated",
+  "estimatedHint": "Estimated interest: recalculated daily until you confirm what the bank paid.",
+  "balanceIncludes": "Includes ≈ {{amount}} of estimated interest",
+  "section": "Interest (TANB)",
+  "sectionHint": "Gross annual nominal rate. Interest accrues daily on the end-of-day balance (rate / 365) net of withholding, and is shown as an estimate until confirmed.",
+  "rate": "Rate (TANB %)",
+  "newRate": "New rate (TANB %)",
+  "from": "Effective from",
+  "withholding": "Withholding tax %",
+  "payout": "Interest paid",
+  "payouts": {
+   "Monthly": "Monthly",
+   "Daily": "Daily"
+  },
+  "history": "Rate history",
+  "withheld": "{{pct}} withheld",
+  "removeLatest": "Remove latest rate"
  }
 }

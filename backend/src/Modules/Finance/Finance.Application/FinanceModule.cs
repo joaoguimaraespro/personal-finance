@@ -4,6 +4,7 @@ using Finance.Application.Budgets;
 using Finance.Application.Buckets;
 using Finance.Application.Categories;
 using Finance.Application.Goals;
+using Finance.Application.Interest;
 using Finance.Application.Recurring;
 using Finance.Application.Transactions;
 using Microsoft.AspNetCore.Routing;
@@ -17,6 +18,7 @@ public static class FinanceModule
     {
         services.AddValidatorsFromAssemblyContaining<TransactionRequestValidator>(includeInternalTypes: true);
         services.AddScoped<RecurringProposer>();
+        services.AddScoped<InterestAccrualService>();
         return services;
     }
 
@@ -29,6 +31,7 @@ public static class FinanceModule
         api.MapRecurring();
         api.MapBudgets();
         api.MapGoals();
+        api.MapInterest();
         return api;
     }
 }

@@ -1,6 +1,7 @@
 using FluentValidation;
 using Finance.Application.Abstractions;
 using Finance.Application.Http;
+using Finance.Application.Interest;
 using Finance.Domain.Categories;
 using Finance.Domain.Transactions;
 using Microsoft.AspNetCore.Builder;
@@ -123,7 +124,8 @@ public static class TransactionEndpoints
             return dto is null ? ResultHttp.Problem(TransactionErrors.NotFound) : Results.Ok(dto);
         });
 
-        group.MapPost("/", async (TransactionRequest req, IFinanceDb db, CancellationToken ct) =>
+        group.MapPost("/", async (TransactionRequest req, IFinanceDb db, InterestAccrualService interest,
+            CancellationToken ct) =>
         {
             var draft = await TransactionReferences.ResolveAsync(db, req.ToDraft(), ct);
             if (draft.IsFailure)
@@ -139,10 +141,12 @@ public static class TransactionEndpoints
 
             db.Transactions.Add(created.Value);
             await db.SaveChangesAsync(ct);
+            await interest.TryRecalculateAsync([created.Value.AccountId, created.Value.CounterAccountId], ct);
             return Results.Created($"/api/transactions/{created.Value.Id}", new { created.Value.Id });
         }).Validate<TransactionRequest>();
 
-        group.MapPut("/{id:guid}", async (Guid id, TransactionRequest req, IFinanceDb db, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async (Guid id, TransactionRequest req, IFinanceDb db,
+            InterestAccrualService interest, CancellationToken ct) =>
         {
             var transaction = await db.Transactions.FindAsync([id], ct);
             if (transaction is null)
@@ -150,11 +154,12 @@ public static class TransactionEndpoints
                 return ResultHttp.Problem(TransactionErrors.NotFound);
             }
 
-            if (IsBrokerSourced(transaction.Source))
+            if (ReadOnlyError(transaction.Source) is { } readOnly)
             {
-                return ResultHttp.Problem(TransactionErrors.ReadOnlySource);
+                return ResultHttp.Problem(readOnly);
             }
 
+            Guid?[] before = [transaction.AccountId, transaction.CounterAccountId];
             var draft = await TransactionReferences.ResolveAsync(db, req.ToDraft(), ct);
             if (draft.IsFailure)
             {
@@ -168,10 +173,12 @@ public static class TransactionEndpoints
             }
 
             await db.SaveChangesAsync(ct);
+            await interest.TryRecalculateAsync([.. before, transaction.AccountId, transaction.CounterAccountId], ct);
             return Results.NoContent();
         }).Validate<TransactionRequest>();
 
-        group.MapDelete("/{id:guid}", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async (Guid id, IFinanceDb db, TimeProvider clock,
+            InterestAccrualService interest, CancellationToken ct) =>
         {
             var transaction = await db.Transactions.FindAsync([id], ct);
             if (transaction is null)
@@ -179,17 +186,19 @@ public static class TransactionEndpoints
                 return ResultHttp.Problem(TransactionErrors.NotFound);
             }
 
-            if (IsBrokerSourced(transaction.Source))
+            if (ReadOnlyError(transaction.Source) is { } readOnly)
             {
-                return ResultHttp.Problem(TransactionErrors.ReadOnlySource);
+                return ResultHttp.Problem(readOnly);
             }
 
             transaction.SoftDelete(clock.GetUtcNow());
             await db.SaveChangesAsync(ct);
+            await interest.TryRecalculateAsync([transaction.AccountId, transaction.CounterAccountId], ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:guid}/restore", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+        group.MapPost("/{id:guid}/restore", async (Guid id, IFinanceDb db, InterestAccrualService interest,
+            CancellationToken ct) =>
         {
             var transaction = await db.Transactions.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(t => t.Id == id && t.DeletedAtUtc != null, ct);
@@ -200,6 +209,7 @@ public static class TransactionEndpoints
 
             transaction.Restore();
             await db.SaveChangesAsync(ct);
+            await interest.TryRecalculateAsync([transaction.AccountId, transaction.CounterAccountId], ct);
             return Results.NoContent();
         });
 
@@ -213,6 +223,14 @@ public static class TransactionEndpoints
 
     public static bool IsBrokerSourced(DataSource source) =>
         source is DataSource.Trading212 or DataSource.InteractiveBrokers;
+
+    /// <summary>Broker rows belong to their integration; estimated interest belongs to the accrual engine.</summary>
+    public static Error? ReadOnlyError(DataSource source) => source switch
+    {
+        DataSource.Trading212 or DataSource.InteractiveBrokers => TransactionErrors.ReadOnlySource,
+        DataSource.InterestEstimate => TransactionErrors.EstimatedInterest,
+        _ => null,
+    };
 
     private static async Task<IResult> ListAsync(
         IFinanceDb db,
@@ -331,7 +349,8 @@ public static class TransactionEndpoints
             t.BaseAmount, t.AccountId, a.Name, t.CounterAccountId, ca == null ? null : ca.Name, t.CategoryId,
             c == null ? null : c.Key, c == null ? null : c.Name, t.Nature, t.BucketId, b == null ? null : b.Name,
             t.GoalId, t.Description, t.Notes, t.Source,
-            t.Source != DataSource.Trading212 && t.Source != DataSource.InteractiveBrokers,
+            t.Source != DataSource.Trading212 && t.Source != DataSource.InteractiveBrokers &&
+            t.Source != DataSource.InterestEstimate,
             t.CreatedAtUtc, t.UpdatedAtUtc, TransactionTypes.FlowOf(t.Type),
             t.AssetKind == null || t.AssetSymbol == null
                 ? null
