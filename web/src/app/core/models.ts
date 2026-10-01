@@ -1,10 +1,5 @@
 export type TransactionType =
-  | 'Expense'
-  | 'Income'
-  | 'Transfer'
-  | 'Savings'
-  | 'InvestmentContribution'
-  | 'InvestmentSale';
+  'Expense' | 'Income' | 'Transfer' | 'Savings' | 'InvestmentContribution' | 'InvestmentSale';
 /** Day-to-day money vs investing vs moving money between own accounts — reported separately. */
 export type TransactionFlow = 'Everyday' | 'Investment' | 'Movement';
 export type InvestmentAssetKind = 'Stock' | 'Etf' | 'Crypto' | 'Fund' | 'Bond' | 'Other';
@@ -69,7 +64,16 @@ export interface InstrumentQuoteResult {
 }
 export type ExpenseNature = 'Fixed' | 'Variable';
 export type AccountKind = 'Bank' | 'Cash' | 'CreditCard' | 'Savings' | 'Broker' | 'Loan' | 'Other';
-export type DataSource = 'Manual' | 'Recurring' | 'Xlsx' | 'Csv' | 'Json' | 'Trading212' | 'InteractiveBrokers';
+export type DataSource =
+  | 'Manual'
+  | 'Recurring'
+  | 'Xlsx'
+  | 'Csv'
+  | 'Json'
+  | 'Trading212'
+  | 'InteractiveBrokers'
+  | 'InterestEstimate';
+export type InterestPayout = 'Monthly' | 'Daily';
 export type BucketGroup = 'Investment' | 'Savings';
 export type AllocationStatus = 'Todo' | 'Done' | 'Partial' | 'NotApplicable';
 export type BudgetTarget = 'Bucket' | 'ExpensePool' | 'Category';
@@ -89,6 +93,43 @@ export interface Account {
   isManual: boolean;
   isLiability: boolean;
   archived: boolean;
+  /** Only on savings and bank accounts. */
+  interest?: AccountInterest | null;
+}
+
+/** Interest picture of a savings/bank account; all amounts are server-calculated. */
+export interface AccountInterest {
+  annualRatePercent: number | null;
+  withholdingPercent: number | null;
+  rateEffectiveFrom: string | null;
+  payout: InterestPayout;
+  yearToDate: number;
+  yearToDateEstimated: number;
+  /** Part of the balance that is still an estimate. */
+  estimatedInBalance: number;
+}
+
+export interface InterestRate {
+  id: string;
+  effectiveFrom: string;
+  annualRatePercent: number;
+  withholdingPercent: number;
+}
+
+export type InterestMonthStatus = 'Estimated' | 'Confirmed' | 'Corrected';
+
+export interface InterestMonth {
+  id: string;
+  accountId: string;
+  accountName: string;
+  institution: string | null;
+  /** yyyy-MM */
+  month: string;
+  currency: string;
+  estimatedAmount: number;
+  estimatedGross: number;
+  status: InterestMonthStatus;
+  actualAmount: number | null;
 }
 
 export interface Category {
@@ -411,7 +452,13 @@ export interface ImportPreview {
     }[];
     checks: { month: number; bucketId: string; status: AllocationStatus }[];
     budget: { stocks: number; crypto: number; travel: number; otherSavings: number } | null;
-    reconciliation: { month: number; measure: string; workbook: number | null; imported: number; matches: boolean }[];
+    reconciliation: {
+      month: number;
+      measure: string;
+      workbook: number | null;
+      imported: number;
+      matches: boolean;
+    }[];
     unmappedCategories: string[];
     errors: string[];
     warnings: string[];
@@ -450,7 +497,13 @@ export interface PortfolioSummary {
   fees: number;
   positions: number;
   lastSyncUtc: string | null;
-  accounts: { accountId: string; name: string; broker: Broker; marketValue: number; cash: number }[];
+  accounts: {
+    accountId: string;
+    name: string;
+    broker: Broker;
+    marketValue: number;
+    cash: number;
+  }[];
   dayChange: number | null;
   dayChangePercent: number | null;
 }
@@ -470,7 +523,13 @@ export interface PositionLine {
   unrealizedPnlBase: number;
   unrealizedPnlPercent: number | null;
   portfolioWeight: number;
-  holdings: { accountId: string; accountName: string; broker: Broker; quantity: number; averagePrice: number }[];
+  holdings: {
+    accountId: string;
+    accountName: string;
+    broker: Broker;
+    quantity: number;
+    averagePrice: number;
+  }[];
   /** Change since the previous recorded close (EUR); null until prices from an earlier day exist. */
   dayChangeBase: number | null;
   dayChangePercent: number | null;
@@ -518,7 +577,8 @@ export interface PerformanceReport {
   estimatedDays: number;
 }
 
-export type ManualAssetKind = 'RealEstate' | 'Vehicle' | 'Crypto' | 'Pension' | 'Other' | 'Loan' | 'Mortgage' | 'OtherDebt';
+export type ManualAssetKind =
+  'RealEstate' | 'Vehicle' | 'Crypto' | 'Pension' | 'Other' | 'Loan' | 'Mortgage' | 'OtherDebt';
 
 export interface ManualAsset {
   id: string;
@@ -540,7 +600,11 @@ export interface NetWorthHistory {
     cash: number;
     investments: number;
     manualAssets: number;
-    lines: { group: 'cash' | 'investments' | 'manual' | 'liability'; name: string; value: number }[];
+    lines: {
+      group: 'cash' | 'investments' | 'manual' | 'liability';
+      name: string;
+      value: number;
+    }[];
   };
   changeSinceStart: number | null;
   changeSinceStartPercent: number | null;

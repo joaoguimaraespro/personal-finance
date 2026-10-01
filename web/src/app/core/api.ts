@@ -26,6 +26,8 @@ import {
   Category,
   CategoryLine,
   Expected,
+  InterestMonth,
+  InterestRate,
   Goal,
   ImportPreview,
   ImportSummary,
@@ -69,16 +71,32 @@ export class Api {
   archiveAccount = (id: string) => this.http.post<void>(`/api/accounts/${id}/archive`, {});
   restoreAccount = (id: string) => this.http.post<void>(`/api/accounts/${id}/restore`, {});
 
+  // Interest (TANB) on savings accounts
+  interestRates = (accountId: string) =>
+    this.http.get<InterestRate[]>(`/api/accounts/${accountId}/interest-rates`);
+  addInterestRate = (
+    accountId: string,
+    body: { annualRatePercent: number; effectiveFrom: string; withholdingPercent: number | null },
+  ) => this.http.post<{ id: string }>(`/api/accounts/${accountId}/interest-rates`, body);
+  deleteInterestRate = (accountId: string, id: string) =>
+    this.http.delete<void>(`/api/accounts/${accountId}/interest-rates/${id}`);
+  interestPending = () => this.http.get<InterestMonth[]>('/api/interest/pending');
+  /** Without an amount the estimate is confirmed; with one it is replaced (0 = nothing paid). */
+  reconcileInterest = (id: string, body: { amount?: number } = {}) =>
+    this.http.post<{ transactionId: string | null }>(`/api/interest/${id}/reconcile`, body);
+
   // Categories & buckets
   categories = (includeArchived = false) =>
     this.http.get<Category[]>('/api/categories', { params: { includeArchived } });
   createCategory = (body: unknown) => this.http.post<{ id: string }>('/api/categories', body);
-  updateCategory = (id: string, body: unknown) => this.http.put<void>(`/api/categories/${id}`, body);
+  updateCategory = (id: string, body: unknown) =>
+    this.http.put<void>(`/api/categories/${id}`, body);
   archiveCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/archive`, {});
   restoreCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/restore`, {});
   buckets = () => this.http.get<Bucket[]>('/api/buckets');
   createBucket = (body: unknown) => this.http.post<{ id: string }>('/api/buckets', body);
-  allocationChecks = (period: string) => this.http.get<AllocationCheck[]>(`/api/allocation-checks/${period}`);
+  allocationChecks = (period: string) =>
+    this.http.get<AllocationCheck[]>(`/api/allocation-checks/${period}`);
   setAllocationCheck = (period: string, bucketId: string, status: AllocationStatus) =>
     this.http.put<void>(`/api/allocation-checks/${period}`, { bucketId, status });
 
@@ -94,16 +112,24 @@ export class Api {
   }
   transaction = (id: string) => this.http.get<Transaction>(`/api/transactions/${id}`);
   quickAddDefaults = () => this.http.get<QuickAddDefaults>('/api/transactions/defaults');
-  createTransaction = (body: TransactionRequest) => this.http.post<{ id: string }>('/api/transactions', body);
-  updateTransaction = (id: string, body: TransactionRequest) => this.http.put<void>(`/api/transactions/${id}`, body);
+  createTransaction = (body: TransactionRequest) =>
+    this.http.post<{ id: string }>('/api/transactions', body);
+  updateTransaction = (id: string, body: TransactionRequest) =>
+    this.http.put<void>(`/api/transactions/${id}`, body);
   deleteTransaction = (id: string) => this.http.delete<void>(`/api/transactions/${id}`);
   restoreTransaction = (id: string) => this.http.post<void>(`/api/transactions/${id}/restore`, {});
-  transactionHistory = (id: string) => this.http.get<AuditEntry[]>(`/api/transactions/${id}/history`);
+  transactionHistory = (id: string) =>
+    this.http.get<AuditEntry[]>(`/api/transactions/${id}/history`);
 
   // Instrument lookup for the add-transaction form (stocks/ETFs only; crypto is always manual)
   searchInstruments = (q: string) =>
     this.http.get<InstrumentSearchResult>('/api/instruments/search', { params: { q, limit: 10 } });
-  instrumentQuote = (provider: InstrumentProvider, symbol: string, date: string, isin?: string | null) =>
+  instrumentQuote = (
+    provider: InstrumentProvider,
+    symbol: string,
+    date: string,
+    isin?: string | null,
+  ) =>
     this.http.get<InstrumentQuoteResult>('/api/instruments/quote', {
       params: isin ? { provider, symbol, date, isin } : { provider, symbol, date },
     });
@@ -111,7 +137,8 @@ export class Api {
   // Recurring
   recurring = () => this.http.get<Recurring[]>('/api/recurring');
   createRecurring = (body: unknown) => this.http.post<{ id: string }>('/api/recurring', body);
-  updateRecurring = (id: string, body: unknown) => this.http.put<void>(`/api/recurring/${id}`, body);
+  updateRecurring = (id: string, body: unknown) =>
+    this.http.put<void>(`/api/recurring/${id}`, body);
   pauseRecurring = (id: string) => this.http.post<void>(`/api/recurring/${id}/pause`, {});
   resumeRecurring = (id: string) => this.http.post<void>(`/api/recurring/${id}/resume`, {});
   deleteRecurring = (id: string) => this.http.delete<void>(`/api/recurring/${id}`);
@@ -134,19 +161,25 @@ export class Api {
   overview = (year: number) => this.http.get<Overview>(`/api/reports/overview/${year}`);
   monthly = (period: string) => this.http.get<MonthlyComparison>(`/api/reports/monthly/${period}`);
   annual = (year: number) => this.http.get<AnnualSummary>(`/api/reports/annual/${year}`);
-  categoryBreakdown = (period: string) => this.http.get<CategoryLine[]>(`/api/reports/categories/${period}`);
+  categoryBreakdown = (period: string) =>
+    this.http.get<CategoryLine[]>(`/api/reports/categories/${period}`);
   trends = (months = 12, to?: string) =>
-    this.http.get<TrendPoint[]>('/api/reports/trends', { params: to ? { months, to } : { months } });
+    this.http.get<TrendPoint[]>('/api/reports/trends', {
+      params: to ? { months, to } : { months },
+    });
 
   // Imports
   imports = () => this.http.get<ImportSummary[]>('/api/imports');
   analyzeWorkbook(file: File, year: number) {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<ImportPreview>('/api/imports/finance-tracker', form, { params: { year } });
+    return this.http.post<ImportPreview>('/api/imports/finance-tracker', form, {
+      params: { year },
+    });
   }
   importPreview = (id: string) => this.http.get<ImportPreview>(`/api/imports/${id}`);
-  mapImport = (id: string, body: unknown) => this.http.put<ImportPreview>(`/api/imports/${id}/mapping`, body);
+  mapImport = (id: string, body: unknown) =>
+    this.http.put<ImportPreview>(`/api/imports/${id}/mapping`, body);
   commitImport = (id: string) =>
     this.http.post<{ created: number; skipped: number; budgetCreated: boolean; checks: number }>(
       `/api/imports/${id}/commit`,
@@ -167,7 +200,8 @@ export class Api {
     this.http.get<PerformanceReport>('/api/portfolio/performance', {
       params: from ? { ...scopeParams(scope), from } : scopeParams(scope),
     });
-  targets = () => this.http.get<{ assetClass: AssetClass; percent: number }[]>('/api/portfolio/targets');
+  targets = () =>
+    this.http.get<{ assetClass: AssetClass; percent: number }[]>('/api/portfolio/targets');
   saveTargets = (items: { assetClass: AssetClass; percent: number }[]) =>
     this.http.put<void>('/api/portfolio/targets', items);
   overrideAssetClass = (securityId: string, assetClass: AssetClass | null) =>
@@ -194,12 +228,17 @@ export class Api {
     this.http.get<Connection[]>('/api/integrations/connections', {
       context: new HttpContext().set(BACKGROUND, background),
     });
-  createConnection = (body: unknown) => this.http.post<{ id: string }>('/api/integrations/connections', body);
+  createConnection = (body: unknown) =>
+    this.http.post<{ id: string }>('/api/integrations/connections', body);
   updateCredentials = (id: string, body: unknown) =>
     this.http.put<void>(`/api/integrations/connections/${id}/credentials`, body);
-  syncConnection = (id: string) => this.http.post<void>(`/api/integrations/connections/${id}/sync`, {});
+  syncConnection = (id: string) =>
+    this.http.post<void>(`/api/integrations/connections/${id}/sync`, {});
   setConnectionEnabled = (id: string, enabled: boolean) =>
-    this.http.post<void>(`/api/integrations/connections/${id}/${enabled ? 'enable' : 'disable'}`, {});
+    this.http.post<void>(
+      `/api/integrations/connections/${id}/${enabled ? 'enable' : 'disable'}`,
+      {},
+    );
   deleteConnection = (id: string, purge: boolean) =>
     this.http.delete<void>(`/api/integrations/connections/${id}`, { params: { purge } });
   syncJobs = (id: string) => this.http.get<SyncJob[]>(`/api/integrations/connections/${id}/jobs`);

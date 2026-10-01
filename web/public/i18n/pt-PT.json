@@ -157,7 +157,8 @@
   "Json": "JSON",
   "Trading212": "Trading 212",
   "InteractiveBrokers": "IBKR",
-  "Demo": "Demo"
+  "Demo": "Demo",
+  "InterestEstimate": "Estimado"
  },
  "audit": {
   "Created": "Criado",
@@ -830,5 +831,34 @@
   "signOut": "Terminar sessão",
   "expired": "A tua sessão terminou. Entra novamente para continuares onde estavas.",
   "timeout": "O servidor não respondeu. Verifica a ligação (Tailscale) e tenta de novo."
+ },
+ "interest": {
+  "pendingTitle": "Juros por confirmar",
+  "pendingHint": "Estimados a partir da taxa e dos saldos diários. Confirme, ou indique o que o banco pagou realmente (0 se nada). Meses sem resposta ficam como estimativa.",
+  "question": "{{bank}} pagou {{amount}} de juros em {{month}}?",
+  "realAmount": "Valor efetivamente pago",
+  "confirm": "Confirmar",
+  "reconciled": "Juros reconciliados",
+  "invalidAmount": "Indique um valor válido (0 ou mais).",
+  "invalidRate": "Indique uma taxa entre 0 e 100 %.",
+  "tanb": "TANB",
+  "thisYear": "{{amount}} juros este ano",
+  "estimated": "estimado",
+  "estimatedHint": "Juros estimados: recalculados diariamente até confirmar o que o banco pagou.",
+  "balanceIncludes": "Inclui ≈ {{amount}} de juros estimados",
+  "section": "Juros (TANB)",
+  "sectionHint": "Taxa anual nominal bruta. Os juros acumulam diariamente sobre o saldo de fim do dia (taxa / 365), líquidos de retenção, e aparecem como estimativa até serem confirmados.",
+  "rate": "Taxa (TANB %)",
+  "newRate": "Nova taxa (TANB %)",
+  "from": "Em vigor desde",
+  "withholding": "Retenção na fonte %",
+  "payout": "Pagamento de juros",
+  "payouts": {
+   "Monthly": "Mensal",
+   "Daily": "Diário"
+  },
+  "history": "Histórico de taxas",
+  "withheld": "{{pct}} retidos",
+  "removeLatest": "Remover a taxa mais recente"
  }
 }

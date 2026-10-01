@@ -176,8 +176,16 @@ const SIGN: Partial<Record<TransactionType, string>> = {
             </div>
             <div class="flex shrink-0 flex-col items-end gap-1">
               <span class="num font-semibold whitespace-nowrap" [class]="tone(t.type)">
+                @if (t.source === 'InterestEstimate') {
+                  <span aria-hidden="true">≈</span>
+                }
                 {{ sign(t.type) }}{{ t.amount | money: t.currency }}
               </span>
+              @if (t.source === 'InterestEstimate') {
+                <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
+                  'source.InterestEstimate' | translate
+                }}</span>
+              }
               <div class="flex">
                 <button
                   hlmBtn
@@ -277,6 +285,11 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                   class="num text-right font-semibold whitespace-nowrap"
                   [class]="tone(t.type)"
                 >
+                  @if (t.source === 'InterestEstimate') {
+                    <span aria-hidden="true" [attr.title]="'interest.estimatedHint' | translate"
+                      >≈</span
+                    >
+                  }
                   {{ sign(t.type) }}{{ t.amount | money: t.currency }}
                   @if (t.currency !== 'EUR') {
                     <div class="text-xs font-normal text-muted-foreground">

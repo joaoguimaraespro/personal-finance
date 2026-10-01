@@ -21,6 +21,7 @@ import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { EmptyStateComponent } from '../../shared/empty-state';
 import { StatusBadgeComponent } from '../../shared/status-badge';
+import { InterestPendingComponent } from '../accounts/interest-pending';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 interface Form {
@@ -54,6 +55,7 @@ interface Form {
     DayPipe,
     ModalComponent,
     CategoryLabelPipe,
+    InterestPendingComponent,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -67,6 +69,8 @@ interface Form {
         <ng-icon name="lucidePlus" />{{ 'recurring.new' | translate }}
       </button>
     </app-page-header>
+
+    <app-interest-pending />
 
     @if ((expected.value() ?? []).length) {
       <section

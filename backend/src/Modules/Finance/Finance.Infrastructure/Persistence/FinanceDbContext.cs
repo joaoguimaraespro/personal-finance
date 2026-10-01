@@ -5,6 +5,7 @@ using Finance.Domain.Budgets;
 using Finance.Domain.Categories;
 using Finance.Domain.Goals;
 using Finance.Domain.Imports;
+using Finance.Domain.Interest;
 using Finance.Domain.Recurring;
 using Finance.Domain.Transactions;
 using Microsoft.AspNetCore.DataProtection;
@@ -29,6 +30,8 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<FinancialGoal> Goals => Set<FinancialGoal>();
     public DbSet<ImportBatch> Imports => Set<ImportBatch>();
+    public DbSet<AccountInterestRate> InterestRates => Set<AccountInterestRate>();
+    public DbSet<InterestMonth> InterestMonths => Set<InterestMonth>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -57,6 +60,27 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.Property(x => x.Identifier).HasConversion(identifierConverter).HasMaxLength(1024);
             e.Ignore(x => x.IsManual);
             e.Ignore(x => x.IsLiability);
+            e.Ignore(x => x.SupportsInterest);
+        });
+
+        b.Entity<AccountInterestRate>(e =>
+        {
+            e.ToTable("account_interest_rates");
+            e.Property(x => x.AnnualRatePercent).HasPrecision(9, 4);
+            e.Property(x => x.WithholdingPercent).HasPrecision(9, 4);
+            // Append-only history: one period per start date.
+            e.HasIndex(x => new { x.AccountId, x.EffectiveFrom }).IsUnique();
+            e.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<InterestMonth>(e =>
+        {
+            e.ToTable("interest_months");
+            e.Ignore(x => x.Period);
+            e.Ignore(x => x.IsResolved);
+            e.HasIndex(x => new { x.AccountId, x.Year, x.Month }).IsUnique();
+            e.HasIndex(x => x.Status);
+            e.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Category>(e =>

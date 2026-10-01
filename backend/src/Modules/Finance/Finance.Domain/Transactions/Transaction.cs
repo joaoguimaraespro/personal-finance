@@ -253,6 +253,9 @@ public static class TransactionErrors
 
     public static readonly Error ReadOnlySource = Error.Forbidden("Transaction.ReadOnly",
         "Records imported from a broker are read-only.");
+
+    public static readonly Error EstimatedInterest = Error.Forbidden("Transaction.EstimatedInterest",
+        "Estimated interest is recalculated automatically; confirm or correct it from the interest reconciliation.");
 }
 
 internal static class TransactionRules

@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { MoneyPipe, today } from '../../core/format';
-import { Account, AccountKind } from '../../core/models';
+import { DayPipe, MoneyPipe, PercentPipe, today } from '../../core/format';
+import { Account, AccountKind, InterestPayout, InterestRate } from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
@@ -20,6 +21,7 @@ import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { EmptyStateComponent } from '../../shared/empty-state';
 import { StatusBadgeComponent } from '../../shared/status-badge';
+import { InterestPendingComponent } from './interest-pending';
 
 interface AccountForm {
   name: string;
@@ -29,7 +31,15 @@ interface AccountForm {
   openingBalanceOn: string;
   institution: string;
   identifier: string;
+  interestPayout: InterestPayout;
+  /** A new rate period to add (empty = keep the current rate). */
+  rate: string;
+  rateFrom: string;
+  withholding: string;
 }
+
+/** Portuguese "taxa liberatória" on deposit interest. */
+const DEFAULT_WITHHOLDING = '28';
 
 const EMPTY: AccountForm = {
   name: '',
@@ -39,7 +49,14 @@ const EMPTY: AccountForm = {
   openingBalanceOn: today(),
   institution: '',
   identifier: '',
+  interestPayout: 'Monthly',
+  rate: '',
+  rateFrom: today(),
+  withholding: DEFAULT_WITHHOLDING,
 };
+
+/** Only savings and current accounts can carry a rate (TANB). */
+export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kind === 'Bank';
 
 @Component({
   selector: 'app-accounts',
@@ -55,7 +72,10 @@ const EMPTY: AccountForm = {
     HlmButtonImports,
     TranslatePipe,
     MoneyPipe,
+    PercentPipe,
+    DayPipe,
     ModalComponent,
+    InterestPendingComponent,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,6 +95,8 @@ const EMPTY: AccountForm = {
         </button>
       </div>
     </app-page-header>
+
+    <app-interest-pending />
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       @for (a of visible(); track a.id) {
@@ -126,9 +148,43 @@ const EMPTY: AccountForm = {
             <p
               class="num mt-5 text-2xl font-semibold tracking-tight"
               [class.tone-neg]="a.balance < 0"
+              [attr.title]="
+                a.interest?.estimatedInBalance
+                  ? ('interest.balanceIncludes'
+                    | translate: { amount: (a.interest!.estimatedInBalance | money: a.currency) })
+                  : null
+              "
             >
+              @if (a.interest?.estimatedInBalance) {
+                <span class="text-muted-foreground" aria-hidden="true">≈</span>
+              }
               {{ a.balance | money: a.currency }}
             </p>
+            @if (a.interest; as i) {
+              @if (i.annualRatePercent !== null || i.yearToDate) {
+                <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                  @if (i.annualRatePercent !== null) {
+                    <span class="num"
+                      >{{ 'interest.tanb' | translate }}
+                      {{ i.annualRatePercent / 100 | pct: 2 }}</span
+                    >
+                    ·
+                  }
+                  <span class="num tone-pos">{{
+                    'interest.thisYear'
+                      | translate: { amount: (i.yearToDate | money: a.currency : true) }
+                  }}</span>
+                  @if (i.yearToDateEstimated) {
+                    <span
+                      class="badge bg-muted !px-1.5 !py-0"
+                      [attr.title]="'interest.estimatedHint' | translate"
+                    >
+                      ≈ {{ 'interest.estimated' | translate }}
+                    </span>
+                  }
+                </p>
+              }
+            }
           }
           <div class="flex-1"></div>
           @if (a.isManual) {
@@ -238,6 +294,99 @@ const EMPTY: AccountForm = {
             {{ 'accounts.identifierNote' | translate }}
           </p>
         </div>
+        @if (showInterest()) {
+          <fieldset class="col-span-2 mt-2 grid grid-cols-2 gap-3 border-t pt-4">
+            <legend class="sr-only">{{ 'interest.section' | translate }}</legend>
+            <div class="col-span-2 flex items-center gap-2 text-sm font-semibold">
+              <ng-icon name="lucidePercent" class="text-primary" />{{
+                'interest.section' | translate
+              }}
+            </div>
+            <p class="col-span-2 -mt-2 text-[11px] text-muted-foreground">
+              {{ 'interest.sectionHint' | translate }}
+            </p>
+            <div>
+              <label class="label" for="a-rate">{{
+                (editingId() && currentRate() ? 'interest.newRate' : 'interest.rate') | translate
+              }}</label>
+              <input
+                id="a-rate"
+                hlmInput
+                class="num"
+                inputmode="decimal"
+                placeholder="2,25"
+                [value]="form().rate"
+                (input)="patch({ rate: $any($event.target).value })"
+              />
+            </div>
+            <div>
+              <label class="label" for="a-rate-from">{{ 'interest.from' | translate }}</label>
+              <app-date-field
+                inputId="a-rate-from"
+                [value]="form().rateFrom"
+                (valueChange)="patch({ rateFrom: $event })"
+              />
+            </div>
+            <div>
+              <label class="label" for="a-wh">{{ 'interest.withholding' | translate }}</label>
+              <input
+                id="a-wh"
+                hlmInput
+                class="num"
+                inputmode="decimal"
+                [value]="form().withholding"
+                (input)="patch({ withholding: $any($event.target).value })"
+              />
+            </div>
+            <div>
+              <label class="label" for="a-payout">{{ 'interest.payout' | translate }}</label>
+              <app-select
+                inputId="a-payout"
+                [options]="payoutOptions()"
+                [value]="form().interestPayout"
+                (valueChange)="patch({ interestPayout: $any($event) })"
+              />
+            </div>
+            @if (editingId() && (rates.value() ?? []).length) {
+              <div class="col-span-2">
+                <p class="label">{{ 'interest.history' | translate }}</p>
+                <ul class="divide-y rounded-md border text-sm">
+                  @for (r of rates.value(); track r.id; let first = $first) {
+                    <li class="flex items-center gap-3 px-3 py-1.5">
+                      <span class="text-muted-foreground w-28">{{
+                        r.effectiveFrom | day: 'short'
+                      }}</span>
+                      <span class="num flex-1 font-medium">
+                        {{ r.annualRatePercent / 100 | pct: 2 }}
+                        <span class="text-xs font-normal text-muted-foreground">
+                          ·
+                          {{
+                            'interest.withheld'
+                              | translate: { pct: (r.withholdingPercent / 100 | pct: 0) }
+                          }}
+                        </span>
+                      </span>
+                      @if (first) {
+                        <button
+                          type="button"
+                          hlmBtn
+                          variant="ghost"
+                          size="icon-sm"
+                          class="text-destructive hover:text-destructive"
+                          (click)="removeRate(r)"
+                          [attr.aria-label]="'interest.removeLatest' | translate"
+                          [attr.title]="'interest.removeLatest' | translate"
+                        >
+                          <ng-icon name="lucideTrash2" />
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          </fieldset>
+        }
         <div class="col-span-2 flex justify-end gap-2 pt-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -280,6 +429,28 @@ export class AccountsComponent {
   protected readonly formOpen = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly form = signal<AccountForm>(EMPTY);
+  protected readonly showInterest = computed(() => supportsInterest(this.form().kind));
+  protected readonly payoutOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return (['Monthly', 'Daily'] as InterestPayout[]).map((p) => ({
+      value: p,
+      label: this.i18n.instant(`interest.payouts.${p}`),
+    }));
+  });
+  /** Rate history of the account being edited, newest first. */
+  protected readonly rates = rxResource({
+    params: () => {
+      const id = this.editingId();
+      return id ? { id, v: this.events.version() } : undefined;
+    },
+    stream: ({ params }) => this.api.interestRates(params.id),
+  });
+  protected readonly currentRate = computed(() => {
+    const id = this.editingId();
+    return (
+      (this.accounts.value() ?? []).find((a) => a.id === id)?.interest?.annualRatePercent ?? null
+    );
+  });
   protected readonly accounts = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.accounts(true),
@@ -304,7 +475,7 @@ export class AccountsComponent {
 
   protected openNew() {
     this.editingId.set(null);
-    this.form.set({ ...EMPTY, openingBalanceOn: today() });
+    this.form.set({ ...EMPTY, openingBalanceOn: today(), rateFrom: today() });
     this.formOpen.set(true);
   }
 
@@ -318,6 +489,10 @@ export class AccountsComponent {
       openingBalanceOn: a.openingBalanceOn,
       institution: a.institution ?? '',
       identifier: '',
+      interestPayout: a.interest?.payout ?? 'Monthly',
+      rate: '',
+      rateFrom: today(),
+      withholding: String(a.interest?.withholdingPercent ?? DEFAULT_WITHHOLDING),
     });
     this.formOpen.set(true);
   }
@@ -332,14 +507,41 @@ export class AccountsComponent {
       openingBalanceOn: f.openingBalanceOn,
       institution: f.institution || null,
       identifier: f.identifier || null,
+      interestPayout: supportsInterest(f.kind) ? f.interestPayout : null,
     };
+    const rate = supportsInterest(f.kind) && f.rate.trim() ? parseAmount(f.rate) : null;
+    if (f.rate.trim() && supportsInterest(f.kind) && (rate === null || rate < 0 || rate > 100)) {
+      this.toasts.show(this.i18n.instant('interest.invalidRate'), 'error');
+      return;
+    }
     try {
-      const id = this.editingId();
+      let id = this.editingId();
       if (id) await firstValueFrom(this.api.updateAccount(id, body));
-      else await firstValueFrom(this.api.createAccount(body));
+      else id = (await firstValueFrom(this.api.createAccount(body))).id;
+      if (rate !== null) {
+        // A rate change adds a new period from its date; earlier periods are never rewritten.
+        await firstValueFrom(
+          this.api.addInterestRate(id, {
+            annualRatePercent: rate,
+            effectiveFrom: f.rateFrom || f.openingBalanceOn,
+            withholdingPercent: parseAmount(f.withholding),
+          }),
+        );
+      }
       this.formOpen.set(false);
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async removeRate(r: InterestRate) {
+    const id = this.editingId();
+    if (!id) return;
+    try {
+      await firstValueFrom(this.api.deleteInterestRate(id, r.id));
+      this.events.bump();
     } catch (err) {
       this.toasts.error(err);
     }

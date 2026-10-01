@@ -1,11 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Finance.Application.Abstractions;
+using Finance.Application.Interest;
 using Finance.Domain.Accounts;
 using Finance.Domain.Allocation;
 using Finance.Domain.Budgets;
 using Finance.Domain.Categories;
 using Finance.Domain.Goals;
+using Finance.Domain.Interest;
 using Finance.Domain.Recurring;
 using Finance.Domain.Transactions;
 using Investments.Application.Abstractions;
@@ -19,7 +21,8 @@ namespace Exports.Application;
 /// Finance data can be re-imported into another instance; broker data is included for reference and is
 /// re-created by syncing the brokers again.
 /// </summary>
-public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, TimeProvider clock)
+public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, TimeProvider clock,
+    InterestAccrualService interest)
 {
     public const int SchemaVersion = 1;
 
@@ -43,15 +46,21 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 accounts = await finance.Accounts.AsNoTracking().Select(a => new
                 {
                     a.Id, a.Name, a.Kind, a.Currency, a.OpeningBalance, a.OpeningBalanceOn, a.Institution,
-                    a.Identifier, archived = a.ArchivedAtUtc != null,
+                    a.Identifier, archived = a.ArchivedAtUtc != null, a.InterestPayout,
                 }).ToListAsync(ct),
+                interestRates = await finance.InterestRates.AsNoTracking().OrderBy(r => r.EffectiveFrom)
+                    .Select(r => new { r.AccountId, r.EffectiveFrom, r.AnnualRatePercent, r.WithholdingPercent })
+                    .ToListAsync(ct),
                 categories = await finance.Categories.AsNoTracking().Select(c => new
                 {
                     c.Id, c.Key, c.Name, c.Type, c.DefaultNature, c.ParentId, c.IsSystem, c.Color, c.Icon,
                     archived = c.ArchivedAtUtc != null,
                 }).ToListAsync(ct),
                 buckets = await finance.Buckets.AsNoTracking().Select(b => new { b.Id, b.Key, b.Name, b.Group, b.IsSystem }).ToListAsync(ct),
-                transactions = await finance.Transactions.AsNoTracking().OrderBy(t => t.OccurredOn).Select(t => new
+                // Estimated interest is derived from the rates above and recalculated after import.
+                transactions = await finance.Transactions.AsNoTracking()
+                    .Where(t => t.Source != DataSource.InterestEstimate)
+                    .OrderBy(t => t.OccurredOn).Select(t => new
                 {
                     t.Id, t.Type, t.OccurredOn, t.OccurredAtUtc, t.TimeZone, t.AccountId, t.CounterAccountId, t.CategoryId,
                     t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount,
@@ -131,6 +140,12 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 var account = Account.Create(Str(a, "name") ?? "Imported", kind, Str(a, "currency") ?? Currency.Base,
                     Dec(a, "openingBalance") ?? 0, DateOnly.Parse(Str(a, "openingBalanceOn") ?? "2000-01-01", System.Globalization.CultureInfo.InvariantCulture),
                     Str(a, "institution"), Str(a, "identifier"));
+                if (Str(a, "interestPayout") is { } payout && Enum.TryParse<InterestPayout>(payout, out var p) &&
+                    account.SupportsInterest)
+                {
+                    account.SetInterestPayout(p);
+                }
+
                 finance.Accounts.Add(account);
                 map[id] = account.Id;
                 accounts++;
@@ -219,8 +234,9 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
             foreach (var t in Items(f, "transactions"))
             {
                 var originalId = t.GetProperty("id").GetGuid();
+                // Estimated interest is recalculated from the restored rates; importing it would count it as real.
                 if (existingTransactions.Contains(originalId) || alreadyImported.Contains($"json:{originalId}") ||
-                    Mapped(t, "accountId", map) is not { } accountId)
+                    IsInterestEstimate(t) || Mapped(t, "accountId", map) is not { } accountId)
                 {
                     skipped++;
                     continue;
@@ -267,7 +283,36 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 recurring++;
             }
 
+            // Rate history (append-only periods): only periods the target account does not have yet.
+            // Accounts were saved above, so every mapped account can be read back.
+            var accountsById = await finance.Accounts.AsNoTracking().ToDictionaryAsync(a => a.Id, ct);
+
+            var knownPeriods = (await finance.InterestRates.Select(r => new { r.AccountId, r.EffectiveFrom })
+                .ToListAsync(ct)).Select(r => (r.AccountId, r.EffectiveFrom)).ToHashSet();
+            foreach (var r in Items(f, "interestRates"))
+            {
+                if (Mapped(r, "accountId", map) is not { } accountId || !accountsById.TryGetValue(accountId, out var owner) ||
+                    Str(r, "effectiveFrom") is not { } from)
+                {
+                    continue;
+                }
+
+                var effectiveFrom = DateOnly.Parse(from, System.Globalization.CultureInfo.InvariantCulture);
+                if (!knownPeriods.Add((accountId, effectiveFrom)))
+                {
+                    continue;
+                }
+
+                var rate = AccountInterestRate.Create(owner, effectiveFrom, Dec(r, "annualRatePercent") ?? 0,
+                    Dec(r, "withholdingPercent"), clock.GetUtcNow());
+                if (rate.IsSuccess)
+                {
+                    finance.InterestRates.Add(rate.Value);
+                }
+            }
+
             await finance.SaveChangesAsync(ct);
+            await interest.TryRecalculateAsync(map.Values.Distinct().Select(id => (Guid?)id), ct);
             return new ImportResult(accounts, categories, buckets, goals, budgets, recurring, transactions, skipped);
         }
     }
@@ -277,6 +322,14 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
 
     private static string? Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static bool IsInterestEstimate(JsonElement t) =>
+        t.TryGetProperty("source", out var v) && v.ValueKind switch
+        {
+            JsonValueKind.String => v.GetString() == nameof(DataSource.InterestEstimate),
+            JsonValueKind.Number => v.GetInt32() == (int)DataSource.InterestEstimate,
+            _ => false,
+        };
 
     private static decimal? Dec(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : null;

@@ -66,6 +66,27 @@ in comments and a unit test per formula:
 Additions the workbook lacked: `FreeCashFlow` (income − expenses − invested − saved), budget versions per
 month, per-category limits, comparisons against the previous month and a 12-month average.
 
+## Interest on savings accounts
+
+Savings and bank accounts can carry a nominal annual rate (TANB) with a withholding percentage (default 28 %,
+the Portuguese *taxa liberatória*). Rates live in `account_interest_rates` as append-only periods: a change adds a
+period from its effective date, only the latest one can be removed (typo fix).
+
+- **Accrual** (`Finance.Domain.Interest.InterestAccrual`, pure): every calendar day, weekends included,
+  `max(end-of-day balance, 0) × TANB / 365 × (1 − withholding)`. The divisor is 365 in leap years too. Accrual
+  starts at the later of the opening-balance date and the first rate period and stops the day before an account is
+  archived. Monthly payout credits the rounded month at month end; daily payout compounds daily.
+- **Estimates in the ledger** (`InterestAccrualService`): one `Income` row per account-month, category `interest`,
+  `source = InterestEstimate`, `external_id = interest:{account}:{yyyy-MM}`. Because it is an ordinary row, balances,
+  net worth and reports include it. It is recalculated after every ledger change on the account and hourly by
+  `InterestAccrualJob`, and cannot be edited or deleted by hand.
+- **Reconciliation** (`interest_months`): after a month closes the user confirms the estimate or enters the real
+  amount; the estimate row is removed and a real `Manual` row is booked in the same save. A month never carries an
+  estimate once it is reconciled or real interest for it is already in the ledger, so interest is never counted
+  twice. Unanswered months stay estimated.
+- Foreign-currency accounts book estimates with the latest known EUR rate for that currency; with none, no estimate
+  is booked until one exists.
+
 ## Request flow
 
 ```mermaid
