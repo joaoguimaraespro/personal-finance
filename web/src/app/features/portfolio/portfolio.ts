@@ -7,7 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api, PortfolioScope } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, PercentPipe } from '../../core/format';
-import { AssetClass, Broker } from '../../core/models';
+import { AssetClass, Broker, PositionLine } from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ChartComponent } from '../../shared/chart';
@@ -24,6 +24,18 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucideArrowDown,
+  lucideArrowUp,
+  lucideArrowUpDown,
+  lucideChevronDown,
+  lucideChevronRight,
+  lucideTrendingDown,
+  lucideTrendingUp,
+} from '@ng-icons/lucide';
+
+type SortKey = 'value' | 'gain' | 'today' | 'weight';
 
 const CLASS_COLORS: Record<AssetClass, string> = {
   Stock: '#8b5cf6',
@@ -41,6 +53,7 @@ type Range = '1Y' | '3Y' | 'ALL';
 @Component({
   selector: 'app-portfolio',
   imports: [
+    NgIcon,
     SelectComponent,
     HlmTableImports,
     HlmInputImports,
@@ -53,6 +66,17 @@ type Range = '1Y' | '3Y' | 'ALL';
     PercentPipe,
     DayPipe,
     RouterLink,
+  ],
+  providers: [
+    provideIcons({
+      lucideArrowDown,
+      lucideArrowUp,
+      lucideArrowUpDown,
+      lucideChevronDown,
+      lucideChevronRight,
+      lucideTrendingDown,
+      lucideTrendingUp,
+    }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -82,21 +106,52 @@ type Range = '1Y' | '3Y' | 'ALL';
           <a routerLink="/connections" hlmBtn class="mt-4">{{ 'portfolio.connect' | translate }}</a>
         </section>
       } @else {
-        <section class="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <app-kpi
-            [label]="'portfolio.totalValue' | translate"
-            [value]="s.totalValue"
-            [color]="colors.net"
-          />
+        <section class="card mb-4 grid gap-5 sm:grid-cols-3">
+          <div>
+            <p class="text-xs text-muted-foreground">{{ 'portfolio.totalValue' | translate }}</p>
+            <p class="num mt-1 text-3xl font-semibold tracking-tight">{{ s.totalValue | money }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">{{ 'portfolio.today' | translate }}</p>
+            @if (s.dayChange !== null) {
+              <p
+                class="num mt-1 flex items-center gap-1.5 text-xl font-semibold"
+                [class]="tone(s.dayChange)"
+              >
+                <ng-icon
+                  [name]="s.dayChange >= 0 ? 'lucideTrendingUp' : 'lucideTrendingDown'"
+                  aria-hidden="true"
+                />
+                {{ s.dayChange | money: 'EUR' : true }}
+                <span class="text-sm font-medium">({{ signedPct(s.dayChangePercent) }})</span>
+              </p>
+            } @else {
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ 'portfolio.todayPending' | translate }}
+              </p>
+            }
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">{{ 'portfolio.totalReturn' | translate }}</p>
+            <p
+              class="num mt-1 flex items-center gap-1.5 text-xl font-semibold"
+              [class]="tone(s.totalReturn)"
+            >
+              <ng-icon
+                [name]="s.totalReturn >= 0 ? 'lucideTrendingUp' : 'lucideTrendingDown'"
+                aria-hidden="true"
+              />
+              {{ s.totalReturn | money: 'EUR' : true }}
+              <span class="text-sm font-medium">({{ signedPct(s.totalReturnPercent) }})</span>
+            </p>
+          </div>
+        </section>
+
+        <section class="grid grid-cols-2 gap-3 md:grid-cols-3">
           <app-kpi
             [label]="'portfolio.contributions' | translate"
             [value]="s.netContributions"
             color="#71717a"
-          />
-          <app-kpi
-            [label]="'portfolio.totalReturn' | translate"
-            [value]="s.totalReturn"
-            [color]="s.totalReturn >= 0 ? colors.income : colors.expenses"
           />
           <app-kpi
             [label]="'portfolio.totalReturnPct' | translate"
@@ -161,43 +216,47 @@ type Range = '1Y' | '3Y' | 'ALL';
             </div>
             <app-chart class="h-44" [option]="allocationChart()" />
             <div class="table-wrap">
-            <table hlmTable class="mt-2">
-              <thead hlmTHead>
-                <tr hlmTr>
-                  <th hlmTh></th>
-                  <th hlmTh class="text-right">{{ 'portfolio.actual' | translate }}</th>
-                  <th hlmTh class="text-right">{{ 'portfolio.target' | translate }}</th>
-                  <th hlmTh class="text-right">Δ</th>
-                </tr>
-              </thead>
-              <tbody hlmTBody>
-                @for (a of allocation.value() ?? []; track a.assetClass) {
+              <table hlmTable class="mt-2">
+                <thead hlmTHead>
                   <tr hlmTr>
-                    <td hlmTd>
-                      <span
-                        class="mr-2 inline-block h-2 w-2 rounded-full"
-                        [style.background]="classColor(a.assetClass)"
-                      ></span
-                      >{{ 'assetClass.' + a.assetClass | translate }}
-                    </td>
-                    <td hlmTd class="num text-right">{{ a.actual | pct }}</td>
-                    <td hlmTd class="num text-right text-muted-foreground">{{ a.target | pct }}</td>
-                    <td
-                      hlmTd
-                      class="num text-right"
-                      [class.text-rose-600]="(a.difference ?? 0) < -0.02"
-                      [class.text-emerald-600]="(a.difference ?? 0) > 0.02"
-                    >
-                      {{
-                        a.difference === null
-                          ? ''
-                          : (a.difference > 0 ? '+' : '') + (a.difference * 100).toFixed(1) + ' pp'
-                      }}
-                    </td>
+                    <th hlmTh></th>
+                    <th hlmTh class="text-right">{{ 'portfolio.actual' | translate }}</th>
+                    <th hlmTh class="text-right">{{ 'portfolio.target' | translate }}</th>
+                    <th hlmTh class="text-right">Δ</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody hlmTBody>
+                  @for (a of allocation.value() ?? []; track a.assetClass) {
+                    <tr hlmTr>
+                      <td hlmTd>
+                        <span
+                          class="mr-2 inline-block h-2 w-2 rounded-full"
+                          [style.background]="classColor(a.assetClass)"
+                        ></span
+                        >{{ 'assetClass.' + a.assetClass | translate }}
+                      </td>
+                      <td hlmTd class="num text-right">{{ a.actual | pct }}</td>
+                      <td hlmTd class="num text-right text-muted-foreground">
+                        {{ a.target | pct }}
+                      </td>
+                      <td
+                        hlmTd
+                        class="num text-right"
+                        [class.text-rose-600]="(a.difference ?? 0) < -0.02"
+                        [class.text-emerald-600]="(a.difference ?? 0) > 0.02"
+                      >
+                        {{
+                          a.difference === null
+                            ? ''
+                            : (a.difference > 0 ? '+' : '') +
+                              (a.difference * 100).toFixed(1) +
+                              ' pp'
+                        }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
             <p class="mt-2 text-[11px] text-muted-foreground">
               {{ 'portfolio.noRebalance' | translate }}
@@ -211,75 +270,140 @@ type Range = '1Y' | '3Y' | 'ALL';
             <thead hlmTHead>
               <tr hlmTr>
                 <th hlmTh>{{ 'portfolio.security' | translate }}</th>
-                <th hlmTh>{{ 'portfolio.broker' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'portfolio.quantity' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'portfolio.avgPrice' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'portfolio.price' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'portfolio.marketValue' | translate }}</th>
-                <th hlmTh class="text-right">P&amp;L</th>
-                <th hlmTh class="text-right">P&amp;L %</th>
-                <th hlmTh class="text-right">{{ 'portfolio.weight' | translate }}</th>
+                @for (col of sortColumns; track col.key) {
+                  <th
+                    hlmTh
+                    class="text-right"
+                    [class.hidden]="col.key === 'weight' || col.key === 'value'"
+                    [class.sm:table-cell]="col.key === 'weight' || col.key === 'value'"
+                    [attr.aria-sort]="
+                      sortKey() === col.key ? (sortDesc() ? 'descending' : 'ascending') : null
+                    "
+                  >
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 hover:text-foreground"
+                      [class.text-foreground]="sortKey() === col.key"
+                      (click)="sortBy(col.key)"
+                    >
+                      {{ col.label | translate }}
+                      <ng-icon
+                        [name]="
+                          sortKey() !== col.key
+                            ? 'lucideArrowUpDown'
+                            : sortDesc()
+                              ? 'lucideArrowDown'
+                              : 'lucideArrowUp'
+                        "
+                        class="text-xs opacity-60"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </th>
+                }
               </tr>
             </thead>
             <tbody hlmTBody>
-              @for (p of positions.value() ?? []; track p.securityId) {
-                <tr hlmTr class="cursor-pointer hover:bg-muted/50" (click)="toggle(p.securityId)">
+              @for (p of sortedPositions(); track p.securityId) {
+                <tr
+                  hlmTr
+                  class="cursor-pointer hover:bg-muted/50"
+                  [attr.aria-expanded]="expanded() === p.securityId"
+                  (click)="toggle(p.securityId)"
+                >
                   <td hlmTd>
-                    <div class="font-medium">
+                    <div class="flex items-center gap-1.5 font-medium">
+                      <ng-icon
+                        [name]="
+                          expanded() === p.securityId ? 'lucideChevronDown' : 'lucideChevronRight'
+                        "
+                        class="text-xs text-muted-foreground"
+                        aria-hidden="true"
+                      />
                       {{ p.symbol }}
-                      <span class="badge ml-1 bg-muted !px-1.5 !py-0 text-[10px]">{{
+                      <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
                         'assetClass.' + p.assetClass | translate
                       }}</span>
                     </div>
-                    <div class="max-w-64 truncate text-xs text-muted-foreground">
-                      {{ p.name }} · {{ p.isin }}
+                    <div class="max-w-36 truncate pl-5 text-xs text-muted-foreground sm:max-w-56">
+                      {{ p.name }}
+                    </div>
+                    <div class="num pl-5 text-xs font-medium sm:hidden">
+                      {{ p.marketValueBase | money }}
                     </div>
                   </td>
-                  <td hlmTd class="text-xs">
-                    @for (h of p.holdings; track h.accountId) {
-                      <span class="badge mr-1 bg-primary/10 text-primary">{{ h.accountName }}</span>
+                  <td hlmTd class="hidden text-right sm:table-cell">
+                    <div class="num font-medium">{{ p.marketValueBase | money }}</div>
+                    <div class="num text-xs text-muted-foreground">
+                      {{ p.quantity }} × {{ p.lastPrice | money: p.currency }}
+                    </div>
+                  </td>
+                  <td hlmTd class="text-right" [class]="tone(p.unrealizedPnlBase)">
+                    <div class="num font-medium">
+                      {{ p.unrealizedPnlBase | money: 'EUR' : true }}
+                    </div>
+                    <div class="num text-xs">{{ signedPct(p.unrealizedPnlPercent) }}</div>
+                  </td>
+                  <td hlmTd class="text-right" [class]="tone(p.dayChangeBase)">
+                    @if (p.dayChangeBase !== null) {
+                      <div class="num font-medium">{{ p.dayChangeBase | money: 'EUR' : true }}</div>
+                      <div class="num text-xs">{{ signedPct(p.dayChangePercent) }}</div>
+                    } @else {
+                      <span class="text-muted-foreground">—</span>
                     }
                   </td>
-                  <td hlmTd class="num text-right">{{ p.quantity }}</td>
-                  <td hlmTd class="num text-right text-muted-foreground">
-                    {{ p.averagePrice | money: p.currency }}
+                  <td hlmTd class="hidden text-right sm:table-cell">
+                    <div class="num">{{ p.portfolioWeight | pct }}</div>
+                    <div
+                      class="ml-auto mt-1 h-1 w-16 overflow-hidden rounded-full bg-muted"
+                      aria-hidden="true"
+                    >
+                      <div
+                        class="h-full rounded-full bg-primary"
+                        [style.width.%]="p.portfolioWeight * 100"
+                      ></div>
+                    </div>
                   </td>
-                  <td hlmTd class="num text-right">{{ p.lastPrice | money: p.currency }}</td>
-                  <td hlmTd class="num text-right font-medium">{{ p.marketValueBase | money }}</td>
-                  <td
-                    hlmTd
-                    class="num text-right"
-                    [class]="p.unrealizedPnlBase >= 0 ? 'text-emerald-600' : 'text-rose-600'"
-                  >
-                    {{ p.unrealizedPnlBase | money: 'EUR' : true }}
-                  </td>
-                  <td
-                    hlmTd
-                    class="num text-right"
-                    [class]="
-                      (p.unrealizedPnlPercent ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                    "
-                  >
-                    {{ p.unrealizedPnlPercent | pct }}
-                  </td>
-                  <td hlmTd class="num text-right">{{ p.portfolioWeight | pct }}</td>
                 </tr>
                 @if (expanded() === p.securityId) {
-                  @for (h of p.holdings; track h.accountId) {
-                    <tr hlmTr class="bg-muted/40 text-xs">
-                      <td hlmTd class="pl-8 text-muted-foreground">↳ {{ h.accountName }}</td>
-                      <td hlmTd>{{ 'source.' + h.broker | translate }}</td>
-                      <td hlmTd class="num text-right">{{ h.quantity }}</td>
-                      <td hlmTd class="num text-right text-muted-foreground">
-                        {{ h.averagePrice | money: p.currency }}
-                      </td>
-                      <td hlmTd colspan="5"></td>
-                    </tr>
-                  }
+                  <tr hlmTr class="bg-muted/40 text-xs">
+                    <td hlmTd colspan="5" class="whitespace-normal">
+                      <div class="grid gap-2 pl-5 sm:grid-cols-3">
+                        <div>
+                          <span class="text-muted-foreground">ISIN</span> {{ p.isin ?? '—' }}
+                        </div>
+                        <div>
+                          <span class="text-muted-foreground">{{
+                            'portfolio.avgPrice' | translate
+                          }}</span>
+                          <span class="num"> {{ p.averagePrice | money: p.currency }}</span>
+                        </div>
+                        <div>
+                          <span class="text-muted-foreground">{{
+                            'portfolio.invested' | translate
+                          }}</span>
+                          <span class="num"> {{ p.costBase | money }}</span>
+                        </div>
+                        @for (h of p.holdings; track h.accountId) {
+                          <div class="sm:col-span-3">
+                            <span class="badge bg-primary/10 text-primary">{{
+                              h.accountName
+                            }}</span>
+                            <span class="text-muted-foreground">
+                              {{ 'source.' + h.broker | translate }} ·</span
+                            >
+                            <span class="num">
+                              {{ h.quantity }} @ {{ h.averagePrice | money: p.currency }}</span
+                            >
+                          </div>
+                        }
+                      </div>
+                    </td>
+                  </tr>
                 }
               } @empty {
                 <tr hlmTr>
-                  <td hlmTd colspan="9" class="py-8 text-center text-muted-foreground">
+                  <td hlmTd colspan="5" class="py-8 text-center text-muted-foreground">
                     {{ 'portfolio.noPositions' | translate }}
                   </td>
                 </tr>
@@ -381,6 +505,7 @@ export class PortfolioComponent {
   protected readonly scopeKey = signal('');
   protected readonly range = signal<Range>('ALL');
   protected readonly expanded = signal<string | null>(null);
+  private readonly pct = new PercentPipe();
   protected readonly targetsOpen = signal(false);
   protected readonly targetInputs = signal<Partial<Record<AssetClass, string>>>({});
 
@@ -522,6 +647,50 @@ export class PortfolioComponent {
       ],
     };
   });
+
+  protected readonly sortColumns: { key: SortKey; label: string }[] = [
+    { key: 'value', label: 'portfolio.marketValue' },
+    { key: 'gain', label: 'portfolio.gain' },
+    { key: 'today', label: 'portfolio.today' },
+    { key: 'weight', label: 'portfolio.weight' },
+  ];
+  protected readonly sortKey = signal<SortKey>('value');
+  protected readonly sortDesc = signal(true);
+  protected readonly sortedPositions = computed(() => {
+    const key = this.sortKey();
+    const dir = this.sortDesc() ? -1 : 1;
+    const pick = (p: PositionLine): number =>
+      key === 'gain'
+        ? (p.unrealizedPnlPercent ?? 0)
+        : key === 'today'
+          ? (p.dayChangePercent ?? 0)
+          : key === 'weight'
+            ? p.portfolioWeight
+            : p.marketValueBase;
+    return [...(this.positions.value() ?? [])].sort((a, b) => (pick(a) - pick(b)) * dir);
+  });
+
+  protected sortBy(key: SortKey) {
+    if (this.sortKey() === key) {
+      this.sortDesc.update((d) => !d);
+    } else {
+      this.sortKey.set(key);
+      this.sortDesc.set(true);
+    }
+  }
+
+  protected tone(value: number | null | undefined): string {
+    if (value === null || value === undefined || value === 0) return '';
+    return value > 0
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : 'text-rose-600 dark:text-rose-400';
+  }
+
+  protected signedPct(value: number | null | undefined): string {
+    if (value === null || value === undefined) return '—';
+    const text = this.pct.transform(Math.abs(value));
+    return value > 0 ? `+${text}` : value < 0 ? `−${text}` : text;
+  }
 
   protected toggle(id: string) {
     this.expanded.set(this.expanded() === id ? null : id);

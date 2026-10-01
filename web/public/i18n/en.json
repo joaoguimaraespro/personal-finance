@@ -505,7 +505,11 @@
   "derived": "Inferred from the API; import the broker CSV for the reported value",
   "targetsTitle": "Target allocation",
   "targetsHint": "Percentages of the portfolio (including cash). Leave blank for no target. Total at most 100%.",
-  "twrHint": "Time-weighted, cumulative over the period — deposits don't distort it"
+  "twrHint": "Time-weighted, cumulative over the period — deposits don't distort it",
+  "today": "Today",
+  "todayPending": "Available from the second day of syncs",
+  "gain": "Gain",
+  "invested": "Invested"
  },
  "netWorth": {
   "addAsset": "Add asset or debt",

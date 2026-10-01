@@ -451,6 +451,8 @@ export interface PortfolioSummary {
   positions: number;
   lastSyncUtc: string | null;
   accounts: { accountId: string; name: string; broker: Broker; marketValue: number; cash: number }[];
+  dayChange: number | null;
+  dayChangePercent: number | null;
 }
 
 export interface PositionLine {
@@ -469,6 +471,9 @@ export interface PositionLine {
   unrealizedPnlPercent: number | null;
   portfolioWeight: number;
   holdings: { accountId: string; accountName: string; broker: Broker; quantity: number; averagePrice: number }[];
+  /** Change since the previous recorded close (EUR); null until prices from an earlier day exist. */
+  dayChangeBase: number | null;
+  dayChangePercent: number | null;
 }
 
 export interface AllocationLine {
