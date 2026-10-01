@@ -26,6 +26,7 @@ import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { APP_ICONS } from '../../shared/icons';
+import { BrokerLogoComponent } from '../../shared/broker-logo';
 import {
   lucideArrowDown,
   lucideArrowUp,
@@ -54,6 +55,7 @@ type Range = '1Y' | '3Y' | 'ALL';
 @Component({
   selector: 'app-portfolio',
   imports: [
+    BrokerLogoComponent,
     NgIcon,
     SelectComponent,
     HlmTableImports,
@@ -412,7 +414,8 @@ type Range = '1Y' | '3Y' | 'ALL';
                           <span class="num"> {{ p.costBase | money }}</span>
                         </div>
                         @for (h of p.holdings; track h.accountId) {
-                          <div class="sm:col-span-3">
+                          <div class="flex flex-wrap items-center gap-1 sm:col-span-3">
+                            <app-broker-logo [broker]="h.broker" [size]="16" />
                             <span class="badge bg-primary/10 text-primary">{{
                               h.accountName
                             }}</span>
