@@ -200,3 +200,7 @@ PostgreSQL 17 · Caddy · Docker Compose · Tailscale · xUnit v3 · Testcontain
 ## License
 
 [MIT](LICENSE)
+
+Trading 212 and Interactive Brokers names and logos are trademarks of their respective owners. They are used
+only to identify the broker a connection belongs to; this project is not affiliated with or endorsed by either.
+The MIT license does not cover them (`web/public/brokers/`).

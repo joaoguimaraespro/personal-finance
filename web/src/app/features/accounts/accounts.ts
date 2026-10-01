@@ -2,12 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { rxResource } from '@angular/core/rxjs-interop';
 import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
+import { BrokerLogoComponent } from '../../shared/broker-logo';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, PercentPipe, today } from '../../core/format';
-import { Account, AccountKind, InterestPayout, InterestRate } from '../../core/models';
+import { Account, AccountKind, Broker, InterestPayout, InterestRate } from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
@@ -61,6 +62,7 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
 @Component({
   selector: 'app-accounts',
   imports: [
+    BrokerLogoComponent,
     RouterLink,
     PageHeaderComponent,
     EmptyStateComponent,
@@ -103,12 +105,16 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
         <div class="card card-hover flex flex-col" [class.opacity-60]="a.archived">
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <span
-                class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
-                aria-hidden="true"
-              >
-                <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
-              </span>
+              @if (brokerOf(a); as broker) {
+                <app-broker-logo [broker]="broker" [size]="40" aria-hidden="true" />
+              } @else {
+                <span
+                  class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
+                  aria-hidden="true"
+                >
+                  <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
+                </span>
+              }
               <div class="min-w-0">
                 <p class="truncate font-semibold">{{ a.name }}</p>
                 <p class="text-xs text-muted-foreground">
@@ -461,6 +467,15 @@ export class AccountsComponent {
   });
 
   /** Market value + cash of a synced broker account; null until the portfolio has loaded. */
+  /** Which broker a synced account belongs to (its institution is the provider's name). */
+  protected brokerOf(a: Account): Broker | null {
+    if (a.kind !== 'Broker') return null;
+    const institution = a.institution ?? '';
+    if (institution.startsWith('Trading 212')) return 'Trading212';
+    if (institution.startsWith('Interactive Brokers')) return 'InteractiveBrokers';
+    return null;
+  }
+
   protected brokerValue(accountId: string): number | null {
     const account = this.portfolio.value()?.accounts.find((x) => x.accountId === accountId);
     return account ? account.marketValue + account.cash : null;

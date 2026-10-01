@@ -21,6 +21,7 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { Confirm } from '../../core/confirm';
 import { DateFieldComponent } from '../../shared/date-field';
 import { NgIcon } from '@ng-icons/core';
+import { BrokerLogoComponent } from '../../shared/broker-logo';
 import { BrokerGuideComponent, GuideBroker } from './broker-guide';
 import { FieldProblem, friendlyError, validateCredentials } from './credentials';
 import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
@@ -48,6 +49,7 @@ type CredentialField = ProviderInfo['fields'][number];
     DateTimePipe,
     ModalComponent,
     BrokerGuideComponent,
+    BrokerLogoComponent,
     HlmSkeletonImports,
   ],
   providers: [APP_ICONS],
@@ -61,7 +63,9 @@ type CredentialField = ProviderInfo['fields'][number];
       <div class="flex flex-wrap gap-2">
         @for (p of providers.value() ?? []; track p.kind) {
           <button hlmBtn variant="outline" (click)="openNew(p)">
-            <ng-icon name="lucidePlus" />{{ p.name }}
+            <ng-icon name="lucidePlus" /><app-broker-logo [broker]="p.kind" [size]="18" />{{
+              p.name
+            }}
           </button>
         }
       </div>
@@ -78,12 +82,7 @@ type CredentialField = ProviderInfo['fields'][number];
           }
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <span
-                class="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
-                aria-hidden="true"
-              >
-                <ng-icon name="lucideLandmark" class="text-lg" />
-              </span>
+              <app-broker-logo [broker]="c.kind" [size]="40" aria-hidden="true" />
               <div class="min-w-0">
                 <p class="truncate font-semibold">{{ c.displayName }}</p>
                 <p class="text-muted-foreground flex items-center gap-1 text-xs">
@@ -321,7 +320,7 @@ type CredentialField = ProviderInfo['fields'][number];
               <div class="flex flex-wrap justify-center gap-2">
                 @for (p of providers.value() ?? []; track p.kind) {
                   <button hlmBtn size="sm" (click)="openNew(p)">
-                    <ng-icon name="lucidePlus" />{{ p.name }}
+                    <app-broker-logo [broker]="p.kind" [size]="18" />{{ p.name }}
                   </button>
                 }
               </div>
@@ -370,7 +369,9 @@ type CredentialField = ProviderInfo['fields'][number];
                   [attr.aria-selected]="guideKind() === b"
                   (click)="pickedGuide.set(b)"
                 >
-                  {{ 'source.' + b | translate }}
+                  <app-broker-logo [broker]="b" [size]="16" class="mr-1.5" />{{
+                    'source.' + b | translate
+                  }}
                 </button>
               }
             </div>
