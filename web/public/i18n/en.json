@@ -354,7 +354,8 @@
   "identifierKeep": "Leave empty to keep",
   "identifierNote": "Encrypted at rest and never shared with AI clients by default.",
   "readOnly": "Read-only",
-  "empty": "No accounts yet. Create your main bank account first."
+  "empty": "No accounts yet. Create your main bank account first.",
+  "brokerValue": "Portfolio value · synced"
  },
  "categories": {
   "new": "New category",

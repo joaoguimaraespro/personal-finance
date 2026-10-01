@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { liveResource } from '../../core/resource';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
@@ -43,6 +44,7 @@ const EMPTY: AccountForm = {
 @Component({
   selector: 'app-accounts',
   imports: [
+    RouterLink,
     PageHeaderComponent,
     EmptyStateComponent,
     StatusBadgeComponent,
@@ -108,12 +110,26 @@ const EMPTY: AccountForm = {
               }}</app-status-badge>
             }
           </div>
-          <p
-            class="num mt-5 text-2xl font-semibold tracking-tight"
-            [class.tone-neg]="a.balance < 0"
-          >
-            {{ a.balance | money: a.currency }}
-          </p>
+          @if (a.kind === 'Broker') {
+            <!-- A broker account's worth is its synced portfolio (positions + cash), not a ledger balance. -->
+            <p class="num mt-5 text-2xl font-semibold tracking-tight">
+              {{ brokerValue(a.id) | money }}
+            </p>
+            <a
+              routerLink="/portfolio"
+              class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {{ 'accounts.brokerValue' | translate }}
+              <ng-icon name="lucideArrowRight" aria-hidden="true" />
+            </a>
+          } @else {
+            <p
+              class="num mt-5 text-2xl font-semibold tracking-tight"
+              [class.tone-neg]="a.balance < 0"
+            >
+              {{ a.balance | money: a.currency }}
+            </p>
+          }
           <div class="flex-1"></div>
           @if (a.isManual) {
             <div class="mt-4 flex gap-2 border-t pt-4">
@@ -268,6 +284,16 @@ export class AccountsComponent {
     params: () => this.events.version(),
     stream: () => this.api.accounts(true),
   });
+  private readonly portfolio = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.portfolioSummary(),
+  });
+
+  /** Market value + cash of a synced broker account; null until the portfolio has loaded. */
+  protected brokerValue(accountId: string): number | null {
+    const account = this.portfolio.value()?.accounts.find((x) => x.accountId === accountId);
+    return account ? account.marketValue + account.cash : null;
+  }
   protected readonly visible = computed(() =>
     (this.accounts.value() ?? []).filter((a) => this.showArchived() || !a.archived),
   );
