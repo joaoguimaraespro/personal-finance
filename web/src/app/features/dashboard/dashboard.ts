@@ -23,8 +23,12 @@ import { KpiComponent } from '../../shared/kpi';
 import { ProgressComponent } from '../../shared/progress';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { StatusBadgeComponent } from '../../shared/status-badge';
 
 @Component({
   selector: 'app-dashboard',
@@ -41,22 +45,27 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
     MonthNamePipe,
     DayPipe,
     RouterLink,
+    HlmTooltipImports,
+    PageHeaderComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
   ],
-  providers: [provideIcons({ lucideChevronLeft, lucideChevronRight })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ 'dashboard.title' | translate }}</h1>
-        <p class="text-sm text-muted-foreground">{{ 'dashboard.subtitle' | translate }}</p>
-      </div>
+    <app-page-header
+      [icon]="icons.dashboard"
+      [title]="'dashboard.title' | translate"
+      [subtitle]="'dashboard.subtitle' | translate"
+    >
       <div class="inline-flex items-center gap-1">
         <button
           hlmBtn
           variant="outline"
           size="icon"
           (click)="year.set(year() - 1)"
-          aria-label="Previous year"
+          [attr.aria-label]="'common.previousYear' | translate"
+          [hlmTooltip]="'common.previousYear' | translate"
         >
           <ng-icon name="lucideChevronLeft" />
         </button>
@@ -69,19 +78,21 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
           variant="outline"
           size="icon"
           (click)="year.set(year() + 1)"
-          aria-label="Next year"
+          [attr.aria-label]="'common.nextYear' | translate"
+          [hlmTooltip]="'common.nextYear' | translate"
         >
           <ng-icon name="lucideChevronRight" />
         </button>
       </div>
-    </div>
+    </app-page-header>
 
     @if (overview.value(); as o) {
       <!-- Everyday money and investments are never added together; the overall row is the explicit summary. -->
       <div class="grid gap-6 xl:grid-cols-2">
         <section aria-labelledby="dash-everyday">
           <div class="mb-2">
-            <h2 id="dash-everyday" class="text-sm font-semibold">
+            <h2 id="dash-everyday" class="flex items-center gap-2 text-sm font-semibold">
+              <ng-icon name="lucideWallet" class="text-primary" aria-hidden="true" />
               {{ 'dashboard.everyday' | translate }}
             </h2>
             <p class="text-xs text-muted-foreground">{{ 'dashboard.everydayHint' | translate }}</p>
@@ -90,17 +101,20 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
             <app-kpi
               [label]="'kpi.income' | translate"
               [value]="o.everyday.income"
+              icon="lucideArrowDownLeft"
               [color]="colors.income"
             />
             <app-kpi
               [label]="'kpi.expenses' | translate"
               [value]="o.everyday.expenses"
+              icon="lucideArrowUpRight"
               [color]="colors.expenses"
             />
             <app-kpi
               class="col-span-2 sm:col-span-1"
               [label]="'kpi.netBalance' | translate"
               [value]="o.everyday.netBalance"
+              icon="lucideScale"
               [color]="colors.net"
             />
           </div>
@@ -108,32 +122,37 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
 
         <section aria-labelledby="dash-investments">
           <div class="mb-2">
-            <h2 id="dash-investments" class="text-sm font-semibold">
+            <h2 id="dash-investments" class="flex items-center gap-2 text-sm font-semibold">
+              <ng-icon name="lucideBriefcase" class="text-primary" aria-hidden="true" />
               {{ 'dashboard.investments' | translate }}
             </h2>
             <p class="text-xs text-muted-foreground">
               {{ 'dashboard.investmentsHint' | translate }}
             </p>
           </div>
-          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
             <app-kpi
               [label]="'dashboard.purchases' | translate"
               [value]="o.investments.purchases"
+              icon="lucideShoppingCart"
               [color]="colors.invested"
             />
             <app-kpi
               [label]="'dashboard.sales' | translate"
               [value]="o.investments.sales"
+              icon="lucideHandCoins"
               [color]="colors.invested"
             />
             <app-kpi
               [label]="'dashboard.netInvested' | translate"
               [value]="o.investments.netInvested"
+              icon="lucideBriefcase"
               [color]="colors.invested"
             />
             <app-kpi
               [label]="'dashboard.investmentRate' | translate"
               [value]="o.investments.investmentRate"
+              icon="lucidePercent"
               kind="percent"
               [color]="colors.invested"
             />
@@ -142,14 +161,21 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
       </div>
 
       <section class="mt-6" aria-labelledby="dash-overall">
-        <h2 id="dash-overall" class="mb-2 text-sm font-semibold">
+        <h2 id="dash-overall" class="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <ng-icon name="lucideScale" class="text-primary" aria-hidden="true" />
           {{ 'dashboard.overall' | translate }}
         </h2>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <app-kpi [label]="'kpi.saved' | translate" [value]="o.saved" [color]="colors.saved" />
+          <app-kpi
+            [label]="'kpi.saved' | translate"
+            [value]="o.saved"
+            icon="lucidePiggyBank"
+            [color]="colors.saved"
+          />
           <app-kpi
             [label]="'kpi.avgSavingsRate' | translate"
             [value]="o.averageMonthlySavingsRate"
+            icon="lucideGauge"
             kind="percent"
             color="#f59e0b"
           />
@@ -169,6 +195,7 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
         class="card mt-6 border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/5"
       >
         <h2 class="card-title !text-amber-700 dark:!text-amber-300">
+          <ng-icon name="lucideCalendarClock" class="!text-amber-600 dark:!text-amber-300" />
           {{ 'recurring.pendingTitle' | translate }}
         </h2>
         <ul class="divide-y divide-amber-100 dark:divide-amber-500/10">
@@ -178,10 +205,10 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
               <span class="text-xs text-muted-foreground">{{ e.dueOn | day }}</span>
               <span class="num text-sm font-semibold">{{ e.amount | money: e.currency }}</span>
               <button hlmBtn variant="outline" size="sm" (click)="skip(e.id)">
-                {{ 'recurring.skip' | translate }}
+                <ng-icon name="lucideSkipForward" />{{ 'recurring.skip' | translate }}
               </button>
               <button hlmBtn size="sm" (click)="confirm(e.id)">
-                {{ 'recurring.confirm' | translate }}
+                <ng-icon name="lucideCheck" />{{ 'recurring.confirm' | translate }}
               </button>
             </li>
           }
@@ -191,18 +218,24 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
 
     <section class="mt-6 grid gap-4 lg:grid-cols-2">
       <div class="card">
-        <h2 class="card-title">{{ 'charts.incomeVsExpenses' | translate }}</h2>
+        <h2 class="card-title">
+          <ng-icon name="lucideChartColumn" />{{ 'charts.incomeVsExpenses' | translate }}
+        </h2>
         <app-chart class="h-72" [option]="incomeVsExpenses()" />
       </div>
       <div class="card">
-        <h2 class="card-title">{{ 'charts.realRates' | translate }}</h2>
+        <h2 class="card-title">
+          <ng-icon name="lucideChartLine" />{{ 'charts.realRates' | translate }}
+        </h2>
         <app-chart class="h-72" [option]="rates()" />
       </div>
     </section>
 
     <section class="mt-6 grid gap-4 2xl:grid-cols-[3fr_1fr]">
       <div class="card overflow-x-auto !p-0">
-        <h2 class="card-title px-5 pt-5">{{ 'dashboard.monthlyView' | translate }}</h2>
+        <h2 class="card-title px-5 pt-5">
+          <ng-icon name="lucideCalendarDays" />{{ 'dashboard.monthlyView' | translate }}
+        </h2>
         <table hlmTable>
           <thead hlmTHead>
             <tr hlmTr class="border-b-0">
@@ -241,22 +274,27 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
                   {{ row.month.expenseBudget | money }}
                 </td>
                 <td hlmTd class="num text-right">{{ row.month.totalExpenses | money }}</td>
-                <td hlmTd class="num text-right font-medium">{{ row.month.netBalance | money }}</td>
+                <td
+                  hlmTd
+                  class="num text-right font-medium"
+                  [class.tone-pos]="row.month.transactionCount && row.month.netBalance > 0"
+                  [class.tone-neg]="row.month.netBalance < 0"
+                >
+                  {{ row.month.netBalance | money }}
+                </td>
                 <td hlmTd class="num text-right">{{ row.month.savingsRate | pct }}</td>
                 <td hlmTd class="num text-right">{{ row.month.invested | money }}</td>
                 <td hlmTd class="num text-right">{{ row.month.saved | money }}</td>
                 <td hlmTd>
                   @if (row.month.transactionCount) {
-                    <span
-                      class="badge"
-                      [class]="
-                        row.month.status === 'Positive'
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                          : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+                    <app-status-badge
+                      [tone]="row.month.status === 'Positive' ? 'success' : 'danger'"
+                      [icon]="
+                        row.month.status === 'Positive' ? 'lucideTrendingUp' : 'lucideTrendingDown'
                       "
                     >
                       {{ 'status.' + row.month.status | translate }}
-                    </span>
+                    </app-status-badge>
                   }
                 </td>
               </tr>
@@ -267,8 +305,15 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
 
       <div class="card">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="card-title !mb-0">{{ 'nav.goals' | translate }}</h2>
-          <a routerLink="/goals" class="text-xs text-primary">{{ 'common.viewAll' | translate }}</a>
+          <h2 class="card-title !mb-0">
+            <ng-icon [name]="icons.goals" />{{ 'nav.goals' | translate }}
+          </h2>
+          <a
+            routerLink="/goals"
+            class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >{{ 'common.viewAll' | translate
+            }}<ng-icon name="lucideChevronRight" aria-hidden="true"
+          /></a>
         </div>
         @for (g of goals.value() ?? []; track g.id) {
           <div class="mb-4">
@@ -282,7 +327,11 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
             </p>
           </div>
         } @empty {
-          <p class="text-sm text-muted-foreground">{{ 'goals.empty' | translate }}</p>
+          <app-empty-state [icon]="icons.goals" [text]="'goals.empty' | translate">
+            <a hlmBtn variant="outline" size="sm" routerLink="/goals">
+              <ng-icon name="lucidePlus" />{{ 'goals.new' | translate }}
+            </a>
+          </app-empty-state>
         }
       </div>
     </section>
@@ -296,6 +345,7 @@ export class DashboardComponent {
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
   protected readonly colors = SERIES_COLORS;
+  protected readonly icons = PAGE_ICONS;
   protected readonly year = signal(new Date().getFullYear());
 
   private readonly key = computed(() => ({ year: this.year(), v: this.events.version() }));

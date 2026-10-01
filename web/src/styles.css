@@ -108,11 +108,30 @@
 @layer components {
   /* min-w-0: let grid/flex tracks shrink instead of being pushed wide by charts and tables. */
   .card {
-    @apply bg-card text-card-foreground min-w-0 rounded-2xl border p-5 shadow-xs;
+    @apply bg-card text-card-foreground min-w-0 rounded-xl border p-5 shadow-xs transition-[box-shadow,border-color] duration-200 dark:shadow-none;
   }
 
+  /* Clickable / hoverable cards lift slightly. */
+  .card-hover:hover {
+    @apply border-ring/30 shadow-md dark:border-white/20;
+  }
+
+  /* Section title inside a card; an optional leading ng-icon sits in the accent colour. */
   .card-title {
-    @apply text-muted-foreground mb-4 text-xs font-semibold tracking-wider uppercase;
+    @apply text-muted-foreground mb-4 flex items-center gap-2 text-xs font-semibold tracking-wider uppercase;
+  }
+
+  .card-title > ng-icon {
+    @apply text-primary shrink-0 text-sm;
+  }
+
+  /* Money tones: gains/income vs losses/expenses. */
+  .tone-pos {
+    @apply text-emerald-700 dark:text-emerald-400;
+  }
+
+  .tone-neg {
+    @apply text-rose-600 dark:text-rose-400;
   }
 
   .label {
@@ -133,7 +152,7 @@
   }
 
   .badge {
-    @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
   }
 
   /* Segmented control with the spartan tabs-list look. */
@@ -187,6 +206,18 @@
   /* Full-width rows inside .form-grid, whether it currently has one column or two. */
   .form-grid > .col-span-2 {
     grid-column: 1 / -1;
+  }
+}
+
+/* Calm UI for people who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

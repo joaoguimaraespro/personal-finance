@@ -21,8 +21,11 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { Prefs } from '../../core/prefs';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideX } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 interface Row {
   key: string;
@@ -37,6 +40,9 @@ interface Row {
 @Component({
   selector: 'app-budgets',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    HlmTooltipImports,
     NgIcon,
     SelectComponent,
     HlmInputImports,
@@ -46,24 +52,30 @@ interface Row {
     MonthNamePipe,
     CategoryLabelPipe,
   ],
-  providers: [provideIcons({ lucideX })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.budgets' | translate }}</h1>
-        <p class="text-sm text-muted-foreground">{{ 'budgets.subtitle' | translate }}</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-muted-foreground">{{ 'budgets.effectiveFrom' | translate }}</span>
+    <app-page-header
+      [icon]="icons.budgets"
+      [title]="'nav.budgets' | translate"
+      [subtitle]="'budgets.subtitle' | translate"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-muted-foreground flex items-center gap-1.5 text-sm"
+          ><ng-icon name="lucideCalendarClock" aria-hidden="true" />{{
+            'budgets.effectiveFrom' | translate
+          }}</span
+        >
         <app-month-picker [(period)]="period" />
       </div>
-    </div>
+    </app-page-header>
 
     <div class="grid gap-4 xl:grid-cols-[2fr_1fr]">
       <div class="space-y-4">
         <section class="card">
-          <h2 class="card-title">{{ 'budgets.allocation' | translate }}</h2>
+          <h2 class="card-title">
+            <ng-icon name="lucideLayers" />{{ 'budgets.allocation' | translate }}
+          </h2>
           <div class="space-y-2">
             @for (row of bucketRows(); track row.key) {
               <div
@@ -91,7 +103,9 @@ interface Row {
               <div
                 class="grid grid-cols-[minmax(0,1fr)_7rem_5.5rem] items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_9rem_8rem]"
               >
-                <span class="truncate text-sm font-medium">{{ 'kpi.expenseBudget' | translate }}</span>
+                <span class="truncate text-sm font-medium">{{
+                  'kpi.expenseBudget' | translate
+                }}</span>
                 <app-select
                   size="sm"
                   [options]="poolModes()"
@@ -110,12 +124,18 @@ interface Row {
               </div>
             }
           </div>
-          <p class="mt-3 text-xs text-muted-foreground">{{ 'budgets.percentHint' | translate }}</p>
+          <p class="text-muted-foreground mt-3 flex gap-1.5 text-xs">
+            <ng-icon name="lucideInfo" class="mt-px shrink-0" aria-hidden="true" />{{
+              'budgets.percentHint' | translate
+            }}
+          </p>
         </section>
 
         <section class="card">
           <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="card-title !mb-0">{{ 'budgets.categoryLimits' | translate }}</h2>
+            <h2 class="card-title !mb-0">
+              <ng-icon name="lucideTags" />{{ 'budgets.categoryLimits' | translate }}
+            </h2>
             <app-select
               class="w-full sm:w-56"
               resetOnPick
@@ -129,7 +149,9 @@ interface Row {
               <div
                 class="grid grid-cols-[minmax(0,1fr)_6.5rem_5rem_2rem] items-center gap-2 sm:grid-cols-[1fr_9rem_8rem_2rem]"
               >
-                <span class="truncate text-sm">{{ categoryFor(row.categoryId) | categoryLabel }}</span>
+                <span class="truncate text-sm">{{
+                  categoryFor(row.categoryId) | categoryLabel
+                }}</span>
                 <app-select
                   size="sm"
                   [options]="categoryModes()"
@@ -150,15 +172,18 @@ interface Row {
                   size="icon-sm"
                   class="text-destructive hover:text-destructive"
                   (click)="removeRow(row.key)"
-                  aria-label="Remove"
+                  [attr.aria-label]="'common.remove' | translate"
+                  [hlmTooltip]="'common.remove' | translate"
                 >
                   <ng-icon name="lucideX" />
                 </button>
               </div>
             } @empty {
-              <p class="text-sm text-muted-foreground">
-                {{ 'budgets.noCategoryLimits' | translate }}
-              </p>
+              <app-empty-state
+                icon="lucideTags"
+                [text]="'budgets.noCategoryLimits' | translate"
+                bordered
+              />
             }
           </div>
         </section>
@@ -171,36 +196,61 @@ interface Row {
             [value]="note()"
             (input)="note.set($any($event.target).value)"
           />
-          <button hlmBtn (click)="save()">{{ 'budgets.saveVersion' | translate }}</button>
+          <button hlmBtn (click)="save()">
+            <ng-icon name="lucideSave" />{{ 'budgets.saveVersion' | translate }}
+          </button>
         </div>
       </div>
 
       <section class="card h-fit">
-        <h2 class="card-title">{{ 'budgets.versions' | translate }}</h2>
+        <h2 class="card-title">
+          <ng-icon name="lucideHistory" />{{ 'budgets.versions' | translate }}
+        </h2>
         <ul class="space-y-2">
           @for (b of budgets.value() ?? []; track b.id) {
-            <li class="flex items-center justify-between rounded-xl border border-border px-3 py-2">
-              <button class="text-left text-sm" (click)="period.set(b.effectiveFrom)">
-                <span class="font-medium"
-                  >{{ monthOf(b.effectiveFrom) | monthName }}
-                  {{ b.effectiveFrom.slice(0, 4) }}</span
-                >
-                @if (b.note) {
-                  <span class="block text-xs text-muted-foreground">{{ b.note }}</span>
-                }
+            <li
+              class="hover:bg-muted/40 flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 transition-colors"
+              [class.border-primary]="b.effectiveFrom === period()"
+            >
+              <button
+                class="flex min-w-0 items-start gap-2 text-left text-sm"
+                (click)="period.set(b.effectiveFrom)"
+              >
+                <ng-icon
+                  name="lucideCalendarDays"
+                  class="text-muted-foreground mt-0.5 shrink-0"
+                  aria-hidden="true"
+                />
+                <span class="min-w-0">
+                  <span class="font-medium"
+                    >{{ monthOf(b.effectiveFrom) | monthName }}
+                    {{ b.effectiveFrom.slice(0, 4) }}</span
+                  >
+                  @if (b.note) {
+                    <span class="block text-xs text-muted-foreground">{{ b.note }}</span>
+                  }
+                </span>
               </button>
               <button
                 hlmBtn
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 class="text-destructive hover:text-destructive"
                 (click)="remove(b)"
+                [attr.aria-label]="'common.delete' | translate"
+                [hlmTooltip]="'common.delete' | translate"
               >
-                {{ 'common.delete' | translate }}
+                <ng-icon name="lucideTrash2" />
               </button>
             </li>
           } @empty {
-            <li class="text-sm text-muted-foreground">{{ 'budgets.none' | translate }}</li>
+            <li>
+              <app-empty-state
+                [icon]="icons.budgets"
+                [text]="'budgets.none' | translate"
+                bordered
+              />
+            </li>
           }
         </ul>
       </section>
@@ -208,6 +258,7 @@ interface Row {
   `,
 })
 export class BudgetsComponent {
+  protected readonly icons = PAGE_ICONS;
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);

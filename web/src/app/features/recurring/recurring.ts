@@ -16,8 +16,12 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { StatusBadgeComponent } from '../../shared/status-badge';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 interface Form {
   name: string;
@@ -35,6 +39,10 @@ interface Form {
 @Component({
   selector: 'app-recurring',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
+    HlmTooltipImports,
     NgIcon,
     DateFieldComponent,
     SelectComponent,
@@ -47,23 +55,29 @@ interface Form {
     ModalComponent,
     CategoryLabelPipe,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.recurring' | translate }}</h1>
-        <p class="text-sm text-muted-foreground">{{ 'recurring.subtitle' | translate }}</p>
-      </div>
-      <button hlmBtn (click)="open(null)">
+    <app-page-header
+      [icon]="icons.recurring"
+      [title]="'nav.recurring' | translate"
+      [subtitle]="'recurring.subtitle' | translate"
+    >
+      <button hlmBtn class="self-start sm:self-auto" (click)="open(null)">
         <ng-icon name="lucidePlus" />{{ 'recurring.new' | translate }}
       </button>
-    </div>
+    </app-page-header>
 
     @if ((expected.value() ?? []).length) {
-      <section class="card mb-6">
-        <h2 class="card-title">{{ 'recurring.pendingTitle' | translate }}</h2>
-        <ul class="divide-y divide-border">
+      <section
+        class="card mb-6 border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/5"
+      >
+        <h2 class="card-title !text-amber-700 dark:!text-amber-300">
+          <ng-icon name="lucideCalendarClock" class="!text-amber-600 dark:!text-amber-300" />{{
+            'recurring.pendingTitle' | translate
+          }}
+        </h2>
+        <ul class="divide-y divide-amber-100 dark:divide-amber-500/10">
           @for (e of expected.value(); track e.id) {
             <li class="flex flex-wrap items-center gap-3 py-2.5">
               <span class="flex-1 text-sm font-medium">{{ e.name }}</span>
@@ -76,10 +90,10 @@ interface Form {
                 #amt
               />
               <button hlmBtn variant="outline" size="sm" (click)="skip(e)">
-                {{ 'recurring.skip' | translate }}
+                <ng-icon name="lucideSkipForward" />{{ 'recurring.skip' | translate }}
               </button>
               <button hlmBtn size="sm" (click)="confirm(e, amt.value)">
-                {{ 'recurring.confirm' | translate }}
+                <ng-icon name="lucideCheck" />{{ 'recurring.confirm' | translate }}
               </button>
             </li>
           }
@@ -94,6 +108,7 @@ interface Form {
             <th hlmTh>{{ 'common.name' | translate }}</th>
             <th hlmTh>{{ 'recurring.schedule' | translate }}</th>
             <th hlmTh>{{ 'recurring.next' | translate }}</th>
+            <th hlmTh>{{ 'common.status' | translate }}</th>
             <th hlmTh class="text-right">{{ 'tx.amount' | translate }}</th>
             <th hlmTh></th>
           </tr>
@@ -115,29 +130,62 @@ interface Form {
                 }
               </td>
               <td hlmTd class="text-sm">{{ r.nextDueOn | day }}</td>
-              <td hlmTd class="num text-right font-medium">{{ r.amount | money: r.currency }}</td>
+              <td hlmTd>
+                @if (r.isActive) {
+                  <app-status-badge tone="success">{{
+                    'recurring.active' | translate
+                  }}</app-status-badge>
+                } @else {
+                  <app-status-badge>{{ 'recurring.paused' | translate }}</app-status-badge>
+                }
+              </td>
+              <td hlmTd class="num text-right font-medium" [class]="tone(r.type)">
+                {{ r.amount | money: r.currency }}
+              </td>
               <td hlmTd class="text-right whitespace-nowrap">
-                <button hlmBtn variant="ghost" size="sm" (click)="open(r)">
-                  {{ 'common.edit' | translate }}
-                </button>
-                <button hlmBtn variant="ghost" size="sm" (click)="toggle(r)">
-                  {{ (r.isActive ? 'recurring.pause' : 'recurring.resume') | translate }}
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="icon-sm"
+                  (click)="open(r)"
+                  [attr.aria-label]="'common.edit' | translate"
+                  [hlmTooltip]="'common.edit' | translate"
+                >
+                  <ng-icon name="lucidePencil" />
                 </button>
                 <button
                   hlmBtn
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
+                  (click)="toggle(r)"
+                  [attr.aria-label]="
+                    (r.isActive ? 'recurring.pause' : 'recurring.resume') | translate
+                  "
+                  [hlmTooltip]="(r.isActive ? 'recurring.pause' : 'recurring.resume') | translate"
+                >
+                  <ng-icon [name]="r.isActive ? 'lucidePause' : 'lucidePlay'" />
+                </button>
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="icon-sm"
                   class="text-destructive hover:text-destructive"
                   (click)="remove(r)"
+                  [attr.aria-label]="'common.delete' | translate"
+                  [hlmTooltip]="'common.delete' | translate"
                 >
-                  {{ 'common.delete' | translate }}
+                  <ng-icon name="lucideTrash2" />
                 </button>
               </td>
             </tr>
           } @empty {
-            <tr hlmTr>
-              <td hlmTd colspan="5" class="py-12 text-center text-muted-foreground">
-                {{ 'recurring.empty' | translate }}
+            <tr hlmTr class="hover:bg-transparent">
+              <td hlmTd colspan="6" class="whitespace-normal">
+                <app-empty-state [icon]="icons.recurring" [text]="'recurring.empty' | translate">
+                  <button hlmBtn size="sm" (click)="open(null)">
+                    <ng-icon name="lucidePlus" />{{ 'recurring.new' | translate }}
+                  </button>
+                </app-empty-state>
               </td>
             </tr>
           }
@@ -259,13 +307,17 @@ interface Form {
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn>{{ 'common.save' | translate }}</button>
+          <button hlmBtn><ng-icon name="lucideSave" />{{ 'common.save' | translate }}</button>
         </div>
       </form>
     </app-modal>
   `,
 })
 export class RecurringComponent {
+  protected readonly icons = PAGE_ICONS;
+  protected tone(type: TransactionType) {
+    return type === 'Income' ? 'tone-pos' : type === 'Expense' ? 'tone-neg' : '';
+  }
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);

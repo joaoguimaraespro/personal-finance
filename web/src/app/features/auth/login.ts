@@ -1,15 +1,18 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
 import { problemMessage } from '../../core/toast';
 import { AuthLayoutComponent } from './auth-layout';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { APP_ICONS } from '../../shared/icons';
 
 @Component({
   selector: 'app-login',
-  imports: [HlmInputImports, HlmButtonImports, AuthLayoutComponent, TranslatePipe],
+  imports: [NgIcon, HlmInputImports, HlmButtonImports, AuthLayoutComponent, TranslatePipe],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-auth-layout
@@ -54,10 +57,15 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
             {{ 'auth.remember' | translate }}
           </label>
           @if (error()) {
-            <p class="text-sm text-rose-600">{{ error() }}</p>
+            <p class="tone-neg flex items-center gap-1.5 text-sm" role="alert">
+              <ng-icon name="lucideCircleAlert" class="shrink-0" aria-hidden="true" />{{ error() }}
+            </p>
           }
           <button hlmBtn class="w-full" [disabled]="busy()">
-            {{ 'auth.continue' | translate }}
+            <ng-icon
+              [name]="busy() ? 'lucideLoaderCircle' : 'lucideLogIn'"
+              [class]="busy() ? 'motion-safe:animate-spin' : ''"
+            />{{ 'auth.continue' | translate }}
           </button>
         </form>
       } @else {
@@ -75,9 +83,13 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
             (input)="code.set($any($event.target).value)"
           />
           @if (error()) {
-            <p class="text-sm text-rose-600">{{ error() }}</p>
+            <p class="tone-neg flex items-center gap-1.5 text-sm" role="alert">
+              <ng-icon name="lucideCircleAlert" class="shrink-0" aria-hidden="true" />{{ error() }}
+            </p>
           }
-          <button hlmBtn class="w-full" [disabled]="busy()">{{ 'auth.verify' | translate }}</button>
+          <button hlmBtn class="w-full" [disabled]="busy()">
+            <ng-icon name="lucideShieldCheck" />{{ 'auth.verify' | translate }}
+          </button>
           <button
             type="button"
             hlmBtn
@@ -86,7 +98,9 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
             class="w-full"
             (click)="useRecovery.set(!useRecovery())"
           >
-            {{ (useRecovery() ? 'auth.useCode' : 'auth.useRecovery') | translate }}
+            <ng-icon [name]="useRecovery() ? 'lucideSmartphone' : 'lucideKeyRound'" />{{
+              (useRecovery() ? 'auth.useCode' : 'auth.useRecovery') | translate
+            }}
           </button>
         </form>
       }

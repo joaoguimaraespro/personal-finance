@@ -20,10 +20,14 @@ import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { Confirm } from '../../core/confirm';
 import { DateFieldComponent } from '../../shared/date-field';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideBookOpen, lucideLoaderCircle, lucidePlus } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
 import { BrokerGuideComponent, GuideBroker } from './broker-guide';
 import { FieldProblem, friendlyError, validateCredentials } from './credentials';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { StatusBadgeComponent, StatusTone } from '../../shared/status-badge';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 type CredentialField = ProviderInfo['fields'][number];
 
@@ -31,6 +35,10 @@ type CredentialField = ProviderInfo['fields'][number];
 @Component({
   selector: 'app-connections',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
+    HlmTooltipImports,
     NgIcon,
     DateFieldComponent,
     HlmInputImports,
@@ -41,14 +49,14 @@ type CredentialField = ProviderInfo['fields'][number];
     BrokerGuideComponent,
     HlmSkeletonImports,
   ],
-  providers: [provideIcons({ lucidePlus, lucideBookOpen, lucideLoaderCircle })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-header">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.connections' | translate }}</h1>
-        <p class="text-sm text-muted-foreground">{{ 'connections.subtitle' | translate }}</p>
-      </div>
+    <app-page-header
+      [icon]="icons.connections"
+      [title]="'nav.connections' | translate"
+      [subtitle]="'connections.subtitle' | translate"
+    >
       <div class="flex flex-wrap gap-2">
         @for (p of providers.value() ?? []; track p.kind) {
           <button hlmBtn variant="outline" (click)="openNew(p)">
@@ -56,37 +64,62 @@ type CredentialField = ProviderInfo['fields'][number];
           </button>
         }
       </div>
-    </div>
+    </app-page-header>
 
     <div class="grid gap-4 lg:grid-cols-2">
       @for (c of connections.value() ?? []; track c.id) {
-        <section class="card relative overflow-hidden" [attr.aria-busy]="isRunning(c)">
+        <section
+          class="card card-hover relative flex flex-col overflow-hidden"
+          [attr.aria-busy]="isRunning(c)"
+        >
           @if (isRunning(c)) {
             <div class="loading-strip" aria-hidden="true"></div>
           }
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="font-semibold">{{ c.displayName }}</p>
-              <p class="text-xs text-muted-foreground">
-                {{ 'source.' + c.kind | translate }} · {{ 'connections.readOnly' | translate }}
-              </p>
+            <div class="flex min-w-0 items-center gap-3">
+              <span
+                class="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full"
+                aria-hidden="true"
+              >
+                <ng-icon name="lucideLandmark" class="text-lg" />
+              </span>
+              <div class="min-w-0">
+                <p class="truncate font-semibold">{{ c.displayName }}</p>
+                <p class="text-muted-foreground flex items-center gap-1 text-xs">
+                  {{ 'source.' + c.kind | translate }} ·
+                  <ng-icon name="lucideLock" class="text-[11px]" aria-hidden="true" />{{
+                    'connections.readOnly' | translate
+                  }}
+                </p>
+              </div>
             </div>
-            <span class="badge" [class]="statusClass(c)">{{
+            <app-status-badge [tone]="statusTone(c)">{{
               'connections.status.' + c.status | translate
-            }}</span>
+            }}</app-status-badge>
           </div>
           <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
             <div>
-              <dt class="text-xs text-muted-foreground">
-                {{ 'connections.lastSync' | translate }}
+              <dt class="text-muted-foreground flex items-center gap-1 text-xs">
+                <ng-icon name="lucideClock" aria-hidden="true" />{{
+                  'connections.lastSync' | translate
+                }}
               </dt>
-              <dd>{{ c.lastSuccessfulSyncUtc | day }}</dd>
+              <dd class="mt-0.5">{{ c.lastSuccessfulSyncUtc | day }}</dd>
             </div>
             <div>
-              <dt class="text-xs text-muted-foreground">{{ 'connections.lastRun' | translate }}</dt>
-              <dd>
+              <dt class="text-muted-foreground flex items-center gap-1 text-xs">
+                <ng-icon name="lucideActivity" aria-hidden="true" />{{
+                  'connections.lastRun' | translate
+                }}
+              </dt>
+              <dd class="mt-0.5">
                 @if (c.lastJob; as j) {
-                  {{ 'connections.outcome.' + j.outcome | translate }}
+                  <ng-icon
+                    [name]="outcomeIcon[j.outcome]"
+                    class="mr-1 align-[-2px]"
+                    [class]="outcomeTone[j.outcome]"
+                    aria-hidden="true"
+                  />{{ 'connections.outcome.' + j.outcome | translate }}
                   @if (j.outcome !== 'Running') {
                     · +{{ j.imported }} / ~{{ j.updated }}
                   }
@@ -104,11 +137,21 @@ type CredentialField = ProviderInfo['fields'][number];
               </dd>
             </div>
             @if (c.credentialsExpireOn) {
-              <div class="col-span-2" [class.text-amber-600]="expiresSoon(c)">
-                <dt class="text-xs text-muted-foreground">
-                  {{ 'connections.expires' | translate }}
+              <div
+                class="col-span-2"
+                [class]="expiresSoon(c) ? 'text-amber-700 dark:text-amber-300' : ''"
+              >
+                <dt class="text-muted-foreground flex items-center gap-1 text-xs">
+                  <ng-icon name="lucideCalendarClock" aria-hidden="true" />{{
+                    'connections.expires' | translate
+                  }}
                 </dt>
-                <dd>{{ c.credentialsExpireOn | day }}</dd>
+                <dd class="mt-0.5 flex items-center gap-1">
+                  @if (expiresSoon(c)) {
+                    <ng-icon name="lucideTriangleAlert" aria-hidden="true" />
+                  }
+                  {{ c.credentialsExpireOn | day }}
+                </dd>
               </div>
             }
           </dl>
@@ -136,26 +179,30 @@ type CredentialField = ProviderInfo['fields'][number];
           }
           @if (c.lastError) {
             <div
-              class="mt-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+              class="mt-3 flex gap-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 ring-1 ring-rose-600/10 ring-inset dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20"
             >
-              @if (friendly(c.lastError); as key) {
-                <!-- The broker's original message stays available on hover for troubleshooting. -->
-                <p [title]="c.lastError">{{ key | translate }}</p>
-              } @else {
-                <p>{{ c.lastError }}</p>
-              }
-              @if (guideFor(c.kind); as g) {
-                <button
-                  type="button"
-                  class="mt-1 font-medium underline underline-offset-2"
-                  (click)="showGuide(g)"
-                >
-                  {{ 'connections.fixHint' | translate }}
-                </button>
-              }
+              <ng-icon name="lucideCircleAlert" class="mt-px shrink-0 text-sm" aria-hidden="true" />
+              <div class="min-w-0">
+                @if (friendly(c.lastError); as key) {
+                  <!-- The broker's original message stays available on hover for troubleshooting. -->
+                  <p [title]="c.lastError">{{ key | translate }}</p>
+                } @else {
+                  <p>{{ c.lastError }}</p>
+                }
+                @if (guideFor(c.kind); as g) {
+                  <button
+                    type="button"
+                    class="mt-1 font-medium underline underline-offset-2"
+                    (click)="showGuide(g)"
+                  >
+                    {{ 'connections.fixHint' | translate }}
+                  </button>
+                }
+              </div>
             </div>
           }
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div class="flex-1"></div>
+          <div class="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
             <button
               hlmBtn
               size="sm"
@@ -170,12 +217,14 @@ type CredentialField = ProviderInfo['fields'][number];
                 />
                 {{ 'connections.syncing' | translate }}
               } @else {
-                {{ 'connections.syncNow' | translate }}
+                <ng-icon name="lucideRefreshCw" aria-hidden="true" />{{
+                  'connections.syncNow' | translate
+                }}
               }
             </button>
             @if (c.kind === 'Trading212') {
               <button hlmBtn variant="outline" size="sm" (click)="csv.click()">
-                {{ 'connections.importCsv' | translate }}
+                <ng-icon name="lucideFileUp" />{{ 'connections.importCsv' | translate }}
               </button>
               <input
                 #csv
@@ -187,31 +236,57 @@ type CredentialField = ProviderInfo['fields'][number];
                 "
               />
             }
-            <button hlmBtn variant="ghost" size="sm" (click)="showJobs(c)">
-              {{ 'connections.history' | translate }}
-            </button>
-            <button hlmBtn variant="ghost" size="sm" (click)="openCredentials(c)">
-              {{ 'connections.updateCredentials' | translate }}
-            </button>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              (click)="setEnabled(c, c.status === 'Disabled')"
-            >
-              {{
-                (c.status === 'Disabled' ? 'connections.enable' : 'connections.disable') | translate
-              }}
-            </button>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="sm"
-              class="text-destructive hover:text-destructive"
-              (click)="remove(c)"
-            >
-              {{ 'common.delete' | translate }}
-            </button>
+            <div class="ml-auto flex items-center gap-1">
+              <button
+                hlmBtn
+                variant="ghost"
+                size="icon-sm"
+                (click)="showJobs(c)"
+                [attr.aria-label]="'connections.history' | translate"
+                [hlmTooltip]="'connections.history' | translate"
+              >
+                <ng-icon name="lucideHistory" />
+              </button>
+              <button
+                hlmBtn
+                variant="ghost"
+                size="icon-sm"
+                (click)="openCredentials(c)"
+                [attr.aria-label]="'connections.updateCredentials' | translate"
+                [hlmTooltip]="'connections.updateCredentials' | translate"
+              >
+                <ng-icon name="lucideKeyRound" />
+              </button>
+              <button
+                hlmBtn
+                variant="ghost"
+                size="icon-sm"
+                (click)="setEnabled(c, c.status === 'Disabled')"
+                [attr.aria-label]="
+                  (c.status === 'Disabled' ? 'connections.enable' : 'connections.disable')
+                    | translate
+                "
+                [hlmTooltip]="
+                  (c.status === 'Disabled' ? 'connections.enable' : 'connections.disable')
+                    | translate
+                "
+              >
+                <ng-icon
+                  [name]="c.status === 'Disabled' ? 'lucideCirclePlay' : 'lucideCirclePause'"
+                />
+              </button>
+              <button
+                hlmBtn
+                variant="ghost"
+                size="icon-sm"
+                class="text-destructive hover:text-destructive"
+                (click)="remove(c)"
+                [attr.aria-label]="'common.delete' | translate"
+                [hlmTooltip]="'common.delete' | translate"
+              >
+                <ng-icon name="lucideTrash2" />
+              </button>
+            </div>
           </div>
         </section>
       } @empty {
@@ -236,11 +311,20 @@ type CredentialField = ProviderInfo['fields'][number];
             </section>
           }
         } @else if (connections.hasValue()) {
-          <section class="card col-span-full py-10 text-center">
-            <p class="font-semibold">{{ 'connections.emptyTitle' | translate }}</p>
-            <p class="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
-              {{ 'connections.emptyBody' | translate }}
-            </p>
+          <section class="card col-span-full !p-0">
+            <app-empty-state
+              icon="lucidePlug"
+              [title]="'connections.emptyTitle' | translate"
+              [text]="'connections.emptyBody' | translate"
+            >
+              <div class="flex flex-wrap justify-center gap-2">
+                @for (p of providers.value() ?? []; track p.kind) {
+                  <button hlmBtn size="sm" (click)="openNew(p)">
+                    <ng-icon name="lucidePlus" />{{ p.name }}
+                  </button>
+                }
+              </div>
+            </app-empty-state>
           </section>
         }
       }
@@ -254,20 +338,25 @@ type CredentialField = ProviderInfo['fields'][number];
         (toggle)="guideToggled.set($any($event.target).open)"
       >
         <summary
-          class="-m-5 flex cursor-pointer list-none items-center gap-3 rounded-2xl p-5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          class="-m-5 flex cursor-pointer list-none items-center gap-3 rounded-xl p-5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          <ng-icon name="lucideBookOpen" class="shrink-0 text-lg text-primary" aria-hidden="true" />
+          <span
+            class="bg-primary/10 text-primary dark:bg-primary/20 flex size-9 shrink-0 items-center justify-center rounded-lg"
+            aria-hidden="true"
+          >
+            <ng-icon name="lucideBookOpen" class="text-lg" />
+          </span>
           <span class="min-w-0 flex-1">
             <span class="block font-semibold">{{ 'connections.guide.title' | translate }}</span>
             <span class="block text-sm text-muted-foreground">{{
               'connections.guide.subtitle' | translate
             }}</span>
           </span>
-          <span
-            class="text-muted-foreground transition-transform group-open:rotate-180"
+          <ng-icon
+            name="lucideChevronDown"
+            class="text-muted-foreground shrink-0 transition-transform group-open:rotate-180"
             aria-hidden="true"
-            >▾</span
-          >
+          />
         </summary>
         <div class="mt-8">
           @if (guideBrokers().length > 1) {
@@ -305,7 +394,8 @@ type CredentialField = ProviderInfo['fields'][number];
         >
           @if (guideFor(p.kind); as g) {
             <details class="rounded-xl border border-border p-3">
-              <summary class="cursor-pointer text-sm font-medium">
+              <summary class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <ng-icon name="lucideBookOpen" class="text-primary" aria-hidden="true" />
                 {{ 'connections.setupGuide' | translate }}
               </summary>
               <div class="mt-3">
@@ -313,7 +403,11 @@ type CredentialField = ProviderInfo['fields'][number];
               </div>
             </details>
           } @else {
-            <p class="rounded-xl bg-muted p-3 text-xs text-muted-foreground">{{ p.setupHint }}</p>
+            <p class="bg-muted text-muted-foreground flex gap-2 rounded-xl p-3 text-xs">
+              <ng-icon name="lucideInfo" class="mt-px shrink-0" aria-hidden="true" />{{
+                p.setupHint
+              }}
+            </p>
           }
           @if (!editingId()) {
             <div>
@@ -395,14 +489,24 @@ type CredentialField = ProviderInfo['fields'][number];
               </p>
             </div>
           }
-          <p class="text-[11px] text-muted-foreground">
+          <p class="text-muted-foreground flex gap-1.5 text-[11px]">
+            <ng-icon
+              name="lucideShieldCheck"
+              class="mt-px shrink-0 text-primary"
+              aria-hidden="true"
+            />
             {{ 'connections.credentialsNote' | translate }}
           </p>
           <div class="flex justify-end gap-2">
             <button type="button" hlmBtn variant="outline" (click)="provider.set(null)">
               {{ 'common.cancel' | translate }}
             </button>
-            <button hlmBtn [disabled]="busy()">{{ 'common.save' | translate }}</button>
+            <button hlmBtn [disabled]="busy()">
+              <ng-icon
+                [name]="busy() ? 'lucideLoaderCircle' : 'lucideSave'"
+                [class]="busy() ? 'motion-safe:animate-spin' : ''"
+              />{{ 'common.save' | translate }}
+            </button>
           </div>
         </form>
       }
@@ -418,8 +522,12 @@ type CredentialField = ProviderInfo['fields'][number];
         @for (j of jobs() ?? []; track j.id) {
           <li class="rounded-xl border border-border p-3 text-sm">
             <div class="flex justify-between">
-              <span class="font-medium"
-                >{{ 'connections.outcome.' + j.outcome | translate }} ·
+              <span class="inline-flex items-center gap-1.5 font-medium"
+                ><ng-icon
+                  [name]="outcomeIcon[j.outcome]"
+                  [class]="outcomeTone[j.outcome]"
+                  aria-hidden="true"
+                />{{ 'connections.outcome.' + j.outcome | translate }} ·
                 {{ 'connections.trigger.' + j.trigger | translate }}</span
               >
               <span class="text-xs text-muted-foreground">{{ j.startedAtUtc | day }}</span>
@@ -431,7 +539,7 @@ type CredentialField = ProviderInfo['fields'][number];
               }}
             </p>
             @for (e of j.errors.slice(0, 5); track $index) {
-              <p class="text-xs text-rose-600">{{ e }}</p>
+              <p class="tone-neg text-xs">{{ e }}</p>
             }
           </li>
         }
@@ -440,6 +548,19 @@ type CredentialField = ProviderInfo['fields'][number];
   `,
 })
 export class ConnectionsComponent implements OnDestroy {
+  protected readonly icons = PAGE_ICONS;
+  protected readonly outcomeIcon: Record<SyncJob['outcome'], string> = {
+    Running: 'lucideLoaderCircle',
+    Succeeded: 'lucideCircleCheck',
+    PartiallySucceeded: 'lucideTriangleAlert',
+    Failed: 'lucideCircleX',
+  };
+  protected readonly outcomeTone: Record<SyncJob['outcome'], string> = {
+    Running: 'text-muted-foreground motion-safe:animate-spin',
+    Succeeded: 'tone-pos',
+    PartiallySucceeded: 'text-amber-600 dark:text-amber-400',
+    Failed: 'tone-neg',
+  };
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -519,12 +640,12 @@ export class ConnectionsComponent implements OnDestroy {
     clearInterval(this.poll);
   }
 
-  protected statusClass(c: Connection) {
+  protected statusTone(c: Connection): StatusTone {
     return c.status === 'Active'
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+      ? 'success'
       : c.status === 'NeedsAttention'
-        ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
-        : 'bg-muted text-muted-foreground';
+        ? 'warning'
+        : 'neutral';
   }
 
   protected expiresSoon(c: Connection) {

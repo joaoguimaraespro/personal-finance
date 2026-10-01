@@ -14,8 +14,11 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { EmptyStateComponent } from '../../shared/empty-state';
+import { StatusBadgeComponent } from '../../shared/status-badge';
 
 interface AccountForm {
   name: string;
@@ -40,6 +43,9 @@ const EMPTY: AccountForm = {
 @Component({
   selector: 'app-accounts',
   imports: [
+    PageHeaderComponent,
+    EmptyStateComponent,
+    StatusBadgeComponent,
     NgIcon,
     DateFieldComponent,
     SelectComponent,
@@ -49,12 +55,11 @@ const EMPTY: AccountForm = {
     MoneyPipe,
     ModalComponent,
   ],
-  providers: [provideIcons({ lucidePlus })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.accounts' | translate }}</h1>
-      <div class="flex gap-2">
+    <app-page-header [icon]="icons.accounts" [title]="'nav.accounts' | translate">
+      <div class="flex flex-wrap items-center gap-3">
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
@@ -67,48 +72,69 @@ const EMPTY: AccountForm = {
           <ng-icon name="lucidePlus" />{{ 'accounts.new' | translate }}
         </button>
       </div>
-    </div>
+    </app-page-header>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       @for (a of visible(); track a.id) {
-        <div class="card" [class.opacity-60]="a.archived">
-          <div class="flex items-start justify-between">
-            <div>
-              <p class="font-semibold">{{ a.name }}</p>
-              <p class="text-xs text-muted-foreground">
-                {{ 'accountKind.' + a.kind | translate }}
-                @if (a.institution) {
-                  · {{ a.institution }}
-                }
-                @if (a.identifierMasked) {
-                  · {{ a.identifierMasked }}
-                }
-              </p>
+        <div class="card card-hover flex flex-col" [class.opacity-60]="a.archived">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <span
+                class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
+                aria-hidden="true"
+              >
+                <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
+              </span>
+              <div class="min-w-0">
+                <p class="truncate font-semibold">{{ a.name }}</p>
+                <p class="text-xs text-muted-foreground">
+                  {{ 'accountKind.' + a.kind | translate }}
+                  @if (a.institution) {
+                    · {{ a.institution }}
+                  }
+                  @if (a.identifierMasked) {
+                    · <span class="font-mono">{{ a.identifierMasked }}</span>
+                  }
+                </p>
+              </div>
             </div>
             @if (!a.isManual) {
-              <span
-                class="badge bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-                >{{ 'accounts.readOnly' | translate }}</span
-              >
+              <app-status-badge tone="info" icon="lucideLock">{{
+                'accounts.readOnly' | translate
+              }}</app-status-badge>
+            } @else if (a.archived) {
+              <app-status-badge icon="lucideArchive">{{
+                'common.archive' | translate
+              }}</app-status-badge>
             }
           </div>
-          <p class="num mt-4 text-2xl font-semibold" [class.text-rose-600]="a.balance < 0">
+          <p
+            class="num mt-5 text-2xl font-semibold tracking-tight"
+            [class.tone-neg]="a.balance < 0"
+          >
             {{ a.balance | money: a.currency }}
           </p>
+          <div class="flex-1"></div>
           @if (a.isManual) {
-            <div class="mt-4 flex gap-2">
+            <div class="mt-4 flex gap-2 border-t pt-4">
               <button hlmBtn variant="outline" size="sm" (click)="openEdit(a)">
-                {{ 'common.edit' | translate }}
+                <ng-icon name="lucidePencil" />{{ 'common.edit' | translate }}
               </button>
               <button hlmBtn variant="ghost" size="sm" (click)="toggleArchive(a)">
-                {{ (a.archived ? 'common.restore' : 'common.archive') | translate }}
+                <ng-icon [name]="a.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />{{
+                  (a.archived ? 'common.restore' : 'common.archive') | translate
+                }}
               </button>
             </div>
           }
         </div>
       } @empty {
-        <div class="card col-span-full py-12 text-center text-muted-foreground">
-          {{ 'accounts.empty' | translate }}
+        <div class="card col-span-full !p-0">
+          <app-empty-state [icon]="icons.accounts" [text]="'accounts.empty' | translate">
+            <button hlmBtn size="sm" (click)="openNew()">
+              <ng-icon name="lucidePlus" />{{ 'accounts.new' | translate }}
+            </button>
+          </app-empty-state>
         </div>
       }
     </div>
@@ -200,13 +226,23 @@ const EMPTY: AccountForm = {
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn>{{ 'common.save' | translate }}</button>
+          <button hlmBtn><ng-icon name="lucideSave" />{{ 'common.save' | translate }}</button>
         </div>
       </form>
     </app-modal>
   `,
 })
 export class AccountsComponent {
+  protected readonly icons = PAGE_ICONS;
+  protected readonly kindIcon: Record<AccountKind, string> = {
+    Bank: 'lucideLandmark',
+    Cash: 'lucideBanknote',
+    CreditCard: 'lucideCreditCard',
+    Savings: 'lucidePiggyBank',
+    Broker: 'lucideBriefcase',
+    Loan: 'lucideHandCoins',
+    Other: 'lucideWallet',
+  };
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);

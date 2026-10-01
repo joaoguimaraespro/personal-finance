@@ -42,7 +42,12 @@
   "viewAll": "View all",
   "showArchived": "Show archived",
   "error": "Something went wrong",
-  "confirm": "Confirm"
+  "confirm": "Confirm",
+  "previousYear": "Previous year",
+  "nextYear": "Next year",
+  "previousPage": "Previous page",
+  "nextPage": "Next page",
+  "remove": "Remove"
  },
  "auth": {
   "signIn": "Sign in",
@@ -283,7 +288,9 @@
   },
   "cashAccount": "Cash account",
   "brokerAccount": "Broker / wallet (optional)",
-  "investmentHint": "Investments are reported separately from everyday income and expenses."
+  "investmentHint": "Investments are reported separately from everyday income and expenses.",
+  "emptyFiltered": "Try another search, date range or type, or clear the filters.",
+  "emptyHint": "Add your first transaction, or import a spreadsheet or bank export."
  },
  "recurring": {
   "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.",
@@ -303,7 +310,9 @@
   "frequency": "Frequency",
   "dayOfMonth": "Day of month",
   "start": "Starts",
-  "end": "Ends (optional)"
+  "end": "Ends (optional)",
+  "active": "Active",
+  "paused": "Paused"
  },
  "budgets": {
   "subtitle": "Each version applies from its month onwards — changing it never rewrites past months.",
@@ -331,7 +340,8 @@
   "starting": "Already saved",
   "manual": "Override current amount",
   "howProgress": "Progress = already saved + savings transactions linked to this goal, unless you override it.",
-  "empty": "No goals yet."
+  "empty": "No goals yet.",
+  "inProgress": "In progress"
  },
  "accounts": {
   "new": "New account",
@@ -427,7 +437,8 @@
   "file": "File",
   "created": "Created",
   "undo": "Undo import",
-  "undone": "{{count}} transactions removed"
+  "undone": "{{count}} transactions removed",
+  "noHistory": "No imports yet."
  },
  "settings": {
   "appearance": "Appearance",

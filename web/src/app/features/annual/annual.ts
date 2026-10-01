@@ -16,12 +16,18 @@ import {
 } from '../../shared/chart-options';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
+import { NgIcon } from '@ng-icons/core';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
+import { KpiComponent } from '../../shared/kpi';
+import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 @Component({
   selector: 'app-annual',
   imports: [
+    PageHeaderComponent,
+    KpiComponent,
+    HlmTooltipImports,
     NgIcon,
     HlmTableImports,
     HlmButtonImports,
@@ -31,18 +37,18 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
     PercentPipe,
     MonthNamePipe,
   ],
-  providers: [provideIcons({ lucideChevronLeft, lucideChevronRight })],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'annual.title' | translate }}</h1>
+    <app-page-header [icon]="icons.annual" [title]="'annual.title' | translate">
       <div class="inline-flex items-center gap-1">
         <button
           hlmBtn
           variant="outline"
           size="icon"
           (click)="year.set(year() - 1)"
-          aria-label="Previous year"
+          [attr.aria-label]="'common.previousYear' | translate"
+          [hlmTooltip]="'common.previousYear' | translate"
         >
           <ng-icon name="lucideChevronLeft" />
         </button>
@@ -55,15 +61,54 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
           variant="outline"
           size="icon"
           (click)="year.set(year() + 1)"
-          aria-label="Next year"
+          [attr.aria-label]="'common.nextYear' | translate"
+          [hlmTooltip]="'common.nextYear' | translate"
         >
           <ng-icon name="lucideChevronRight" />
         </button>
       </div>
-    </div>
+    </app-page-header>
 
     @if (annual.value(); as a) {
+      <section class="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <app-kpi
+          [label]="'kpi.income' | translate"
+          [value]="a.totals.income"
+          [color]="colors.income"
+          icon="lucideArrowDownLeft"
+        />
+        <app-kpi
+          [label]="'kpi.expenses' | translate"
+          [value]="a.totals.totalExpenses"
+          [color]="colors.expenses"
+          icon="lucideArrowUpRight"
+        />
+        <app-kpi
+          [label]="'kpi.invested' | translate"
+          [value]="a.totals.invested"
+          [color]="colors.invested"
+          icon="lucideBriefcase"
+        />
+        <app-kpi
+          [label]="'kpi.saved' | translate"
+          [value]="a.totals.saved"
+          [color]="colors.saved"
+          icon="lucidePiggyBank"
+        />
+        <app-kpi
+          class="col-span-2 md:col-span-1"
+          [label]="'kpi.avgSavingsRate' | translate"
+          [value]="a.totals.averageMonthlySavingsRate"
+          kind="percent"
+          color="#f59e0b"
+          icon="lucideGauge"
+        />
+      </section>
+
       <section class="card overflow-x-auto !p-0">
+        <h2 class="card-title px-5 pt-5">
+          <ng-icon name="lucideCalendarDays" />{{ 'annual.title' | translate }} {{ a.year }}
+        </h2>
         <table hlmTable class="whitespace-nowrap">
           <thead hlmTHead>
             <tr hlmTr>
@@ -101,7 +146,8 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
                 <td
                   hlmTd
                   class="num text-right font-medium"
-                  [class.text-rose-600]="r.month.netBalance < 0"
+                  [class.tone-neg]="r.month.netBalance < 0"
+                  [class.tone-pos]="r.month.transactionCount && r.month.netBalance > 0"
                 >
                   {{ r.month.netBalance | money }}
                 </td>
@@ -148,11 +194,15 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
 
       <section class="mt-6 grid gap-4 lg:grid-cols-2">
         <div class="card">
-          <h2 class="card-title">{{ 'charts.monthlyFlows' | translate }}</h2>
+          <h2 class="card-title">
+            <ng-icon name="lucideChartColumn" />{{ 'charts.monthlyFlows' | translate }}
+          </h2>
           <app-chart class="h-72" [option]="flows()" />
         </div>
         <div class="card">
-          <h2 class="card-title">{{ 'charts.cumulative' | translate }}</h2>
+          <h2 class="card-title">
+            <ng-icon name="lucideChartArea" />{{ 'charts.cumulative' | translate }}
+          </h2>
           <app-chart class="h-72" [option]="cumulative()" />
         </div>
       </section>
@@ -160,6 +210,8 @@ import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
   `,
 })
 export class AnnualComponent {
+  protected readonly icons = PAGE_ICONS;
+  protected readonly colors = SERIES_COLORS;
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly prefs = inject(Prefs);

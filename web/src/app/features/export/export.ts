@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
@@ -9,6 +10,8 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { DateFieldComponent } from '../../shared/date-field';
 import { MonthPickerComponent } from '../../shared/month-picker';
+import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
+import { PageHeaderComponent } from '../../shared/page-header';
 
 type Kind =
   'Month' | 'Year' | 'Period' | 'All' | 'Expenses' | 'Income' | 'Investments' | 'Portfolio';
@@ -18,22 +21,28 @@ type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades'
 @Component({
   selector: 'app-export',
   imports: [
+    NgIcon,
+    PageHeaderComponent,
     MonthPickerComponent,
     DateFieldComponent,
     HlmInputImports,
     HlmButtonImports,
     TranslatePipe,
   ],
+  providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-6">
-      <h1 class="text-2xl font-semibold tracking-tight">{{ 'export.title' | translate }}</h1>
-      <p class="text-sm text-muted-foreground">{{ 'export.subtitle' | translate }}</p>
-    </div>
+    <app-page-header
+      [icon]="icons.export"
+      [title]="'export.title' | translate"
+      [subtitle]="'export.subtitle' | translate"
+    />
 
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="card space-y-4">
-        <h2 class="card-title">{{ 'export.excel' | translate }}</h2>
+        <h2 class="card-title">
+          <ng-icon name="lucideFileSpreadsheet" />{{ 'export.excel' | translate }}
+        </h2>
         <div class="flex flex-wrap gap-2">
           @for (k of kinds; track k) {
             <button class="chip" [class.chip-active]="kind() === k" (click)="kind.set(k)">
@@ -52,7 +61,7 @@ type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades'
             (input)="year.set(+$any($event.target).value)"
           />
         } @else if (kind() === 'Period') {
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
             <app-date-field
               [value]="from()"
               [placeholder]="'common.from' | translate"
@@ -67,11 +76,13 @@ type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades'
             />
           </div>
         }
-        <a hlmBtn [href]="xlsxUrl()" download>{{ 'export.downloadXlsx' | translate }}</a>
+        <a hlmBtn [href]="xlsxUrl()" download
+          ><ng-icon name="lucideDownload" />{{ 'export.downloadXlsx' | translate }}</a
+        >
       </section>
 
       <section class="card space-y-4">
-        <h2 class="card-title">CSV</h2>
+        <h2 class="card-title"><ng-icon name="lucideFileDown" />CSV</h2>
         <div class="flex flex-wrap gap-2">
           @for (d of datasets; track d) {
             <button class="chip" [class.chip-active]="dataset() === d" (click)="dataset.set(d)">
@@ -87,26 +98,30 @@ type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades'
           />
           {{ 'export.excelPt' | translate }}
         </label>
-        <a hlmBtn variant="outline" [href]="csvUrl()" download>{{
-          'export.downloadCsv' | translate
-        }}</a>
+        <a hlmBtn variant="outline" [href]="csvUrl()" download
+          ><ng-icon name="lucideDownload" />{{ 'export.downloadCsv' | translate }}</a
+        >
       </section>
 
       <section class="card space-y-3">
-        <h2 class="card-title">{{ 'export.archive' | translate }}</h2>
+        <h2 class="card-title">
+          <ng-icon name="lucideArchive" />{{ 'export.archive' | translate }}
+        </h2>
         <p class="text-sm text-muted-foreground">{{ 'export.archiveHelp' | translate }}</p>
-        <a hlmBtn variant="outline" href="/api/exports/json" download>{{
-          'export.downloadJson' | translate
-        }}</a>
+        <a hlmBtn variant="outline" href="/api/exports/json" download
+          ><ng-icon name="lucideCloudDownload" />{{ 'export.downloadJson' | translate }}</a
+        >
       </section>
 
       <section class="card space-y-3">
-        <h2 class="card-title">{{ 'export.restore' | translate }}</h2>
+        <h2 class="card-title">
+          <ng-icon name="lucideArchiveRestore" />{{ 'export.restore' | translate }}
+        </h2>
         <p class="text-sm text-muted-foreground">{{ 'export.restoreHelp' | translate }}</p>
         <input
           type="file"
           accept="application/json,.json"
-          class="block text-sm"
+          class="text-muted-foreground block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary"
           (change)="restore($any($event.target).files?.[0]); $any($event.target).value = ''"
         />
       </section>
@@ -114,6 +129,7 @@ type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades'
   `,
 })
 export class ExportComponent {
+  protected readonly icons = PAGE_ICONS;
   private readonly http = inject(HttpClient);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
