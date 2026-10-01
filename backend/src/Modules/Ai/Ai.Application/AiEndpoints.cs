@@ -176,6 +176,27 @@ public static class AiEndpoints
             return Results.NoContent();
         });
 
+        // Permanent removal. The token stops working at once (like a revoke); audit events keep the client's name,
+        // so the history of what it read stays reviewable. The in-app assistant can only be revoked.
+        group.MapDelete("/clients/{id:guid}", async (Guid id, IAiDb db, CancellationToken ct) =>
+        {
+            var client = await db.Clients.FindAsync([id], ct);
+            if (client is null)
+            {
+                return ResultHttp.Problem(Error.NotFound("AiClient.NotFound", "Client not found."));
+            }
+
+            if (client.Internal)
+            {
+                return ResultHttp.Problem(Error.Conflict("AiClient.Internal",
+                    "The in-app assistant can be revoked or re-scoped, not deleted."));
+            }
+
+            db.Clients.Remove(client);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         // In-app assistant (owner session). Conversations are not stored; tools run through the gateway above.
         var assistant = api.MapGroup("/assistant").WithTags("Assistant");
 

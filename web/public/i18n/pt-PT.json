@@ -788,7 +788,9 @@
   "copied": "Copiado",
   "copyFailed": "Falhou a cópia — seleciona o texto manualmente.",
   "confirmRevoke": "Revogar \"{{name}}\"? Deixa de funcionar de imediato.",
-  "internal": "interno"
+  "internal": "interno",
+  "confirmDelete": "Eliminar \"{{name}}\" definitivamente? O token deixa de funcionar de imediato e desaparece desta lista. O histórico de auditoria é mantido.",
+  "deleted": "\"{{name}}\" eliminado."
  },
  "assistant": {
   "subtitle": "Pergunta sobre as tuas finanças. As respostas usam as mesmas ferramentas só de leitura e com permissões dos clientes MCP.",
