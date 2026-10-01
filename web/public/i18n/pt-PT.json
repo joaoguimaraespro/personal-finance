@@ -800,5 +800,12 @@
   "send": "Perguntar",
   "used": "Usou:",
   "privacy": "A tua pergunta e apenas os resultados mínimos das ferramentas são enviados para {{model}} (API da Anthropic). As conversas não são guardadas. Permissões: {{scopes}}."
+ },
+ "session": {
+  "warning": "A tua sessão termina em {{time}} por inatividade.",
+  "stay": "Continuar sessão",
+  "signOut": "Terminar sessão",
+  "expired": "A tua sessão terminou. Entra novamente para continuares onde estavas.",
+  "timeout": "O servidor não respondeu. Verifica a ligação (Tailscale) e tenta de novo."
  }
 }

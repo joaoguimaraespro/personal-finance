@@ -6,8 +6,11 @@ using System.Text.Encodings.Web;
 using FluentValidation;
 using Finance.Application.Http;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SharedKernel;
 
 namespace Host.Api.Auth;
@@ -26,6 +29,9 @@ public sealed record LoginResponse(string Status);
 
 public sealed record MeResponse(bool Authenticated, bool SetupRequired, string? Email, bool MfaEnabled, bool MfaSatisfied);
 
+/// <summary>When the current session ends if nothing renews it, so the UI can warn before it does.</summary>
+public sealed record SessionResponse(DateTimeOffset ExpiresAtUtc, int IdleTimeoutMinutes, bool Persistent);
+
 public sealed record MfaSetupResponse(string SharedKey, string OtpAuthUri);
 
 public sealed class SetupValidator : AbstractValidator<SetupRequest>
@@ -41,6 +47,9 @@ public sealed class SetupValidator : AbstractValidator<SetupRequest>
 public static class AuthEndpoints
 {
     public const string MfaPolicy = "mfa";
+
+    /// <summary>Relative to /api/auth. Requests to it must not slide the session (Program.cs).</summary>
+    public const string SessionPath = "/session";
     public const string LoginRateLimit = "login";
     private const string Issuer = "Personal Finance";
 
@@ -152,6 +161,37 @@ public static class AuthEndpoints
             await signIn.SignOutAsync();
             return Results.NoContent();
         });
+
+        // Session status for the UI. Reading it never extends the session (see OnCheckSlidingExpiration), so an idle
+        // tab that polls it still times out; only real use or an explicit extend keeps the session alive.
+        group.MapGet(SessionPath, async (HttpContext ctx, IOptionsMonitor<CookieAuthenticationOptions> cookies,
+            TimeProvider clock) =>
+        {
+            var auth = await ctx.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+            var idle = cookies.Get(IdentityConstants.ApplicationScheme).ExpireTimeSpan;
+            return Results.Ok(new SessionResponse(auth.Properties?.ExpiresUtc ?? clock.GetUtcNow().Add(idle),
+                (int)idle.TotalMinutes, auth.Properties?.IsPersistent ?? false));
+        }).RequireAuthorization(MfaPolicy);
+
+        // "Stay signed in": re-issue the same ticket (same claims, including amr=mfa) with a fresh idle timeout.
+        group.MapPost(SessionPath + "/extend", async (HttpContext ctx,
+            IOptionsMonitor<CookieAuthenticationOptions> cookies, TimeProvider clock) =>
+        {
+            var auth = await ctx.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+            if (!auth.Succeeded || auth.Principal is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var idle = cookies.Get(IdentityConstants.ApplicationScheme).ExpireTimeSpan;
+            var properties = auth.Properties ?? new AuthenticationProperties();
+            var now = clock.GetUtcNow();
+            properties.IssuedUtc = now;
+            properties.ExpiresUtc = now.Add(idle);
+            await ctx.SignInAsync(IdentityConstants.ApplicationScheme, auth.Principal, properties);
+            return Results.Ok(new SessionResponse(properties.ExpiresUtc.Value, (int)idle.TotalMinutes,
+                properties.IsPersistent));
+        }).RequireAuthorization(MfaPolicy);
 
         var mfa = group.MapGroup("/mfa").RequireAuthorization();
 

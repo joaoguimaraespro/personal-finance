@@ -800,5 +800,12 @@
   "send": "Ask",
   "used": "Used:",
   "privacy": "Your question and only the minimal tool results are sent to {{model}} (Anthropic API). Conversations are not stored. Permissions: {{scopes}}."
+ },
+ "session": {
+  "warning": "Your session ends in {{time}} due to inactivity.",
+  "stay": "Stay signed in",
+  "signOut": "Sign out",
+  "expired": "Your session ended. Sign in again to continue where you left off.",
+  "timeout": "The server didn't respond. Check your connection (Tailscale) and try again."
  }
 }
