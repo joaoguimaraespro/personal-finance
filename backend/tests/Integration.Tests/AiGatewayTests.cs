@@ -260,7 +260,8 @@ public sealed class AiGatewayTests(ApiFactory factory)
 
         client.ServerInstructions!.ShouldContain("untrusted_text");
         var tools = await client.ListToolsAsync();
-        tools.Select(t => t.Name).ShouldBe(["get_financial_overview", "get_monthly_summary", "get_expense_summary"], ignoreOrder: true);
+        tools.Select(t => t.Name).ShouldBe(["get_financial_overview", "get_year_breakdown", "get_monthly_summary", "get_expense_summary"],
+            ignoreOrder: true);
         tools.ShouldAllBe(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true && t.ProtocolTool.Annotations.DestructiveHint == false);
 
         var result = await client.CallToolAsync("get_expense_summary",

@@ -148,6 +148,7 @@ builder.Services.AddAntiforgery(o =>
 
 // ---- Rate limiting
 var loginPermits = config.GetValue("RateLimits:LoginPerMinute", 10);
+var globalPermits = config.GetValue("RateLimits:GlobalPerMinute", 600);
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -158,7 +159,7 @@ builder.Services.AddRateLimiter(o =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
     o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 600, Window = TimeSpan.FromMinutes(1) }));
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = globalPermits, Window = TimeSpan.FromMinutes(1) }));
 });
 
 builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "postgres", tags: ["ready"]);

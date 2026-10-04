@@ -29,6 +29,11 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
     public Task<string> GetFinancialOverview([Description("Calendar year. Defaults to the current year.")] int? year = null,
         CancellationToken ct = default) => Call("get_financial_overview", ct, ("year", year));
 
+    [McpServerTool(Name = "get_year_breakdown", Title = "Year month by month", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("A year month by month: income, fixed and variable expenses, invested, saved, net balance and savings rate per month, plus the year's totals.")]
+    public Task<string> GetYearBreakdown([Description("Calendar year. Defaults to the current year.")] int? year = null,
+        CancellationToken ct = default) => Call("get_year_breakdown", ct, ("year", year));
+
     [McpServerTool(Name = "get_monthly_summary", Title = "Monthly summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("One month's income, fixed and variable expenses, invested, saved, net balance, savings rate and expense budget, with the previous month.")]
     public Task<string> GetMonthlySummary([Description("Month as yyyy-MM. Defaults to the current month.")] string? period = null,
@@ -47,6 +52,19 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         [Description("Maximum rows (1-50, default 20).")] int? limit = null,
         CancellationToken ct = default) => Call("get_expense_transactions", ct, ("period", period), ("category", category), ("limit", limit));
 
+    [McpServerTool(Name = "get_transactions", Title = "Transactions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Individual transactions of any type for a month or a date range (up to 12 months), optionally by type, category or a word in the description; newest first (max 50) with the count and EUR total of everything matched. Descriptions are user data inside untrusted_text.")]
+    public Task<string> GetTransactions(
+        [Description("expense, income, investment (buys and sells), transfer or savings. Omit for all.")] string? type = null,
+        [Description("Month as yyyy-MM. Defaults to the current month when no from/to is given.")] string? period = null,
+        [Description("Start date yyyy-MM-dd (instead of period).")] string? from = null,
+        [Description("End date yyyy-MM-dd (instead of period; default today). At most 12 months after from.")] string? to = null,
+        [Description("Expense or income category key or name.")] string? category = null,
+        [Description("A word or short phrase in the description or investment symbol/name (2-40 characters).")] string? search = null,
+        [Description("Maximum rows (1-50, default 20).")] int? limit = null,
+        CancellationToken ct = default) => Call("get_transactions", ct, ("type", type), ("period", period), ("from", from),
+        ("to", to), ("category", category), ("search", search), ("limit", limit));
+
     [McpServerTool(Name = "get_income_summary", Title = "Income summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Income for a month or a year, by category.")]
     public Task<string> GetIncomeSummary([Description("Month as yyyy-MM.")] string? period = null,
@@ -57,14 +75,34 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
     [Description("Current net worth by group and its change since tracking started.")]
     public Task<string> GetNetWorth(CancellationToken ct = default) => Call("get_net_worth", ct);
 
+    [McpServerTool(Name = "get_net_worth_history", Title = "Net worth history", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Month-end net worth, assets and liabilities over time.")]
+    public Task<string> GetNetWorthHistory([Description("1y, 3y or all (default all).")] string? range = null,
+        CancellationToken ct = default) => Call("get_net_worth_history", ct, ("range", range));
+
+    [McpServerTool(Name = "get_accounts", Title = "Accounts", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Each account's type, institution and current balance in EUR (broker accounts and crypto locations valued from the portfolio; archived accounts excluded). Savings and current accounts add their rate (TANB), withholding and interest this year (estimated vs confirmed).")]
+    public Task<string> GetAccounts([Description("Optional account type: Bank, Cash, CreditCard, Savings, Broker, Loan or Other.")] string? kind = null,
+        CancellationToken ct = default) => Call("get_accounts", ct, ("kind", kind));
+
+    [McpServerTool(Name = "get_recurring", Title = "Recurring items", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Recurring income and expenses (salary, rent, subscriptions) with amount, frequency and category, the monthly fixed-cost total, and what is due or awaiting confirmation in the next days.")]
+    public Task<string> GetRecurring([Description("Look-ahead for upcoming items in days (1-90, default 30).")] int? days = null,
+        CancellationToken ct = default) => Call("get_recurring", ct, ("days", days));
+
     [McpServerTool(Name = "get_portfolio_summary", Title = "Portfolio summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Portfolio value, net contributions, total return, unrealised/realised P&L, dividends and fees.")]
-    public Task<string> GetPortfolioSummary([Description("Optional broker: Trading212, InteractiveBrokers or Demo.")] string? broker = null,
+    [Description("Portfolio value, today's change, net contributions, total return, unrealised/realised P&L, dividends and fees.")]
+    public Task<string> GetPortfolioSummary([Description("Optional: Trading212, InteractiveBrokers, Manual (crypto entered by hand) or Demo.")] string? broker = null,
         CancellationToken ct = default) => Call("get_portfolio_summary", ct, ("broker", broker));
 
+    [McpServerTool(Name = "get_allocation", Title = "Allocation", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Portfolio allocation by asset class (including cash): value and actual share against the target share.")]
+    public Task<string> GetAllocation([Description("Optional: Trading212, InteractiveBrokers, Manual (crypto entered by hand) or Demo.")] string? broker = null,
+        CancellationToken ct = default) => Call("get_allocation", ct, ("broker", broker));
+
     [McpServerTool(Name = "get_positions", Title = "Positions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Largest holdings with weight, value and P&L.")]
-    public Task<string> GetPositions([Description("Optional broker filter.")] string? broker = null,
+    [Description("Largest holdings with asset class, weight, value, today's change and P&L. Crypto entered by hand is marked source manual with its location.")]
+    public Task<string> GetPositions([Description("Optional: Trading212, InteractiveBrokers, Manual (crypto entered by hand) or Demo.")] string? broker = null,
         [Description("Number of positions (1-25, default 10).")] int? top = null,
         CancellationToken ct = default) => Call("get_positions", ct, ("broker", broker), ("top", top));
 
@@ -74,7 +112,7 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         CancellationToken ct = default) => Call("get_portfolio_performance", ct, ("range", range));
 
     [McpServerTool(Name = "get_dividend_summary", Title = "Dividend summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Dividends received by month and by security.")]
+    [Description("Dividends and crypto rewards (staking, earn, airdrops) received, by month and by security, with each total separately.")]
     public Task<string> GetDividendSummary([Description("Calendar year. Omit for all years.")] int? year = null,
         CancellationToken ct = default) => Call("get_dividend_summary", ct, ("year", year));
 

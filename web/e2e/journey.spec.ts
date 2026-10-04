@@ -137,7 +137,15 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   };
   await mcp('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } });
   const tools = (await mcp('tools/list')).tools.map((t: { name: string }) => t.name).sort();
-  expect(tools).toEqual(['get_budget_status', 'get_expense_summary', 'get_financial_overview', 'get_goals', 'get_income_summary', 'get_monthly_summary']);
+  expect(tools).toEqual([
+    'get_budget_status',
+    'get_expense_summary',
+    'get_financial_overview',
+    'get_goals',
+    'get_income_summary',
+    'get_monthly_summary',
+    'get_year_breakdown', // overview.read
+  ]);
   const call = await mcp('tools/call', { name: 'get_expense_summary', arguments: { category: 'restaurants' } });
   expect(call.content[0].text).toContain('"category":"Restaurants"');
   const denied = await page.request.post('/mcp', {

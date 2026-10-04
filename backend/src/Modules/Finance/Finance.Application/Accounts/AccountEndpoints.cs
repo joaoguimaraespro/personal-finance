@@ -200,7 +200,7 @@ public static class AccountEndpoints
         interest ?? (a.SupportsInterest ? new AccountInterestDto(null, null, null, a.InterestPayout, 0, 0, 0) : null));
 
     /// <summary>Current rate and this year's interest (real + estimated) for every account that can earn interest.</summary>
-    private static async Task<Dictionary<Guid, AccountInterestDto>> InterestSummariesAsync(IFinanceDb db,
+    public static async Task<Dictionary<Guid, AccountInterestDto>> InterestSummariesAsync(IFinanceDb db,
         IReadOnlyCollection<Account> accounts, DateOnly today, CancellationToken ct)
     {
         var ids = accounts.Where(a => a.SupportsInterest).Select(a => a.Id).ToList();
