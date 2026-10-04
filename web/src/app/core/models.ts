@@ -538,15 +538,24 @@ export interface PortfolioSummary {
   fees: number;
   positions: number;
   lastSyncUtc: string | null;
-  accounts: {
-    accountId: string;
-    name: string;
-    broker: Broker;
-    marketValue: number;
-    cash: number;
-  }[];
+  accounts: AccountTotal[];
   dayChange: number | null;
   dayChangePercent: number | null;
+}
+
+/** One account of the portfolio (a broker account or a crypto wallet), as its own scoped summary would show it. */
+export interface AccountTotal {
+  accountId: string;
+  name: string;
+  broker: Broker;
+  marketValue: number;
+  cash: number;
+  netContributions: number;
+  totalReturn: number;
+  totalReturnPercent: number | null;
+  dayChange: number | null;
+  dayChangePercent: number | null;
+  positions: number;
 }
 
 export interface PositionLine {

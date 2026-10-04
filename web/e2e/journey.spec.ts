@@ -106,6 +106,13 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await expect(page.getByText('TWR')).toBeVisible();
   await page.waitForTimeout(1000);
   if (shots) await page.screenshot({ path: `${shots}/portfolio.png`, fullPage: true });
+  // Each account is a wallet card at the top; picking one scopes the whole page to it.
+  const walletA = page.getByRole('button', { name: /Demo broker A/ });
+  await walletA.click();
+  await expect(walletA).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText(/Total value\s*· Demo broker A/)).toBeVisible();
+  await page.getByRole('button', { name: /^All/ }).click();
+  await expect(walletA).toHaveAttribute('aria-pressed', 'false');
 
   await page.goto('/net-worth');
   await expect(page.getByText('Net worth over time')).toBeVisible();

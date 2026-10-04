@@ -24,6 +24,7 @@ import { DateFieldComponent } from '../../shared/date-field';
 import { APP_ICONS } from '../../shared/icons';
 import { ModalComponent } from '../../shared/modal';
 import { SelectComponent, SelectOption } from '../../shared/select';
+import { CoinIconComponent } from '../../shared/coin-icon';
 import { CoinSearchComponent } from './coin-search';
 
 type Field = 'coin' | 'quantity' | 'price' | 'location' | 'heldSince' | 'notes';
@@ -62,6 +63,7 @@ export function parseAmount(text: string): number | null {
   imports: [
     ModalComponent,
     CoinSearchComponent,
+    CoinIconComponent,
     DateFieldComponent,
     SelectComponent,
     HlmInputImports,
@@ -84,7 +86,7 @@ export function parseAmount(text: string): number | null {
           <label class="label" for="crypto-coin">{{ 'crypto.coin' | translate }}</label>
           @if (coin(); as c) {
             <div class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-              <ng-icon name="lucideCoins" class="text-amber-500" aria-hidden="true" />
+              <app-coin-icon [symbol]="c.symbol" [size]="22" />
               <span class="font-medium">{{ c.symbol }}</span>
               <span class="min-w-0 flex-1 truncate text-muted-foreground">{{ c.name }}</span>
               @if (!holding()) {
@@ -150,26 +152,45 @@ export function parseAmount(text: string): number | null {
 
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <label class="label" for="crypto-location">{{ 'crypto.location' | translate }}</label>
-            <input
-              id="crypto-location"
-              hlmInput
-              class="w-full"
-              list="crypto-locations"
-              autocomplete="off"
-              maxlength="80"
-              [placeholder]="'crypto.locationPlaceholder' | translate"
-              [attr.aria-invalid]="!!errors().location || null"
-              [value]="location()"
-              (input)="location.set($any($event.target).value)"
-            />
-            <datalist id="crypto-locations">
-              @for (l of locationSuggestions(); track l) {
-                <option [value]="l"></option>
-              }
-            </datalist>
+            @if (locations().length) {
+              <label class="label" for="crypto-wallet">{{ 'crypto.wallet' | translate }}</label>
+              <app-select
+                inputId="crypto-wallet"
+                [options]="walletOptions()"
+                [value]="creatingWallet() ? newWalletKey : location() || null"
+                [placeholder]="'crypto.pickWallet' | translate"
+                (valueChange)="pickWallet($event)"
+              />
+            }
+            @if (creatingWallet()) {
+              <label
+                class="label"
+                [class.mt-3]="locations().length"
+                [class.sr-only]="locations().length"
+                for="crypto-location"
+                >{{
+                  (locations().length ? 'crypto.newWalletName' : 'crypto.wallet') | translate
+                }}</label
+              >
+              <input
+                id="crypto-location"
+                hlmInput
+                class="w-full"
+                [class.mt-2]="locations().length"
+                autocomplete="off"
+                maxlength="80"
+                [placeholder]="'crypto.walletPlaceholder' | translate"
+                [attr.aria-invalid]="!!errors().location || null"
+                [value]="location()"
+                (input)="location.set($any($event.target).value)"
+              />
+            }
             @if (errors().location; as e) {
               <p class="field-error">{{ e | translate }}</p>
+            } @else if (!locations().length) {
+              <p class="mt-1.5 text-xs text-muted-foreground">
+                {{ 'crypto.walletHint' | translate }}
+              </p>
             }
           </div>
           <div>
@@ -337,7 +358,10 @@ export class CryptoDialogComponent {
   readonly open = input(false);
   /** The holding to edit; null to add a new one. */
   readonly holding = input<ManualHolding | null>(null);
+  /** Names of the crypto wallets that already exist. */
   readonly locations = input<string[]>([]);
+  /** Wallet preselected for a new coin (the one the portfolio is showing). */
+  readonly defaultWallet = input<string | null>(null);
   readonly closed = output<void>();
   /** Something changed: the portfolio should reload. */
   readonly changed = output<void>();
@@ -346,7 +370,10 @@ export class CryptoDialogComponent {
   protected readonly coin = signal<CoinMatch | null>(null);
   protected readonly quantity = signal('');
   protected readonly price = signal('');
+  /** Name of the chosen wallet, or of the new one being typed. */
   protected readonly location = signal('');
+  protected readonly creatingWallet = signal(false);
+  protected readonly newWalletKey = '__new__';
   protected readonly heldSince = signal(today());
   protected readonly notes = signal('');
   protected readonly errors = signal<Partial<Record<Field, string>>>({});
@@ -358,9 +385,12 @@ export class CryptoDialogComponent {
   protected readonly rewardKind = signal<RewardKind>('Staking');
   protected readonly rewardErrors = signal<Partial<Record<RewardField, string>>>({});
 
-  protected readonly locationSuggestions = computed(() => {
-    const typed = this.location().trim().toLowerCase();
-    return this.locations().filter((l) => l.toLowerCase() !== typed);
+  protected readonly walletOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      ...this.locations().map((l) => ({ value: l, label: l })),
+      { value: this.newWalletKey, label: this.i18n.instant('crypto.newWallet') },
+    ];
   });
 
   protected readonly kindOptions = computed<SelectOption[]>(() =>
@@ -393,7 +423,12 @@ export class CryptoDialogComponent {
     this.coin.set(h ? { id: h.coinId, symbol: h.symbol, name: h.name } : null);
     this.quantity.set(h ? this.plain(h.quantity) : '');
     this.price.set(h ? this.plain(h.averagePrice) : '');
-    this.location.set(h?.location ?? (this.locations().length === 1 ? this.locations()[0] : ''));
+    const wallets = this.locations();
+    const wallet = h?.location ?? this.defaultWallet() ?? (wallets.length === 1 ? wallets[0] : '');
+    const known = wallets.find((l) => l.toLowerCase() === wallet.toLowerCase());
+    this.location.set(known ?? wallet);
+    // A new wallet is typed when none exists yet (or the holding's isn't listed); else one is picked.
+    this.creatingWallet.set(!wallets.length || (!!wallet && !known));
     this.heldSince.set(h?.heldSince ?? today());
     this.notes.set(h?.notes ?? '');
     this.errors.set({});
@@ -412,6 +447,13 @@ export class CryptoDialogComponent {
     }).format(n);
   }
 
+  protected pickWallet(value: string) {
+    const creating = value === this.newWalletKey;
+    this.creatingWallet.set(creating);
+    this.location.set(creating ? '' : value);
+    this.errors.update((e) => ({ ...e, location: undefined }));
+  }
+
   protected pickCoin(c: CoinMatch) {
     this.coin.set(c);
     this.errors.update((e) => ({ ...e, coin: undefined }));
@@ -426,7 +468,8 @@ export class CryptoDialogComponent {
     else if (quantity <= 0) errors.quantity = 'crypto.error.quantityPositive';
     if (price === null) errors.price = 'crypto.error.price';
     else if (price < 0) errors.price = 'crypto.error.priceNegative';
-    if (this.location().trim().length > 80) errors.location = 'crypto.error.location';
+    if (!this.location().trim()) errors.location = 'crypto.error.wallet';
+    else if (this.location().trim().length > 80) errors.location = 'crypto.error.location';
     if (this.heldSince() > today()) errors.heldSince = 'crypto.error.future';
     this.errors.set(errors);
     return Object.keys(errors).length ? null : { quantity: quantity!, price: price! };
@@ -439,7 +482,7 @@ export class CryptoDialogComponent {
     const body = {
       quantity: values.quantity,
       averagePrice: values.price,
-      location: this.location().trim() || null,
+      location: this.location().trim(),
       notes: this.notes().trim() || null,
       heldSince: this.heldSince(),
     };
