@@ -140,6 +140,20 @@ public sealed class IbkrFlexTests
     }
 
     [Fact]
+    public async Task A_lockout_is_reported_as_temporary_with_what_to_do()
+    {
+        var http = new ScriptedHandler().On($"{Base}/SendRequest",
+            "<FlexStatementResponse><Status>Fail</Status><ErrorCode>1025</ErrorCode><ErrorMessage>Too many failed attempts</ErrorMessage></FlexStatementResponse>");
+
+        var error = await Should.ThrowAsync<ProviderUnavailableException>(
+            () => Provider(http).GetTransactionsAsync(new DateTimeOffset(2026, 9, 15, 0, 0, 0, TimeSpan.Zero), CancellationToken.None));
+
+        error.Message.ShouldContain("1025");
+        error.Message.ShouldContain("12 hours");
+        http.Requests.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task When_no_period_has_a_statement_the_error_explains_what_to_check()
     {
         var http = new ScriptedHandler().On($"{Base}/SendRequest", Unavailable);
@@ -150,7 +164,9 @@ public sealed class IbkrFlexTests
         error.Message.ShouldContain("1003");
         error.Message.ShouldContain("Query ID");
         error.Message.ShouldContain("Last 365 Calendar Days");
-        http.Requests.Count.ShouldBeLessThan(16); // a few earlier end dates, then halving: it gives up quickly
+        // IBKR blocks a token after too many failed requests (1025): one sync spends at most four on probing.
+        http.Requests.Count(r => r.RequestUri!.AbsolutePath.EndsWith("SendRequest", StringComparison.Ordinal))
+            .ShouldBeLessThanOrEqualTo(4);
     }
 
     [Fact]
