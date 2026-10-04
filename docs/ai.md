@@ -34,28 +34,53 @@ flowchart LR
 
 | Scope | Tools |
 |---|---|
-| `overview.read` | `get_financial_overview`, `get_monthly_summary` |
+| `overview.read` | `get_financial_overview`, `get_year_breakdown` (month by month), `get_monthly_summary` |
 | `expenses.summary.read` | `get_expense_summary` |
 | `expenses.transactions.read` | `get_expense_transactions` (no account, no notes) |
+| `transactions.read` | `get_transactions`: any type (expense, income, investment, transfer, savings), a month or a range of up to 12 months, category and description search, max 50 rows plus count and totals (no account, no notes) |
 | `income.summary.read` | `get_income_summary` |
 | `budget.read` | `get_budget_status` |
 | `goals.read` | `get_goals` |
-| `networth.read` | `get_net_worth` (group totals) |
-| `portfolio.summary.read` | `get_portfolio_summary` |
-| `portfolio.positions.read` | `get_positions` |
+| `networth.read` | `get_net_worth` (group totals), `get_net_worth_history` (month-end series) |
+| `accounts.balances.read` | `get_accounts`: type, institution and balance in EUR (brokers and crypto locations valued from the portfolio); savings rate (TANB), withholding and interest this year, estimated vs confirmed (no names, no IBANs) |
+| `recurring.read` | `get_recurring`: recurring items, monthly fixed costs, what is due or awaiting confirmation in the next 1–90 days (no accounts) |
+| `portfolio.summary.read` | `get_portfolio_summary` (with today's change), `get_allocation` (by asset class vs target) |
+| `portfolio.positions.read` | `get_positions` (asset class, today's change; hand-entered crypto marked `source: manual` with its location) |
 | `portfolio.performance.read` | `get_portfolio_performance` |
-| `dividends.read` | `get_dividend_summary` |
-| **`accounts.identifiers.read`** (sensitive) | adds account names and IBANs to `get_net_worth` |
+| `dividends.read` | `get_dividend_summary` (dividends and crypto rewards, each total separately) |
+| **`accounts.identifiers.read`** (sensitive) | adds account names and IBANs to `get_net_worth` and `get_accounts` |
 | **`raw.transactions.read`** (sensitive) | adds account and source to transactions |
 | **`personal.notes.read`** (sensitive) | adds personal notes to transactions |
 
 There are no write scopes, and no SQL, shell, file, trading or write tools — architecture tests fail the build if
-one is added.
+one is added, and the exact tool → scope list is pinned by a test, so widening a scope is always a reviewed change.
+
+**Names that are free text.** An account's *institution* (e.g. "Revolut") and the location of crypto entered by
+hand (e.g. "Binance", "Cold wallet") are returned as `untrusted_text` without a sensitive scope: they say where the
+money is, like the broker of a position. The name you gave an account and its IBAN still need
+`accounts.identifiers.read`. Transaction search only looks at descriptions and instrument names — never at notes.
+
+**New scopes are opt-in.** Existing clients keep exactly the scopes they had; grant `accounts.balances.read`,
+`recurring.read` or `transactions.read` on the AI access page to let a client use the new tools. Tools added to an
+existing scope (`get_year_breakdown`, `get_net_worth_history`, `get_allocation`) are available to clients that
+already hold it.
 
 **Data minimisation in practice.** *"How much did I spend on restaurants this month?"* →
 `get_expense_summary(category: "restaurants")` returns the period, category, total, count, budget and a
 comparison. No other categories, no accounts, no descriptions, no portfolio. *"How is my portfolio doing?"* →
 `get_portfolio_summary` / `get_portfolio_performance`, which contain no expenses.
+
+More examples:
+
+| Question | Call |
+|---|---|
+| *"How much interest has my savings account earned this year?"* | `get_accounts(kind: "Savings")` → rate, withholding, interest this year (estimated vs confirmed), months awaiting reconciliation |
+| *"What are my fixed costs, and what's due this month?"* | `get_recurring(days: 30)` → monthly fixed-cost total, items, upcoming due dates |
+| *"How much did I spend at Continente this year?"* | `get_transactions(type: "expense", from: "2026-01-01", to: "2026-12-31", search: "continente")` → count and EUR total of all matches, newest 20 rows |
+| *"Which month did I save the most in 2025?"* | `get_year_breakdown(year: 2025)` |
+| *"How has my net worth evolved?"* | `get_net_worth_history(range: "3y")` |
+| *"Am I on target with my allocation?"* | `get_allocation` → actual vs target share per asset class |
+| *"How are my coins on Binance doing today?"* | `get_positions(broker: "Manual")` → today's change and location per coin |
 
 ## Connecting Claude Code
 
@@ -118,6 +143,9 @@ the finance MCP tools stays denied. Revoking the client on the AI access page cu
 Optional; enabled by setting `ANTHROPIC_API_KEY` (and optionally `ASSISTANT_MODEL`, default `claude-opus-5`).
 It runs a Claude tool-use loop whose **only** tools are the gateway's catalogue, executed in-process as the
 internal *In-app assistant* client — same scopes, minimisation, rate limits and audit as MCP. Its scopes are
-editable (or it can be revoked) on the AI access page; by default it has the non-sensitive summary scopes.
+editable (or it can be revoked) on the AI access page; by default it has the non-sensitive summary scopes
+(including `accounts.balances.read` and `recurring.read`, but not the row-level `expenses.transactions.read` or
+`transactions.read`). The defaults apply when the assistant's client is first created; an existing assistant keeps
+its scopes until you change them.
 The question and the minimal tool results are sent to the Anthropic API; conversations are not stored.
 Refused requests use the API's server-side fallback.

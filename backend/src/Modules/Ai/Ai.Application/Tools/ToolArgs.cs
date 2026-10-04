@@ -43,7 +43,7 @@ public sealed partial class ToolArgs
 
         return YearMonth.TryParse(raw, out var ym) && ym.Year is >= 1970 and <= 2100
             ? ym
-            : throw new ToolArgumentException("period must be yyyy-MM.");
+            : throw Invalid("period", "period must be yyyy-MM.");
     }
 
     public int Year(DateOnly today)
@@ -61,19 +61,50 @@ public sealed partial class ToolArgs
     public string? Category()
     {
         var c = String("category");
-        return c is null || CategoryPattern().IsMatch(c) ? c : throw new ToolArgumentException("category must be a short name.");
+        return c is null || CategoryPattern().IsMatch(c) ? c : throw Invalid("category", "category must be a short name.");
     }
+
+    /// <summary>An optional calendar date, yyyy-MM-dd.</summary>
+    public DateOnly? Date(string name)
+    {
+        var raw = String(name);
+        if (raw is null)
+        {
+            return null;
+        }
+
+        return DateOnly.TryParseExact(raw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) &&
+               d.Year is >= 1970 and <= 2100
+            ? d
+            : throw Invalid(name, $"{name} must be a date as yyyy-MM-dd.");
+    }
+
+    /// <summary>A short search phrase: letters, digits, spaces and a little punctuation, 2-40 characters.</summary>
+    public string? Search()
+    {
+        var s = String("search")?.Trim();
+        return s is null || SearchPattern().IsMatch(s) ? s : throw Invalid("search", "search must be 2-40 letters, digits or spaces.");
+    }
+
+    public string? OneOf(string name, IEnumerable<string> values) => OneOf(name, values.ToArray());
 
     public string? OneOf(string name, params string[] values)
     {
         var v = String(name);
         return v is null || values.Contains(v, StringComparer.OrdinalIgnoreCase)
             ? values.FirstOrDefault(x => string.Equals(x, v, StringComparison.OrdinalIgnoreCase))
-            : throw new ToolArgumentException($"{name} must be one of: {string.Join(", ", values)}.");
+            : throw Invalid(name, $"{name} must be one of: {string.Join(", ", values)}.");
     }
 
     public bool Has(string name) => _args.ValueKind == JsonValueKind.Object && _args.TryGetProperty(name, out var v) &&
                                     v.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+
+    /// <summary>A rejected value is not audited: only validated values are recorded.</summary>
+    private ToolArgumentException Invalid(string name, string message)
+    {
+        _used.Remove(name);
+        return new ToolArgumentException(message);
+    }
 
     private string? String(string name)
     {
@@ -114,4 +145,7 @@ public sealed partial class ToolArgs
 
     [GeneratedRegex(@"^[\p{L}\p{N} &/\-]{1,40}$")]
     private static partial Regex CategoryPattern();
+
+    [GeneratedRegex(@"^[\p{L}\p{N} &/\-.,'+]{2,40}$")]
+    private static partial Regex SearchPattern();
 }
