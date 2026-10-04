@@ -134,56 +134,26 @@ internal sealed class IbkrFlexProvider(FlexClient client, string token, string q
             return _statements;
         }
 
-        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime).AddDays(-1);
-        // Exactly N non-overlapping 365-day windows (the Flex maximum per request) ending yesterday.
-        var start = since is { } s
-            ? DateOnly.FromDateTime(s.UtcDateTime)
-            : today.AddDays(-365 * Math.Clamp(backfillYears, 1, 20) + 1);
-        // Newest window first. A window IBKR has no statement for (1003) usually starts before the account
-        // existed: narrow it towards the present until it does, and don't go further back.
-        var windows = new List<(DateOnly From, DateOnly To)>();
-        for (var from = start; from <= today; from = from.AddDays(365))
+        var yesterday = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime).AddDays(-1);
+        List<FlexStatement> statements;
+        if (since is { } s && DateOnly.FromDateTime(s.UtcDateTime) > yesterday.AddDays(-360))
         {
-            windows.Add((from, from.AddDays(364) < today ? from.AddDays(364) : today));
-        }
-
-        var statements = new List<FlexStatement>();
-        string? unavailable = null;
-        foreach (var (from, to) in Enumerable.Reverse(windows))
-        {
-            var reachedStart = false;
-            for (var f = from; ;)
+            // Incremental sync: ask for the query's own period (Last 365 Calendar Days) instead of a short, very
+            // recent date range — IBKR answers 1003 for ranges ending on a day it hasn't closed yet. Records are
+            // keyed by IBKR ids, so re-reading the year is harmless.
+            try
             {
-                try
-                {
-                    statements.AddRange(Statements(await client.FetchAsync(token, queryId, f, to, ct)));
-                    break;
-                }
-                catch (FlexStatementUnavailableException ex)
-                {
-                    unavailable = ex.Message;
-                    reachedStart = true;
-                    var span = to.DayNumber - f.DayNumber;
-                    if (span < 7)
-                    {
-                        break;
-                    }
-
-                    f = f.AddDays(span / 2 + 1);
-                }
+                statements = Statements(await client.FetchAsync(token, queryId, null, null, ct)).ToList();
             }
-
-            if (reachedStart)
+            catch (FlexStatementUnavailableException)
             {
-                break;
+                throw NoStatement();
             }
         }
-
-        if (statements.Count == 0 && unavailable is not null)
+        else
         {
-            throw new ProviderConfigurationException(
-                "IBKR has no statement for the requested period (Flex error 1003). Check that the Query ID belongs to " +
-                "an Activity Flex Query of this account and that the account already has activity.");
+            statements = await BackfillAsync(since is { } b ? DateOnly.FromDateTime(b.UtcDateTime)
+                : yesterday.AddDays(-365 * Math.Clamp(backfillYears, 1, 20) + 1), yesterday, ct);
         }
 
         if (statements.Count == 0)
@@ -195,6 +165,79 @@ internal sealed class IbkrFlexProvider(FlexClient client, string token, string q
         _loadedSince = since;
         return statements;
     }
+
+    /// <summary>
+    /// History in 365-day windows (the Flex maximum per request), newest first. When IBKR has no statement for a
+    /// window (1003): for the newest one, end it a few days earlier (weekend, or a day IBKR hasn't closed yet);
+    /// otherwise the window starts before the account existed — narrow it towards the present until it has a
+    /// statement, and don't go further back.
+    /// </summary>
+    private async Task<List<FlexStatement>> BackfillAsync(DateOnly start, DateOnly end, CancellationToken ct)
+    {
+        var windows = new List<(DateOnly From, DateOnly To)>();
+        for (var from = start; from <= end; from = from.AddDays(365))
+        {
+            windows.Add((from, from.AddDays(364) < end ? from.AddDays(364) : end));
+        }
+
+        var statements = new List<FlexStatement>();
+        var unavailable = false;
+        foreach (var (from, windowEnd) in Enumerable.Reverse(windows))
+        {
+            var to = windowEnd;
+            var loaded = false;
+            var stepsBack = windowEnd == end ? 4 : 0;
+            for (var step = 0; step <= stepsBack && !loaded; step++)
+            {
+                to = windowEnd.AddDays(-step);
+                loaded = await TryFetchAsync(from, to, statements, ct);
+            }
+
+            var reachedStart = !loaded;
+            for (var f = from; !loaded;)
+            {
+                var span = to.DayNumber - f.DayNumber;
+                if (span < 7)
+                {
+                    break;
+                }
+
+                f = f.AddDays(span / 2 + 1);
+                loaded = await TryFetchAsync(f, to, statements, ct);
+            }
+
+            unavailable |= !loaded;
+            if (reachedStart)
+            {
+                break;
+            }
+        }
+
+        if (statements.Count == 0 && unavailable)
+        {
+            throw NoStatement();
+        }
+
+        return statements;
+    }
+
+    private async Task<bool> TryFetchAsync(DateOnly from, DateOnly to, List<FlexStatement> into, CancellationToken ct)
+    {
+        try
+        {
+            into.AddRange(Statements(await client.FetchAsync(token, queryId, from, to, ct)));
+            return true;
+        }
+        catch (FlexStatementUnavailableException)
+        {
+            return false;
+        }
+    }
+
+    private static ProviderConfigurationException NoStatement() => new(
+        "IBKR has no statement for the requested period (Flex error 1003). Check that the Query ID belongs to " +
+        "an Activity Flex Query of this account, with Period \"Last 365 Calendar Days\", and that the account " +
+        "already has activity.");
 
     private static SecurityReport Security(XElement e)
     {
