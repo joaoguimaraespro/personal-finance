@@ -57,4 +57,34 @@ public sealed class AiBoundaryTests
         AiTools.All.ShouldAllBe(t => !sensitive.Contains(t.Scope));
         sensitive.ShouldBe(["accounts.identifiers.read", "raw.transactions.read", "personal.notes.read"], ignoreOrder: true);
     }
+
+    /// <summary>
+    /// The exact surface, tool by tool. Adding a tool or moving one to another scope changes what existing clients
+    /// can see, so it must be a deliberate edit here (and in docs/ai.md), never a side effect.
+    /// </summary>
+    [Fact]
+    public void Catalogue_is_exactly_the_reviewed_tool_and_scope_list()
+    {
+        AiTools.All.Select(t => $"{t.Name} -> {t.Scope}").ShouldBe(
+        [
+            "get_financial_overview -> overview.read",
+            "get_year_breakdown -> overview.read",
+            "get_monthly_summary -> overview.read",
+            "get_expense_summary -> expenses.summary.read",
+            "get_expense_transactions -> expenses.transactions.read",
+            "get_transactions -> transactions.read",
+            "get_income_summary -> income.summary.read",
+            "get_net_worth -> networth.read",
+            "get_net_worth_history -> networth.read",
+            "get_accounts -> accounts.balances.read",
+            "get_recurring -> recurring.read",
+            "get_portfolio_summary -> portfolio.summary.read",
+            "get_allocation -> portfolio.summary.read",
+            "get_positions -> portfolio.positions.read",
+            "get_portfolio_performance -> portfolio.performance.read",
+            "get_dividend_summary -> dividends.read",
+            "get_budget_status -> budget.read",
+            "get_goals -> goals.read",
+        ], ignoreOrder: true);
+    }
 }

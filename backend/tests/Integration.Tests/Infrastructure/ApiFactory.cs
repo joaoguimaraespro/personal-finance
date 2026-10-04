@@ -40,6 +40,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Auth:SetupToken", SetupToken);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("RateLimits:LoginPerMinute", "1000");
+        builder.UseSetting("RateLimits:GlobalPerMinute", "5000");
         builder.UseSetting("Integrations:EnableDemo", "true");
         builder.ConfigureTestServices(services =>
         {

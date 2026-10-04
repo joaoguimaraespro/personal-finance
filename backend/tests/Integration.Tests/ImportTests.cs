@@ -89,7 +89,8 @@ public sealed class ImportTests(ApiFactory factory)
         await ApiClient.EnsureAsync(await api.PutAsync($"/api/imports/{id}/mapping", new { year = 2029, mainAccountId = main }));
         await ApiClient.EnsureAsync(await api.PostAsync($"/api/imports/{id}/commit", new { }));
 
-        var found = await api.GetJsonAsync("/api/transactions?search=ignore%20previous");
+        // Scoped to the imported year: other suites store the same hostile phrase in their own data.
+        var found = await api.GetJsonAsync("/api/transactions?search=ignore%20previous&from=2029-01-01&to=2029-12-31");
         found.GetProperty("total").GetInt32().ShouldBe(1);
         found.GetProperty("items")[0].GetProperty("description").GetString().ShouldBe(hostile);
     }
