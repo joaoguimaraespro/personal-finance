@@ -28,6 +28,9 @@ import { CoinIconComponent } from '../../shared/coin-icon';
 import { CoinSearchComponent } from './coin-search';
 
 type Field = 'coin' | 'quantity' | 'price' | 'location' | 'heldSince' | 'notes';
+
+/** Offered in the wallet picker until used; any other name can be typed with "+ New wallet…". */
+const SUGGESTED_WALLETS = ['Binance', 'Coinbase', 'Kraken', 'Ledger', 'Trezor', 'Cold wallet'];
 type RewardField = 'quantity' | 'date';
 
 /** Server error codes with a translated, friendlier message. */
@@ -152,31 +155,22 @@ export function parseAmount(text: string): number | null {
 
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            @if (locations().length) {
-              <label class="label" for="crypto-wallet">{{ 'crypto.wallet' | translate }}</label>
-              <app-select
-                inputId="crypto-wallet"
-                [options]="walletOptions()"
-                [value]="creatingWallet() ? newWalletKey : location() || null"
-                [placeholder]="'crypto.pickWallet' | translate"
-                (valueChange)="pickWallet($event)"
-              />
-            }
+            <label class="label" for="crypto-wallet">{{ 'crypto.wallet' | translate }}</label>
+            <app-select
+              inputId="crypto-wallet"
+              [options]="walletOptions()"
+              [value]="creatingWallet() ? newWalletKey : location() || null"
+              [placeholder]="'crypto.pickWallet' | translate"
+              (valueChange)="pickWallet($event)"
+            />
             @if (creatingWallet()) {
-              <label
-                class="label"
-                [class.mt-3]="locations().length"
-                [class.sr-only]="locations().length"
-                for="crypto-location"
-                >{{
-                  (locations().length ? 'crypto.newWalletName' : 'crypto.wallet') | translate
-                }}</label
-              >
+              <label class="label sr-only" for="crypto-location">{{
+                'crypto.newWalletName' | translate
+              }}</label>
               <input
                 id="crypto-location"
                 hlmInput
-                class="w-full"
-                [class.mt-2]="locations().length"
+                class="mt-2 w-full"
                 autocomplete="off"
                 maxlength="80"
                 [placeholder]="'crypto.walletPlaceholder' | translate"
@@ -385,10 +379,15 @@ export class CryptoDialogComponent {
   protected readonly rewardKind = signal<RewardKind>('Staking');
   protected readonly rewardErrors = signal<Partial<Record<RewardField, string>>>({});
 
+  /** Your wallets first, then common exchanges and hardware wallets you haven't used yet, then "other". */
   protected readonly walletOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
+    const mine = this.locations();
+    const taken = new Set(mine.map((l) => l.toLowerCase()));
+    const suggested = SUGGESTED_WALLETS.filter((w) => !taken.has(w.toLowerCase()));
     return [
-      ...this.locations().map((l) => ({ value: l, label: l })),
+      ...mine.map((l) => ({ value: l, label: l })),
+      ...suggested.map((w) => ({ value: w, label: w })),
       { value: this.newWalletKey, label: this.i18n.instant('crypto.newWallet') },
     ];
   });
@@ -427,8 +426,10 @@ export class CryptoDialogComponent {
     const wallet = h?.location ?? this.defaultWallet() ?? (wallets.length === 1 ? wallets[0] : '');
     const known = wallets.find((l) => l.toLowerCase() === wallet.toLowerCase());
     this.location.set(known ?? wallet);
-    // A new wallet is typed when none exists yet (or the holding's isn't listed); else one is picked.
-    this.creatingWallet.set(!wallets.length || (!!wallet && !known));
+    // A wallet is picked from the list; a name is typed only for one that isn't listed.
+    const listed = known ?? SUGGESTED_WALLETS.find((w) => w.toLowerCase() === wallet.toLowerCase());
+    this.location.set(listed ?? wallet);
+    this.creatingWallet.set(!!wallet && !listed);
     this.heldSince.set(h?.heldSince ?? today());
     this.notes.set(h?.notes ?? '');
     this.errors.set({});
