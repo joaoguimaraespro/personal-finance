@@ -56,6 +56,10 @@ describe('friendlyError', () => {
     ['The IBKR Flex query id is invalid.', 'ibkrQueryId'],
     ['The IBKR Flex token is invalid.', 'ibkrToken'],
     [
+      'IBKR temporarily blocked the Flex token after too many failed attempts (Flex error 1025). Automatic syncs pause for 12 hours; try again later or generate a new Flex token.',
+      'ibkrLocked',
+    ],
+    [
       'IBKR has no statement for the requested period (Flex error 1003). Check that the Query ID belongs to an Activity Flex Query of this account and that the account already has activity.',
       'ibkrNoStatement',
     ],
