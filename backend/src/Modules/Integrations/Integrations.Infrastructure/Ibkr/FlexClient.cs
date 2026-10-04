@@ -76,6 +76,11 @@ internal sealed class FlexClient(HttpClient http, RateGate gate, TimeProvider cl
             // "Statement is not available": usually a date range before the account existed. The provider narrows
             // the range; only when nothing at all is available does it become a configuration problem.
             1003 => new FlexStatementUnavailableException(message),
+            // Undocumented by IBKR: the token is blocked for a while after too many failed requests. Scheduled syncs
+            // back off (SyncSchedule); hammering it only extends the block.
+            1025 => new ProviderUnavailableException(
+                "IBKR temporarily blocked the Flex token after too many failed attempts (Flex error 1025). " +
+                "Automatic syncs pause for 12 hours; try again later or generate a new Flex token."),
             1012 => new ProviderConfigurationException("The IBKR Flex token has expired. Generate a new one in Client Portal."),
             1013 => new ProviderConfigurationException("The IBKR Flex token is restricted to another IP address."),
             1014 => new ProviderConfigurationException("The IBKR Flex query id is invalid."),

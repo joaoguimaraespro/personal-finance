@@ -182,6 +182,7 @@ internal sealed class IbkrFlexProvider(FlexClient client, string token, string q
 
         var statements = new List<FlexStatement>();
         var unavailable = false;
+        _failuresLeft = MaxFailedRequests;
         foreach (var (from, windowEnd) in Enumerable.Reverse(windows))
         {
             var to = windowEnd;
@@ -221,8 +222,20 @@ internal sealed class IbkrFlexProvider(FlexClient client, string token, string q
         return statements;
     }
 
+    /// <summary>
+    /// IBKR blocks a token after too many failed requests (1025), so one sync never spends more than a few on
+    /// probing date ranges; the rest of the history is picked up by later syncs.
+    /// </summary>
+    private const int MaxFailedRequests = 4;
+    private int _failuresLeft = MaxFailedRequests;
+
     private async Task<bool> TryFetchAsync(DateOnly from, DateOnly to, List<FlexStatement> into, CancellationToken ct)
     {
+        if (_failuresLeft <= 0)
+        {
+            return false;
+        }
+
         try
         {
             into.AddRange(Statements(await client.FetchAsync(token, queryId, from, to, ct)));
@@ -230,6 +243,7 @@ internal sealed class IbkrFlexProvider(FlexClient client, string token, string q
         }
         catch (FlexStatementUnavailableException)
         {
+            _failuresLeft--;
             return false;
         }
     }

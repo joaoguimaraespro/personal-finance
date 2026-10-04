@@ -8,7 +8,8 @@ namespace Host.Api.Jobs;
 
 /// <summary>
 /// Runs broker syncs one at a time: manual requests from the queue, plus a schedule — Trading 212 every 4 hours,
-/// IBKR once a day after its end-of-day processing. Connections needing attention wait for the user.
+/// IBKR once a day after its end-of-day processing. Connections needing attention wait for the user; failed
+/// attempts back off (see <see cref="SyncSchedule"/>).
 /// </summary>
 internal sealed class BrokerSyncService(IServiceScopeFactory scopes, SyncQueue queue, TimeProvider clock,
     ILogger<BrokerSyncService> logger) : BackgroundService
@@ -38,8 +39,19 @@ internal sealed class BrokerSyncService(IServiceScopeFactory scopes, SyncQueue q
                 var db = scope.ServiceProvider.GetRequiredService<IIntegrationsDb>();
                 var active = await db.Connections.AsNoTracking()
                     .Where(c => c.Status == ConnectionStatus.Active).ToListAsync(ct);
+                var ids = active.Select(c => c.Id).ToList();
                 var now = clock.GetUtcNow();
-                due = active.Where(c => IsDue(c, now)).ToList();
+                // Only recent jobs matter for the back-off (the longest wait is 12 h).
+                var since = now.AddDays(-2);
+                var lastJobs = (await db.SyncJobs.AsNoTracking()
+                        .Where(j => ids.Contains(j.ConnectionId) && j.FinishedAtUtc != null && j.StartedAtUtc >= since)
+                        .ToListAsync(ct))
+                    .GroupBy(j => j.ConnectionId)
+                    .Select(g => g.MaxBy(j => j.StartedAtUtc)!)
+                    .ToDictionary(j => j.ConnectionId, j => new LastAttempt(j.StartedAtUtc,
+                        j.Outcome == SyncOutcome.Failed, SyncSchedule.IsLockout(j.Errors)));
+                due = active.Where(c => SyncSchedule.IsDue(c.Kind, c.LastSuccessfulSyncUtc,
+                    lastJobs.GetValueOrDefault(c.Id), now)).ToList();
             }
 
             foreach (var connection in due)
@@ -47,18 +59,6 @@ internal sealed class BrokerSyncService(IServiceScopeFactory scopes, SyncQueue q
                 await RunAsync(connection.Id, SyncTrigger.Scheduled, ct);
             }
         } while (await timer.WaitForNextTickAsync(ct));
-    }
-
-    private static bool IsDue(BrokerConnection c, DateTimeOffset now)
-    {
-        var last = c.LastSuccessfulSyncUtc ?? DateTimeOffset.MinValue;
-        return c.Kind switch
-        {
-            BrokerKind.Trading212 => now - last > TimeSpan.FromHours(4),
-            // Flex data is end-of-day: one run per day, after 06:00 UTC.
-            BrokerKind.InteractiveBrokers => now.Hour >= 6 && last.UtcDateTime.Date < now.UtcDateTime.Date,
-            _ => now - last > TimeSpan.FromHours(24),
-        };
     }
 
     private async Task RunAsync(Guid connectionId, SyncTrigger trigger, CancellationToken ct)

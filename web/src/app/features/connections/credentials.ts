@@ -57,6 +57,7 @@ export function friendlyError(message: string | null | undefined): string | null
     [/Flex query id is invalid/i, 'ibkrQueryId'],
     [/Flex token is invalid/i, 'ibkrToken'],
     [/no statement for the requested period/i, 'ibkrNoStatement'],
+    [/too many failed attempts|Flex error 1025/i, 'ibkrLocked'],
   ];
   const hit = rules.find(([pattern]) => pattern.test(message));
   return hit ? `connections.errors.${hit[1]}` : null;
