@@ -1,0 +1,51 @@
+{
+ "quotes": [
+  {
+   "symbol": "BTC-USD",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Bitcoin USD",
+   "longname": "Bitcoin USD",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "BTC=F",
+   "quoteType": "FUTURE",
+   "shortname": "Bitcoin Futures,Oct-2026",
+   "exchange": "CME"
+  },
+  {
+   "symbol": "BTCI",
+   "quoteType": "ETF",
+   "shortname": "NEOS Bitcoin High Income ETF",
+   "exchange": "BTS"
+  },
+  {
+   "symbol": "GBTC",
+   "quoteType": "ETF",
+   "shortname": "Grayscale Bitcoin Trust (BTC)",
+   "longname": "Grayscale Bitcoin Trust ETF",
+   "exchange": "PCX"
+  },
+  {
+   "symbol": "BTC-EUR",
+   "quoteType": "CRYPTOCURRENCY",
+   "shortname": "Bitcoin EUR",
+   "longname": "Bitcoin EUR",
+   "exchange": "CCC"
+  },
+  {
+   "symbol": "BTCT",
+   "quoteType": "EQUITY",
+   "shortname": "BTC Digital Ltd.",
+   "longname": "BTC Digital Ltd.",
+   "exchange": "NCM"
+  },
+  {
+   "symbol": "BTC",
+   "quoteType": "ETF",
+   "shortname": "Grayscale Bitcoin Mini Trust (B",
+   "longname": "Grayscale Bitcoin Mini Trust ETF",
+   "exchange": "PCX"
+  }
+ ]
+}
