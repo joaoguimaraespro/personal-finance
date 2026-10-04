@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -23,11 +30,12 @@ import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { SelectComponent, SelectOption } from '../../shared/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { APP_ICONS } from '../../shared/icons';
 import { BrokerLogoComponent } from '../../shared/broker-logo';
+import { CoinIconComponent } from '../../shared/coin-icon';
 import { CryptoDialogComponent } from './crypto-dialog';
+import { WalletStripComponent } from './wallet-strip';
 import {
   lucideArrowDown,
   lucideArrowUp,
@@ -60,10 +68,11 @@ type Range = '1Y' | '3Y' | 'ALL';
   selector: 'app-portfolio',
   imports: [
     BrokerLogoComponent,
+    CoinIconComponent,
     CryptoDialogComponent,
+    WalletStripComponent,
     PricePipe,
     NgIcon,
-    SelectComponent,
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
@@ -100,21 +109,21 @@ type Range = '1Y' | '3Y' | 'ALL';
           }
         </p>
       </div>
-      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        @if (scopeOptions().length > 1) {
-          <app-select
-            class="min-w-0 flex-1 sm:w-56 sm:flex-none"
-            [options]="scopeOptions()"
-            [value]="scopeKey()"
-            (valueChange)="scopeKey.set($event)"
-            [ariaLabel]="'portfolio.scope' | translate"
-          />
-        }
-        <button hlmBtn variant="outline" (click)="openCrypto(null)">
-          <ng-icon name="lucidePlus" aria-hidden="true" />{{ 'crypto.addButton' | translate }}
-        </button>
-      </div>
+      <button hlmBtn variant="outline" (click)="openCrypto(null)">
+        <ng-icon name="lucidePlus" aria-hidden="true" />{{ 'crypto.addButton' | translate }}
+      </button>
     </div>
+
+    @if (allAccounts.value(); as all) {
+      @if (all.accounts.length > 1) {
+        <app-wallet-strip
+          class="mb-4"
+          [summary]="all"
+          [selected]="walletId()"
+          (selectedChange)="walletId.set($event)"
+        />
+      }
+    }
 
     @if (summary.value(); as s) {
       @if (s.positions === 0 && !s.accounts.length) {
@@ -130,7 +139,12 @@ type Range = '1Y' | '3Y' | 'ALL';
       } @else {
         <section class="card mb-4 grid gap-5 sm:grid-cols-3">
           <div>
-            <p class="text-xs text-muted-foreground">{{ 'portfolio.totalValue' | translate }}</p>
+            <p class="text-xs text-muted-foreground">
+              {{ 'portfolio.totalValue' | translate }}
+              @if (selectedWallet(); as w) {
+                · <span class="font-medium text-foreground">{{ w.name }}</span>
+              }
+            </p>
             <p class="num mt-1 text-3xl font-semibold tracking-tight">{{ s.totalValue | money }}</p>
           </div>
           <div>
@@ -367,10 +381,15 @@ type Range = '1Y' | '3Y' | 'ALL';
                         class="text-xs text-muted-foreground"
                         aria-hidden="true"
                       />
+                      @if (p.assetClass === 'Crypto') {
+                        <app-coin-icon [symbol]="p.symbol" [size]="18" />
+                      }
                       {{ p.symbol }}
-                      <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
-                        'assetClass.' + p.assetClass | translate
-                      }}</span>
+                      @if (p.assetClass !== 'Crypto') {
+                        <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
+                          'assetClass.' + p.assetClass | translate
+                        }}</span>
+                      }
                       @if (isManual(p)) {
                         <span
                           class="badge bg-amber-500/10 !px-1.5 !py-0 text-[10px] text-amber-700 dark:text-amber-400"
@@ -381,6 +400,9 @@ type Range = '1Y' | '3Y' | 'ALL';
                     </div>
                     <div class="max-w-36 truncate pl-5 text-xs text-muted-foreground sm:max-w-56">
                       {{ p.name }}
+                      @if (p.assetClass === 'Crypto') {
+                        · {{ 'assetClass.Crypto' | translate }}
+                      }
                     </div>
                     <div class="num pl-5 text-xs font-medium sm:hidden">
                       {{ p.marketValueBase | money }}
@@ -447,7 +469,11 @@ type Range = '1Y' | '3Y' | 'ALL';
                         </div>
                         @for (h of p.holdings; track h.accountId) {
                           <div class="flex flex-wrap items-center gap-1 sm:col-span-3">
-                            <app-broker-logo [broker]="h.broker" [size]="16" />
+                            <app-broker-logo
+                              [broker]="h.broker"
+                              [name]="h.accountName"
+                              [size]="16"
+                            />
                             <span class="badge bg-primary/10 text-primary">{{
                               h.accountName
                             }}</span>
@@ -524,6 +550,9 @@ type Range = '1Y' | '3Y' | 'ALL';
                   <tr hlmTr>
                     <td hlmTd class="text-muted-foreground">{{ d.paidOn | day: 'short' }}</td>
                     <td hlmTd class="font-medium">
+                      @if (d.broker === 'Manual') {
+                        <app-coin-icon class="mr-1 align-[-3px]" [symbol]="d.symbol" [size]="16" />
+                      }
                       {{ d.symbol }}
                       @if (d.broker === 'Manual') {
                         <span
@@ -555,6 +584,7 @@ type Range = '1Y' | '3Y' | 'ALL';
       [open]="cryptoOpen()"
       [holding]="editing()"
       [locations]="manual.value()?.locations ?? []"
+      [defaultWallet]="selectedWallet()?.broker === 'Manual' ? selectedWallet()!.name : null"
       (closed)="cryptoOpen.set(false)"
       (changed)="events.bump()"
     />
@@ -608,7 +638,8 @@ export class PortfolioComponent {
     'Other',
   ];
 
-  protected readonly scopeKey = signal('');
+  /** The wallet (account) the page is scoped to; '' for all of them. */
+  protected readonly walletId = signal('');
   protected readonly range = signal<Range>('ALL');
   protected readonly expanded = signal<string | null>(null);
   private readonly pct = new PercentPipe();
@@ -617,14 +648,9 @@ export class PortfolioComponent {
   private readonly editingId = signal<string | null>(null);
   protected readonly targetInputs = signal<Partial<Record<AssetClass, string>>>({});
 
-  private readonly scope = computed<PortfolioScope>(() => {
-    const [kind, value] = this.scopeKey().split(':');
-    return kind === 'broker'
-      ? { broker: value as Broker }
-      : kind === 'account'
-        ? { accountId: value }
-        : {};
-  });
+  private readonly scope = computed<PortfolioScope>(() =>
+    this.walletId() ? { accountId: this.walletId() } : {},
+  );
   private readonly key = computed(() => ({ scope: this.scope(), v: this.events.version() }));
   private readonly from = computed(() => {
     const years = this.range() === '1Y' ? 1 : this.range() === '3Y' ? 3 : 0;
@@ -673,36 +699,25 @@ export class PortfolioComponent {
     return id ? (this.manual.value()?.holdings.find((h) => h.id === id) ?? null) : null;
   });
 
-  /** Every broker account regardless of the selected scope, so the scope picker doesn't shrink. */
-  private readonly allAccounts = liveResource({
+  /** Every wallet regardless of the selected one, with its own totals: the wallet cards come from here. */
+  protected readonly allAccounts = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.portfolioSummary(),
   });
-  protected readonly brokers = computed(() => [
-    ...new Set((this.allAccounts.value()?.accounts ?? []).map((a) => a.broker)),
-  ]);
-  protected readonly scopeOptions = computed<SelectOption[]>(() => {
-    this.prefs.translations();
-    // Offer only scopes that differ: a broker when there is more than one, and an account only when its
-    // broker has several (otherwise "Trading 212" would appear twice and show the same numbers).
-    const accounts = this.allAccounts.value()?.accounts ?? [];
-    const brokers = this.brokers();
-    return [
-      { value: '', label: this.i18n.instant('portfolio.consolidated') },
-      ...(brokers.length > 1
-        ? brokers.map((b) => ({ value: `broker:${b}`, label: this.brokerLabel(b) }))
-        : []),
-      ...accounts
-        .filter((a) => accounts.filter((x) => x.broker === a.broker).length > 1)
-        .map((a) => ({
-          value: `account:${a.accountId}`,
-          label: `${this.brokerLabel(a.broker)} · ${a.name}`,
-        })),
-    ];
+  protected readonly selectedWallet = computed(() => {
+    const id = this.walletId();
+    return id ? (this.allAccounts.value()?.accounts.find((a) => a.accountId === id) ?? null) : null;
   });
   protected classColor = (c: AssetClass) => CLASS_COLORS[c];
 
   constructor() {
+    // A wallet that is gone (its last coin removed, its connection purged) falls back to all wallets.
+    effect(() => {
+      const accounts = this.allAccounts.value()?.accounts;
+      if (accounts && this.walletId() && !accounts.some((a) => a.accountId === this.walletId())) {
+        this.walletId.set('');
+      }
+    });
     // Coins have no sync: opening the page fetches prices older than 15 minutes, then reloads if any moved.
     this.api.refreshCoinPrices().subscribe({
       next: (r) => {
