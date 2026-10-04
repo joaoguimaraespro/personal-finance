@@ -76,6 +76,10 @@ public sealed class IbkrFlexTests
             backfillYears, clock);
     }
 
+    private static DateOnly ToDate(HttpRequestMessage r) => DateOnly.ParseExact(
+        System.Web.HttpUtility.ParseQueryString(r.RequestUri!.Query)["td"]!, "yyyyMMdd",
+        System.Globalization.CultureInfo.InvariantCulture);
+
     private static DateOnly FromDate(HttpRequestMessage r) => DateOnly.ParseExact(
         System.Web.HttpUtility.ParseQueryString(r.RequestUri!.Query)["fd"]!, "yyyyMMdd",
         System.Globalization.CultureInfo.InvariantCulture);
@@ -106,6 +110,36 @@ public sealed class IbkrFlexTests
     }
 
     [Fact]
+    public async Task Incremental_syncs_use_the_query_period_instead_of_a_short_recent_range()
+    {
+        var http = Script();
+
+        var since = new DateTimeOffset(2026, 9, 15, 0, 0, 0, TimeSpan.Zero); // ten days before the test clock
+        await Provider(http).GetTransactionsAsync(since, CancellationToken.None);
+
+        var send = http.Requests.Single(r => r.RequestUri!.AbsolutePath.EndsWith("SendRequest", StringComparison.Ordinal));
+        send.RequestUri!.Query.ShouldNotContain("fd=");
+        send.RequestUri!.Query.ShouldNotContain("td=");
+    }
+
+    [Fact]
+    public async Task The_newest_backfill_window_ends_earlier_when_the_last_day_is_not_closed_yet()
+    {
+        var http = new ScriptedHandler()
+            .On($"{Base}/SendRequest", Unavailable)
+            .On($"{Base}/SendRequest", SendOk)
+            .On($"{Base}/GetStatement", Statement);
+
+        await Provider(http).GetPositionsAsync(CancellationToken.None);
+
+        var sends = http.Requests.Where(r => r.RequestUri!.AbsolutePath.EndsWith("SendRequest", StringComparison.Ordinal))
+            .ToList();
+        sends.Count.ShouldBe(2);
+        FromDate(sends[1]).ShouldBe(FromDate(sends[0])); // same start
+        ToDate(sends[1]).ShouldBe(ToDate(sends[0]).AddDays(-1)); // one day earlier end
+    }
+
+    [Fact]
     public async Task When_no_period_has_a_statement_the_error_explains_what_to_check()
     {
         var http = new ScriptedHandler().On($"{Base}/SendRequest", Unavailable);
@@ -115,7 +149,8 @@ public sealed class IbkrFlexTests
 
         error.Message.ShouldContain("1003");
         error.Message.ShouldContain("Query ID");
-        http.Requests.Count.ShouldBeLessThan(12); // narrowing halves the window, so it gives up quickly
+        error.Message.ShouldContain("Last 365 Calendar Days");
+        http.Requests.Count.ShouldBeLessThan(16); // a few earlier end dates, then halving: it gives up quickly
     }
 
     [Fact]

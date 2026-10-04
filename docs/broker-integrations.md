@@ -118,6 +118,8 @@ with `v=3` and a `User-Agent` header, which IBKR requires for programmatic acces
 
 **Behaviour.** Pacing ≤ 1 request/s and ≤ 10/min per token. "Statement generating" (1019) and other
 transient codes are retried with backoff; token/query errors (1012–1015) stop and ask for your attention.
+Later syncs request the query's own period (no `fd`/`td`): IBKR answers error 1003 for short ranges that end on
+a day it hasn't closed yet, and re-reading the year is harmless because records are keyed by IBKR ids.
 The first sync backfills history in 365-day windows (5 years by default,
 `Integrations:Ibkr:BackfillYears`); daily syncs run after 06:00 UTC because Flex data is end-of-day.
 
