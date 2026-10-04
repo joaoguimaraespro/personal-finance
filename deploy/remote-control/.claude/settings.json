@@ -2,10 +2,20 @@
   "enableAllProjectMcpServers": true,
   "permissions": {
     "defaultMode": "dontAsk",
-    "allow": ["mcp__personal-finance__*"],
+    "allow": [
+      "mcp__personal-finance__*",
+      "Skill(resumo-mes)",
+      "Skill(revisao-anual)",
+      "Skill(carteira)",
+      "Skill(patrimonio)",
+      "Skill(orcamento)",
+      "Skill(gastos)",
+      "Skill(objetivos)",
+      "Skill(check-in)"
+    ],
     "deny": [
       "Bash", "Edit", "Write", "NotebookEdit", "Read", "Glob", "Grep",
-      "WebFetch", "WebSearch", "Agent", "Skill"
+      "WebFetch", "WebSearch", "Agent"
     ]
   }
 }

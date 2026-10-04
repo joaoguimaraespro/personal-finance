@@ -108,7 +108,10 @@ systemctl --user daemon-reload && systemctl --user enable --now finance-chat
 loginctl enable-linger "$USER"                        # keep it running after logout (needs sudo once)
 ```
 
-Then open the Claude app → **Code** → the **Finance** session. Revoking the client on the AI access page cuts access immediately. The audit log records each call as for any other client.
+Then open the Claude app → **Code** → the **Finance** session. The session ships commands as project skills
+(`deploy/remote-control/.claude/skills/`): `/resumo-mes`, `/revisao-anual`, `/carteira`, `/patrimonio`, `/orcamento`,
+`/gastos`, `/objetivos` and `/check-in`. Only these skills are allowed (`Skill(name)` rules); every other tool except
+the finance MCP tools stays denied. Revoking the client on the AI access page cuts access immediately. The audit log records each call as for any other client.
 
 ## In-app assistant
 
