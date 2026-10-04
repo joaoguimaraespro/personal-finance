@@ -202,11 +202,11 @@
   }
 }
 
-@layer utilities {
-  /* Full-width rows inside .form-grid, whether it currently has one column or two. */
-  .form-grid > .col-span-2 {
-    grid-column: 1 / -1;
-  }
+/* Full-width rows inside .form-grid, whether it currently has one column or two. Deliberately outside any
+   @layer: Tailwind's col-span-2 is emitted unlayered here, and unlayered CSS always beats layered CSS — inside
+   a layer this override never applied, and a one-column (phone) form grew a 0px phantom column. */
+.form-grid > .col-span-2 {
+  grid-column: 1 / -1;
 }
 
 /* Calm UI for people who asked for less motion. */
@@ -286,5 +286,13 @@ body {
     width: 100%;
     opacity: 0.6;
     animation: none;
+  }
+}
+
+/* Touch screens have no hover: a tapped button's tooltip would stay on screen until something else is tapped.
+   Icon-only buttons carry aria-labels, so nothing is lost. */
+@media (hover: none) {
+  .pf-tooltip {
+    display: none !important;
   }
 }

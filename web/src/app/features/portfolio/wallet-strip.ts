@@ -60,21 +60,26 @@ interface WalletCard {
           <span class="num block text-lg leading-tight font-semibold tracking-tight">{{
             c.value | money
           }}</span>
-          <span class="flex items-center justify-between gap-2 text-[11px] leading-tight">
-            <span class="num truncate" [class]="tone(c.dayChange)">
+          <!-- Two labelled lines: today's move and the total return are different measures. -->
+          <span class="block space-y-0.5 text-[11px] leading-tight">
+            <span class="flex items-center justify-between gap-2">
+              <span class="text-muted-foreground">{{ 'wallets.today' | translate }}</span>
               @if (c.dayChange !== null) {
-                <span class="text-muted-foreground">{{ 'wallets.today' | translate }}</span>
-                {{ c.dayChange | money: 'EUR' : true }}
+                <span class="num truncate" [class]="tone(c.dayChange)"
+                  >{{ c.dayChange | money: 'EUR' : true }} ({{
+                    signedPct(c.dayChangePercent)
+                  }})</span
+                >
               } @else {
-                <span class="text-muted-foreground">{{ 'wallets.today' | translate }} —</span>
+                <span class="text-muted-foreground">—</span>
               }
             </span>
-            <span
-              class="num shrink-0 font-medium"
-              [class]="tone(c.returnPercent)"
-              [title]="'wallets.return' | translate"
-              >{{ signedPct(c.returnPercent) }}</span
-            >
+            <span class="flex items-center justify-between gap-2">
+              <span class="text-muted-foreground">{{ 'wallets.return' | translate }}</span>
+              <span class="num shrink-0 font-medium" [class]="tone(c.returnPercent)">{{
+                signedPct(c.returnPercent)
+              }}</span>
+            </span>
           </span>
         </button>
       }
