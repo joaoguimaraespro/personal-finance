@@ -87,3 +87,24 @@ export function shiftPeriod(period: string, months: number): string {
   const d = new Date(y, m - 1 + months, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+
+/**
+ * Unit price: cents for ordinary prices, four significant digits below 1 (coins can be worth fractions of a
+ * cent, e.g. 0,00001234 €).
+ */
+@Pipe({ name: 'price', pure: false })
+export class PricePipe implements PipeTransform {
+  private readonly prefs = inject(Prefs);
+
+  transform(value: number | null | undefined, currency = 'EUR'): string {
+    if (value === null || value === undefined) return '—';
+    const small = Math.abs(value) > 0 && Math.abs(value) < 1;
+    return new Intl.NumberFormat(this.prefs.locale(), {
+      style: 'currency',
+      currency,
+      ...(small
+        ? { minimumSignificantDigits: 2, maximumSignificantDigits: 4 }
+        : { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    }).format(value);
+  }
+}

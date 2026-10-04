@@ -1,5 +1,6 @@
 using FluentValidation;
 using Investments.Application.Fx;
+using Investments.Application.Manual;
 using Investments.Application.NetWorth;
 using Investments.Application.Portfolio;
 using Investments.Application.Prices;
@@ -21,6 +22,7 @@ public static class InvestmentsModule
         services.AddScoped<HistoryReconstructor>();
         services.AddSingleton<HistoryRebuildQueue>();
         services.AddScoped<NetWorthService>();
+        services.AddScoped<ManualHoldingService>();
         return services;
     }
 }

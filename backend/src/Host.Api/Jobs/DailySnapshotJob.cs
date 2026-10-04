@@ -1,3 +1,4 @@
+using Investments.Application.Manual;
 using Investments.Application.NetWorth;
 using Investments.Application.Portfolio;
 
@@ -16,6 +17,9 @@ internal sealed class DailySnapshotJob(IServiceScopeFactory scopes, ILogger<Dail
             try
             {
                 await using var scope = scopes.CreateAsyncScope();
+                // Coins entered by hand have no sync: fetch their price before valuing the day.
+                await scope.ServiceProvider.GetRequiredService<ManualHoldingService>()
+                    .RefreshPricesAsync(ManualHoldingService.PriceMaxAge, stoppingToken);
                 await scope.ServiceProvider.GetRequiredService<PortfolioSnapshotter>().SnapshotTodayAsync(stoppingToken);
                 await scope.ServiceProvider.GetRequiredService<NetWorthService>().SnapshotAsync(stoppingToken);
             }

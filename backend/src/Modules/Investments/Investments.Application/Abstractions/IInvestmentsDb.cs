@@ -23,6 +23,7 @@ public interface IInvestmentsDb
     DbSet<TargetAllocation> TargetAllocations { get; }
     DbSet<ManualAsset> ManualAssets { get; }
     DbSet<NetWorthSnapshot> NetWorthSnapshots { get; }
+    DbSet<ManualHolding> ManualHoldings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

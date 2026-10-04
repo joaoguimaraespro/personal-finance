@@ -482,7 +482,48 @@ export interface ImportSummary {
 // ---- Investments
 
 export type AssetClass = 'Stock' | 'Etf' | 'Bond' | 'Fund' | 'Crypto' | 'Cash' | 'Other';
-export type Broker = 'Trading212' | 'InteractiveBrokers' | 'Demo';
+/** 'Manual' = coins entered by hand (an exchange account or wallet), priced from public quotes. */
+export type Broker = 'Trading212' | 'InteractiveBrokers' | 'Demo' | 'Manual';
+
+export interface CoinMatch {
+  id: string;
+  symbol: string;
+  name: string;
+}
+
+export type RewardKind = 'Staking' | 'Earn' | 'Airdrop' | 'Other';
+
+export interface HoldingReward {
+  id: string;
+  receivedOn: string;
+  quantity: number;
+  kind: RewardKind;
+  note: string | null;
+  /** EUR value on the day received (counted as income). */
+  valueBase: number | null;
+}
+
+export interface ManualHolding {
+  id: string;
+  accountId: string;
+  location: string;
+  securityId: string;
+  coinId: string;
+  symbol: string;
+  name: string;
+  quantity: number;
+  averagePrice: number;
+  heldSince: string;
+  notes: string | null;
+  rewardQuantity: number;
+  rewards: HoldingReward[];
+}
+
+export interface ManualHoldingsView {
+  holdings: ManualHolding[];
+  locations: string[];
+  pricesEnabled: boolean;
+}
 
 export interface PortfolioSummary {
   totalValue: number;

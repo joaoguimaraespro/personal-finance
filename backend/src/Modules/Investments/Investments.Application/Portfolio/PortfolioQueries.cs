@@ -314,7 +314,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
     {
         var accounts = await finance.Accounts.AsNoTracking()
             .Where(a => a.Kind == AccountKind.Broker && (scope.AccountId == null || a.Id == scope.AccountId))
-            .Select(a => new { a.Id, a.Name, a.Institution })
+            .Select(a => new { a.Id, a.Name, a.Institution, a.ArchivedAtUtc })
             .ToListAsync(ct);
         var sources = await db.Positions.AsNoTracking().Select(p => new { p.AccountId, p.Source }).Distinct()
             .ToListAsync(ct);
@@ -327,7 +327,10 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 ? DataSource.InteractiveBrokers
                 : DataSource.Trading212);
 
+        // An archived account with nothing left in it (a purged connection, an emptied crypto location) is gone.
         return accounts
+            .Where(a => a.ArchivedAtUtc == null || sources.Any(s => s.AccountId == a.Id) ||
+                        cashSources.Any(s => s.AccountId == a.Id))
             .Select(a => new BrokerAccount(a.Id, a.Name, SourceOf(a.Id, a.Institution)))
             .Where(a => scope.Broker is null || a.Broker == scope.Broker)
             .ToDictionary(a => a.Id);

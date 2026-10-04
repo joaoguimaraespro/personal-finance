@@ -271,6 +271,45 @@ namespace Investments.Infrastructure.Persistence.Migrations
                     b.ToTable("fx_rates", "investments");
                 });
 
+            modelBuilder.Entity("Investments.Domain.HoldingReward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("HoldingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("holding_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)")
+                        .HasColumnName("quantity");
+
+                    b.Property<DateOnly>("ReceivedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("received_on");
+
+                    b.HasKey("Id")
+                        .HasName("pk_holding_rewards");
+
+                    b.HasIndex("HoldingId")
+                        .HasDatabaseName("ix_holding_rewards_holding_id");
+
+                    b.ToTable("holding_rewards", "investments");
+                });
+
             modelBuilder.Entity("Investments.Domain.ManualAsset", b =>
                 {
                     b.Property<Guid>("Id")
@@ -315,6 +354,61 @@ namespace Investments.Infrastructure.Persistence.Migrations
                     b.ToTable("manual_assets", "investments");
                 });
 
+            modelBuilder.Entity("Investments.Domain.ManualHolding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<decimal>("AveragePrice")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
+                        .HasColumnName("average_price");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateOnly>("HeldSince")
+                        .HasColumnType("date")
+                        .HasColumnName("held_since");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("SecurityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("security_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_manual_holdings");
+
+                    b.HasIndex("SecurityId")
+                        .HasDatabaseName("ix_manual_holdings_security_id");
+
+                    b.HasIndex("AccountId", "SecurityId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_manual_holdings_account_id_security_id");
+
+                    b.ToTable("manual_holdings", "investments");
+                });
+
             modelBuilder.Entity("Investments.Domain.MarketPrice", b =>
                 {
                     b.Property<Guid>("SecurityId")
@@ -326,8 +420,8 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasColumnName("date");
 
                     b.Property<decimal>("Close")
-                        .HasPrecision(19, 8)
-                        .HasColumnType("numeric(19,8)")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
                         .HasColumnName("close");
 
                     b.Property<string>("Currency")
@@ -429,13 +523,13 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasColumnName("security_id");
 
                     b.Property<decimal>("AveragePrice")
-                        .HasPrecision(19, 8)
-                        .HasColumnType("numeric(19,8)")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
                         .HasColumnName("average_price");
 
                     b.Property<decimal>("LastPrice")
-                        .HasPrecision(19, 8)
-                        .HasColumnType("numeric(19,8)")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
                         .HasColumnName("last_price");
 
                     b.Property<DateTimeOffset>("PriceAsOfUtc")
@@ -627,8 +721,8 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasColumnName("fees");
 
                     b.Property<decimal>("Price")
-                        .HasPrecision(19, 8)
-                        .HasColumnType("numeric(19,8)")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
                         .HasColumnName("price");
 
                     b.Property<decimal>("Quantity")
@@ -708,6 +802,26 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_dividends_securities_security_id");
                 });
 
+            modelBuilder.Entity("Investments.Domain.HoldingReward", b =>
+                {
+                    b.HasOne("Investments.Domain.ManualHolding", null)
+                        .WithMany("Rewards")
+                        .HasForeignKey("HoldingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_holding_rewards_manual_holdings_holding_id");
+                });
+
+            modelBuilder.Entity("Investments.Domain.ManualHolding", b =>
+                {
+                    b.HasOne("Investments.Domain.Security", null)
+                        .WithMany()
+                        .HasForeignKey("SecurityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_manual_holdings_securities_security_id");
+                });
+
             modelBuilder.Entity("Investments.Domain.Position", b =>
                 {
                     b.HasOne("Investments.Domain.Security", null)
@@ -741,6 +855,11 @@ namespace Investments.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Investments.Domain.ManualAsset", b =>
                 {
                     b.Navigation("Valuations");
+                });
+
+            modelBuilder.Entity("Investments.Domain.ManualHolding", b =>
+                {
+                    b.Navigation("Rewards");
                 });
 #pragma warning restore 612, 618
         }

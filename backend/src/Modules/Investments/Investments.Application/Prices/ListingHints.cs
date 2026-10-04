@@ -12,6 +12,9 @@ public static partial class ListingHints
 {
     public const string UnitedStates = "US";
 
+    /// <summary>Pseudo exchange for coins entered by hand: the root is the coin id ("BTC"), quoted 24/7.</summary>
+    public const string Crypto = "CRYPTO";
+
     // Trading 212 tickers: ROOT + lower-case exchange letter + "_EQ" (Europe), or ROOT + "_US_EQ".
     [GeneratedRegex("^(?<root>[A-Z0-9.]+?)(?<ex>[a-z])?_(?:(?<country>[A-Z]{2})_)?EQ$", RegexOptions.CultureInvariant)]
     private static partial Regex Trading212Ticker();
@@ -55,6 +58,10 @@ public static partial class ListingHints
             if (source == DataSource.Trading212 && FromTrading212(symbol) is { } hint)
             {
                 hints.Add(hint);
+            }
+            else if (source == DataSource.Manual && security.EffectiveAssetClass == AssetClass.Crypto)
+            {
+                hints.Add((symbol.ToUpperInvariant(), Crypto));
             }
         }
 

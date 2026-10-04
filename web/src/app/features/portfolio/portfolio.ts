@@ -6,8 +6,8 @@ import type { EChartsOption } from 'echarts';
 import { firstValueFrom } from 'rxjs';
 import { Api, PortfolioScope } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { DayPipe, MoneyPipe, PercentPipe } from '../../core/format';
-import { AssetClass, Broker, PositionLine } from '../../core/models';
+import { DayPipe, MoneyPipe, PercentPipe, PricePipe } from '../../core/format';
+import { AssetClass, Broker, ManualHolding, PositionLine } from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ChartComponent } from '../../shared/chart';
@@ -27,6 +27,7 @@ import { SelectComponent, SelectOption } from '../../shared/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { APP_ICONS } from '../../shared/icons';
 import { BrokerLogoComponent } from '../../shared/broker-logo';
+import { CryptoDialogComponent } from './crypto-dialog';
 import {
   lucideArrowDown,
   lucideArrowUp,
@@ -51,11 +52,16 @@ const CLASS_COLORS: Record<AssetClass, string> = {
 
 type Range = '1Y' | '3Y' | 'ALL';
 
-/** Read-only view of broker data: nothing on this page can change a broker account. */
+/**
+ * Read-only view of broker data: nothing on this page can change a broker account. Coins held elsewhere (an
+ * exchange account, a cold wallet) are entered by hand here and priced from public quotes.
+ */
 @Component({
   selector: 'app-portfolio',
   imports: [
     BrokerLogoComponent,
+    CryptoDialogComponent,
+    PricePipe,
     NgIcon,
     SelectComponent,
     HlmTableImports,
@@ -94,22 +100,32 @@ type Range = '1Y' | '3Y' | 'ALL';
           }
         </p>
       </div>
-      @if (scopeOptions().length > 1) {
-        <app-select
-          class="w-full sm:w-56"
-          [options]="scopeOptions()"
-          [value]="scopeKey()"
-          (valueChange)="scopeKey.set($event)"
-          [ariaLabel]="'portfolio.scope' | translate"
-        />
-      }
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        @if (scopeOptions().length > 1) {
+          <app-select
+            class="min-w-0 flex-1 sm:w-56 sm:flex-none"
+            [options]="scopeOptions()"
+            [value]="scopeKey()"
+            (valueChange)="scopeKey.set($event)"
+            [ariaLabel]="'portfolio.scope' | translate"
+          />
+        }
+        <button hlmBtn variant="outline" (click)="openCrypto(null)">
+          <ng-icon name="lucidePlus" aria-hidden="true" />{{ 'crypto.addButton' | translate }}
+        </button>
+      </div>
     </div>
 
     @if (summary.value(); as s) {
       @if (s.positions === 0 && !s.accounts.length) {
         <section class="card py-12 text-center">
           <p class="text-muted-foreground">{{ 'portfolio.empty' | translate }}</p>
-          <a routerLink="/connections" hlmBtn class="mt-4">{{ 'portfolio.connect' | translate }}</a>
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            <a routerLink="/connections" hlmBtn>{{ 'portfolio.connect' | translate }}</a>
+            <button hlmBtn variant="outline" (click)="openCrypto(null)">
+              <ng-icon name="lucideCoins" aria-hidden="true" />{{ 'crypto.addButton' | translate }}
+            </button>
+          </div>
         </section>
       } @else {
         <section class="card mb-4 grid gap-5 sm:grid-cols-3">
@@ -176,7 +192,9 @@ type Range = '1Y' | '3Y' | 'ALL';
             [color]="colors.invested"
           />
           <app-kpi
-            [label]="'portfolio.dividends' | translate"
+            [label]="
+              (hasCrypto() ? 'crypto.dividendsAndRewards' : 'portfolio.dividends') | translate
+            "
             [value]="s.dividends"
             [color]="colors.income"
           />
@@ -353,6 +371,13 @@ type Range = '1Y' | '3Y' | 'ALL';
                       <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
                         'assetClass.' + p.assetClass | translate
                       }}</span>
+                      @if (isManual(p)) {
+                        <span
+                          class="badge bg-amber-500/10 !px-1.5 !py-0 text-[10px] text-amber-700 dark:text-amber-400"
+                          [title]="'crypto.manualHint' | translate"
+                          >{{ 'crypto.manualBadge' | translate }}</span
+                        >
+                      }
                     </div>
                     <div class="max-w-36 truncate pl-5 text-xs text-muted-foreground sm:max-w-56">
                       {{ p.name }}
@@ -364,7 +389,7 @@ type Range = '1Y' | '3Y' | 'ALL';
                   <td hlmTd class="hidden text-right sm:table-cell">
                     <div class="num font-medium">{{ p.marketValueBase | money }}</div>
                     <div class="num text-xs text-muted-foreground">
-                      {{ p.quantity }} × {{ p.lastPrice | money: p.currency }}
+                      {{ p.quantity }} × {{ p.lastPrice | price: p.currency }}
                     </div>
                   </td>
                   <td hlmTd class="text-right" [class]="tone(p.unrealizedPnlBase)">
@@ -399,13 +424,20 @@ type Range = '1Y' | '3Y' | 'ALL';
                     <td hlmTd colspan="5" class="whitespace-normal">
                       <div class="grid gap-2 pl-5 sm:grid-cols-3">
                         <div>
-                          <span class="text-muted-foreground">ISIN</span> {{ p.isin ?? '—' }}
+                          @if (p.isin || !isManual(p)) {
+                            <span class="text-muted-foreground">ISIN</span> {{ p.isin ?? '—' }}
+                          } @else {
+                            <span class="text-muted-foreground">{{
+                              'portfolio.price' | translate
+                            }}</span>
+                            <span class="num"> {{ p.lastPrice | price: p.currency }}</span>
+                          }
                         </div>
                         <div>
                           <span class="text-muted-foreground">{{
                             'portfolio.avgPrice' | translate
                           }}</span>
-                          <span class="num"> {{ p.averagePrice | money: p.currency }}</span>
+                          <span class="num"> {{ p.averagePrice | price: p.currency }}</span>
                         </div>
                         <div>
                           <span class="text-muted-foreground">{{
@@ -420,11 +452,33 @@ type Range = '1Y' | '3Y' | 'ALL';
                               h.accountName
                             }}</span>
                             <span class="text-muted-foreground">
-                              {{ 'source.' + h.broker | translate }} ·</span
+                              {{ brokerLabel(h.broker) }} ·</span
                             >
                             <span class="num">
-                              {{ h.quantity }} @ {{ h.averagePrice | money: p.currency }}</span
+                              {{ h.quantity }} @ {{ h.averagePrice | price: p.currency }}</span
                             >
+                            @if (manualFor(h.accountId, p.securityId); as m) {
+                              @if (m.rewardQuantity) {
+                                <span class="text-muted-foreground">
+                                  ·
+                                  {{
+                                    'crypto.ofWhichRewards' | translate: { qty: m.rewardQuantity }
+                                  }}</span
+                                >
+                              }
+                              <button
+                                type="button"
+                                hlmBtn
+                                variant="ghost"
+                                size="sm"
+                                class="ml-auto h-7"
+                                (click)="$event.stopPropagation(); openCrypto(m)"
+                              >
+                                <ng-icon name="lucidePencil" aria-hidden="true" />{{
+                                  'crypto.editButton' | translate
+                                }}
+                              </button>
+                            }
                           </div>
                         }
                       </div>
@@ -444,11 +498,17 @@ type Range = '1Y' | '3Y' | 'ALL';
 
         <section class="mt-6 grid gap-4 lg:grid-cols-2">
           <div class="card">
-            <h2 class="card-title">{{ 'portfolio.dividendsByMonth' | translate }}</h2>
+            <h2 class="card-title">
+              {{
+                (hasCrypto() ? 'crypto.incomeByMonth' : 'portfolio.dividendsByMonth') | translate
+              }}
+            </h2>
             <app-chart class="h-64" [option]="dividendChart()" />
           </div>
           <div class="card overflow-x-auto !p-0">
-            <h2 class="card-title px-5 pt-5">{{ 'portfolio.recentDividends' | translate }}</h2>
+            <h2 class="card-title px-5 pt-5">
+              {{ (hasCrypto() ? 'crypto.recentIncome' : 'portfolio.recentDividends') | translate }}
+            </h2>
             <table hlmTable>
               <thead hlmTHead>
                 <tr hlmTr>
@@ -463,7 +523,15 @@ type Range = '1Y' | '3Y' | 'ALL';
                 @for (d of (dividends.value()?.items ?? []).slice(0, 10); track $index) {
                   <tr hlmTr>
                     <td hlmTd class="text-muted-foreground">{{ d.paidOn | day: 'short' }}</td>
-                    <td hlmTd class="font-medium">{{ d.symbol }}</td>
+                    <td hlmTd class="font-medium">
+                      {{ d.symbol }}
+                      @if (d.broker === 'Manual') {
+                        <span
+                          class="badge ml-1 bg-emerald-500/10 !px-1.5 !py-0 text-[10px] text-emerald-700 dark:text-emerald-400"
+                          >{{ 'crypto.rewardBadge' | translate }}</span
+                        >
+                      }
+                    </td>
                     <td hlmTd class="num text-right">{{ d.gross | money: d.currency }}</td>
                     <td
                       hlmTd
@@ -482,6 +550,14 @@ type Range = '1Y' | '3Y' | 'ALL';
         </section>
       }
     }
+
+    <app-crypto-dialog
+      [open]="cryptoOpen()"
+      [holding]="editing()"
+      [locations]="manual.value()?.locations ?? []"
+      (closed)="cryptoOpen.set(false)"
+      (changed)="events.bump()"
+    />
 
     <app-modal
       [open]="targetsOpen()"
@@ -516,7 +592,7 @@ type Range = '1Y' | '3Y' | 'ALL';
 })
 export class PortfolioComponent {
   private readonly api = inject(Api);
-  private readonly events = inject(DataEvents);
+  protected readonly events = inject(DataEvents);
   private readonly prefs = inject(Prefs);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
@@ -537,6 +613,8 @@ export class PortfolioComponent {
   protected readonly expanded = signal<string | null>(null);
   private readonly pct = new PercentPipe();
   protected readonly targetsOpen = signal(false);
+  protected readonly cryptoOpen = signal(false);
+  private readonly editingId = signal<string | null>(null);
   protected readonly targetInputs = signal<Partial<Record<AssetClass, string>>>({});
 
   private readonly scope = computed<PortfolioScope>(() => {
@@ -577,6 +655,24 @@ export class PortfolioComponent {
     stream: ({ params }) => this.api.performance(params.scope, params.from),
   });
 
+  /** Coins entered by hand (edit buttons, location suggestions). */
+  protected readonly manual = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.manualHoldings(),
+  });
+  private readonly manualByKey = computed(
+    () =>
+      new Map(
+        (this.manual.value()?.holdings ?? []).map((h) => [`${h.accountId}:${h.securityId}`, h]),
+      ),
+  );
+  protected readonly hasCrypto = computed(() => (this.manual.value()?.holdings.length ?? 0) > 0);
+  /** The holding being edited, re-read after every change so new rewards show up in the dialog. */
+  protected readonly editing = computed(() => {
+    const id = this.editingId();
+    return id ? (this.manual.value()?.holdings.find((h) => h.id === id) ?? null) : null;
+  });
+
   /** Every broker account regardless of the selected scope, so the scope picker doesn't shrink. */
   private readonly allAccounts = liveResource({
     params: () => this.events.version(),
@@ -594,17 +690,45 @@ export class PortfolioComponent {
     return [
       { value: '', label: this.i18n.instant('portfolio.consolidated') },
       ...(brokers.length > 1
-        ? brokers.map((b) => ({ value: `broker:${b}`, label: this.i18n.instant(`source.${b}`) }))
+        ? brokers.map((b) => ({ value: `broker:${b}`, label: this.brokerLabel(b) }))
         : []),
       ...accounts
         .filter((a) => accounts.filter((x) => x.broker === a.broker).length > 1)
         .map((a) => ({
           value: `account:${a.accountId}`,
-          label: `${this.i18n.instant(`source.${a.broker}`)} · ${a.name}`,
+          label: `${this.brokerLabel(a.broker)} · ${a.name}`,
         })),
     ];
   });
   protected classColor = (c: AssetClass) => CLASS_COLORS[c];
+
+  constructor() {
+    // Coins have no sync: opening the page fetches prices older than 15 minutes, then reloads if any moved.
+    this.api.refreshCoinPrices().subscribe({
+      next: (r) => {
+        if (r.updated) this.events.bump();
+      },
+      error: () => undefined, // Keep the last known prices.
+    });
+  }
+
+  protected brokerLabel(b: Broker): string {
+    this.prefs.translations();
+    return this.i18n.instant(b === 'Manual' ? 'crypto.manualSource' : `source.${b}`);
+  }
+
+  protected isManual(p: PositionLine): boolean {
+    return p.holdings.some((h) => h.broker === 'Manual');
+  }
+
+  protected manualFor(accountId: string, securityId: string): ManualHolding | null {
+    return this.manualByKey().get(`${accountId}:${securityId}`) ?? null;
+  }
+
+  protected openCrypto(holding: ManualHolding | null) {
+    this.editingId.set(holding?.id ?? null);
+    this.cryptoOpen.set(true);
+  }
 
   /** A line needs two points; while loading, keep the chart frame instead of flashing the empty state. */
   protected readonly hasHistory = computed(() => {

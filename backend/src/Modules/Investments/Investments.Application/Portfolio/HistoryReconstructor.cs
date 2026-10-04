@@ -64,7 +64,9 @@ public sealed class HistoryReconstructor(
                 .ToListAsync(ct))
             .Select(c => new LedgerCash(DateOnly.FromDateTime(c.OccurredAtUtc.UtcDateTime), c.BaseAmount,
                 c.Type is CashMovementType.Deposit or CashMovementType.Withdrawal));
-        var dividends = (await db.Dividends.AsNoTracking().Where(d => d.AccountId == accountId)
+        // Rewards on coins entered by hand are paid in coins (fills), not cash.
+        var dividends = (await db.Dividends.AsNoTracking()
+                .Where(d => d.AccountId == accountId && d.Source != DataSource.Manual)
                 .Select(d => new { d.PaidOn, d.NetBaseAmount })
                 .ToListAsync(ct))
             .Select(d => new LedgerCash(d.PaidOn, d.NetBaseAmount, false));

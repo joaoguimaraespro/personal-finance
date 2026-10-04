@@ -67,6 +67,18 @@ internal sealed class YahooPriceHistorySource(HttpClient http, ILogger<YahooPric
         return fallback;
     }
 
+    public async Task<IReadOnlyList<CoinMatch>> SearchCoinsAsync(string query, CancellationToken ct)
+    {
+        var text = query.Trim();
+        if (text.Length is 0 or > 40)
+        {
+            return [];
+        }
+
+        return YahooParser.Coins(await GetAsync(
+            $"/v1/finance/search?q={Uri.EscapeDataString(text)}&quotesCount=20&newsCount=0&listsCount=0", ct));
+    }
+
     public async Task<PriceSeries?> GetDailyClosesAsync(string symbol, DateOnly from, DateOnly to,
         CancellationToken ct)
     {
@@ -120,7 +132,7 @@ internal sealed class YahooPriceHistorySource(HttpClient http, ILogger<YahooPric
 }
 
 /// <summary>Parsing and listing selection, separated from HTTP so it can be tested against recorded responses.</summary>
-internal static class YahooParser
+internal static partial class YahooParser
 {
     private static readonly Dictionary<string, string> Suffixes = new()
     {
@@ -157,15 +169,70 @@ internal static class YahooParser
             .ToList();
     }
 
+    /// <summary>Coins in a search response (Yahoo lists each coin per quote currency: BTC-USD, BTC-EUR, …).</summary>
+    public static IReadOnlyList<CoinMatch> Coins(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("quotes", out var quotes) || quotes.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var coins = new List<CoinMatch>();
+        foreach (var q in quotes.EnumerateArray())
+        {
+            if (!q.TryGetProperty("quoteType", out var type) || type.GetString() != "CRYPTOCURRENCY" ||
+                !q.TryGetProperty("symbol", out var s) || s.GetString() is not { } symbol ||
+                CoinPair().Match(symbol) is not { Success: true } pair)
+            {
+                continue;
+            }
+
+            var id = pair.Groups["id"].Value;
+            if (coins.Any(c => c.Id == id))
+            {
+                continue;
+            }
+
+            var quote = pair.Groups["quote"].Value;
+            var name = (q.TryGetProperty("shortname", out var n) ? n.GetString() : null) ?? id;
+            if (name.EndsWith(" " + quote, StringComparison.Ordinal))
+            {
+                name = name[..^(quote.Length + 1)];
+            }
+
+            // Yahoo disambiguates clashing tickers with a numeric suffix (PEPE24478): show the plain ticker.
+            var ticker = TickerSuffix().Replace(id, "");
+            coins.Add(new CoinMatch(id, ticker.Length > 0 ? ticker : id, name.Trim()));
+        }
+
+        return coins;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex("^(?<id>[A-Z0-9]{1,30})-(?<quote>[A-Z]{3})$")]
+    private static partial System.Text.RegularExpressions.Regex CoinPair();
+
+    [System.Text.RegularExpressions.GeneratedRegex("(?<=[A-Z])[0-9]{4,}$")]
+    private static partial System.Text.RegularExpressions.Regex TickerSuffix();
+
     /// <summary>
     /// Listings to probe, best first: the exchange the broker reports (VWCEd_EQ → VWCE.DE), then search results
-    /// on that exchange, then the remaining search results.
+    /// on that exchange, then the remaining search results. Coins try the EUR pair, then the USD pair (many
+    /// smaller coins are only quoted in USD).
     /// </summary>
     public static IEnumerable<string> Candidates(ListingQuery query, IReadOnlyList<string> searched)
     {
-        var hinted = query.ExchangeHints
+        var coins = query.ExchangeHints
+            .Where(h => h.Exchange == Investments.Application.Prices.ListingHints.Crypto)
+            .SelectMany(h => new[] { h.Root + "-EUR", h.Root + "-USD" });
+        var hinted = coins.Concat(query.ExchangeHints
             .Where(h => Suffixes.ContainsKey(h.Exchange))
-            .Select(h => h.Root + Suffixes[h.Exchange])
+            .Select(h => h.Root + Suffixes[h.Exchange]))
             .ToList();
         var suffixes = query.ExchangeHints.Where(h => Suffixes.ContainsKey(h.Exchange))
             .Select(h => Suffixes[h.Exchange]).Where(s => s.Length > 0).ToHashSet();
@@ -224,8 +291,9 @@ internal static class YahooParser
             }
 
             var local = DateTimeOffset.FromUnixTimeSeconds(timestamps[i].GetInt64() + offset).UtcDateTime;
-            // Closes arrive as float32 noise (135.8800048828125): 4 decimals in the quote unit are exact enough.
-            days.Add(new DailyClose(DateOnly.FromDateTime(local), decimal.Round(value, 4) * factor));
+            // Closes arrive as float32 noise (135.8800048828125): 4 decimals in the quote unit are exact enough,
+            // except for coins worth fractions of a cent.
+            days.Add(new DailyClose(DateOnly.FromDateTime(local), decimal.Round(value, value >= 1 ? 4 : 10) * factor));
         }
 
         return new PriceSeries(currency, days.DistinctBy(d => d.Date).ToList());

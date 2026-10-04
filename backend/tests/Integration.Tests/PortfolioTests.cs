@@ -147,6 +147,17 @@ public sealed class PortfolioTests(ApiFactory factory)
             .Order()
             .ToList();
 
-        writes.ShouldBe(["PUT /api/portfolio/securities/{id:guid}/asset-class", "PUT /api/portfolio/targets"]);
+        // Coins entered by hand are the user's own records (no exchange or wallet is ever contacted).
+        writes.Where(w => !w.Contains("/api/portfolio/manual", StringComparison.Ordinal))
+            .ShouldBe(["PUT /api/portfolio/securities/{id:guid}/asset-class", "PUT /api/portfolio/targets"]);
+        writes.Where(w => w.Contains("/api/portfolio/manual", StringComparison.Ordinal)).ShouldBe(
+        [
+            "DELETE /api/portfolio/manual/{id:guid}",
+            "DELETE /api/portfolio/manual/{id:guid}/rewards/{rewardId:guid}",
+            "POST /api/portfolio/manual/",
+            "POST /api/portfolio/manual/{id:guid}/rewards",
+            "POST /api/portfolio/manual/refresh-prices",
+            "PUT /api/portfolio/manual/{id:guid}",
+        ]);
     }
 }

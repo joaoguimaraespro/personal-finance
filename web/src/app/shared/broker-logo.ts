@@ -28,7 +28,10 @@ const LOGOS: Partial<Record<Broker, string>> = {
       <img [src]="s" alt="" class="size-full object-cover" loading="lazy" />
     } @else {
       <span class="bg-muted text-muted-foreground flex size-full items-center justify-center">
-        <ng-icon name="lucideLandmark" [style.font-size.px]="size() * 0.5" />
+        <ng-icon
+          [name]="broker() === 'Manual' ? 'lucideWallet' : 'lucideLandmark'"
+          [style.font-size.px]="size() * 0.5"
+        />
       </span>
     }
   `,
