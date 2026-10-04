@@ -43,4 +43,32 @@ public sealed class DayChangeTests
         DayChange.Amount(4m, 95m, 100m, 1m).ShouldBe(-20m);
         DayChange.Percent(-20m, 380m).ShouldBe(-0.05m);
     }
+
+    [Fact]
+    public void Over_the_weekend_shares_show_fridays_move()
+    {
+        var thursday = new DateOnly(2026, 10, 1);
+        var friday = thursday.AddDays(1);
+        var saturday = friday.AddDays(1);
+        var sunday = friday.AddDays(2);
+        // Syncs keep recording the unchanged Friday price on Saturday and Sunday.
+        var closes = new[] { (thursday, 100m), (friday, 104m), (saturday, 104m), (sunday, 104m) };
+
+        var day = DayChange.TradingDay(sunday, tradesEveryDay: false);
+
+        day.ShouldBe(friday);
+        DayChange.PreviousClose(closes, day).ShouldBe(100m);
+        DayChange.Amount(10m, 104m, DayChange.PreviousClose(closes, day), 1m).ShouldBe(40m);
+    }
+
+    [Fact]
+    public void Crypto_and_weekdays_keep_their_own_date()
+    {
+        var sunday = new DateOnly(2026, 10, 4);
+        var tuesday = new DateOnly(2026, 10, 6);
+
+        DayChange.TradingDay(sunday, tradesEveryDay: true).ShouldBe(sunday);
+        DayChange.TradingDay(tuesday, tradesEveryDay: false).ShouldBe(tuesday);
+        DayChange.TradingDay(sunday.AddDays(-1), tradesEveryDay: false).DayOfWeek.ShouldBe(DayOfWeek.Friday);
+    }
 }

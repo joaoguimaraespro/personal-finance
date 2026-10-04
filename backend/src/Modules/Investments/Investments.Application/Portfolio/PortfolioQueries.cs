@@ -144,7 +144,8 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             var factor = factors.GetValueOrDefault(r.s.Currency);
             var account = accounts[r.p.AccountId];
             var previous = DayChange.PreviousClose(closes[(r.s.Id, r.s.Currency)],
-                DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime));
+                DayChange.TradingDay(DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime),
+                    tradesEveryDay: r.s.EffectiveAssetClass == AssetClass.Crypto));
             return new Holding(r.p.AccountId, account.Name, r.p.Source, r.s.Id, r.s.Symbol, r.s.Isin, r.s.Name,
                 r.s.Currency, r.s.EffectiveAssetClass, r.p.Quantity, r.p.AveragePrice, r.p.LastPrice,
                 decimal.Round(r.p.MarketValue * factor, 2), decimal.Round(r.p.CostBasis * factor, 2),
