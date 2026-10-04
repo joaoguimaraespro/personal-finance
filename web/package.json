@@ -27,6 +27,7 @@
     "@spartan-ng/brain": "^1.5.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "cryptocurrency-icons": "^0.18.1",
     "echarts": "^6.1.0",
     "qrcode": "^1.5.4",
     "rxjs": "~7.8.0",

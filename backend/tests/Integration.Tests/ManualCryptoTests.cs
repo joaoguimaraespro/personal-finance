@@ -57,9 +57,22 @@ public sealed class ManualCryptoTests(ApiFactory factory)
         var summary = await api.GetJsonAsync("/api/portfolio/summary");
         Delta(summary, before, "totalValue").ShouldBe(0.5m * Live);
         Delta(summary, before, "netContributions").ShouldBe(20_000m);
-        summary.GetProperty("accounts").EnumerateArray()
-            .Single(a => a.GetProperty("accountId").GetGuid() == accountId)
-            .GetProperty("broker").GetString().ShouldBe("Manual");
+        // The wallet card's figures come with the summary: value, today's change and return of that location.
+        var wallet = summary.GetProperty("accounts").EnumerateArray()
+            .Single(a => a.GetProperty("accountId").GetGuid() == accountId);
+        wallet.GetProperty("broker").GetString().ShouldBe("Manual");
+        wallet.GetProperty("name").GetString().ShouldBe("Binance");
+        wallet.GetProperty("marketValue").GetDecimal().ShouldBe(0.5m * Live);
+        wallet.GetProperty("positions").GetInt32().ShouldBe(1);
+        wallet.GetProperty("netContributions").GetDecimal().ShouldBe(20_000m);
+        wallet.GetProperty("totalReturn").GetDecimal().ShouldBe(0.5m * Live - 20_000m);
+        wallet.GetProperty("totalReturnPercent").GetDecimal()
+            .ShouldBe(decimal.Round((0.5m * Live - 20_000m) / 20_000m, 6));
+        wallet.GetProperty("dayChange").GetDecimal().ShouldBe(0.5m * (Live - Close));
+        var scoped = await api.GetJsonAsync($"/api/portfolio/summary?accountId={accountId}");
+        wallet.GetProperty("totalReturn").GetDecimal().ShouldBe(scoped.GetProperty("totalReturn").GetDecimal());
+        wallet.GetProperty("dayChangePercent").GetDecimal()
+            .ShouldBe(scoped.GetProperty("dayChangePercent").GetDecimal());
         var netWorth = (await api.GetJsonAsync("/api/net-worth")).GetProperty("current");
         Delta(netWorth, netWorthBefore, "investments").ShouldBe(0.5m * Live);
 

@@ -499,8 +499,6 @@
  "portfolio": {
   "readOnly": "Read-only data from your brokers",
   "lastSync": "last sync",
-  "scope": "View",
-  "consolidated": "Consolidated",
   "empty": "No investments yet. Connect a broker or add crypto you hold elsewhere.",
   "connect": "Connect a broker",
   "totalValue": "Total value",
@@ -894,8 +892,6 @@
   "quantity": "Quantity",
   "avgPrice": "Average buy price (€)",
   "avgPriceHint": "Per coin, in euros. Use 0 for coins you got for free.",
-  "location": "Where it's held",
-  "locationPlaceholder": "e.g. Binance, Ledger",
   "heldSince": "Held since",
   "heldSinceHint": "The cost counts as invested on this day.",
   "notes": "Notes (optional)",
@@ -930,12 +926,32 @@
    "quantityPositive": "The quantity must be more than 0.",
    "price": "Enter the average price as a number, e.g. 40000.",
    "priceNegative": "The price cannot be negative.",
-   "location": "Keep the location under 80 characters.",
+   "location": "Keep the wallet name under 80 characters.",
    "future": "The date cannot be in the future.",
    "rewardQuantity": "Enter how many coins you received (more than 0).",
    "noPrice": "No price was found for this coin, so it can't be valued. Pick another one from the list.",
-   "duplicate": "This coin is already in that location. Edit that holding instead.",
-   "pricesOff": "Automatic prices are turned off on this server, so coins can't be valued."
-  }
+   "duplicate": "This coin is already in that wallet. Edit that holding instead.",
+   "pricesOff": "Automatic prices are turned off on this server, so coins can't be valued.",
+   "wallet": "Pick a wallet or name a new one."
+  },
+  "wallet": "Wallet",
+  "newWallet": "+ New wallet…",
+  "newWalletName": "New wallet name",
+  "walletPlaceholder": "e.g. Binance, Ledger, Cold wallet",
+  "walletHint": "An exchange account or a wallet. Each one gets its own card at the top of the portfolio.",
+  "pickWallet": "Choose a wallet"
+ },
+ "wallets": {
+  "title": "Wallets",
+  "all": "All",
+  "allHint": "Consolidated",
+  "crypto": "Crypto",
+  "positionsOne": "1 position",
+  "positionsMany": "{{count}} positions",
+  "coinsOne": "1 coin",
+  "coinsMany": "{{count}} coins",
+  "today": "Today",
+  "return": "Return",
+  "showing": "Showing {{name}}"
  }
 }

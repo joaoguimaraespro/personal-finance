@@ -65,6 +65,23 @@ public sealed class PortfolioTests(ApiFactory factory)
         summary.GetProperty("netContributions").GetDecimal().ShouldBeGreaterThan(0);
         summary.GetProperty("dividends").GetDecimal().ShouldBeGreaterThan(0);
         summary.GetProperty("accounts").GetArrayLength().ShouldBe(2);
+        // Each account carries the figures of its own scoped summary (the wallet cards need no extra calls),
+        // and together they add up to the consolidated one.
+        var accounts = summary.GetProperty("accounts").EnumerateArray().ToList();
+        foreach (var account in accounts)
+        {
+            var scoped = await api.GetJsonAsync(
+                $"/api/portfolio/summary?accountId={account.GetProperty("accountId").GetGuid()}");
+            (account.GetProperty("marketValue").GetDecimal() + account.GetProperty("cash").GetDecimal())
+                .ShouldBe(scoped.GetProperty("totalValue").GetDecimal());
+            account.GetProperty("netContributions").GetDecimal()
+                .ShouldBe(scoped.GetProperty("netContributions").GetDecimal());
+            account.GetProperty("totalReturn").GetDecimal().ShouldBe(scoped.GetProperty("totalReturn").GetDecimal());
+            account.GetProperty("positions").GetInt32().ShouldBe(scoped.GetProperty("positions").GetInt32());
+        }
+
+        accounts.Sum(a => a.GetProperty("netContributions").GetDecimal())
+            .ShouldBe(summary.GetProperty("netContributions").GetDecimal());
 
         var perBroker = await api.GetJsonAsync("/api/portfolio/summary?broker=Demo");
         perBroker.GetProperty("totalValue").GetDecimal().ShouldBe(summary.GetProperty("totalValue").GetDecimal());

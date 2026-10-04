@@ -70,7 +70,21 @@ public sealed record PortfolioSummary(
     decimal? DayChange,
     decimal? DayChangePercent);
 
-public sealed record AccountTotal(Guid AccountId, string Name, DataSource Broker, decimal MarketValue, decimal Cash);
+/// <summary>One account ("wallet") of the summary, with enough to draw its card without a scoped request.</summary>
+/// <param name="TotalReturn">Value minus net contributions of this account, as the summary computes it.</param>
+/// <param name="DayChange">Change since the previous close of the account's holdings; null while unknown.</param>
+public sealed record AccountTotal(
+    Guid AccountId,
+    string Name,
+    DataSource Broker,
+    decimal MarketValue,
+    decimal Cash,
+    decimal NetContributions = 0,
+    decimal TotalReturn = 0,
+    decimal? TotalReturnPercent = null,
+    decimal? DayChange = null,
+    decimal? DayChangePercent = null,
+    int Positions = 0);
 
 public sealed record AllocationLine(AssetClass AssetClass, decimal Value, decimal Actual, decimal? Target,
     decimal? Difference);
@@ -179,8 +193,8 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         var cash = await CashAsync(scope, ct);
         var flows = await db.CashMovements.AsNoTracking()
             .Where(c => ids.Contains(c.AccountId))
-            .GroupBy(c => c.Type)
-            .Select(g => new { Type = g.Key, Base = g.Sum(c => c.BaseAmount) })
+            .GroupBy(c => new { c.AccountId, c.Type })
+            .Select(g => new { g.Key.AccountId, g.Key.Type, Base = g.Sum(c => c.BaseAmount) })
             .ToListAsync(ct);
         var realized = await db.Trades.AsNoTracking().Where(t => ids.Contains(t.AccountId))
             .SumAsync(t => t.RealizedPnlBase ?? 0, ct);
@@ -193,8 +207,11 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
 
         var marketValue = holdings.Sum(h => h.MarketValueBase);
         var cashTotal = cash.Sum(c => c.Value);
-        var contributions = flows.Where(f => f.Type is CashMovementType.Deposit or CashMovementType.Withdrawal)
-            .Sum(f => f.Base);
+        var contributionsByAccount = flows
+            .Where(f => f.Type is CashMovementType.Deposit or CashMovementType.Withdrawal)
+            .GroupBy(f => f.AccountId)
+            .ToDictionary(g => g.Key, g => g.Sum(f => f.Base));
+        var contributions = contributionsByAccount.Values.Sum();
         var fees = tradeCosts - flows.Where(f => f.Type == CashMovementType.Fee).Sum(f => f.Base);
         var totalValue = marketValue + cashTotal;
         var dayChange = SumKnown(holdings.Select(h => h.DayChangeBase));
@@ -203,10 +220,23 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             totalValue, marketValue, cashTotal, contributions, totalValue - contributions,
             contributions > 0 ? decimal.Round((totalValue - contributions) / contributions, 6) : null,
             realized, holdings.Sum(h => h.MarketValueBase - h.CostBase), dividends, fees, holdings.Count, lastSync,
-            accounts.Values.Select(a => new AccountTotal(a.Id, a.Name, a.Broker,
-                holdings.Where(h => h.AccountId == a.Id).Sum(h => h.MarketValueBase),
-                cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value))).ToList(),
+            accounts.Values.Select(a => AccountTotalOf(a, holdings.Where(h => h.AccountId == a.Id).ToList(),
+                cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value),
+                contributionsByAccount.GetValueOrDefault(a.Id))).ToList(),
             dayChange, DayChange.Percent(dayChange, marketValue));
+    }
+
+    /// <summary>Same figures as <see cref="SummaryAsync"/> scoped to one account.</summary>
+    private static AccountTotal AccountTotalOf(BrokerAccount account, List<Holding> holdings, decimal cash,
+        decimal contributions)
+    {
+        var marketValue = holdings.Sum(h => h.MarketValueBase);
+        var total = marketValue + cash;
+        var day = SumKnown(holdings.Select(h => h.DayChangeBase));
+        return new AccountTotal(account.Id, account.Name, account.Broker, marketValue, cash, contributions,
+            total - contributions,
+            contributions > 0 ? decimal.Round((total - contributions) / contributions, 6) : null,
+            day, DayChange.Percent(day, marketValue), holdings.Count);
     }
 
     public async Task<IReadOnlyList<AllocationLine>> AllocationAsync(PortfolioScope scope, CancellationToken ct)

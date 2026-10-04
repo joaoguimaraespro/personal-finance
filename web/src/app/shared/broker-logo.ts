@@ -12,6 +12,21 @@ const LOGOS: Partial<Record<Broker, string>> = {
   InteractiveBrokers: 'brokers/interactive-brokers.png',
 };
 
+/** Exchanges and hardware wallets recognised in the name of a hand-entered crypto wallet (same terms as above). */
+const WALLET_LOGOS: [RegExp, string][] = [
+  [/\bbinance\b/i, 'wallets/binance.png'],
+  [/\bcoinbase\b/i, 'wallets/coinbase.png'],
+  [/\bkraken\b/i, 'wallets/kraken.png'],
+  [/\bledger\b/i, 'wallets/ledger.png'],
+  [/\btrezor\b/i, 'wallets/trezor.png'],
+];
+
+/** Logo of a hand-entered wallet whose name mentions a known exchange or hardware wallet ("Binance Earn"). */
+export function walletLogo(name: string | null | undefined): string | null {
+  const n = name ?? '';
+  return WALLET_LOGOS.find(([pattern]) => pattern.test(n))?.[1] ?? null;
+}
+
 @Component({
   selector: 'app-broker-logo',
   imports: [NgIcon],
@@ -38,6 +53,10 @@ const LOGOS: Partial<Record<Broker, string>> = {
 })
 export class BrokerLogoComponent {
   readonly broker = input.required<Broker | string>();
+  /** Account name; a hand-entered crypto wallet named after an exchange or device gets its logo. */
+  readonly name = input<string | null>(null);
   readonly size = input(40);
-  protected readonly src = computed(() => LOGOS[this.broker() as Broker] ?? null);
+  protected readonly src = computed(() =>
+    this.broker() === 'Manual' ? walletLogo(this.name()) : (LOGOS[this.broker() as Broker] ?? null),
+  );
 }

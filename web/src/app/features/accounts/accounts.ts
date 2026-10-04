@@ -106,7 +106,7 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
               @if (brokerOf(a); as broker) {
-                <app-broker-logo [broker]="broker" [size]="40" aria-hidden="true" />
+                <app-broker-logo [broker]="broker" [name]="a.name" [size]="40" aria-hidden="true" />
               } @else {
                 <span
                   class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"

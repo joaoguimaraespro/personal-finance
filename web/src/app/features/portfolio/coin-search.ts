@@ -23,6 +23,7 @@ import {
 } from 'rxjs';
 import { Api } from '../../core/api';
 import { CoinMatch } from '../../core/models';
+import { CoinIconComponent } from '../../shared/coin-icon';
 
 /**
  * Search-as-you-type over the price provider's coins (name or ticker). Only the typed text is sent to the
@@ -30,7 +31,7 @@ import { CoinMatch } from '../../core/models';
  */
 @Component({
   selector: 'app-coin-search',
-  imports: [HlmInputImports, TranslatePipe],
+  imports: [CoinIconComponent, HlmInputImports, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative">
@@ -74,6 +75,7 @@ import { CoinMatch } from '../../core/models';
                 (mousedown)="$event.preventDefault(); pick(c)"
                 (mouseenter)="active.set(i)"
               >
+                <app-coin-icon [symbol]="c.symbol" [size]="22" />
                 <span class="w-16 shrink-0 truncate font-medium">{{ c.symbol }}</span>
                 <span class="text-muted-foreground min-w-0 flex-1 truncate">{{ c.name }}</span>
               </li>

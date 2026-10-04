@@ -22,6 +22,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "*.svg",
+                "input": "node_modules/cryptocurrency-icons/svg/color",
+                "output": "coins"
               }
             ],
             "styles": [
