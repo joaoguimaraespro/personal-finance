@@ -85,7 +85,8 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   // Read-only broker connections (fictitious demo broker): same ETF at two "brokers" is consolidated.
   await page.goto('/connections');
   for (const profile of ['a', 'b']) {
-    await page.getByRole('button', { name: /Demo broker/ }).click();
+    // The empty state repeats the add buttons; use the page header's.
+    await page.locator('app-page-header').getByRole('button', { name: /Demo broker/ }).click();
     await page.getByLabel('Name').fill(`Demo broker ${profile.toUpperCase()}`);
     await page.getByLabel('Profile').fill(profile);
     await page.getByRole('button', { name: 'Save' }).click();
