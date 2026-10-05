@@ -61,6 +61,19 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await page.waitForTimeout(800);
   if (shots) await page.screenshot({ path: `${shots}/dashboard.png`, fullPage: true });
 
+  // Notification centre: the seeded subscription is due today and can be confirmed from the header bell.
+  const bell = page.getByTestId('notification-bell');
+  await expect(bell).toHaveAttribute('aria-label', /^Notifications, \d+ new$/);
+  await bell.click();
+  const centre = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(centre.getByText('Music streaming')).toBeVisible();
+  await expect(bell).toHaveAttribute('aria-label', 'Notifications'); // opening marks everything as seen
+  if (shots) await page.screenshot({ path: `${shots}/notifications.png` });
+  await centre.getByRole('button', { name: 'Confirm · Music streaming' }).click();
+  await expect(centre.getByText('Music streaming')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(centre).toHaveCount(0);
+
   await page.goto(`/monthly?period=${year}-${String(month).padStart(2, '0')}`);
   await expect(page.getByText('Dinner with friends')).toHaveCount(0); // lives in the transactions list, not here
   await expect(page.getByRole('cell', { name: 'Restaurants' }).first()).toBeVisible();

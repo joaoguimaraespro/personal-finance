@@ -20,6 +20,8 @@ import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
 import { QuickAddComponent } from '../features/transactions/quick-add';
+import { Notifications } from '../core/notifications';
+import { NotificationBellComponent } from './notification-bell';
 import { APP_ICONS, PAGE_ICONS } from '../shared/icons';
 import { LogoComponent } from '../shared/logo';
 
@@ -38,6 +40,7 @@ interface NavItem {
     RouterLinkActive,
     TranslatePipe,
     QuickAddComponent,
+    NotificationBellComponent,
     NgIcon,
     HlmButtonImports,
     HlmKbdImports,
@@ -114,6 +117,7 @@ interface NavItem {
             }}</span>
             <kbd hlmKbd class="ml-1 hidden bg-black/15 text-inherit lg:inline-flex">N</kbd>
           </button>
+          <app-notification-bell />
           <hlm-toggle-group
             class="hidden sm:flex"
             type="single"
@@ -185,12 +189,17 @@ export class ShellComponent {
   protected readonly quick = inject(QuickAdd);
   protected readonly activity = inject(Activity);
   protected readonly session = inject(SessionMonitor);
+  private readonly notifications = inject(Notifications);
 
   constructor() {
     // The shell only exists for a full MFA session: watch it while the shell is on screen.
     this.session.start();
     inject(CategoryNames).start();
-    inject(DestroyRef).onDestroy(() => this.session.stop());
+    this.notifications.start();
+    inject(DestroyRef).onDestroy(() => {
+      this.session.stop();
+      this.notifications.stop();
+    });
   }
   protected readonly prefs = inject(Prefs);
   private readonly auth = inject(AuthService);
@@ -266,6 +275,7 @@ export class ShellComponent {
 
   protected async logout() {
     this.session.stop();
+    this.notifications.stop();
     await this.auth.logout();
     await this.router.navigateByUrl('/login');
   }
