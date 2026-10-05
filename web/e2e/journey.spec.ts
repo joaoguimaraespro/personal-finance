@@ -140,9 +140,9 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   if (shots) await page.screenshot({ path: `${shots}/ai-token.png` });
   await page.keyboard.press('Escape');
 
-  const mcp = async (method: string, params: object = {}) => {
+  const mcpAs = (bearer: string) => async (method: string, params: object = {}) => {
     const res = await page.request.post('/mcp', {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json, text/event-stream', 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${bearer}`, Accept: 'application/json, text/event-stream', 'Content-Type': 'application/json' },
       data: { jsonrpc: '2.0', id: 1, method, params },
     });
     expect(res.status()).toBe(200);
@@ -151,6 +151,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
     const json = text.startsWith('{') ? text : text.split('\n').find((l) => l.startsWith('data:'))!.slice(5);
     return JSON.parse(json).result;
   };
+  const mcp = mcpAs(token);
   await mcp('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } });
   const tools = (await mcp('tools/list')).tools.map((t: { name: string }) => t.name).sort();
   expect(tools).toEqual([
@@ -169,6 +170,50 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
     data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
   });
   expect(denied.status()).toBe(401);
+
+  // AI write access is opt-in per client (ADR-0008): ticking the write scopes asks for confirmation first.
+  await page.goto('/ai');
+  await page.getByRole('button', { name: /New AI client/ }).click();
+  await page.locator('#ai-name').fill('Claude Code (writer)');
+  await page.getByRole('button', { name: 'Select all read' }).click();
+  await page.getByRole('button', { name: 'Select all write' }).click();
+  await page.getByRole('button', { name: 'Allow writing' }).click();
+  await expect(page.locator('#ai-writes')).toHaveValue('20');
+  if (shots) await page.screenshot({ path: `${shots}/ai-write-scopes.png` });
+  await page.getByRole('button', { name: 'Save' }).click();
+  const writerBlock = page.getByRole('dialog').locator('pre').first();
+  await expect(writerBlock).toContainText('pf_');
+  const writer = mcpAs((await writerBlock.innerText()).trim());
+  await page.keyboard.press('Escape');
+
+  await writer('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e-writer', version: '1' } });
+  type ListedTool = { name: string; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } };
+  const writerTools: ListedTool[] = (await writer('tools/list')).tools;
+  expect(writerTools.find((t) => t.name === 'get_goals')?.annotations?.readOnlyHint).toBe(true);
+  expect(writerTools.find((t) => t.name === 'create_transaction')?.annotations?.readOnlyHint).toBe(false);
+  expect(writerTools.find((t) => t.name === 'delete_transaction')?.annotations?.destructiveHint).toBe(true);
+  const text = (result: { content: { text: string }[] }) => JSON.parse(result.content[0].text).data;
+  const accounts = text(await writer('tools/call', { name: 'get_accounts', arguments: {} })).items as { id?: string }[];
+  const accountId = accounts.find((a) => a.id)!.id;
+  const created = text(await writer('tools/call', {
+    name: 'create_transaction',
+    arguments: { type: 'expense', date: `${year}-${String(month).padStart(2, '0')}-01`, amount: 4.2, account_id: accountId, category: 'groceries', description: 'Coffee via AI' },
+  }));
+  expect(created.summary).toContain('4.20 EUR');
+  const removed = await writer('tools/call', { name: 'delete_transaction', arguments: { transaction_id: created.id } });
+  expect(removed.isError).toBeFalsy();
+
+  // The deletion waits in the recycle bin; one click restores it.
+  await page.goto('/ai');
+  const recycled = page.locator('section[aria-labelledby="ai-recycle-title"]').getByRole('row').filter({ hasText: 'Coffee via AI' });
+  await expect(recycled).toBeVisible();
+  await expect(recycled).toContainText('30 day(s)');
+  if (shots) await page.screenshot({ path: `${shots}/ai-recycle-bin.png`, fullPage: true });
+  await recycled.getByRole('button', { name: /Restore/ }).click();
+  await expect(page.getByText('Restored.')).toBeVisible();
+  await expect(recycled).toHaveCount(0);
+  await page.goto('/transactions');
+  await expect(page.getByText('Coffee via AI').and(page.locator(':visible'))).toBeVisible();
 
   await page.goto('/ai');
   await expect(page.getByRole('cell', { name: 'get_expense_summary' }).first()).toBeVisible();
