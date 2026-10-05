@@ -11,7 +11,7 @@ FROM caddy:2.11-alpine
 # The upstream binary carries cap_net_bind_service; we listen on :8080 and run with all capabilities dropped,
 # so remove the file capability (otherwise exec fails under no-new-privileges).
 RUN apk add --no-cache libcap && setcap -r /usr/bin/caddy && apk del libcap
-COPY deploy/Caddyfile deploy/Caddyfile.local deploy/routes.caddy /etc/caddy/
+COPY deploy/Caddyfile deploy/Caddyfile.local deploy/Caddyfile.windows deploy/routes.caddy /etc/caddy/
 COPY --from=build /web/dist/web/browser /srv
 ENV XDG_CONFIG_HOME=/tmp/caddy-config \
     XDG_DATA_HOME=/tmp/caddy-data

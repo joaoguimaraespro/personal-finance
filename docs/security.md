@@ -8,6 +8,8 @@ hostile, the browser is hostile, imported files are hostile and — later — AI
 - Not on the public internet. `tailscale serve` terminates HTTPS on the tailnet and forwards to
   `127.0.0.1:8080`; nothing listens on a LAN or public interface ([ADR-0003](adr/0003-vpn-only-exposure.md)).
 - The API trusts `X-Forwarded-*` only from the Caddy network (`ReverseProxy:KnownNetworks`).
+- On a Windows PC ([windows.md](windows.md#security-notes)) the same port is loopback-only and the browser reaches it as
+  `http://localhost`, a secure context; Caddy marks that hop as HTTPS so the `Secure` cookies are kept.
 
 ## Authentication
 

@@ -152,6 +152,19 @@ cd web && npm ci && npm start                              # UI on http://localh
 Open the UI, create the owner with the dev setup token from `backend/src/Host.Api/appsettings.Development.json`,
 enrol an authenticator app, and press <kbd>N</kbd>.
 
+### Windows PC (not on 24 h)
+
+```powershell
+git clone https://github.com/joaoguimaraespro/personal-finance.git "$env:LOCALAPPDATA\PersonalFinance"
+powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\PersonalFinance\deploy\windows\Install.ps1" -AutoStart -BackupRecipient age1…
+```
+
+Same images on Docker Desktop (WSL 2), bound to `127.0.0.1`. Adds a **Personal Finance** Start Menu / Desktop shortcut
+that starts Docker Desktop and the stack when needed and opens the app in its own window, an optional sign-in task,
+and a daily encrypted backup that runs as soon as the PC is on after a missed 03:30. Background jobs (broker syncs,
+recurring items, interest, snapshots) catch up minutes after the PC starts or wakes. Update with `Update.ps1`, remove
+with `Uninstall.ps1` (keeps data unless `-Purge`). Details in [docs/windows.md](docs/windows.md).
+
 ### Production (home server)
 
 ```bash
