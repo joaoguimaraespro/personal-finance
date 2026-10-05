@@ -416,6 +416,78 @@ public sealed class AiWriteToolsTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Every_n_days_items_can_be_created_and_edited_by_ai()
+    {
+        var owner = await factory.OwnerAsync();
+        var bank = await BankAsync(owner, "AI every N days bank");
+        var token = await TokenAsync(owner, "AI every N days writer", ["recurring.read", "recurring.write"]);
+        var start = Today.ToString("yyyy-MM-dd");
+        Guid? id = null;
+        try
+        {
+            object Gym(object extra)
+            {
+                var args = new Dictionary<string, object>
+                {
+                    ["name"] = "AI gym every 15 days", ["type"] = "expense", ["amount"] = 30m, ["frequency"] = "daily",
+                    ["account_id"] = bank, ["category"] = "gym", ["start_on"] = start,
+                };
+                foreach (var p in extra.GetType().GetProperties())
+                {
+                    args[p.Name] = p.GetValue(extra)!;
+                }
+
+                return args;
+            }
+
+            (await CallAsync(token, "upsert_recurring", Gym(new { interval = 15, day_of_month = 3 }))).Status.ShouldBe(HttpStatusCode.BadRequest);
+            (await CallAsync(token, "upsert_recurring", Gym(new { interval = 366 }))).Status.ShouldBe(HttpStatusCode.BadRequest);
+            (await CallAsync(token, "upsert_recurring", Gym(new { interval = 30, frequency = "monthly" }))).Status.ShouldBe(HttpStatusCode.BadRequest);
+
+            var (status, body, raw) = await CallAsync(token, "upsert_recurring", Gym(new { interval = 15 }));
+            status.ShouldBe(HttpStatusCode.OK, raw);
+            id = IdOf(body);
+            raw.ShouldContain("every 15 days");
+
+            // The first occurrence (today) is proposed right away.
+            (await owner.GetAsync<JsonElement[]>("/api/expected")).Where(e => e.GetProperty("recurringTransactionId").GetGuid() == id)
+                .Select(e => e.GetProperty("dueOn").GetString()).ShouldBe([start]);
+
+            var (_, recurring, _) = await CallAsync(token, "get_recurring", new { days = 31 });
+            var item = recurring.GetProperty("data").GetProperty("items").EnumerateArray().Single(HasIdOf(id.Value));
+            item.GetProperty("frequency").GetString().ShouldBe("Daily");
+            item.GetProperty("interval").GetInt32().ShouldBe(15);
+            (item.TryGetProperty("dayOfMonth", out var day) ? day.ValueKind : JsonValueKind.Null).ShouldBe(JsonValueKind.Null);
+            item.GetProperty("nextDueOn").GetString().ShouldBe(start);
+            item.GetProperty("monthlyEquivalentEur").GetDecimal().ShouldBe(decimal.Round(30m * 365m / 180m, 2));
+            recurring.GetProperty("data").GetProperty("upcoming").EnumerateArray()
+                .Where(u => u.GetProperty("name").GetProperty("untrusted_text").GetString() == "AI gym every 15 days")
+                .Select(u => (u.GetProperty("dueOn").GetString(), u.GetProperty("status").GetString()))
+                .ShouldBe([(start, "awaiting_confirmation"), (Today.AddDays(15).ToString("yyyy-MM-dd"), "scheduled"),
+                    (Today.AddDays(30).ToString("yyyy-MM-dd"), "scheduled")]);
+
+            // Editing only the interval keeps everything else; day_of_month stays refused for daily items.
+            (await CallAsync(token, "upsert_recurring", new { recurring_id = id, day_of_month = 5 })).Status.ShouldBe(HttpStatusCode.BadRequest);
+            var (editStatus, _, editRaw) = await CallAsync(token, "upsert_recurring", new { recurring_id = id, interval = 14 });
+            editStatus.ShouldBe(HttpStatusCode.OK, editRaw);
+            var edited = (await owner.GetAsync<JsonElement[]>("/api/recurring")).Single(r => r.GetProperty("id").GetGuid() == id);
+            edited.GetProperty("frequency").GetString().ShouldBe("Daily");
+            edited.GetProperty("interval").GetInt32().ShouldBe(14);
+            edited.GetProperty("startOn").GetString().ShouldBe(start);
+        }
+        finally
+        {
+            if (id is { } created)
+            {
+                await owner.PostAsync($"/api/recurring/{created}/pause", new { });
+            }
+        }
+    }
+
+    private static Func<JsonElement, bool> HasIdOf(Guid id) => i =>
+        i.TryGetProperty("id", out var value) && value.ValueKind == JsonValueKind.String && value.GetGuid() == id;
+
+    [Fact]
     public async Task Budgets_and_goals_can_be_planned()
     {
         var owner = await factory.OwnerAsync();

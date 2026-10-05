@@ -13,6 +13,9 @@ public sealed class RecurringProposer(IFinanceDb db, TimeProvider clock)
     /// <summary>How far ahead proposals are generated, so upcoming bills are visible before they are due.</summary>
     public const int LookaheadDays = 7;
 
+    /// <summary>The date schedules are evaluated against (UTC calendar day, like the rest of the app).</summary>
+    public DateOnly Today => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+
     public async Task<int> ProposeDueAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow();

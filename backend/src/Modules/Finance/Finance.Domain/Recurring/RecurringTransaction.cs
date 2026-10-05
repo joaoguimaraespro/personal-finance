@@ -9,6 +9,9 @@ public enum RecurrenceFrequency
     Weekly = 0,
     Monthly = 1,
     Yearly = 2,
+
+    /// <summary>Every <c>Interval</c> days from <c>StartOn</c> (e.g. a gym billed every 15 days).</summary>
+    Daily = 3,
 }
 
 /// <summary>
@@ -32,6 +35,12 @@ public sealed class RecurringTransaction : Entity, IAuditable
     public RecurrenceFrequency Frequency { get; private set; }
     public int Interval { get; private set; } = 1;
 
+    /// <summary>Largest <see cref="Interval"/> for <see cref="RecurrenceFrequency.Daily"/> (a year of days).</summary>
+    public const int MaxDailyInterval = 365;
+
+    /// <summary>Largest <see cref="Interval"/> for weekly, monthly and yearly items.</summary>
+    public const int MaxInterval = 24;
+
     /// <summary>For monthly/yearly: day of month (clamped to month length, so 31 means "last day").</summary>
     public int? DayOfMonth { get; private set; }
     public DateOnly StartOn { get; private set; }
@@ -49,16 +58,52 @@ public sealed class RecurringTransaction : Entity, IAuditable
         return r;
     }
 
-    public void Update(RecurringDefinition def)
+    /// <summary>
+    /// Applies <paramref name="def"/>. When the schedule changes (frequency, interval, day, start or end), upcoming
+    /// occurrences are recalculated from the new anchor starting at <paramref name="today"/>: past occurrences are
+    /// never re-proposed, and the caller drops the pending proposals dated today or later so they can be regenerated.
+    /// </summary>
+    /// <returns>Whether the schedule changed.</returns>
+    public bool Update(RecurringDefinition def, DateOnly today)
     {
-        var scheduleChanged = def.Frequency != Frequency || def.Interval != Interval ||
-                              def.DayOfMonth != DayOfMonth || def.StartOn != StartOn;
+        var before = (Frequency, Interval, DayOfMonth, StartOn, EndOn);
         Apply(def);
+        var scheduleChanged = before != (Frequency, Interval, DayOfMonth, StartOn, EndOn);
         if (scheduleChanged)
         {
-            NextDueOn = FirstOccurrenceOnOrAfter(def.StartOn > NextDueOn ? def.StartOn : NextDueOn);
+            NextDueOn = FirstOccurrenceOnOrAfter(StartOn > today ? StartOn : today);
         }
+
+        return scheduleChanged;
     }
+
+    /// <summary>
+    /// The first scheduled occurrence on or after <paramref name="today"/> (whether or not it was already proposed),
+    /// or <c>null</c> when the schedule ends before then.
+    /// </summary>
+    public DateOnly? NextOccurrenceOnOrAfter(DateOnly today)
+    {
+        var next = FirstOccurrenceOnOrAfter(today);
+        return EndOn is { } end && next > end ? null : next;
+    }
+
+    /// <summary>
+    /// Average amount per month: weeks and days use 365-day years (<c>amount × 365 / (days between occurrences × 12)</c>),
+    /// months and years divide by the number of months between occurrences.
+    /// </summary>
+    public static decimal MonthlyEquivalent(decimal amount, RecurrenceFrequency frequency, int interval)
+    {
+        var every = Math.Max(1, interval);
+        return frequency switch
+        {
+            RecurrenceFrequency.Daily => amount * 365m / (every * 12m),
+            RecurrenceFrequency.Weekly => amount * 365m / (7m * every * 12m),
+            RecurrenceFrequency.Monthly => amount / every,
+            _ => amount / (12m * every),
+        };
+    }
+
+    public decimal MonthlyEquivalent() => MonthlyEquivalent(Amount, Frequency, Interval);
 
     public void SetActive(bool active) => IsActive = active;
 
@@ -93,22 +138,25 @@ public sealed class RecurringTransaction : Entity, IAuditable
         Description = def.Description;
         Frequency = def.Frequency;
         Interval = Math.Max(1, def.Interval);
-        DayOfMonth = def.Frequency == RecurrenceFrequency.Weekly ? null : def.DayOfMonth ?? def.StartOn.Day;
+        // Day of month only anchors monthly and yearly items; weekly and daily ones count days from StartOn.
+        DayOfMonth = IsDayBased(def.Frequency) ? null : def.DayOfMonth ?? def.StartOn.Day;
         StartOn = def.StartOn;
         EndOn = def.EndOn;
     }
 
     private DateOnly FirstOccurrenceOnOrAfter(DateOnly from)
     {
-        if (Frequency == RecurrenceFrequency.Weekly)
+        if (IsDayBased(Frequency))
         {
-            var d = StartOn;
-            while (d < from)
+            // Occurrences are StartOn + k × step days (k = 0, 1, …): pure date arithmetic, so DST never moves one.
+            if (from <= StartOn)
             {
-                d = d.AddDays(7 * Interval);
+                return StartOn;
             }
 
-            return d;
+            var step = StepDays();
+            var periods = (from.DayNumber - StartOn.DayNumber + step - 1) / step;
+            return StartOn.AddDays(periods * step);
         }
 
         var candidate = Anchor(StartOn.Year, StartOn.Month);
@@ -127,10 +175,15 @@ public sealed class RecurringTransaction : Entity, IAuditable
 
     private DateOnly Advance(DateOnly current) => Frequency switch
     {
-        RecurrenceFrequency.Weekly => current.AddDays(7 * Interval),
+        RecurrenceFrequency.Weekly or RecurrenceFrequency.Daily => current.AddDays(StepDays()),
         RecurrenceFrequency.Monthly => AnchorFrom(current.AddMonths(Interval)),
         _ => AnchorFrom(current.AddYears(Interval)),
     };
+
+    private static bool IsDayBased(RecurrenceFrequency frequency) =>
+        frequency is RecurrenceFrequency.Weekly or RecurrenceFrequency.Daily;
+
+    private int StepDays() => Frequency == RecurrenceFrequency.Weekly ? 7 * Interval : Interval;
 
     private DateOnly AnchorFrom(DateOnly d) => Anchor(d.Year, d.Month);
 

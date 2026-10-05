@@ -256,12 +256,12 @@ public sealed class WriteTools(
         var name = a.Text("name", 80);
         var typeText = a.OneOf("type", "expense", "income");
         var amount = a.Decimal("amount", 0.01m, MaxAmount, 2);
-        var frequencyText = a.OneOf("frequency", "weekly", "monthly", "yearly");
+        var frequencyText = a.OneOf("frequency", "daily", "weekly", "monthly", "yearly");
         var accountId = a.Id("account_id");
         var categoryText = a.Category();
         var startOn = a.Date("start_on");
         var dayOfMonth = a.Integer("day_of_month", 1, 31);
-        var interval = a.Integer("interval", 1, 24);
+        var interval = a.Integer("interval", 1, RecurringTransaction.MaxDailyInterval);
         var endOn = a.Date("end_on");
         a.IdempotencyKey();
 
@@ -305,23 +305,30 @@ public sealed class WriteTools(
         var frequency = frequencyText is null
             ? existing?.Frequency ?? throw new ToolArgumentException("frequency is required to create a recurring item.")
             : Enum.Parse<RecurrenceFrequency>(frequencyText, ignoreCase: true);
+        if (frequency == RecurrenceFrequency.Daily && dayOfMonth is not null)
+        {
+            throw new ToolArgumentException("day_of_month does not apply to daily items: they repeat every interval days from start_on.");
+        }
+
         var nature = existing is not null && existing.Type == type && existing.CategoryId == categoryId ? existing.Nature : null;
         var request = new RecurringRequest(
             name ?? existing?.Name ?? throw new ToolArgumentException("name is required to create a recurring item."),
             type.Value,
             amount ?? existing?.Amount ?? throw new ToolArgumentException("amount is required to create a recurring item."),
             account.Currency, account.Id, frequency, startOn ?? existing?.StartOn ?? ctx.Today,
-            interval ?? existing?.Interval ?? 1, dayOfMonth ?? existing?.DayOfMonth, endOn ?? existing?.EndOn,
+            interval ?? existing?.Interval ?? 1,
+            // A stored day of month means nothing for daily items (and is cleared when switching to daily).
+            frequency == RecurrenceFrequency.Daily ? null : dayOfMonth ?? existing?.DayOfMonth, endOn ?? existing?.EndOn,
             categoryId, nature, null, null, existing?.Description);
         await CheckAsync(recurringValidator, request, ct);
 
         var categoryName = await CategoryNameAsync(categoryId, ct);
         var saved = existing is null
             ? Ok(await RecurringCommands.CreateAsync(finance, proposer, request.ToDefinition(), ct))
-            : Ok(await RecurringCommands.UpdateAsync(finance, existing.Id, request.ToDefinition(), ct));
+            : Ok(await RecurringCommands.UpdateAsync(finance, proposer, existing.Id, request.ToDefinition(), ct));
         var verb = existing is null ? "Created" : "Updated";
         return new(Result(saved.Id, "recurring",
-            $"{verb} the recurring {TypeName(saved.Type)} of {Money(saved.Amount, saved.Currency)} ({saved.Frequency.ToString().ToLowerInvariant()}{(saved.Interval > 1 ? $", every {saved.Interval}" : "")}) in {categoryName}; next due {Day(saved.NextDueOn)}.",
+            $"{verb} the recurring {TypeName(saved.Type)} of {Money(saved.Amount, saved.Currency)} ({ScheduleText(saved)}) in {categoryName}; next due {Day(saved.NextOccurrenceOnOrAfter(ctx.Today) ?? saved.NextDueOn)}.",
             new { name = UntrustedText.From(saved.Name) }),
             saved.Id, existing is null ? null : RecurringSnapshot(existing, await CategoryNameAsync(existing.CategoryId, ct)),
             RecurringSnapshot(saved, categoryName));
@@ -609,6 +616,12 @@ public sealed class WriteTools(
     {
         type = TypeName(t.Type), date = t.OccurredOn, amount = t.OriginalAmount, currency = t.OriginalCurrency,
         category, accountId = t.AccountId, toAccountId = t.CounterAccountId, description = t.Description,
+    };
+
+    private static string ScheduleText(RecurringTransaction r) => r.Frequency switch
+    {
+        RecurrenceFrequency.Daily => r.Interval == 1 ? "every day" : $"every {r.Interval} days",
+        _ => $"{r.Frequency.ToString().ToLowerInvariant()}{(r.Interval > 1 ? $", every {r.Interval}" : "")}",
     };
 
     private static object RecurringSnapshot(RecurringTransaction r, string? category) => new

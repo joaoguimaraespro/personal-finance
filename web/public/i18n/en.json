@@ -179,6 +179,7 @@
  },
  "frequency": {
   "Weekly": "Weekly",
+  "Daily": "Every N days",
   "Monthly": "Monthly",
   "Yearly": "Yearly"
  },
@@ -321,6 +322,10 @@
   "schedule": "Schedule",
   "next": "Next",
   "day": "day {{day}}",
+  "everyDay": "Every day",
+  "everyNDays": "Every {{n}} days",
+  "intervalDays": "Every how many days",
+  "intervalDaysHint": "From the start date, 1 to 365 days.",
   "pause": "Pause",
   "resume": "Resume",
   "empty": "No recurring transactions yet — add salary, rent or subscriptions.",

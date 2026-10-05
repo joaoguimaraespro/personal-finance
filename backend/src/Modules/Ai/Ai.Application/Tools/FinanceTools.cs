@@ -650,7 +650,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
             category = r.CategoryId is { } c ? categories.GetValueOrDefault(c) : null,
             nature = r.Nature?.ToString(),
             monthlyEquivalentEur = decimal.Round(Eur(PerMonth(r), r.Currency), 2),
-            nextDueOn = r.NextDueOn,
+            nextDueOn = r.NextOccurrenceOnOrAfter(ctx.Today) ?? r.NextDueOn,
             active = r.IsActive && (r.EndOn is null || r.EndOn >= ctx.Today),
         }).ToList();
 
@@ -707,12 +707,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         }, lines.Count);
     }
 
-    private static decimal PerMonth(RecurringTransaction r) => r.Frequency switch
-    {
-        RecurrenceFrequency.Weekly => r.Amount * 52m / 12m / r.Interval,
-        RecurrenceFrequency.Monthly => r.Amount / r.Interval,
-        _ => r.Amount / 12m / r.Interval,
-    };
+    private static decimal PerMonth(RecurringTransaction r) => r.MonthlyEquivalent();
 
     private static TransactionType[] TypesOf(string type) => type switch
     {

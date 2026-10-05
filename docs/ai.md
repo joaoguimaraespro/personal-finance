@@ -49,7 +49,7 @@ estimated-interest and archived records), and an audit entry marked *write* with
 | `goals.read` | `get_goals` |
 | `networth.read` | `get_net_worth` (group totals), `get_net_worth_history` (month-end series) |
 | `accounts.balances.read` | `get_accounts`: type, institution and balance in EUR (brokers and crypto locations valued from the portfolio); savings rate (TANB), withholding and interest this year, estimated vs confirmed (no names, no IBANs) |
-| `recurring.read` | `get_recurring`: recurring items, monthly fixed costs, what is due or awaiting confirmation in the next 1–90 days (no accounts) |
+| `recurring.read` | `get_recurring`: recurring items (`frequency` Daily/Weekly/Monthly/Yearly with `interval`), monthly fixed costs, what is due or awaiting confirmation in the next 1–90 days (no accounts). Monthly equivalents use 365-day years: `amount × 365 / (days between occurrences × 12)` for daily and weekly items, `amount / interval` monthly, `amount / (12 × interval)` yearly |
 | `portfolio.summary.read` | `get_portfolio_summary` (today's change — coins over a rolling 24 hours, see below — and the total return since the first deposit or trade, `since`), `get_allocation` (by asset class vs target) |
 | `portfolio.positions.read` | `get_positions` (asset class, day change — 24 h for coins; hand-entered crypto marked `source: manual` with its location) |
 | `portfolio.performance.read` | `get_portfolio_performance` |
@@ -129,6 +129,11 @@ Tick one or more write scopes on the AI access page (group *Escrita / Write*; ea
 - *"I paid 12,50 € for lunch in cash today"* → `get_accounts` (the cash account's `id`), then
   `create_transaction(type: "expense", date, amount: 12.5, account_id, category: "restaurants", description: "Lunch")`.
 - *"Confirm the rent"* → `get_recurring` (the pending item's `expectedId`), then `confirm_expected(expected_id)`.
+- *"My gym is 25 € every 15 days, starting 1 October"* → `get_accounts`, then
+  `upsert_recurring(name: "Gym", type: "expense", amount: 25, frequency: "daily", interval: 15, start_on: "2026-10-01", account_id, category: "gym")`.
+  Daily items repeat every `interval` days (1–365) from `start_on`, so they never drift with the calendar;
+  `day_of_month` is refused for them. Weekly, monthly and yearly items keep `interval` 1–24. Changing `start_on` or
+  `interval` recalculates the upcoming occurrences; confirmed ones are kept.
 - *"Set the restaurants budget to 150 € from next month"* → `set_budget_limit(category: "restaurants", amount: 150, from_period)`.
 - *"I now have 0.3 BTC on Binance"* → `get_positions(broker: "Manual")` (`holdingId`), then
   `update_crypto_holding(holding_id, quantity: 0.3)`.
