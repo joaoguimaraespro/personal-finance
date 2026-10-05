@@ -38,6 +38,23 @@ public sealed class SyncScheduleTests
         SyncSchedule.IsDue(BrokerKind.InteractiveBrokers, null, null, Now).ShouldBeTrue(); // never synced
     }
 
+    [Fact]
+    public void After_days_switched_off_every_connection_is_due_at_the_first_check()
+    {
+        var weekAgo = Now.AddDays(-7);
+        // The back-off only looks at recent attempts; an old failure no longer delays anything.
+        var failedBeforeShutdown = new LastAttempt(weekAgo, Failed: true, LockedOut: true);
+
+        SyncSchedule.IsDue(BrokerKind.Trading212, weekAgo, null, Now).ShouldBeTrue();
+        SyncSchedule.IsDue(BrokerKind.InteractiveBrokers, weekAgo, null, Now).ShouldBeTrue();
+        SyncSchedule.IsDue(BrokerKind.Trading212, weekAgo, failedBeforeShutdown, Now).ShouldBeTrue();
+        SyncSchedule.IsDue(BrokerKind.InteractiveBrokers, weekAgo, failedBeforeShutdown, Now).ShouldBeTrue();
+        // IBKR's end-of-day statement is not ready before 06:00 UTC: a PC switched on at 05:00 syncs at 06:00.
+        var earlyMorning = new DateTimeOffset(2026, 10, 5, 5, 0, 0, TimeSpan.Zero);
+        SyncSchedule.IsDue(BrokerKind.InteractiveBrokers, weekAgo, null, earlyMorning).ShouldBeFalse();
+        SyncSchedule.IsDue(BrokerKind.InteractiveBrokers, weekAgo, null, earlyMorning.AddHours(1)).ShouldBeTrue();
+    }
+
     [Theory]
     [InlineData("[\"IBKR Flex error 1025: Too many failed attempts\"]", true)]
     [InlineData("[\"Too many failed attempts\"]", true)]
