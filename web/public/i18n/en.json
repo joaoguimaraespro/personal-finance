@@ -483,7 +483,13 @@
   "changePassword": "Change password",
   "passwordChanged": "Password changed",
   "privacy": "Privacy",
-  "privacyText": "Your data stays on your server. The browser stores only your theme, language and last-used account. Broker connections are read-only and AI access is off unless you create a client with explicit permissions."
+  "privacyText": "Your data stays on your server. The browser stores only your theme, language, last-used account and which notifications you have seen. Broker connections are read-only and AI access is off unless you create a client with explicit permissions.",
+  "notifications": "Notifications",
+  "browserAlerts": "Browser notifications",
+  "browserAlertsHint": "Show a system notification when something new needs attention while this tab is open in the background. Nothing is sent from the server.",
+  "browserBlocked": "The browser blocked notifications for this site. Allow them in the site settings and try again.",
+  "on": "On",
+  "off": "Off"
  },
  "assetClass": {
   "Stock": "Stocks",
@@ -999,5 +1005,36 @@
   "YTD": "YTD",
   "1Y": "1Y",
   "ALL": "All"
+ },
+ "notifications": {
+  "title": "Notifications",
+  "bellNew": "Notifications, {{count}} new",
+  "new": "New",
+  "empty": "Nothing pending",
+  "emptyHint": "Recurring items to confirm, broker problems and budget alerts show up here.",
+  "dueToday": "Due today",
+  "overdue": "Overdue",
+  "overdueSince": "Overdue since {{date}}",
+  "skipped": "Skipped",
+  "interestTitle": "Interest to confirm · {{account}}",
+  "interestDetail": "{{month}}: estimated {{amount}}. Confirm if the bank paid this.",
+  "broker": {
+   "needsAttention": "{{name}} needs attention",
+   "syncFailed": "{{name}}: last sync failed",
+   "expired": "{{name}}: credentials expired",
+   "expiring": "{{name}}: credentials expire soon"
+  },
+  "brokerDetail": "Open Connections to fix it.",
+  "brokerExpires": "Credentials expire on {{date}}.",
+  "budgetOver": "{{category}} is over budget",
+  "budgetNear": "{{category}} is close to its limit",
+  "budgetDetail": "{{spent}} spent of {{budget}} this month",
+  "budgetNearDetail": "{{share}} of {{budget}} used this month",
+  "goalReached": "Goal reached: {{name}}",
+  "goalDetail": "Target of {{amount}} reached — archive it or raise the target.",
+  "aiWrites": "{{client}} made {{count}} change(s)",
+  "aiDetail": "In the last 24 h. Review them in the AI audit log.",
+  "aiDetailDeleted": "In the last 24 h, {{deleted}} deleted — restorable from the recycle bin.",
+  "manyNew": "{{count}} new notifications"
  }
 }

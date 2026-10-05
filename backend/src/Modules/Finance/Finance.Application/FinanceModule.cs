@@ -5,6 +5,7 @@ using Finance.Application.Buckets;
 using Finance.Application.Categories;
 using Finance.Application.Goals;
 using Finance.Application.Interest;
+using Finance.Application.Notifications;
 using Finance.Application.Recurring;
 using Finance.Application.Transactions;
 using Microsoft.AspNetCore.Routing;
@@ -20,6 +21,7 @@ public static class FinanceModule
         services.AddScoped<RecurringProposer>();
         services.AddScoped<InterestAccrualService>();
         services.AddScoped<Abstractions.ActorScope>();
+        services.AddScoped<SharedKernel.Notifications.INotificationSource, FinanceNotificationSource>();
         return services;
     }
 

@@ -483,7 +483,13 @@
   "changePassword": "Alterar palavra-passe",
   "passwordChanged": "Palavra-passe alterada",
   "privacy": "Privacidade",
-  "privacyText": "Os teus dados ficam no teu servidor. O browser guarda apenas o tema, o idioma e a última conta usada. As ligações a corretoras são só de leitura e o acesso de IA está desligado até criares um cliente com permissões explícitas."
+  "privacyText": "Os teus dados ficam no teu servidor. O browser guarda apenas o tema, o idioma, a última conta usada e as notificações que já viste. As ligações a corretoras são só de leitura e o acesso de IA está desligado até criares um cliente com permissões explícitas.",
+  "notifications": "Notificações",
+  "browserAlerts": "Notificações do browser",
+  "browserAlertsHint": "Mostra uma notificação do sistema quando surge algo novo que precisa de atenção, com este separador aberto em segundo plano. O servidor não envia nada.",
+  "browserBlocked": "O browser bloqueou as notificações deste site. Permite-as nas definições do site e tenta de novo.",
+  "on": "Ligadas",
+  "off": "Desligadas"
  },
  "assetClass": {
   "Stock": "Ações",
@@ -999,5 +1005,36 @@
   "YTD": "YTD",
   "1Y": "1A",
   "ALL": "Tudo"
+ },
+ "notifications": {
+  "title": "Notificações",
+  "bellNew": "Notificações, {{count}} novas",
+  "new": "Nova",
+  "empty": "Nada pendente",
+  "emptyHint": "Recorrentes por confirmar, problemas nas corretoras e alertas de orçamento aparecem aqui.",
+  "dueToday": "Vence hoje",
+  "overdue": "Em atraso",
+  "overdueSince": "Em atraso desde {{date}}",
+  "skipped": "Ignorado",
+  "interestTitle": "Juros por confirmar · {{account}}",
+  "interestDetail": "{{month}}: estimativa de {{amount}}. Confirma se o banco pagou este valor.",
+  "broker": {
+   "needsAttention": "{{name}} precisa de atenção",
+   "syncFailed": "{{name}}: a última sincronização falhou",
+   "expired": "{{name}}: credenciais expiradas",
+   "expiring": "{{name}}: as credenciais expiram em breve"
+  },
+  "brokerDetail": "Abre Ligações para resolver.",
+  "brokerExpires": "As credenciais expiram a {{date}}.",
+  "budgetOver": "{{category}} acima do orçamento",
+  "budgetNear": "{{category}} perto do limite",
+  "budgetDetail": "{{spent}} gastos de {{budget}} este mês",
+  "budgetNearDetail": "{{share}} de {{budget}} usado este mês",
+  "goalReached": "Objetivo atingido: {{name}}",
+  "goalDetail": "Meta de {{amount}} atingida — arquiva-o ou aumenta a meta.",
+  "aiWrites": "{{client}} fez {{count}} alteração(ões)",
+  "aiDetail": "Nas últimas 24 h. Revê-as no registo de auditoria de IA.",
+  "aiDetailDeleted": "Nas últimas 24 h, {{deleted}} eliminada(s) — recuperáveis na reciclagem.",
+  "manyNew": "{{count}} novas notificações"
  }
 }

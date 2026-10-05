@@ -6,6 +6,7 @@ using Finance.Infrastructure;
 using Host.Api.Auth;
 using Host.Api.Infrastructure;
 using Host.Api.Jobs;
+using Host.Api.Notifications;
 using Imports.Application;
 using Investments.Application;
 using Investments.Infrastructure;
@@ -215,6 +216,7 @@ owner.MapInvestments();
 owner.MapIntegrations();
 owner.MapExports();
 owner.MapAiManagement();
+owner.MapNotifications();
 
 await app.RunAsync();
 return 0;

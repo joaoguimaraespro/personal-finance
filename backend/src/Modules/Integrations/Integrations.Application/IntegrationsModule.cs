@@ -13,6 +13,7 @@ public static class IntegrationsModule
         services.AddSingleton<SyncQueue>();
         services.AddScoped<SyncPipeline>();
         services.AddScoped<PortfolioInstrumentSource>();
+        services.AddScoped<SharedKernel.Notifications.INotificationSource, Connections.ConnectionNotificationSource>();
         return services;
     }
 }

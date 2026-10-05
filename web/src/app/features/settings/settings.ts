@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
+import { Notifications } from '../../core/notifications';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -67,6 +68,44 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             </div>
           </div>
         </div>
+      </section>
+
+      <section class="card space-y-3">
+        <h2 class="card-title">
+          <ng-icon name="lucideBell" />{{ 'settings.notifications' | translate }}
+        </h2>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="max-w-md min-w-0">
+            <p id="s-browser-alerts" class="text-sm font-medium">
+              {{ 'settings.browserAlerts' | translate }}
+            </p>
+            <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+              {{ 'settings.browserAlertsHint' | translate }}
+            </p>
+          </div>
+          <div class="segmented" role="group" aria-labelledby="s-browser-alerts">
+            <button
+              [class.active]="!notifications.browserAlerts()"
+              [attr.aria-pressed]="!notifications.browserAlerts()"
+              (click)="setBrowserAlerts(false)"
+            >
+              {{ 'settings.off' | translate }}
+            </button>
+            <button
+              [class.active]="notifications.browserAlerts()"
+              [attr.aria-pressed]="notifications.browserAlerts()"
+              [disabled]="!browserSupported"
+              (click)="setBrowserAlerts(true)"
+            >
+              {{ 'settings.on' | translate }}
+            </button>
+          </div>
+        </div>
+        @if (blocked()) {
+          <p class="text-xs text-amber-700 dark:text-amber-300" role="status">
+            {{ 'settings.browserBlocked' | translate }}
+          </p>
+        }
       </section>
 
       <section class="card">
@@ -136,8 +175,15 @@ export class SettingsComponent {
     light: 'lucideSun',
     dark: 'lucideMoon',
   };
+  protected readonly notifications = inject(Notifications);
+  protected readonly browserSupported = 'Notification' in window;
+  protected readonly blocked = signal(false);
   protected readonly current = signal('');
   protected readonly next = signal('');
+
+  protected async setBrowserAlerts(on: boolean) {
+    this.blocked.set(!(await this.notifications.setBrowserAlerts(on)));
+  }
 
   protected async changePassword() {
     try {
