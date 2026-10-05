@@ -412,7 +412,10 @@
   "freelance": "Freelance",
   "interest": "Juros",
   "dividends": "Dividendos",
-  "other-income": "Outros rendimentos"
+  "other-income": "Outros rendimentos",
+  "rename": "Mudar nome",
+  "resetName": "Repor o nome original",
+  "newName": "Novo nome"
  },
  "import": {
   "title": "Importar do Excel",

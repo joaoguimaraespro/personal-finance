@@ -11,6 +11,10 @@ namespace Finance.Domain;
 /// </summary>
 public static class SystemCatalog
 {
+    /// <summary>The catalogue's own (English) name of a built-in category, to tell a user's rename apart.</summary>
+    public static string? DefaultCategoryName(string key) =>
+        Array.Find(CategoryDefs, d => d.Key == key) is { Key: not null } d ? d.Name : null;
+
     private static readonly (string Key, string Name, CategoryType Type, ExpenseNature? Nature, string? Parent, string Color, string Icon)[] CategoryDefs =
     [
         ("housing", "Housing", CategoryType.Expense, ExpenseNature.Fixed, null, "#6366f1", "home"),

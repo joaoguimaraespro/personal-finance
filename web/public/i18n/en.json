@@ -412,7 +412,10 @@
   "freelance": "Freelance",
   "interest": "Interest",
   "dividends": "Dividends",
-  "other-income": "Other income"
+  "other-income": "Other income",
+  "rename": "Rename",
+  "resetName": "Back to the default name",
+  "newName": "New name"
  },
  "import": {
   "title": "Import from Excel",
