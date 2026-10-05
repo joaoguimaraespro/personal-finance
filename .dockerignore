@@ -14,3 +14,5 @@ deploy/secrets/
 **/*.xlsx
 **/.env
 **/.env.*
+logs/
+browser-profile/

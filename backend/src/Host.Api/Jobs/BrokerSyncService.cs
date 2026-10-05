@@ -27,15 +27,24 @@ internal sealed class BrokerSyncService(IServiceScopeFactory scopes, SyncQueue q
         }
     }
 
+    /// <summary>First scheduled check after start-up: a host that was off for days catches up within a minute.</summary>
+    internal static readonly TimeSpan StartupDelay = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// How often "due" is re-evaluated. It is judged from wall-clock times stored in the database
+    /// (<see cref="SyncSchedule"/>), so a short poll keeps a host that sleeps and resumes at most this late.
+    /// </summary>
+    internal static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(5);
+
     private async Task ScheduleAsync(CancellationToken ct)
     {
-        await Task.Delay(TimeSpan.FromMinutes(2), clock, ct);
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30), clock);
-        do
+        await Task.Delay(StartupDelay, clock, ct);
+        while (true)
         {
-            List<BrokerConnection> due;
-            await using (var scope = scopes.CreateAsyncScope())
+            List<BrokerConnection> due = [];
+            try
             {
+                await using var scope = scopes.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<IIntegrationsDb>();
                 var active = await db.Connections.AsNoTracking()
                     .Where(c => c.Status == ConnectionStatus.Active).ToListAsync(ct);
@@ -53,12 +62,19 @@ internal sealed class BrokerSyncService(IServiceScopeFactory scopes, SyncQueue q
                 due = active.Where(c => SyncSchedule.IsDue(c.Kind, c.LastSuccessfulSyncUtc,
                     lastJobs.GetValueOrDefault(c.Id), now)).ToList();
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // E.g. the database briefly unavailable after the host resumes: try again on the next poll.
+                logger.LogError(ex, "Could not check which broker syncs are due");
+            }
 
             foreach (var connection in due)
             {
                 await RunAsync(connection.Id, SyncTrigger.Scheduled, ct);
             }
-        } while (await timer.WaitForNextTickAsync(ct));
+
+            await Task.Delay(PollInterval, clock, ct);
+        }
     }
 
     private async Task RunAsync(Guid connectionId, SyncTrigger trigger, CancellationToken ct)

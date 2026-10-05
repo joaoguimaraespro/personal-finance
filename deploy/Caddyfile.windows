@@ -1,0 +1,20 @@
+# Windows PC (Docker Desktop, deploy/compose.windows.yml): the same site as the server, on http://localhost:<HTTP_PORT>.
+# The port is published on the PC's loopback only, which browsers treat as a secure context (Secure cookies work on
+# http://localhost). Caddy tells the API the request is HTTPS, exactly as `tailscale serve` does on the server; without
+# it the API, which insists on Secure cookies outside development, refuses to issue its session and anti-forgery cookies.
+# A `tailscale serve` in front of this port (optional phone access) still works: it already sends https.
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For
+	}
+}
+
+import /etc/caddy/routes.caddy
+
+:8080 {
+	request_header X-Forwarded-Proto https
+	import site
+}
