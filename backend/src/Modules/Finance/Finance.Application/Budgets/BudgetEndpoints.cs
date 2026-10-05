@@ -71,31 +71,7 @@ public static class BudgetEndpoints
 
             var specs = req.Items.Select(i => new BudgetItemSpec(i.Target, i.Mode, i.Value, i.BucketId, i.CategoryId))
                 .ToList();
-            var existing = await db.Budgets.Include(b => b.Items)
-                .FirstOrDefaultAsync(b => b.EffectiveFrom == ym.FirstDay, ct);
-            if (existing is null)
-            {
-                var created = Budget.Create(ym, specs, req.Note);
-                if (created.IsFailure)
-                {
-                    return ResultHttp.Problem(created.Error);
-                }
-
-                db.Budgets.Add(created.Value);
-            }
-            else
-            {
-                var replaced = existing.ReplaceItems(specs);
-                if (replaced.IsFailure)
-                {
-                    return ResultHttp.Problem(replaced.Error);
-                }
-
-                existing.SetNote(req.Note);
-            }
-
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
+            return (await SaveAsync(db, ym, specs, req.Note, ct)).ToHttp();
         }).Validate<SaveBudgetRequest>();
 
         group.MapDelete("/{period}", async (string period, IFinanceDb db, CancellationToken ct) =>
@@ -115,6 +91,40 @@ public static class BudgetEndpoints
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
+    }
+
+    /// <summary>
+    /// Creates or replaces the version that starts in <paramref name="period"/>; earlier months keep their own
+    /// version. Shared by the budget page and the AI write tool <c>set_budget_limit</c>.
+    /// </summary>
+    public static async Task<Result> SaveAsync(IFinanceDb db, YearMonth period, IReadOnlyList<BudgetItemSpec> specs,
+        string? note, CancellationToken ct)
+    {
+        var existing = await db.Budgets.Include(b => b.Items)
+            .FirstOrDefaultAsync(b => b.EffectiveFrom == period.FirstDay, ct);
+        if (existing is null)
+        {
+            var created = Budget.Create(period, specs, note);
+            if (created.IsFailure)
+            {
+                return created.Error;
+            }
+
+            db.Budgets.Add(created.Value);
+        }
+        else
+        {
+            var replaced = existing.ReplaceItems(specs);
+            if (replaced.IsFailure)
+            {
+                return replaced.Error;
+            }
+
+            existing.SetNote(note);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
     }
 
     /// <summary>The latest version whose EffectiveFrom is on or before the month.</summary>

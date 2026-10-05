@@ -21,7 +21,8 @@ public sealed class ArchitectureTests
         SharedKernel, FinanceDomain, FinanceApplication, typeof(Finance.Infrastructure.FinanceInfrastructure).Assembly,
         Reporting, Imports, typeof(Program).Assembly, InvestmentsDomain, InvestmentsApplication,
         typeof(Investments.Infrastructure.InvestmentsInfrastructure).Assembly, IntegrationsApplication,
-        IntegrationsInfrastructure,
+        IntegrationsInfrastructure, typeof(Ai.Application.Gateway.AiGateway).Assembly,
+        typeof(Ai.Contracts.AiTools).Assembly,
     ];
 
     [Fact]

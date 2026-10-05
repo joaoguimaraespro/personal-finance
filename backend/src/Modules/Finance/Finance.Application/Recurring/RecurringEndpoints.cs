@@ -104,41 +104,14 @@ public static class RecurringEndpoints
                 .ToListAsync(ct)));
 
         group.MapPost("/", async (RecurringRequest req, IFinanceDb db, RecurringProposer proposer,
-            CancellationToken ct) =>
-        {
-            var definition = req.ToDefinition();
-            var check = await ValidateReferences(db, definition, ct);
-            if (check is not null)
-            {
-                return ResultHttp.Problem(check);
-            }
-
-            var recurring = RecurringTransaction.Create(definition);
-            db.RecurringTransactions.Add(recurring);
-            await db.SaveChangesAsync(ct);
-            await proposer.ProposeDueAsync(ct);
-            return Results.Created($"/api/recurring/{recurring.Id}", new { recurring.Id });
-        }).Validate<RecurringRequest>();
+                CancellationToken ct) =>
+            (await RecurringCommands.CreateAsync(db, proposer, req.ToDefinition(), ct))
+            .ToHttp(r => Results.Created($"/api/recurring/{r.Id}", new { r.Id })))
+            .Validate<RecurringRequest>();
 
         group.MapPut("/{id:guid}", async (Guid id, RecurringRequest req, IFinanceDb db, CancellationToken ct) =>
-        {
-            var recurring = await db.RecurringTransactions.FindAsync([id], ct);
-            if (recurring is null)
-            {
-                return ResultHttp.Problem(NotFound);
-            }
-
-            var definition = req.ToDefinition();
-            var check = await ValidateReferences(db, definition, ct);
-            if (check is not null)
-            {
-                return ResultHttp.Problem(check);
-            }
-
-            recurring.Update(definition);
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
-        }).Validate<RecurringRequest>();
+                (await RecurringCommands.UpdateAsync(db, id, req.ToDefinition(), ct)).ToHttp(_ => Results.NoContent()))
+            .Validate<RecurringRequest>();
 
         group.MapPost("/{id:guid}/pause", (Guid id, IFinanceDb db, CancellationToken ct) => SetActive(id, false, db, ct));
         group.MapPost("/{id:guid}/resume", (Guid id, IFinanceDb db, CancellationToken ct) => SetActive(id, true, db, ct));
@@ -173,66 +146,13 @@ public static class RecurringEndpoints
                 .Take(200)
                 .ToListAsync(ct)));
 
-        expected.MapPost("/{id:guid}/confirm", ConfirmAsync);
+        expected.MapPost("/{id:guid}/confirm", async (Guid id, ConfirmExpectedRequest? req, IFinanceDb db,
+                TimeProvider clock, CancellationToken ct) =>
+            (await RecurringCommands.ConfirmAsync(db, id, req, clock.GetUtcNow(), ct))
+            .ToHttp(t => Results.Ok(new { TransactionId = t.Id })));
 
         expected.MapPost("/{id:guid}/skip", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
-        {
-            var item = await db.ExpectedTransactions.FindAsync([id], ct);
-            if (item is null)
-            {
-                return ResultHttp.Problem(ExpectedNotFound);
-            }
-
-            if (item.Status != ExpectedStatus.Pending)
-            {
-                return ResultHttp.Problem(AlreadyResolved);
-            }
-
-            item.Skip(clock.GetUtcNow());
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
-        });
-    }
-
-    private static async Task<IResult> ConfirmAsync(Guid id, ConfirmExpectedRequest? req, IFinanceDb db,
-        TimeProvider clock, CancellationToken ct)
-    {
-        var item = await db.ExpectedTransactions.FindAsync([id], ct);
-        if (item is null)
-        {
-            return ResultHttp.Problem(ExpectedNotFound);
-        }
-
-        if (item.Status != ExpectedStatus.Pending)
-        {
-            return ResultHttp.Problem(AlreadyResolved);
-        }
-
-        var template = await db.RecurringTransactions.AsNoTracking()
-            .FirstAsync(r => r.Id == item.RecurringTransactionId, ct);
-        var draft = template.ToDraft(req?.OccurredOn ?? item.DueOn, req?.Amount ?? item.Amount) with
-        {
-            AccountId = req?.AccountId ?? template.AccountId,
-            FxRate = req?.FxRate,
-            Notes = req?.Notes,
-        };
-
-        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
-        if (resolved.IsFailure)
-        {
-            return ResultHttp.Problem(resolved.Error);
-        }
-
-        var created = Transaction.Create(resolved.Value, DataSource.Recurring, expectedTransactionId: item.Id);
-        if (created.IsFailure)
-        {
-            return ResultHttp.Problem(created.Error);
-        }
-
-        db.Transactions.Add(created.Value);
-        item.Confirm(created.Value.Id, clock.GetUtcNow());
-        await db.SaveChangesAsync(ct);
-        return Results.Ok(new { TransactionId = created.Value.Id });
+            (await RecurringCommands.SkipAsync(db, id, clock.GetUtcNow(), ct)).ToHttp(_ => Results.NoContent()));
     }
 
     private static async Task<IResult> SetActive(Guid id, bool active, IFinanceDb db, CancellationToken ct)
@@ -246,19 +166,5 @@ public static class RecurringEndpoints
         recurring.SetActive(active);
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
-    }
-
-    private static async Task<Error?> ValidateReferences(IFinanceDb db, RecurringDefinition def, CancellationToken ct)
-    {
-        var probe = new TransactionDraft(def.Type, def.StartOn, def.Amount, def.Currency, def.AccountId,
-            def.CategoryId, def.Nature, def.CounterAccountId, def.BucketId, FxRate: def.Currency == Currency.Base ? null : 1m);
-        var resolved = await TransactionReferences.ResolveAsync(db, probe, ct);
-        if (resolved.IsFailure)
-        {
-            return resolved.Error;
-        }
-
-        var probeResult = Transaction.Create(resolved.Value, DataSource.Recurring);
-        return probeResult.IsFailure ? probeResult.Error : null;
     }
 }

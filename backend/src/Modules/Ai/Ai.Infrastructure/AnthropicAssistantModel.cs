@@ -11,8 +11,8 @@ using Microsoft.Extensions.Logging;
 namespace Ai.Infrastructure;
 
 /// <summary>
-/// Claude via the official Anthropic SDK: a manual tool-use loop whose only tools are the gateway's read-only
-/// catalogue. Disabled unless an API key is configured. Refused requests are retried server-side on a fallback model.
+/// Claude via the official Anthropic SDK: a manual tool-use loop whose only tools are the gateway's catalogue,
+/// filtered by the assistant client's scopes (read-only unless the owner grants a write scope). Disabled unless an API key is configured. Refused requests are retried server-side on a fallback model.
 /// </summary>
 internal sealed class AnthropicAssistantModel(IConfiguration config, ILogger<AnthropicAssistantModel> logger) : IAssistantModel
 {

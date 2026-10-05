@@ -124,22 +124,8 @@ public static class InvestmentEndpoints
 
         assets.MapPost("/{id:guid}/valuations", async (Guid id, ValuationRequest req, IInvestmentsDb db,
             TimeProvider clock, CancellationToken ct) =>
-        {
-            var asset = await db.ManualAssets.Include(a => a.Valuations).FirstOrDefaultAsync(a => a.Id == id, ct);
-            if (asset is null)
-            {
-                return ResultHttp.Problem(Error.NotFound("Asset.NotFound", "Asset not found."));
-            }
-
-            if (req.Value < 0)
-            {
-                return ResultHttp.Problem(Error.Validation("Asset.Value", "Enter the value as a positive number."));
-            }
-
-            asset.Value(req.On ?? DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime), req.Value);
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
-        });
+            (await ValueAssetAsync(db, id, req.Value, req.On ?? DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime),
+                false, ct)).ToHttp(_ => Results.NoContent()));
 
         assets.MapPost("/{id:guid}/archive", async (Guid id, IInvestmentsDb db, TimeProvider clock, CancellationToken ct) =>
         {
@@ -172,6 +158,36 @@ public static class InvestmentEndpoints
 
         app.MapManualHoldings();
         return app;
+    }
+
+    public static readonly Error AssetNotFound = Error.NotFound("Asset.NotFound", "Asset not found.");
+
+    /// <summary>
+    /// Records the value of a manually valued asset or liability on a day (replacing that day's value). Shared by the
+    /// net-worth page and the AI write tool <c>update_asset_value</c>, which also refuses archived assets.
+    /// </summary>
+    public static async Task<Result<ManualAsset>> ValueAssetAsync(IInvestmentsDb db, Guid id, decimal value,
+        DateOnly on, bool refuseArchived, CancellationToken ct)
+    {
+        var asset = await db.ManualAssets.Include(a => a.Valuations).FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (asset is null)
+        {
+            return AssetNotFound;
+        }
+
+        if (refuseArchived && asset.ArchivedAtUtc is not null)
+        {
+            return Error.Forbidden("Asset.Archived", "This asset is archived; restore it in the app before changing it.");
+        }
+
+        if (value < 0)
+        {
+            return Error.Validation("Asset.Value", "Enter the value as a positive number.");
+        }
+
+        asset.Value(on, value);
+        await db.SaveChangesAsync(ct);
+        return asset;
     }
 
     private static ManualAssetDto ToDto(ManualAsset a)
