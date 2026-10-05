@@ -25,8 +25,12 @@ public static class RecurringCommands
         return recurring;
     }
 
-    public static async Task<Result<RecurringTransaction>> UpdateAsync(IFinanceDb db, Guid id,
-        RecurringDefinition definition, CancellationToken ct)
+    /// <summary>
+    /// Edits a template. When its schedule changes, pending proposals dated today or later are dropped and proposed
+    /// again from the new anchor; confirmed and skipped ones, and overdue pending ones, stay as they are.
+    /// </summary>
+    public static async Task<Result<RecurringTransaction>> UpdateAsync(IFinanceDb db, RecurringProposer proposer,
+        Guid id, RecurringDefinition definition, CancellationToken ct)
     {
         var recurring = await db.RecurringTransactions.FindAsync([id], ct);
         if (recurring is null)
@@ -39,8 +43,22 @@ public static class RecurringCommands
             return error;
         }
 
-        recurring.Update(definition);
+        var today = proposer.Today;
+        var scheduleChanged = recurring.Update(definition, today);
+        if (scheduleChanged)
+        {
+            var stale = await db.ExpectedTransactions
+                .Where(e => e.RecurringTransactionId == id && e.Status == ExpectedStatus.Pending && e.DueOn >= today)
+                .ToListAsync(ct);
+            db.ExpectedTransactions.RemoveRange(stale);
+        }
+
         await db.SaveChangesAsync(ct);
+        if (scheduleChanged)
+        {
+            await proposer.ProposeDueAsync(ct);
+        }
+
         return recurring;
     }
 

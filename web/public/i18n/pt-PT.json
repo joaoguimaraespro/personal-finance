@@ -179,6 +179,7 @@
  },
  "frequency": {
   "Weekly": "Semanal",
+  "Daily": "A cada N dias",
   "Monthly": "Mensal",
   "Yearly": "Anual"
  },
@@ -321,6 +322,10 @@
   "schedule": "Periodicidade",
   "next": "Próximo",
   "day": "dia {{day}}",
+  "everyDay": "Todos os dias",
+  "everyNDays": "A cada {{n}} dias",
+  "intervalDays": "A cada quantos dias",
+  "intervalDaysHint": "A partir da data de início, de 1 a 365 dias.",
   "pause": "Pausar",
   "resume": "Retomar",
   "empty": "Ainda sem recorrentes — adiciona salário, renda ou subscrições.",

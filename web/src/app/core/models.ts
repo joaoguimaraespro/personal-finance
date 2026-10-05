@@ -78,7 +78,7 @@ export type BucketGroup = 'Investment' | 'Savings';
 export type AllocationStatus = 'Todo' | 'Done' | 'Partial' | 'NotApplicable';
 export type BudgetTarget = 'Bucket' | 'ExpensePool' | 'Category';
 export type BudgetMode = 'PercentOfIncome' | 'FixedAmount' | 'Remainder';
-export type Frequency = 'Weekly' | 'Monthly' | 'Yearly';
+export type Frequency = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
 
 export interface Account {
   id: string;
