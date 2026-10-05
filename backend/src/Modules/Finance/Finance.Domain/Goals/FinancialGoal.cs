@@ -46,6 +46,22 @@ public sealed class FinancialGoal : Entity, IAuditable
     public decimal CurrentAmount(decimal linkedContributions) =>
         ManualCurrentAmount ?? StartingAmount + linkedContributions;
 
+    /// <summary>
+    /// Records money set aside for the goal outside the ledger: it raises the amount tracked by hand when the goal
+    /// is tracked that way, otherwise the starting amount (linked savings transactions keep adding on top).
+    /// </summary>
+    public void AddToCurrent(decimal amount)
+    {
+        if (ManualCurrentAmount is { } manual)
+        {
+            ManualCurrentAmount = manual + amount;
+        }
+        else
+        {
+            StartingAmount += amount;
+        }
+    }
+
     public void MarkAchieved(DateTimeOffset now) => AchievedAtUtc ??= now;
 
     public void Archive(DateTimeOffset now) => ArchivedAtUtc = now;

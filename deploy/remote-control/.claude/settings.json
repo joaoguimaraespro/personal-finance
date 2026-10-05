@@ -1,7 +1,7 @@
 {
   "enableAllProjectMcpServers": true,
   "permissions": {
-    "defaultMode": "dontAsk",
+    "defaultMode": "default",
     "allow": [
       "mcp__personal-finance__*",
       "Skill(resumo-mes)",
@@ -12,6 +12,20 @@
       "Skill(gastos)",
       "Skill(objetivos)",
       "Skill(check-in)"
+    ],
+    "ask": [
+      "mcp__personal-finance__create_transaction",
+      "mcp__personal-finance__update_transaction",
+      "mcp__personal-finance__delete_transaction",
+      "mcp__personal-finance__confirm_expected",
+      "mcp__personal-finance__skip_expected",
+      "mcp__personal-finance__upsert_recurring",
+      "mcp__personal-finance__set_budget_limit",
+      "mcp__personal-finance__upsert_goal",
+      "mcp__personal-finance__add_to_goal",
+      "mcp__personal-finance__update_crypto_holding",
+      "mcp__personal-finance__add_crypto_reward",
+      "mcp__personal-finance__update_asset_value"
     ],
     "deny": [
       "Bash", "Edit", "Write", "NotebookEdit", "Read", "Glob", "Grep",

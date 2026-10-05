@@ -168,6 +168,7 @@ builder.Services.AddHostedService<InterestAccrualJob>();
 builder.Services.AddHostedService<DailySnapshotJob>();
 builder.Services.AddHostedService<HistoryRebuildJob>();
 builder.Services.AddHostedService<BrokerSyncService>();
+builder.Services.AddHostedService<AiRecycleBinPurgeJob>();
 builder.Services.Configure<HostOptions>(o =>
     o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 

@@ -8,6 +8,7 @@ using Finance.Domain.Categories;
 using Finance.Domain.Interest;
 using Finance.Domain.Recurring;
 using Finance.Domain.Transactions;
+using Investments.Application.Abstractions;
 using Investments.Application.Calculations;
 using Investments.Application.Fx;
 using Investments.Application.NetWorth;
@@ -32,8 +33,8 @@ public sealed record ToolOutput(object Data, int RecordCount);
 /// asking about restaurant spending never returns accounts, other categories or the portfolio.
 /// All numbers come from the same calculators as the application.
 /// </summary>
-public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, PortfolioQueries portfolio,
-    NetWorthService netWorth, FxRates fx)
+public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments, LedgerAggregates ledger,
+    PortfolioQueries portfolio, NetWorthService netWorth, FxRates fx)
 {
     public Task<ToolOutput> RunAsync(string tool, ToolContext ctx, CancellationToken ct) => tool switch
     {
@@ -163,17 +164,20 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
                 join c in finance.Categories on t.CategoryId equals c.Id
                 join a in finance.Accounts on t.AccountId equals a.Id
                 orderby t.OccurredOn descending, t.CreatedAtUtc descending
-                select new { t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount, Category = c.Name, t.Description, t.Notes, Account = a.Institution ?? a.Name, t.Source })
+                select new { t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount, Category = c.Name, t.Description, t.Notes, Account = a.Institution ?? a.Name, t.Source })
             .Take(limit).ToListAsync(ct);
 
         var withAccount = ctx.Has(AiScopes.RawTransactions);
         var withNotes = ctx.Has(AiScopes.PersonalNotes);
+        var withIds = ctx.Has(AiScopes.TransactionsWrite);
         return new(new
         {
             period = period.ToString(),
             baseCurrency = Currency.Base,
             items = rows.Select(r => new
             {
+                // Only clients that may edit transactions see ids, and only of the rows they may edit.
+                id = withIds && AiWritePolicy.IsEditable(r.Source, r.Type) ? r.Id : (Guid?)null,
                 date = r.OccurredOn,
                 amount = r.OriginalAmount,
                 currency = r.OriginalCurrency,
@@ -227,7 +231,29 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
             changeSinceStartPercent = h.ChangeSinceStartPercent,
             trackingSince = h.StartDate,
             accounts,
+            manualAssets = await ManualAssetsAsync(ctx, ct),
         }, 1);
+    }
+
+    /// <summary>Manually valued assets and liabilities, listed only for clients that may update their values.</summary>
+    private async Task<object?> ManualAssetsAsync(ToolContext ctx, CancellationToken ct)
+    {
+        if (!ctx.Has(AiScopes.HoldingsWrite))
+        {
+            return null;
+        }
+
+        var assets = await investments.ManualAssets.AsNoTracking().Include(a => a.Valuations)
+            .Where(a => a.ArchivedAtUtc == null).OrderBy(a => a.Kind).ThenBy(a => a.Name).Take(50).ToListAsync(ct);
+        return assets.Select(a =>
+        {
+            var latest = a.Valuations.OrderByDescending(v => v.Date).FirstOrDefault();
+            return new
+            {
+                id = a.Id, kind = a.Kind.ToString(), name = UntrustedText.From(a.Name), currency = a.Currency,
+                liability = a.IsLiability ? true : (bool?)null, value = latest?.Value, valuedOn = latest?.Date,
+            };
+        }).ToList();
     }
 
     private async Task<ToolOutput> PortfolioSummaryAsync(ToolContext ctx, CancellationToken ct)
@@ -258,6 +284,11 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
     {
         var top = ctx.Args.Bounded("top", 10, 1, 25);
         var positions = (await portfolio.PositionsAsync(Scope(ctx), ct)).Take(top).ToList();
+        // Hand-entered holdings' ids only for clients that may update them.
+        var holdingIds = ctx.Has(AiScopes.HoldingsWrite)
+            ? (await investments.ManualHoldings.AsNoTracking().Select(h => new { h.Id, h.AccountId, h.SecurityId })
+                .ToListAsync(ct)).ToDictionary(h => (h.AccountId, h.SecurityId), h => (Guid?)h.Id)
+            : null;
         return new(new
         {
             currency = Currency.Base,
@@ -277,7 +308,12 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
                     // A hand-entered coin's location ("Binance", "Cold wallet") plays the role of an institution.
                     locations = manual.Count == 0
                         ? null
-                        : manual.Select(h => new { location = UntrustedText.From(h.AccountName), quantity = h.Quantity }),
+                        : manual.Select(h => new
+                        {
+                            holdingId = holdingIds?.GetValueOrDefault((h.AccountId, p.SecurityId)),
+                            location = UntrustedText.From(h.AccountName),
+                            quantity = h.Quantity,
+                        }),
                 };
             }),
         }, positions.Count);
@@ -345,6 +381,7 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
             currency = Currency.Base,
             items = goals.Select(g => new
             {
+                id = ctx.Has(AiScopes.PlanningWrite) ? g.Id : (Guid?)null,
                 name = UntrustedText.From(g.Name), target = g.TargetAmount, current = g.CurrentAmount, progress = g.Progress,
                 remaining = g.Remaining, targetDate = g.TargetDate, neededPerMonth = g.MonthlyNeeded, achieved = g.Achieved,
             }),
@@ -432,7 +469,7 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
                 orderby t.OccurredOn descending, t.CreatedAtUtc descending
                 select new
                 {
-                    t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount,
+                    t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount,
                     Category = c == null ? null : c.Name, t.Nature, t.Description, t.Notes,
                     Account = a.Institution ?? a.Name, Counter = ca == null ? null : ca.Institution ?? ca.Name,
                     t.Source, t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetQuantity,
@@ -441,6 +478,7 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
 
         var withAccount = ctx.Has(AiScopes.RawTransactions);
         var withNotes = ctx.Has(AiScopes.PersonalNotes);
+        var withIds = ctx.Has(AiScopes.TransactionsWrite);
         var matched = totals.Sum(x => x.Count);
         return new(new
         {
@@ -451,6 +489,8 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
             totalsByType = totals.OrderBy(x => x.Type).Select(x => new { type = TypeName(x.Type), count = x.Count, totalEur = x.Total }),
             items = rows.Select(r => new
             {
+                // Only clients that may edit transactions see ids, and only of the rows they may edit.
+                id = withIds && AiWritePolicy.IsEditable(r.Source, r.Type) ? r.Id : (Guid?)null,
                 date = r.OccurredOn,
                 type = TypeName(r.Type),
                 amount = r.OriginalAmount,
@@ -523,6 +563,8 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
             : new Dictionary<Guid, decimal>();
 
         var withNames = ctx.Has(AiScopes.AccountIdentifiers);
+        // Account ids only for clients that can write entries, and only for accounts that accept them.
+        var withIds = ctx.Has(AiScopes.TransactionsWrite) || ctx.Has(AiScopes.RecurringWrite);
         var items = accounts.Select(a =>
         {
             var isBroker = a.Kind == AccountKind.Broker;
@@ -534,6 +576,7 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
             var i = interest.GetValueOrDefault(a.Id);
             return new
             {
+                id = withIds && a.IsManual ? a.Id : (Guid?)null,
                 kind = a.Kind.ToString(),
                 // A crypto location's name ("Binance", "Cold wallet") is where the coins are: it plays the institution.
                 institution = UntrustedText.From(isLocation ? a.Name : a.Institution),
@@ -581,7 +624,7 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
                 join r in finance.RecurringTransactions on e.RecurringTransactionId equals r.Id
                 where e.Status == ExpectedStatus.Pending && e.DueOn <= horizon
                 orderby e.DueOn
-                select new { RecurringId = r.Id, r.Name, r.Type, e.DueOn, e.Amount, e.Currency })
+                select new { ExpectedId = e.Id, RecurringId = r.Id, r.Name, r.Type, e.DueOn, e.Amount, e.Currency })
             .Take(100).ToListAsync(ct);
         var factors = await fx.EurPerUnitAsync(templates.Select(t => t.Currency).Concat(pending.Select(p => p.Currency)),
             ctx.Today, ct);
@@ -592,8 +635,11 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
         decimal MonthlyEur(IEnumerable<RecurringTransaction> items) =>
             decimal.Round(items.Sum(r => Eur(PerMonth(r), r.Currency)), 2);
 
+        // Ids only for clients that may confirm, skip or edit recurring items.
+        var withIds = ctx.Has(AiScopes.RecurringWrite);
         var items = templates.Take(50).Select(r => new
         {
+            id = withIds && r.Type is TransactionType.Expense or TransactionType.Income ? r.Id : (Guid?)null,
             name = UntrustedText.From(r.Name),
             type = TypeName(r.Type),
             amount = r.Amount,
@@ -613,13 +659,14 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
         var proposed = pending.Select(p => (p.RecurringId, p.DueOn)).ToHashSet();
         var scheduled = active
             .SelectMany(r => r.TakeDueOccurrences(horizon).Where(d => !proposed.Contains((r.Id, d)))
-                .Select(d => new { r.Name, r.Type, DueOn = d, r.Amount, r.Currency, Status = "scheduled" }));
-        var upcoming = pending.Select(p => new { p.Name, p.Type, p.DueOn, p.Amount, p.Currency, Status = "awaiting_confirmation" })
+                .Select(d => new { ExpectedId = (Guid?)null, r.Name, r.Type, DueOn = d, r.Amount, r.Currency, Status = "scheduled" }));
+        var upcoming = pending.Select(p => new { ExpectedId = (Guid?)p.ExpectedId, p.Name, p.Type, p.DueOn, p.Amount, p.Currency, Status = "awaiting_confirmation" })
             .Concat(scheduled)
             .OrderBy(u => u.DueOn)
             .Take(60)
             .Select(u => new
             {
+                expectedId = withIds ? u.ExpectedId : null,
                 dueOn = u.DueOn,
                 name = UntrustedText.From(u.Name),
                 type = TypeName(u.Type),
@@ -723,11 +770,16 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
     };
 
     /// <summary>Matches a category by key or by name (built-in English or Portuguese names, or custom names).</summary>
-    private async Task<(Guid Id, string Name)?> ResolveCategoryAsync(string input, CancellationToken ct,
-        CategoryType? type = CategoryType.Expense)
+    private Task<(Guid Id, string Name)?> ResolveCategoryAsync(string input, CancellationToken ct,
+        CategoryType? type = CategoryType.Expense) => ResolveCategoryAsync(finance, input, type, false, ct);
+
+    /// <summary>Also used by the write tools, which only accept categories that are not archived.</summary>
+    internal static async Task<(Guid Id, string Name)?> ResolveCategoryAsync(IFinanceDb finance, string input,
+        CategoryType? type, bool activeOnly, CancellationToken ct)
     {
         var needle = input.Trim().ToLowerInvariant();
-        var categories = await finance.Categories.AsNoTracking().Where(c => type == null || c.Type == type)
+        var categories = await finance.Categories.AsNoTracking()
+            .Where(c => (type == null || c.Type == type) && (!activeOnly || c.ArchivedAtUtc == null))
             .OrderBy(c => c.Type)
             .Select(c => new { c.Id, c.Key, c.Name }).ToListAsync(ct);
         var hit = categories.FirstOrDefault(c => c.Key == needle.Replace(' ', '-'))

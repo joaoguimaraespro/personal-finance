@@ -36,7 +36,7 @@ monthly checklist — and rebuilds it on a database.
 | **Excel migration** | Analyze → map → validate → preview → import → undo. Reconciles every month against the workbook's own totals to the cent before anything is written. Idempotent re-imports. |
 | **Investments** | Read-only sync from Trading 212 (Public API + CSV) and Interactive Brokers (Flex Web Service). Consolidated portfolio by ISIN with per-broker holdings, allocation vs target, dividends with withholding tax, TWR and XIRR, net worth history. [Setup](docs/broker-integrations.md). |
 | **Export** | Real .xlsx (Excel tables, native charts, schema-validated), CSV per dataset (Excel-PT dialect), complete JSON archive with restore. |
-| **AI** | Read-only MCP server for Claude Code / ChatGPT / local models and an optional in-app assistant, both behind a policy gateway: per-client revocable tokens, explicit scopes, question-specific minimal answers, untrusted-text wrapping, audit. [Details](docs/ai.md). |
+| **AI** | MCP server for Claude Code / ChatGPT / local models and an optional in-app assistant, both behind a policy gateway: per-client revocable tokens, explicit scopes, question-specific minimal answers, untrusted-text wrapping, audit. Read-only by default; opt-in, audited write tools with a 30-day recycle bin. [Details](docs/ai.md). |
 | **Security** | Single owner, mandatory TOTP MFA, CSRF protection, rate limiting, encrypted identifiers, least-privilege database roles, VPN-only exposure, encrypted backups. |
 | **i18n** | English and European Portuguese, light/dark theme. |
 
@@ -189,6 +189,7 @@ cd web && npm test                # frontend unit tests
 - [x] Phase 6 — XLSX / CSV / JSON export and JSON restore
 - [x] Phase 7–8 — Read-only MCP server behind an AI policy gateway
 - [x] Phase 9 — In-app assistant through the same gateway
+- [x] Phase 10 — Opt-in AI write tools with a 30-day recycle bin ([ADR-0008](docs/adr/0008-ai-write-access.md))
 
 ## Tech
 

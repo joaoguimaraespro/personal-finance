@@ -215,14 +215,24 @@ public sealed class AiGatewayTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task There_is_no_sql_shell_file_or_write_tool()
+    public async Task There_is_no_sql_shell_file_trading_or_bulk_tool_and_writes_need_write_scopes()
     {
         var owner = await OwnerWithDataAsync();
         var token = await CreateAiClientAsync(owner, "Everything", Ai.Contracts.AiScopes.All.Select(s => s.Name).ToArray());
+        var readOnly = await CreateAiClientAsync(owner, "Every read",
+            Ai.Contracts.AiScopes.All.Where(s => !s.Write).Select(s => s.Name).ToArray());
 
-        foreach (var tool in new[] { "execute_sql", "query_database", "raw_database", "run_shell", "read_file", "create_transaction", "delete_transaction", "place_order" })
+        foreach (var tool in new[] { "execute_sql", "query_database", "raw_database", "run_shell", "read_file", "place_order",
+                     "delete_transactions", "bulk_update_transactions", "transfer_money", "purge_recycle_bin" })
         {
             (await CallAsync(token, tool)).Status.ShouldBe(HttpStatusCode.NotFound, tool);
+        }
+
+        // Write tools exist (ADR-0008) but only for clients holding a write scope, and never without arguments.
+        foreach (var tool in Ai.Contracts.AiTools.Writes.Select(t => t.Name))
+        {
+            (await CallAsync(readOnly, tool)).Status.ShouldBe(HttpStatusCode.Forbidden, tool);
+            (await CallAsync(token, tool)).Status.ShouldBe(HttpStatusCode.BadRequest, tool);
         }
     }
 

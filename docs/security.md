@@ -87,6 +87,18 @@ calls a gateway that enforces per-client tokens (hashed), scopes, strict argumen
 identifiers and notes, untrusted-text wrapping, response caps, rate limits and an audit log that never stores
 returned values. The in-app assistant uses the same gateway under its own revocable identity.
 
+**AI writes are opt-in** ([ADR-0008](adr/0008-ai-write-access.md)). Four sensitive write scopes
+(`transactions.write`, `recurring.write`, `planning.write`, `holdings.write`) are off for every client — existing
+ones included — until the owner ticks them. Write tools change one record per call with typed, bounded arguments,
+run the application's own commands and validators (same domain rules and ledger audit, actor `ai:<client>`), and
+refuse broker-sourced, investment, estimated-interest and archived records. Each client has a separate low write
+budget (20 per hour by default), optional idempotency keys, and every write is audited with its record and a
+before/after summary. AI deletes are soft: a recycle bin keeps them restorable for 30 days before a background job
+purges them. Threats considered: prompt injection through `untrusted_text` (server instructions forbid acting on
+it, writes need an explicit request in the conversation and MCP annotations let clients ask before every write),
+mistaken or bulk edits (no bulk tools, budget, idempotency, recycle bin) and token theft (opt-in scopes,
+revocation, audit).
+
 ## Reporting a vulnerability
 
 Please open a private security advisory on GitHub rather than a public issue.
