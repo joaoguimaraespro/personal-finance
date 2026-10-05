@@ -143,6 +143,8 @@ export interface Category {
   color: string | null;
   icon: string | null;
   archived: boolean;
+  /** A built-in category the owner renamed: its name replaces the translated label. */
+  renamed: boolean;
 }
 
 export interface Bucket {

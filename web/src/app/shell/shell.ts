@@ -15,6 +15,7 @@ import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 import { Activity } from '../core/activity';
 import { SessionMonitor } from '../core/session';
+import { CategoryNames } from '../shared/category-label';
 import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
@@ -188,6 +189,7 @@ export class ShellComponent {
   constructor() {
     // The shell only exists for a full MFA session: watch it while the shell is on screen.
     this.session.start();
+    inject(CategoryNames).start();
     inject(DestroyRef).onDestroy(() => this.session.stop());
   }
   protected readonly prefs = inject(Prefs);
