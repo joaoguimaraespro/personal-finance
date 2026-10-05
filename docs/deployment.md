@@ -1,6 +1,7 @@
 # Deployment (home server)
 
 Target: a Linux host running Tailscale, with one unprivileged user per project and rootless Docker.
+For a Windows PC that is not always on, see [windows.md](windows.md).
 
 ## 1. Backup key (on another machine)
 

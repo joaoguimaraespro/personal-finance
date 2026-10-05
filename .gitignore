@@ -24,6 +24,9 @@ deploy/secrets/
 *.age
 keys/
 backups/
+# Windows install: launcher/backup logs and the app window's browser profile (deploy/windows)
+logs/
+browser-profile/
 *.dump
 *.sql.gz
 # Real spreadsheets never enter git; only synthetic fixtures do

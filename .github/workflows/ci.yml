@@ -46,6 +46,75 @@ jobs:
       - run: npm test
       - run: npx ng build --configuration production
 
+  windows-scripts:
+    # Docker Linux containers are not available on Windows runners, so the Windows install is checked statically
+    # (parser + PSScriptAnalyzer) and its pure helpers unit-tested (Pester) on PowerShell 7 and Windows PowerShell 5.1.
+    # The stack itself is covered by the Linux E2E job with the same images.
+    name: Windows scripts (lint + Pester)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scripts are ASCII and parse (PowerShell 7)
+        run: |
+          $files = Get-ChildItem deploy/windows -Recurse -Include *.ps1, *.psm1, *.psd1
+          $bad = $false
+          foreach ($hit in ($files | Select-String -Pattern '[^\x00-\x7F]')) {
+            # Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page.
+            "::error file=$($hit.Path),line=$($hit.LineNumber)::non-ASCII character"; $bad = $true
+          }
+          foreach ($f in $files) {
+            $tokens = $null; $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+            foreach ($e in $errors) { "::error file=$($f.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"; $bad = $true }
+          }
+          if ($bad) { exit 1 }
+      - name: Scripts parse (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $bad = $false
+          foreach ($f in (Get-ChildItem deploy/windows -Recurse -Include *.ps1, *.psm1, *.psd1)) {
+            $tokens = $null; $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+            foreach ($e in $errors) { "::error file=$($f.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"; $bad = $true }
+          }
+          if ($bad) { exit 1 }
+      - name: PSScriptAnalyzer
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer | Where-Object Version -ge '1.22.0')) {
+            Install-Module PSScriptAnalyzer -MinimumVersion 1.22.0 -Scope CurrentUser -Force
+          }
+          $results = Invoke-ScriptAnalyzer -Path deploy/windows -Recurse -Settings deploy/windows/PSScriptAnalyzerSettings.psd1
+          $results | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 240
+          if ($results) { exit 1 }
+      - name: Pester (PowerShell 7)
+        run: |
+          if (-not (Get-Module -ListAvailable Pester | Where-Object Version -ge '5.5.0')) {
+            Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+          Import-Module Pester -MinimumVersion 5.5.0
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'deploy/windows/tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
+      - name: Pester (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          if (-not (Get-Module -ListAvailable Pester | Where-Object Version -ge '5.5.0')) {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null
+            Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+          Import-Module Pester -MinimumVersion 5.5.0
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'deploy/windows/tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
+
   e2e:
     name: E2E against the production images
     runs-on: ubuntu-latest
@@ -74,6 +143,9 @@ jobs:
         run: |
           test "$(docker inspect personal-finance-api:ci --format '{{.Config.User}}')" = "app"
           test "$(docker run --rm --entrypoint '' personal-finance-web:ci id -u)" != "0"
+      - name: Windows Caddy configuration is valid (deploy/compose.windows.yml)
+        run: |
+          docker run --rm personal-finance-web:ci caddy validate --config /etc/caddy/Caddyfile.windows --adapter caddyfile
       - uses: actions/setup-node@v7
         with:
           node-version: 22

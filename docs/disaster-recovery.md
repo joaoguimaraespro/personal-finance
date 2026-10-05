@@ -31,6 +31,9 @@ decrypts account identifiers and keeps sessions valid) and a manifest with SHA-2
    as the schema owner, re-applies the least-privilege grants, restores the key ring and restarts.
 5. Remove the identity file from the machine. Sign in and check the latest transactions.
 
+Archives are the same on Windows (`deploy/windows/Backup.ps1` / `Restore.ps1`), so a server backup restores onto a
+Windows PC and vice versa: [windows.md](windows.md#backups-and-restore).
+
 ## Drill
 
 The procedure is exercised end to end (backup → wipe → restore → row count and sum match → API healthy).
@@ -39,4 +42,5 @@ Repeat it after major upgrades.
 ## RPO / RTO
 
 Daily backups at 03:30 (RPO ≤ 24 h; run `backup.sh` manually before risky changes). A restore takes a
-few minutes once the host is prepared.
+few minutes once the host is prepared. On a Windows PC a missed 03:30 run starts as soon as the PC is on, so the
+RPO is about a day of PC use.
