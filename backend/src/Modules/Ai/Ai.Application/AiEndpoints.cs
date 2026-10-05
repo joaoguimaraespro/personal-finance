@@ -51,6 +51,7 @@ public static class AiEndpoints
         services.AddScoped<WriteTools>();
         services.AddScoped<AiGateway>();
         services.AddScoped<AiRecycleBin>();
+        services.AddScoped<SharedKernel.Notifications.INotificationSource, AiNotificationSource>();
         services.AddSingleton<AiRateLimiter>();
         services.AddSingleton<AiWriteLimiter>();
         services.AddScoped<AssistantService>();

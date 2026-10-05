@@ -80,6 +80,37 @@ public sealed class ArchitectureTests
         writes.ShouldBeEmpty();
     }
 
+    /// <summary>
+    /// The notification centre only reads: every module source is listed here and none of them (lambdas and async
+    /// state machines included) calls SaveChanges. Each source lives in its own module, so the host composes them
+    /// without any module reaching into another.
+    /// </summary>
+    [Fact]
+    public void Notification_sources_are_read_only_and_owned_by_their_modules()
+    {
+        var sources = All.SelectMany(a => a.GetTypes())
+            .Where(t => typeof(SharedKernel.Notifications.INotificationSource).IsAssignableFrom(t) && !t.IsInterface)
+            .ToList();
+
+        sources.Select(t => $"{t.Assembly.GetName().Name}:{t.Name}").ShouldBe(
+        [
+            "Finance.Application:FinanceNotificationSource",
+            "Reporting.Application:BudgetNotificationSource",
+            "Integrations.Application:ConnectionNotificationSource",
+            "Ai.Application:AiNotificationSource",
+        ], ignoreOrder: true);
+
+        var writes = sources
+            .SelectMany(t => t.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic).Append(t))
+            .SelectMany(t => t.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                                          BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            .Where(m => m.GetMethodBody() is not null && CallsSaveChanges(m))
+            .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+            .ToList();
+
+        writes.ShouldBeEmpty();
+    }
+
     [Fact]
     public void Scanner_detects_writes_where_they_exist()
     {
