@@ -86,7 +86,11 @@ jobs:
           if (-not (Get-Module -ListAvailable PSScriptAnalyzer | Where-Object Version -ge '1.22.0')) {
             Install-Module PSScriptAnalyzer -MinimumVersion 1.22.0 -Scope CurrentUser -Force
           }
-          $results = Invoke-ScriptAnalyzer -Path deploy/windows -Recurse -Settings deploy/windows/PSScriptAnalyzerSettings.psd1
+          # Scripts and module only: Pester files trip the unused-variable rule (BeforeAll/It scopes), and the settings
+          # .psd1 is not a module manifest.
+          $results = Get-ChildItem deploy/windows/* -Include *.ps1, *.psm1 | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_.FullName -Settings deploy/windows/PSScriptAnalyzerSettings.psd1
+          }
           $results | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 240
           if ($results) { exit 1 }
       - name: Pester (PowerShell 7)
