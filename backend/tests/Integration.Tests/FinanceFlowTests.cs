@@ -159,6 +159,51 @@ public sealed class FinanceFlowTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Every_n_days_items_propose_from_their_anchor_and_regenerate_on_edit()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Gym card", kind = "CreditCard", currency = "EUR", openingBalance = 0 });
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        object Gym(int interval, int? dayOfMonth = null) => new
+        {
+            name = "Gym every N days", type = "Expense", amount = 25m, accountId = bank, frequency = "Daily",
+            interval, dayOfMonth, startOn = today.AddDays(-14).ToString("yyyy-MM-dd"),
+            categoryId = SystemCatalog.CategoryId("gym"),
+        };
+
+        (await api.PostAsync("/api/recurring", Gym(15, dayOfMonth: 1))).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await api.PostAsync("/api/recurring", Gym(366))).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        // Every 15 days from 14 days ago: one overdue occurrence and one tomorrow (within the 7-day look-ahead).
+        var id = await api.CreateAsync("/api/recurring", Gym(15));
+        async Task<List<(Guid Id, DateOnly DueOn)>> ExpectedAsync(string status) =>
+            (await api.GetAsync<JsonElement[]>($"/api/expected?status={status}"))
+            .Where(e => e.GetProperty("recurringTransactionId").GetGuid() == id)
+            .Select(e => (e.GetProperty("id").GetGuid(), DateOnly.Parse(e.GetProperty("dueOn").GetString()!)))
+            .ToList();
+        var pending = await ExpectedAsync("Pending");
+        pending.Select(p => p.DueOn).ShouldBe([today.AddDays(-14), today.AddDays(1)]);
+
+        var listed = (await api.GetAsync<JsonElement[]>("/api/recurring")).Single(r => r.GetProperty("id").GetGuid() == id);
+        listed.GetProperty("frequency").GetString().ShouldBe("Daily");
+        listed.GetProperty("interval").GetInt32().ShouldBe(15);
+        listed.GetProperty("dayOfMonth").ValueKind.ShouldBe(JsonValueKind.Null);
+        listed.GetProperty("nextDueOn").GetString().ShouldBe(today.AddDays(1).ToString("yyyy-MM-dd"));
+
+        (await api.PostAsync($"/api/expected/{pending[0].Id}/confirm", new { })).EnsureSuccessStatusCode();
+
+        // Every 14 days instead: tomorrow's proposal is replaced by today's; the confirmed one stays.
+        (await api.PutAsync($"/api/recurring/{id}", Gym(14))).EnsureSuccessStatusCode();
+
+        (await ExpectedAsync("Pending")).Select(p => p.DueOn).ShouldBe([today]);
+        (await ExpectedAsync("Confirmed")).ShouldBe([pending[0]]);
+        (await api.GetAsync<JsonElement[]>("/api/recurring")).Single(r => r.GetProperty("id").GetGuid() == id)
+            .GetProperty("nextDueOn").GetString().ShouldBe(today.ToString("yyyy-MM-dd"));
+
+        await api.PostAsync($"/api/recurring/{id}/pause", new { });
+    }
+
+    [Fact]
     public async Task Goals_track_linked_savings()
     {
         var api = await factory.OwnerAsync();

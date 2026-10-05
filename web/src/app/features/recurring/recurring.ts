@@ -22,6 +22,13 @@ import { PageHeaderComponent } from '../../shared/page-header';
 import { EmptyStateComponent } from '../../shared/empty-state';
 import { StatusBadgeComponent } from '../../shared/status-badge';
 import { InterestPendingComponent } from '../accounts/interest-pending';
+import {
+  maxInterval,
+  scheduleBody,
+  scheduleLabel,
+  usesDayOfMonth,
+  withFrequency,
+} from './schedule';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 interface Form {
@@ -32,6 +39,7 @@ interface Form {
   categoryId: string;
   bucketId: string;
   frequency: Frequency;
+  interval: string;
   dayOfMonth: string;
   startOn: string;
   endOn: string;
@@ -110,8 +118,8 @@ interface Form {
         <thead hlmTHead>
           <tr hlmTr>
             <th hlmTh>{{ 'common.name' | translate }}</th>
-            <th hlmTh>{{ 'recurring.schedule' | translate }}</th>
-            <th hlmTh>{{ 'recurring.next' | translate }}</th>
+            <th hlmTh class="hidden sm:table-cell">{{ 'recurring.schedule' | translate }}</th>
+            <th hlmTh class="hidden sm:table-cell">{{ 'recurring.next' | translate }}</th>
             <th hlmTh>{{ 'common.status' | translate }}</th>
             <th hlmTh class="text-right">{{ 'tx.amount' | translate }}</th>
             <th hlmTh></th>
@@ -126,14 +134,20 @@ interface Form {
                   {{ 'type.' + r.type | translate }} ·
                   {{ categoryFor(r.categoryId) | categoryLabel }}
                 </div>
+                <!-- Narrow screens: schedule and next date under the name instead of their own columns. -->
+                <div class="text-xs text-muted-foreground sm:hidden">
+                  {{ schedule(r).key | translate: schedule(r).params }} ·
+                  {{ 'recurring.next' | translate }} {{ r.nextDueOn | day }}
+                </div>
               </td>
-              <td hlmTd class="text-sm text-muted-foreground">
-                {{ 'frequency.' + r.frequency | translate }}
-                @if (r.dayOfMonth) {
+              <td hlmTd class="hidden text-sm text-muted-foreground sm:table-cell">
+                @let label = schedule(r);
+                {{ label.key | translate: label.params }}
+                @if (r.dayOfMonth && hasDay(r.frequency)) {
                   · {{ 'recurring.day' | translate: { day: r.dayOfMonth } }}
                 }
               </td>
-              <td hlmTd class="text-sm">{{ r.nextDueOn | day }}</td>
+              <td hlmTd class="hidden text-sm sm:table-cell">{{ r.nextDueOn | day }}</td>
               <td hlmTd>
                 @if (r.isActive) {
                   <app-status-badge tone="success">{{
@@ -272,10 +286,30 @@ interface Form {
             inputId="r-freq"
             [options]="frequencyOptions()"
             [value]="form().frequency"
-            (valueChange)="patch({ frequency: $any($event) })"
+            (valueChange)="patch(withFrequency(form(), $any($event)))"
           />
         </div>
-        @if (form().frequency !== 'Weekly') {
+        @if (form().frequency === 'Daily') {
+          <div>
+            <label class="label" for="r-interval">{{ 'recurring.intervalDays' | translate }}</label>
+            <input
+              id="r-interval"
+              hlmInput
+              class="num"
+              type="number"
+              inputmode="numeric"
+              required
+              min="1"
+              [max]="maxInterval(form().frequency)"
+              aria-describedby="r-interval-hint"
+              [value]="form().interval"
+              (input)="patch({ interval: $any($event.target).value })"
+            />
+            <p id="r-interval-hint" class="mt-1 text-xs text-muted-foreground">
+              {{ 'recurring.intervalDaysHint' | translate }}
+            </p>
+          </div>
+        } @else if (hasDay(form().frequency)) {
           <div>
             <label class="label" for="r-day">{{ 'recurring.dayOfMonth' | translate }}</label>
             <input
@@ -368,7 +402,7 @@ export class RecurringComponent {
   });
   protected readonly frequencyOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
-    return (['Monthly', 'Weekly', 'Yearly'] as const).map((f) => ({
+    return (['Monthly', 'Weekly', 'Daily', 'Yearly'] as const).map((f) => ({
       value: f,
       label: this.i18n.instant(`frequency.${f}`),
     }));
@@ -387,6 +421,11 @@ export class RecurringComponent {
   protected readonly accountOptions = computed<SelectOption[]>(() =>
     this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
   );
+
+  protected readonly schedule = scheduleLabel;
+  protected readonly hasDay = usesDayOfMonth;
+  protected readonly maxInterval = maxInterval;
+  protected readonly withFrequency = withFrequency;
 
   protected categoryFor = (id: string | null) =>
     this.categories.value()?.find((c) => c.id === id) ?? null;
@@ -407,6 +446,7 @@ export class RecurringComponent {
             categoryId: r.categoryId ?? '',
             bucketId: r.bucketId ?? '',
             frequency: r.frequency,
+            interval: String(r.interval),
             dayOfMonth: r.dayOfMonth ? String(r.dayOfMonth) : '',
             startOn: r.startOn,
             endOn: r.endOn ?? '',
@@ -424,9 +464,8 @@ export class RecurringComponent {
       amount: parseAmount(f.amount),
       currency: 'EUR',
       accountId: f.accountId,
-      frequency: f.frequency,
+      ...scheduleBody(f),
       startOn: f.startOn,
-      dayOfMonth: f.dayOfMonth ? Number(f.dayOfMonth) : null,
       endOn: f.endOn || null,
       categoryId: f.categoryId || null,
       bucketId: f.bucketId || null,
@@ -485,6 +524,7 @@ export class RecurringComponent {
       categoryId: '',
       bucketId: '',
       frequency: 'Monthly',
+      interval: '1',
       dayOfMonth: '',
       startOn: today(),
       endOn: '',

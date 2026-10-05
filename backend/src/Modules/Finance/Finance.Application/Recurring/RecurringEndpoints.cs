@@ -63,8 +63,13 @@ public sealed class RecurringRequestValidator : AbstractValidator<RecurringReque
         RuleFor(x => x.Amount).GreaterThan(0);
         RuleFor(x => x.Type).IsInEnum();
         RuleFor(x => x.Frequency).IsInEnum();
-        RuleFor(x => x.Interval).InclusiveBetween(1, 24).When(x => x.Interval is not null);
+        RuleFor(x => x.Interval).InclusiveBetween(1, RecurringTransaction.MaxDailyInterval)
+            .When(x => x.Interval is not null && x.Frequency == RecurrenceFrequency.Daily);
+        RuleFor(x => x.Interval).InclusiveBetween(1, RecurringTransaction.MaxInterval)
+            .When(x => x.Interval is not null && x.Frequency != RecurrenceFrequency.Daily);
         RuleFor(x => x.DayOfMonth).InclusiveBetween(1, 31).When(x => x.DayOfMonth is not null);
+        RuleFor(x => x.DayOfMonth).Null().When(x => x.Frequency == RecurrenceFrequency.Daily)
+            .WithMessage("Day of month does not apply to daily items: they repeat every N days from the start date.");
         RuleFor(x => x.EndOn).GreaterThanOrEqualTo(x => x.StartOn).When(x => x.EndOn is not null);
         RuleFor(x => x.Currency).Must(c => c is null || Currency.IsValid(c));
         RuleFor(x => x.Description).MaximumLength(200);
@@ -96,12 +101,18 @@ public static class RecurringEndpoints
     {
         var group = app.MapGroup("/recurring").WithTags("Recurring");
 
-        group.MapGet("/", async (IFinanceDb db, CancellationToken ct) =>
-            Results.Ok(await db.RecurringTransactions.AsNoTracking().OrderBy(r => r.NextDueOn)
+        group.MapGet("/", async (IFinanceDb db, RecurringProposer proposer, CancellationToken ct) =>
+        {
+            // NextDueOn is the first scheduled date on or after today, even when it is already awaiting confirmation.
+            var today = proposer.Today;
+            var templates = await db.RecurringTransactions.AsNoTracking().ToListAsync(ct);
+            return Results.Ok(templates
                 .Select(r => new RecurringDto(r.Id, r.Name, r.Type, r.Amount, r.Currency, r.AccountId,
                     r.CounterAccountId, r.CategoryId, r.Nature, r.BucketId, r.Description, r.Frequency, r.Interval,
-                    r.DayOfMonth, r.StartOn, r.EndOn, r.NextDueOn, r.IsActive))
-                .ToListAsync(ct)));
+                    r.DayOfMonth, r.StartOn, r.EndOn, r.NextOccurrenceOnOrAfter(today) ?? r.NextDueOn, r.IsActive))
+                .OrderBy(r => r.NextDueOn)
+                .ToList());
+        });
 
         group.MapPost("/", async (RecurringRequest req, IFinanceDb db, RecurringProposer proposer,
                 CancellationToken ct) =>
@@ -109,8 +120,10 @@ public static class RecurringEndpoints
             .ToHttp(r => Results.Created($"/api/recurring/{r.Id}", new { r.Id })))
             .Validate<RecurringRequest>();
 
-        group.MapPut("/{id:guid}", async (Guid id, RecurringRequest req, IFinanceDb db, CancellationToken ct) =>
-                (await RecurringCommands.UpdateAsync(db, id, req.ToDefinition(), ct)).ToHttp(_ => Results.NoContent()))
+        group.MapPut("/{id:guid}", async (Guid id, RecurringRequest req, IFinanceDb db, RecurringProposer proposer,
+                    CancellationToken ct) =>
+                (await RecurringCommands.UpdateAsync(db, proposer, id, req.ToDefinition(), ct))
+                .ToHttp(_ => Results.NoContent()))
             .Validate<RecurringRequest>();
 
         group.MapPost("/{id:guid}/pause", (Guid id, IFinanceDb db, CancellationToken ct) => SetActive(id, false, db, ct));
