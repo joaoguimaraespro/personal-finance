@@ -1,10 +1,11 @@
 namespace Ai.Contracts;
 
-public sealed record ScopeInfo(string Name, string Description, bool Sensitive);
+/// <param name="Write">True for the opt-in write scopes. Every write scope is also sensitive.</param>
+public sealed record ScopeInfo(string Name, string Description, bool Sensitive, bool Write = false);
 
 /// <summary>
-/// Permissions an AI client can be granted. Everything is read-only; there are no write scopes. Sensitive scopes
-/// are off unless the owner explicitly grants them to a specific client.
+/// Permissions an AI client can be granted. Read scopes are the default surface; sensitive scopes — including every
+/// write scope — are off unless the owner explicitly grants them to a specific client (ADR-0008).
 /// </summary>
 public static class AiScopes
 {
@@ -28,6 +29,16 @@ public static class AiScopes
     public const string RawTransactions = "raw.transactions.read";
     public const string PersonalNotes = "personal.notes.read";
 
+    // Write — opt-in per client, sensitive, never granted by default (ADR-0008).
+    public const string TransactionsWrite = "transactions.write";
+    public const string RecurringWrite = "recurring.write";
+    public const string PlanningWrite = "planning.write";
+    public const string HoldingsWrite = "holdings.write";
+
+    /// <summary>The only scopes a write tool may declare. Adding one is a reviewed change (architecture test).</summary>
+    public static readonly IReadOnlySet<string> WriteScopes =
+        new HashSet<string>(StringComparer.Ordinal) { TransactionsWrite, RecurringWrite, PlanningWrite, HoldingsWrite };
+
     public static readonly IReadOnlyList<ScopeInfo> All =
     [
         new(Overview, "Monthly and annual totals (and a year month by month): income, expenses, invested, saved, savings rate.", false),
@@ -47,6 +58,10 @@ public static class AiScopes
         new(AccountIdentifiers, "Account names and IBAN / account numbers in net-worth and account answers.", true),
         new(RawTransactions, "Adds the account and source of each transaction.", true),
         new(PersonalNotes, "Adds your personal notes on transactions.", true),
+        new(TransactionsWrite, "Create, edit and delete hand-entered expenses, income and transfers (deletions go to a 30-day recycle bin). Never broker, investment or estimated-interest rows.", true, true),
+        new(RecurringWrite, "Confirm or skip pending recurring items; create and edit recurring expenses and income.", true, true),
+        new(PlanningWrite, "Change category budget limits; create and update goals and add money to a goal.", true, true),
+        new(HoldingsWrite, "Update hand-entered crypto (quantity, average price), add crypto rewards and record the value of manually valued assets and liabilities.", true, true),
     ];
 
     public static readonly IReadOnlySet<string> Names = All.Select(s => s.Name).ToHashSet(StringComparer.Ordinal);

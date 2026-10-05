@@ -25,7 +25,7 @@ builder.Services.AddRateLimiter(o =>
 builder.Services
     .AddMcpServer(o =>
     {
-        o.ServerInfo = new() { Name = "personal-finance", Title = "Personal Finance (read-only)", Version = "1.0.0" };
+        o.ServerInfo = new() { Name = "personal-finance", Title = "Personal Finance", Version = "1.1.0" };
         o.ServerInstructions = AiTools.ServerInstructions;
     })
     .WithHttpTransport(o => o.Stateless = true)

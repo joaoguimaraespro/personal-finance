@@ -205,7 +205,6 @@ namespace Finance.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Finance.Domain.Budgets.BudgetItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 

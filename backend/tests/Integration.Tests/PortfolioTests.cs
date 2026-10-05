@@ -64,7 +64,9 @@ public sealed class PortfolioTests(ApiFactory factory)
         summary.GetProperty("totalValue").GetDecimal().ShouldBeGreaterThan(0);
         summary.GetProperty("netContributions").GetDecimal().ShouldBeGreaterThan(0);
         summary.GetProperty("dividends").GetDecimal().ShouldBeGreaterThan(0);
-        summary.GetProperty("accounts").GetArrayLength().ShouldBe(2);
+        // Other tests share the database (e.g. hand-entered crypto wallets): count only the demo brokers.
+        summary.GetProperty("accounts").EnumerateArray().Count(a => a.GetProperty("broker").GetString() == "Demo")
+            .ShouldBe(2);
         // Each account carries the figures of its own scoped summary (the wallet cards need no extra calls),
         // and together they add up to the consolidated one.
         var accounts = summary.GetProperty("accounts").EnumerateArray().ToList();
@@ -106,7 +108,8 @@ public sealed class PortfolioTests(ApiFactory factory)
         await ConnectDemoBrokersAsync(api);
 
         // Without a period: total return since the first known day, which the summary now states.
-        var all = await api.GetJsonAsync("/api/portfolio/summary");
+        // Scoped to the demo brokers: other tests in the shared database add wallets with short histories.
+        var all = await api.GetJsonAsync("/api/portfolio/summary?broker=Demo");
         var since = all.GetProperty("since").GetString()!;
         var allReturn = all.GetProperty("periodReturn");
         allReturn.GetProperty("period").GetString().ShouldBe("ALL");
@@ -123,7 +126,7 @@ public sealed class PortfolioTests(ApiFactory factory)
 
         foreach (var period in new[] { "1M", "YTD", "1Y" })
         {
-            var summary = await api.GetJsonAsync($"/api/portfolio/summary?period={period}");
+            var summary = await api.GetJsonAsync($"/api/portfolio/summary?period={period}&broker=Demo");
             // The totals don't depend on the period; only the return does.
             summary.GetProperty("totalValue").GetDecimal().ShouldBe(all.GetProperty("totalValue").GetDecimal());
             summary.GetProperty("totalReturn").GetDecimal().ShouldBe(all.GetProperty("totalReturn").GetDecimal());
@@ -135,7 +138,7 @@ public sealed class PortfolioTests(ApiFactory factory)
             DateOnly.Parse(r.GetProperty("from").GetString()!).ShouldBeGreaterThan(DateOnly.Parse(since));
 
             // The chart for the same period starts at the same value and ends at the live total.
-            var chart = await api.GetJsonAsync($"/api/portfolio/performance?period={period}");
+            var chart = await api.GetJsonAsync($"/api/portfolio/performance?period={period}&broker=Demo");
             chart.GetProperty("from").GetString().ShouldBe(r.GetProperty("from").GetString());
             chart.GetProperty("endValue").GetDecimal().ShouldBe(summary.GetProperty("totalValue").GetDecimal());
             chart.GetProperty("timeWeightedReturn").GetDecimal().ShouldBe(r.GetProperty("percent").GetDecimal());

@@ -55,26 +55,12 @@ public static class GoalEndpoints
 
         group.MapPost("/", async (GoalRequest req, IFinanceDb db, CancellationToken ct) =>
         {
-            var goal = FinancialGoal.Create(req.Name, req.TargetAmount, req.TargetDate, req.StartingAmount ?? 0,
-                req.ManualCurrentAmount, req.Icon);
-            db.Goals.Add(goal);
-            await db.SaveChangesAsync(ct);
+            var goal = await CreateAsync(db, req, ct);
             return Results.Created($"/api/goals/{goal.Id}", new { goal.Id });
         }).Validate<GoalRequest>();
 
         group.MapPut("/{id:guid}", async (Guid id, GoalRequest req, IFinanceDb db, CancellationToken ct) =>
-        {
-            var goal = await db.Goals.FindAsync([id], ct);
-            if (goal is null)
-            {
-                return ResultHttp.Problem(NotFound);
-            }
-
-            goal.Update(req.Name, req.TargetAmount, req.TargetDate, req.StartingAmount ?? 0, req.ManualCurrentAmount,
-                req.Icon);
-            await db.SaveChangesAsync(ct);
-            return Results.NoContent();
-        }).Validate<GoalRequest>();
+            (await UpdateAsync(db, id, req, ct)).ToHttp(_ => Results.NoContent())).Validate<GoalRequest>();
 
         group.MapPost("/{id:guid}/archive", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
         {
@@ -88,6 +74,30 @@ public static class GoalEndpoints
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
+    }
+
+    public static async Task<FinancialGoal> CreateAsync(IFinanceDb db, GoalRequest req, CancellationToken ct)
+    {
+        var goal = FinancialGoal.Create(req.Name, req.TargetAmount, req.TargetDate, req.StartingAmount ?? 0,
+            req.ManualCurrentAmount, req.Icon);
+        db.Goals.Add(goal);
+        await db.SaveChangesAsync(ct);
+        return goal;
+    }
+
+    public static async Task<Result<FinancialGoal>> UpdateAsync(IFinanceDb db, Guid id, GoalRequest req,
+        CancellationToken ct)
+    {
+        var goal = await db.Goals.FindAsync([id], ct);
+        if (goal is null)
+        {
+            return NotFound;
+        }
+
+        goal.Update(req.Name, req.TargetAmount, req.TargetDate, req.StartingAmount ?? 0, req.ManualCurrentAmount,
+            req.Icon);
+        await db.SaveChangesAsync(ct);
+        return goal;
     }
 
     public static async Task<IReadOnlyList<GoalDto>> ListAsync(IFinanceDb db, DateOnly today, bool includeArchived,

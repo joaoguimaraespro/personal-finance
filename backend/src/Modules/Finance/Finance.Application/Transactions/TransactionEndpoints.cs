@@ -125,93 +125,24 @@ public static class TransactionEndpoints
         });
 
         group.MapPost("/", async (TransactionRequest req, IFinanceDb db, InterestAccrualService interest,
-            CancellationToken ct) =>
-        {
-            var draft = await TransactionReferences.ResolveAsync(db, req.ToDraft(), ct);
-            if (draft.IsFailure)
-            {
-                return ResultHttp.Problem(draft.Error);
-            }
-
-            var created = Transaction.Create(draft.Value, DataSource.Manual);
-            if (created.IsFailure)
-            {
-                return ResultHttp.Problem(created.Error);
-            }
-
-            db.Transactions.Add(created.Value);
-            await db.SaveChangesAsync(ct);
-            await interest.TryRecalculateAsync([created.Value.AccountId, created.Value.CounterAccountId], ct);
-            return Results.Created($"/api/transactions/{created.Value.Id}", new { created.Value.Id });
-        }).Validate<TransactionRequest>();
+                CancellationToken ct) =>
+            (await TransactionCommands.CreateAsync(db, interest, req.ToDraft(), DataSource.Manual, ct))
+            .ToHttp(t => Results.Created($"/api/transactions/{t.Id}", new { t.Id })))
+            .Validate<TransactionRequest>();
 
         group.MapPut("/{id:guid}", async (Guid id, TransactionRequest req, IFinanceDb db,
-            InterestAccrualService interest, CancellationToken ct) =>
-        {
-            var transaction = await db.Transactions.FindAsync([id], ct);
-            if (transaction is null)
-            {
-                return ResultHttp.Problem(TransactionErrors.NotFound);
-            }
-
-            if (ReadOnlyError(transaction.Source) is { } readOnly)
-            {
-                return ResultHttp.Problem(readOnly);
-            }
-
-            Guid?[] before = [transaction.AccountId, transaction.CounterAccountId];
-            var draft = await TransactionReferences.ResolveAsync(db, req.ToDraft(), ct);
-            if (draft.IsFailure)
-            {
-                return ResultHttp.Problem(draft.Error);
-            }
-
-            var updated = transaction.Update(draft.Value);
-            if (updated.IsFailure)
-            {
-                return ResultHttp.Problem(updated.Error);
-            }
-
-            await db.SaveChangesAsync(ct);
-            await interest.TryRecalculateAsync([.. before, transaction.AccountId, transaction.CounterAccountId], ct);
-            return Results.NoContent();
-        }).Validate<TransactionRequest>();
+                InterestAccrualService interest, CancellationToken ct) =>
+            (await TransactionCommands.UpdateAsync(db, interest, id, req.ToDraft(), ct)).ToHttp(_ => Results.NoContent()))
+            .Validate<TransactionRequest>();
 
         group.MapDelete("/{id:guid}", async (Guid id, IFinanceDb db, TimeProvider clock,
-            InterestAccrualService interest, CancellationToken ct) =>
-        {
-            var transaction = await db.Transactions.FindAsync([id], ct);
-            if (transaction is null)
-            {
-                return ResultHttp.Problem(TransactionErrors.NotFound);
-            }
-
-            if (ReadOnlyError(transaction.Source) is { } readOnly)
-            {
-                return ResultHttp.Problem(readOnly);
-            }
-
-            transaction.SoftDelete(clock.GetUtcNow());
-            await db.SaveChangesAsync(ct);
-            await interest.TryRecalculateAsync([transaction.AccountId, transaction.CounterAccountId], ct);
-            return Results.NoContent();
-        });
+                InterestAccrualService interest, CancellationToken ct) =>
+            (await TransactionCommands.DeleteAsync(db, interest, id, clock.GetUtcNow(), ct))
+            .ToHttp(_ => Results.NoContent()));
 
         group.MapPost("/{id:guid}/restore", async (Guid id, IFinanceDb db, InterestAccrualService interest,
-            CancellationToken ct) =>
-        {
-            var transaction = await db.Transactions.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(t => t.Id == id && t.DeletedAtUtc != null, ct);
-            if (transaction is null)
-            {
-                return ResultHttp.Problem(TransactionErrors.NotFound);
-            }
-
-            transaction.Restore();
-            await db.SaveChangesAsync(ct);
-            await interest.TryRecalculateAsync([transaction.AccountId, transaction.CounterAccountId], ct);
-            return Results.NoContent();
-        });
+                CancellationToken ct) =>
+            (await TransactionCommands.RestoreAsync(db, interest, id, ct)).ToHttp(_ => Results.NoContent()));
 
         group.MapGet("/{id:guid}/history", async (Guid id, IFinanceDb db, CancellationToken ct) =>
             Results.Ok(await db.TransactionAudits.AsNoTracking()

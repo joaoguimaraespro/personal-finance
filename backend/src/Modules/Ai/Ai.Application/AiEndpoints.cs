@@ -10,18 +10,20 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SharedKernel;
 
 namespace Ai.Application;
 
-public sealed record CreateAiClientRequest(string Name, List<string> Scopes, int? ExpiresInDays, int? RateLimitPerMinute);
+public sealed record CreateAiClientRequest(string Name, List<string> Scopes, int? ExpiresInDays, int? RateLimitPerMinute,
+    int? WritesPerHour = null);
 
-public sealed record UpdateAiClientRequest(List<string> Scopes, int? RateLimitPerMinute);
+public sealed record UpdateAiClientRequest(List<string> Scopes, int? RateLimitPerMinute, int? WritesPerHour = null);
 
 public sealed record AiClientDto(Guid Id, string Name, string TokenPrefix, IReadOnlyList<string> Scopes, int RateLimitPerMinute,
     DateTimeOffset CreatedAtUtc, DateTimeOffset? ExpiresAtUtc, DateTimeOffset? RevokedAtUtc, DateTimeOffset? LastUsedAtUtc,
-    int CallsLast24h, int DeniedLast24h, bool Internal);
+    int CallsLast24h, int DeniedLast24h, bool Internal, int WritesPerHour, int WritesLast24h);
 
 public sealed record ChatRequest(List<ChatTurn> Messages);
 
@@ -33,7 +35,11 @@ public sealed class CreateAiClientValidator : AbstractValidator<CreateAiClientRe
         RuleFor(x => x.Scopes).NotNull().Must(s => s.All(AiScopes.Names.Contains)).WithMessage("Unknown scope.");
         RuleFor(x => x.ExpiresInDays).InclusiveBetween(1, 730).When(x => x.ExpiresInDays is not null);
         RuleFor(x => x.RateLimitPerMinute).InclusiveBetween(1, 600).When(x => x.RateLimitPerMinute is not null);
+        RuleFor(x => x.WritesPerHour).InclusiveBetween(1, MaxWritesPerHour).When(x => x.WritesPerHour is not null);
     }
+
+    /// <summary>Upper bound for the per-client write budget: writes stay a deliberate, low-volume thing.</summary>
+    public const int MaxWritesPerHour = 200;
 }
 
 public static class AiEndpoints
@@ -42,15 +48,18 @@ public static class AiEndpoints
     {
         services.AddValidatorsFromAssemblyContaining<CreateAiClientValidator>();
         services.AddScoped<FinanceTools>();
+        services.AddScoped<WriteTools>();
         services.AddScoped<AiGateway>();
+        services.AddScoped<AiRecycleBin>();
         services.AddSingleton<AiRateLimiter>();
+        services.AddSingleton<AiWriteLimiter>();
         services.AddScoped<AssistantService>();
         return services;
     }
 
     /// <summary>
     /// Bearer-token endpoints used by the MCP server and the assistant. They never look at the browser session, so
-    /// a logged-in cookie grants nothing here, and they can only run catalogued read-only tools.
+    /// a logged-in cookie grants nothing here, and they can only run catalogued tools within the client's scopes.
     /// </summary>
     public static IEndpointRouteBuilder MapAiGateway(this IEndpointRouteBuilder api)
     {
@@ -118,23 +127,30 @@ public static class AiEndpoints
             var clients = await db.Clients.AsNoTracking().OrderBy(c => c.RevokedAtUtc != null).ThenBy(c => c.Name).ToListAsync(ct);
             var usage = await db.AuditEvents.AsNoTracking().Where(e => e.AtUtc >= since && e.ClientId != null)
                 .GroupBy(e => e.ClientId!.Value)
-                .Select(g => new { Id = g.Key, Calls = g.Count(), Denied = g.Count(e => e.Decision != AiDecision.Allowed) })
+                .Select(g => new
+                {
+                    Id = g.Key, Calls = g.Count(), Denied = g.Count(e => e.Decision != AiDecision.Allowed),
+                    Writes = g.Count(e => e.Write && e.Decision == AiDecision.Allowed),
+                })
                 .ToListAsync(ct);
             return clients.Select(c =>
             {
                 var u = usage.FirstOrDefault(x => x.Id == c.Id);
                 return new AiClientDto(c.Id, c.Name, c.TokenPrefix, c.Scopes, c.RateLimitPerMinute, c.CreatedAtUtc,
-                    c.ExpiresAtUtc, c.RevokedAtUtc, c.LastUsedAtUtc, u?.Calls ?? 0, u?.Denied ?? 0, c.Internal);
+                    c.ExpiresAtUtc, c.RevokedAtUtc, c.LastUsedAtUtc, u?.Calls ?? 0, u?.Denied ?? 0, c.Internal,
+                    c.WritesPerHour, u?.Writes ?? 0);
             });
         });
 
         // The token is returned exactly once. Only its hash is stored.
-        group.MapPost("/clients", async (CreateAiClientRequest req, IAiDb db, TimeProvider clock, CancellationToken ct) =>
+        group.MapPost("/clients", async (CreateAiClientRequest req, IAiDb db, TimeProvider clock, IConfiguration config,
+            CancellationToken ct) =>
         {
             var (token, prefix, hash) = AiTokens.Generate();
             var now = clock.GetUtcNow();
             var client = AiClient.Create(req.Name, prefix, hash, req.Scopes, req.RateLimitPerMinute ?? 60, now,
-                req.ExpiresInDays is { } days ? now.AddDays(days) : null);
+                req.ExpiresInDays is { } days ? now.AddDays(days) : null,
+                req.WritesPerHour ?? DefaultWritesPerHour(config));
             db.Clients.Add(client);
             await db.SaveChangesAsync(ct);
             return Results.Created($"/api/ai-admin/clients/{client.Id}", new { client.Id, token });
@@ -142,7 +158,8 @@ public static class AiEndpoints
 
         group.MapPut("/clients/{id:guid}", async (Guid id, UpdateAiClientRequest req, IAiDb db, CancellationToken ct) =>
         {
-            if (!req.Scopes.All(AiScopes.Names.Contains) || req.RateLimitPerMinute is < 1 or > 600)
+            if (!req.Scopes.All(AiScopes.Names.Contains) || req.RateLimitPerMinute is < 1 or > 600 ||
+                req.WritesPerHour is < 1 or > CreateAiClientValidator.MaxWritesPerHour)
             {
                 return ResultHttp.Problem(Error.Validation("AiClient.Scopes", "Unknown scope or invalid rate limit."));
             }
@@ -157,6 +174,11 @@ public static class AiEndpoints
             if (req.RateLimitPerMinute is { } limit)
             {
                 client.SetRateLimit(limit);
+            }
+
+            if (req.WritesPerHour is { } writes)
+            {
+                client.SetWritesPerHour(writes);
             }
 
             await db.SaveChangesAsync(ct);
@@ -227,6 +249,11 @@ public static class AiEndpoints
             return Results.Ok(await service.AskAsync(req.Messages, ct));
         }).RequireRateLimiting("assistant");
 
+        // Recycle bin: what AI clients deleted, restorable for 30 days (ADR-0008).
+        group.MapGet("/recycle-bin", (AiRecycleBin bin, CancellationToken ct) => bin.ListAsync(ct));
+        group.MapPost("/recycle-bin/{id:guid}/restore", async (Guid id, AiRecycleBin bin, CancellationToken ct) =>
+            (await bin.RestoreAsync(id, ct)).ToHttp());
+
         group.MapGet("/audit", async (IAiDb db, Guid? clientId, int? limit, CancellationToken ct) =>
             await db.AuditEvents.AsNoTracking()
                 .Where(e => clientId == null || e.ClientId == clientId)
@@ -236,6 +263,10 @@ public static class AiEndpoints
 
         return api;
     }
+
+    /// <summary>Write budget for new clients: <c>Ai:WritesPerHour</c> (default 20), within 1-200.</summary>
+    public static int DefaultWritesPerHour(IConfiguration config) =>
+        Math.Clamp(config.GetValue("Ai:WritesPerHour", AiClient.DefaultWritesPerHour), 1, CreateAiClientValidator.MaxWritesPerHour);
 
     private static string? Bearer(HttpContext http)
     {

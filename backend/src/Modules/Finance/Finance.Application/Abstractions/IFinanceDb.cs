@@ -36,3 +36,24 @@ public interface ICurrentUser
     /// <summary>Stable actor label for audit trails (user name, "system:recurring", "import:{id}").</summary>
     string Actor { get; }
 }
+
+/// <summary>
+/// Per-request override of the audit actor. The AI gateway sets it (e.g. "ai:Claude Code") while a write tool runs,
+/// so the ledger's audit trail shows that an AI client — not the signed-in owner or "system" — made the change.
+/// </summary>
+public sealed class ActorScope
+{
+    public string? Current { get; private set; }
+
+    public IDisposable Use(string actor)
+    {
+        var previous = Current;
+        Current = actor.Length > 100 ? actor[..100] : actor;
+        return new Reset(() => Current = previous);
+    }
+
+    private sealed class Reset(Action action) : IDisposable
+    {
+        public void Dispose() => action();
+    }
+}

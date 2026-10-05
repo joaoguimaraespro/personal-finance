@@ -43,6 +43,11 @@ namespace Ai.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("at_utc");
 
+                    b.Property<string>("Changes")
+                        .HasMaxLength(200)
+                        .HasColumnType("jsonb")
+                        .HasColumnName("changes");
+
                     b.Property<Guid?>("ClientId")
                         .HasColumnType("uuid")
                         .HasColumnName("client_id");
@@ -71,6 +76,10 @@ namespace Ai.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("record_count");
 
+                    b.Property<Guid?>("RecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("record_id");
+
                     b.Property<int>("ResponseBytes")
                         .HasColumnType("integer")
                         .HasColumnName("response_bytes");
@@ -85,6 +94,10 @@ namespace Ai.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("tool");
+
+                    b.Property<bool>("Write")
+                        .HasColumnType("boolean")
+                        .HasColumnName("write");
 
                     b.HasKey("Id")
                         .HasName("pk_audit_events");
@@ -152,6 +165,12 @@ namespace Ai.Infrastructure.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("token_prefix");
 
+                    b.Property<int>("WritesPerHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(20)
+                        .HasColumnName("writes_per_hour");
+
                     b.HasKey("Id")
                         .HasName("pk_clients");
 
@@ -160,6 +179,121 @@ namespace Ai.Infrastructure.Migrations
                         .HasDatabaseName("ix_clients_token_prefix");
 
                     b.ToTable("clients", "ai");
+                });
+
+            modelBuilder.Entity("Ai.Application.Domain.AiRecycledItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("ClientName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("client_name");
+
+                    b.Property<DateTimeOffset>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset>("PurgeAfterUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purge_after_utc");
+
+                    b.Property<DateTimeOffset?>("PurgedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purged_at_utc");
+
+                    b.Property<Guid>("RecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("record_id");
+
+                    b.Property<DateTimeOffset?>("RestoredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("restored_at_utc");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id")
+                        .HasName("pk_recycle_bin");
+
+                    b.HasIndex("PurgeAfterUtc")
+                        .HasDatabaseName("ix_recycle_bin_purge_after_utc");
+
+                    b.HasIndex("RecordId")
+                        .HasDatabaseName("ix_recycle_bin_record_id");
+
+                    b.ToTable("recycle_bin", "ai");
+                });
+
+            modelBuilder.Entity("Ai.Application.Domain.AiWriteReceipt", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ArgumentsHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("arguments_hash");
+
+                    b.Property<DateTimeOffset>("AtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at_utc");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("jsonb")
+                        .HasColumnName("result");
+
+                    b.Property<string>("Tool")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("tool");
+
+                    b.HasKey("Id")
+                        .HasName("pk_write_receipts");
+
+                    b.HasIndex("AtUtc")
+                        .HasDatabaseName("ix_write_receipts_at_utc");
+
+                    b.HasIndex("ClientId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_write_receipts_client_id_key");
+
+                    b.ToTable("write_receipts", "ai");
                 });
 #pragma warning restore 612, 618
         }

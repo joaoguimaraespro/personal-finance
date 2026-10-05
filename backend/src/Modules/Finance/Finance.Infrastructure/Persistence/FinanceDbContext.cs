@@ -171,6 +171,8 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
 
         b.Entity<BudgetItem>(e =>
         {
+            // Ids are assigned in the domain: items added when a version is replaced are new, not stale updates.
+            e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.Value).HasPrecision(19, 6);
             e.HasOne<AllocationBucket>().WithMany().HasForeignKey(x => x.BucketId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);

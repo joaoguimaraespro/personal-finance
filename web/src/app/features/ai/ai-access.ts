@@ -11,18 +11,31 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { Confirm } from '../../core/confirm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideBan, lucidePencil, lucidePlus, lucideTrash2 } from '@ng-icons/lucide';
+import {
+  lucideBan,
+  lucidePencil,
+  lucidePlus,
+  lucideRotateCcw,
+  lucideTrash2,
+} from '@ng-icons/lucide';
+import {
+  allSelected,
+  daysLeft,
+  groupScopes,
+  isWriteScope,
+  newlyGrantedWrites,
+  restorableItemId,
+  Scope,
+  toggleGroup,
+  toggleScope,
+} from './scope-selection';
 
-interface Scope {
-  name: string;
-  description: string;
-  sensitive: boolean;
-}
 interface Tool {
   name: string;
   title: string;
   description: string;
   scope: string;
+  write?: boolean;
 }
 interface AiClient {
   id: string;
@@ -30,12 +43,14 @@ interface AiClient {
   tokenPrefix: string;
   scopes: string[];
   rateLimitPerMinute: number;
+  writesPerHour: number;
   createdAtUtc: string;
   expiresAtUtc: string | null;
   revokedAtUtc: string | null;
   lastUsedAtUtc: string | null;
   callsLast24h: number;
   deniedLast24h: number;
+  writesLast24h: number;
   internal: boolean;
 }
 interface AuditEvent {
@@ -50,9 +65,24 @@ interface AuditEvent {
   durationMs: number;
   atUtc: string;
   reason: string | null;
+  write: boolean;
+  recordId: string | null;
+  changes: string | null;
+}
+interface RecycledItem {
+  id: string;
+  kind: string;
+  recordId: string;
+  clientName: string;
+  summary: string;
+  deletedAtUtc: string;
+  purgeAfterUtc: string;
 }
 
-/** Owner-controlled AI access: every client gets its own revocable token and explicit read-only scopes. */
+/**
+ * Owner-controlled AI access: every client gets its own revocable token and explicit scopes. Reading is the
+ * default; write scopes are opt-in, flagged and confirmed, and AI deletions land in a 30-day recycle bin.
+ */
 @Component({
   selector: 'app-ai-access',
   imports: [
@@ -65,7 +95,7 @@ interface AuditEvent {
     DateTimePipe,
     ModalComponent,
   ],
-  providers: [provideIcons({ lucideBan, lucidePencil, lucidePlus, lucideTrash2 })],
+  providers: [provideIcons({ lucideBan, lucidePencil, lucidePlus, lucideRotateCcw, lucideTrash2 })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -100,6 +130,12 @@ interface AuditEvent {
                       'ai.internal' | translate
                     }}</span>
                   }
+                  @if (canWrite(c)) {
+                    <span
+                      class="badge ml-1 bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                      >{{ 'ai.canWrite' | translate }}</span
+                    >
+                  }
                 </div>
                 <div class="font-mono text-xs text-muted-foreground">
                   {{ c.tokenPrefix }}_…
@@ -117,6 +153,7 @@ interface AuditEvent {
                         ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
                         : 'bg-muted'
                     "
+                    [class.font-semibold]="isWrite(s)"
                     >{{ s }}</span
                   >
                 } @empty {
@@ -128,6 +165,11 @@ interface AuditEvent {
                 {{ c.callsLast24h }}
                 @if (c.deniedLast24h) {
                   <span class="text-rose-600"> ({{ c.deniedLast24h }} denied)</span>
+                }
+                @if (c.writesLast24h) {
+                  <div class="text-xs text-rose-700 dark:text-rose-300">
+                    {{ 'ai.writes24h' | translate: { count: c.writesLast24h } }}
+                  </div>
                 }
               </td>
               <td hlmTd class="text-right whitespace-nowrap">
@@ -178,6 +220,57 @@ interface AuditEvent {
       </table>
     </section>
 
+    <section class="card mb-6 !p-0 overflow-x-auto" aria-labelledby="ai-recycle-title">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5">
+        <h2 id="ai-recycle-title" class="card-title">{{ 'ai.recycleBin' | translate }}</h2>
+        <p class="mb-4 text-xs text-muted-foreground">{{ 'ai.recycleNote' | translate }}</p>
+      </div>
+      <table hlmTable>
+        <thead hlmTHead>
+          <tr hlmTr>
+            <th hlmTh>{{ 'ai.deletedAt' | translate }}</th>
+            <th hlmTh>{{ 'ai.client' | translate }}</th>
+            <th hlmTh>{{ 'ai.item' | translate }}</th>
+            <th hlmTh class="text-right">{{ 'ai.purgeIn' | translate }}</th>
+            <th hlmTh></th>
+          </tr>
+        </thead>
+        <tbody hlmTBody>
+          @for (b of bin.value() ?? []; track b.id) {
+            <tr hlmTr>
+              <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
+                {{ b.deletedAtUtc | dateTime }}
+              </td>
+              <td hlmTd class="text-sm">{{ b.clientName }}</td>
+              <td hlmTd class="text-sm whitespace-normal">{{ b.summary }}</td>
+              <td hlmTd class="num text-right text-sm">
+                {{ 'ai.days' | translate: { count: daysLeft(b.purgeAfterUtc) } }}
+              </td>
+              <td hlmTd class="text-right">
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  [attr.aria-label]="('ai.restore' | translate) + ': ' + b.summary"
+                  (click)="restore(b.id)"
+                >
+                  <ng-icon name="lucideRotateCcw" aria-hidden="true" />{{
+                    'ai.restore' | translate
+                  }}
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr hlmTr>
+              <td hlmTd colspan="5" class="py-6 text-center text-sm text-muted-foreground">
+                {{ 'ai.recycleEmpty' | translate }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
     <section class="card !p-0 overflow-x-auto">
       <div class="flex items-center justify-between px-5 pt-5">
         <h2 class="card-title">{{ 'ai.audit' | translate }}</h2>
@@ -196,14 +289,34 @@ interface AuditEvent {
         </thead>
         <tbody hlmTBody>
           @for (e of audit.value() ?? []; track e.id) {
-            <tr hlmTr>
+            <tr hlmTr [class.font-medium]="e.write">
               <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
                 {{ e.atUtc | day }} {{ e.atUtc.slice(11, 19) }}
               </td>
               <td hlmTd class="text-sm">{{ e.clientName ?? '—' }}</td>
-              <td hlmTd class="font-mono text-xs">{{ e.tool }}</td>
+              <td hlmTd class="font-mono text-xs">
+                @if (e.write) {
+                  <span
+                    class="badge mr-1 bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                    >{{ 'ai.writeBadge' | translate }}</span
+                  >
+                }
+                {{ e.tool }}
+              </td>
               <td hlmTd class="font-mono text-xs text-muted-foreground whitespace-normal break-all">
                 {{ e.arguments }}
+                @if (e.changes) {
+                  <div class="mt-1 text-[11px]" [title]="e.changes">
+                    {{ 'ai.changes' | translate }}: {{ shorten(e.changes) }}
+                  </div>
+                }
+                @if (restorable(e); as itemId) {
+                  <button hlmBtn variant="link" size="sm" (click)="restore(itemId)">
+                    <ng-icon name="lucideRotateCcw" aria-hidden="true" />{{
+                      'ai.restore' | translate
+                    }}
+                  </button>
+                }
               </td>
               <td hlmTd>
                 <span
@@ -252,14 +365,26 @@ interface AuditEvent {
           </div>
         }
         <fieldset>
-          <legend class="label">{{ 'ai.scopes' | translate }}</legend>
-          @for (s of normalScopes(); track s.name) {
+          <legend class="label flex w-full flex-wrap items-center justify-between gap-2">
+            <span>{{ 'ai.readGroup' | translate }}</span>
+            <button
+              type="button"
+              hlmBtn
+              variant="outline"
+              size="sm"
+              [attr.aria-pressed]="groupSelected(groups().read)"
+              (click)="selectGroup(groups().read)"
+            >
+              {{ 'ai.selectAllRead' | translate }}
+            </button>
+          </legend>
+          @for (s of groups().read; track s.name) {
             <label class="flex items-start gap-2 py-1 text-sm">
               <input
                 type="checkbox"
                 class="mt-1"
                 [checked]="selected().has(s.name)"
-                (change)="toggle(s.name)"
+                (change)="toggle(s.name, $event)"
               />
               <span
                 ><span class="font-mono text-xs">{{ s.name }}</span
@@ -275,13 +400,13 @@ interface AuditEvent {
           <legend class="px-1 text-xs font-semibold text-rose-700 dark:text-rose-300">
             {{ 'ai.sensitive' | translate }}
           </legend>
-          @for (s of sensitiveScopes(); track s.name) {
+          @for (s of groups().sensitiveRead; track s.name) {
             <label class="flex items-start gap-2 py-1 text-sm">
               <input
                 type="checkbox"
                 class="mt-1"
                 [checked]="selected().has(s.name)"
-                (change)="toggle(s.name)"
+                (change)="toggle(s.name, $event)"
               />
               <span
                 ><span class="font-mono text-xs">{{ s.name }}</span
@@ -290,6 +415,49 @@ interface AuditEvent {
             </label>
           }
         </fieldset>
+        @if (groups().write.length) {
+          <fieldset class="rounded-xl border border-rose-200 p-3 dark:border-rose-500/30">
+            <legend
+              class="flex w-full flex-wrap items-center justify-between gap-2 px-1 text-sm font-semibold text-rose-700 dark:text-rose-300"
+            >
+              <span>{{ 'ai.writeGroup' | translate }}</span>
+              <button
+                type="button"
+                hlmBtn
+                variant="outline"
+                size="sm"
+                class="text-rose-700 dark:text-rose-300"
+                [attr.aria-pressed]="groupSelected(groups().write)"
+                (click)="selectGroup(groups().write)"
+              >
+                {{ 'ai.selectAllWrite' | translate }}
+              </button>
+            </legend>
+            <p class="mb-2 text-xs text-rose-700 dark:text-rose-300">
+              {{ 'ai.writeNote' | translate }}
+            </p>
+            @for (s of groups().write; track s.name) {
+              <label class="flex items-start gap-2 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  class="mt-1"
+                  [checked]="selected().has(s.name)"
+                  (change)="toggle(s.name, $event)"
+                />
+                <span
+                  ><span
+                    class="badge mr-1 bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                    >{{ 'ai.writeBadge' | translate }}</span
+                  ><span class="font-mono text-xs">{{ s.name }}</span
+                  ><br /><span class="text-xs text-muted-foreground">{{ s.description }}</span>
+                  <span class="block text-[11px] text-muted-foreground"
+                    >{{ 'ai.tools' | translate }}: {{ toolsFor(s.name) }}</span
+                  ></span
+                >
+              </label>
+            }
+          </fieldset>
+        }
         <div class="form-grid">
           @if (!editing()) {
             <div>
@@ -319,6 +487,21 @@ interface AuditEvent {
               (input)="rateLimit.set(+$any($event.target).value)"
             />
           </div>
+          @if (hasWrite()) {
+            <div>
+              <label class="label" for="ai-writes">{{ 'ai.writesPerHour' | translate }}</label>
+              <input
+                id="ai-writes"
+                hlmInput
+                class="num"
+                type="number"
+                min="1"
+                max="200"
+                [value]="writesPerHour()"
+                (input)="writesPerHour.set(+$any($event.target).value)"
+              />
+            </div>
+          }
         </div>
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
@@ -372,13 +555,13 @@ export class AiAccessComponent {
     params: () => this.refresh(),
     stream: () => this.http.get<AuditEvent[]>('/api/ai-admin/audit', { params: { limit: 100 } }),
   });
+  protected readonly bin = liveResource({
+    params: () => this.refresh(),
+    stream: () => this.http.get<RecycledItem[]>('/api/ai-admin/recycle-bin'),
+  });
 
-  protected readonly normalScopes = computed(() =>
-    (this.catalog.value()?.scopes ?? []).filter((s) => !s.sensitive),
-  );
-  protected readonly sensitiveScopes = computed(() =>
-    (this.catalog.value()?.scopes ?? []).filter((s) => s.sensitive),
-  );
+  private readonly scopes = computed(() => this.catalog.value()?.scopes ?? []);
+  protected readonly groups = computed(() => groupScopes(this.scopes()));
 
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<AiClient | null>(null);
@@ -386,13 +569,24 @@ export class AiAccessComponent {
   protected readonly selected = signal(new Set<string>());
   protected readonly expiresInDays = signal(180);
   protected readonly rateLimit = signal(60);
+  protected readonly writesPerHour = signal(20);
   protected readonly newToken = signal<string | null>(null);
+  protected readonly hasWrite = computed(() =>
+    [...this.selected()].some((s) => isWriteScope(this.scopes(), s)),
+  );
   protected readonly claudeCommand = computed(
     () =>
       `claude mcp add --transport http personal-finance ${location.origin}/mcp --header "Authorization: Bearer ${this.newToken()}"`,
   );
 
-  protected isSensitive = (scope: string) => this.sensitiveScopes().some((s) => s.name === scope);
+  protected readonly daysLeft = daysLeft;
+  protected isSensitive = (scope: string) =>
+    this.scopes().some((s) => s.name === scope && s.sensitive);
+  protected isWrite = (scope: string) => isWriteScope(this.scopes(), scope);
+  protected canWrite = (c: AiClient) => !c.revokedAtUtc && c.scopes.some((s) => this.isWrite(s));
+  protected groupSelected = (group: Scope[]) => allSelected(this.selected(), group);
+  protected restorable = (e: AuditEvent) => restorableItemId(e, this.bin.value() ?? []);
+  protected shorten = (text: string) => (text.length > 160 ? text.slice(0, 157) + '…' : text);
   protected toolsFor = (scope: string) =>
     (this.catalog.value()?.tools ?? [])
       .filter((t) => t.scope === scope)
@@ -402,7 +596,7 @@ export class AiAccessComponent {
   protected openNew() {
     this.editing.set(null);
     this.name.set('');
-    // Sensible starting point: summaries only. Nothing sensitive is pre-selected.
+    // Sensible starting point: summaries only. Nothing sensitive — and nothing that writes — is pre-selected.
     this.selected.set(
       new Set([
         'overview.read',
@@ -413,6 +607,7 @@ export class AiAccessComponent {
       ]),
     );
     this.rateLimit.set(60);
+    this.writesPerHour.set(20);
     this.formOpen.set(true);
   }
 
@@ -420,20 +615,41 @@ export class AiAccessComponent {
     this.editing.set(c);
     this.selected.set(new Set(c.scopes));
     this.rateLimit.set(c.rateLimitPerMinute);
+    this.writesPerHour.set(c.writesPerHour ?? 20);
     this.formOpen.set(true);
   }
 
-  protected toggle(scope: string) {
-    this.selected.update((s) => {
-      const next = new Set(s);
-      if (next.has(scope)) next.delete(scope);
-      else next.add(scope);
-      return next;
-    });
+  /** Granting a write scope is a deliberate act: the owner confirms it before the box is ticked. */
+  private async apply(next: Set<string>): Promise<boolean> {
+    const granted = newlyGrantedWrites(this.selected(), next, this.scopes());
+    if (
+      granted.length &&
+      !(await this.confirm.ask(
+        this.i18n.instant('ai.confirmWrite', { scopes: granted.join(', ') }),
+        {
+          destructive: true,
+          confirmLabel: this.i18n.instant('ai.allowWrite'),
+        },
+      ))
+    ) {
+      return false;
+    }
+    this.selected.set(next);
+    return true;
+  }
+
+  protected async toggle(scope: string, event: Event) {
+    const box = event.target as HTMLInputElement;
+    if (!(await this.apply(toggleScope(this.selected(), scope)))) box.checked = false;
+  }
+
+  protected async selectGroup(group: Scope[]) {
+    await this.apply(toggleGroup(this.selected(), group));
   }
 
   protected async save() {
     const scopes = [...this.selected()];
+    const writesPerHour = this.hasWrite() ? this.writesPerHour() : undefined;
     try {
       const editing = this.editing();
       if (editing) {
@@ -441,6 +657,7 @@ export class AiAccessComponent {
           this.http.put(`/api/ai-admin/clients/${editing.id}`, {
             scopes,
             rateLimitPerMinute: this.rateLimit(),
+            writesPerHour,
           }),
         );
       } else {
@@ -450,6 +667,7 @@ export class AiAccessComponent {
             scopes,
             expiresInDays: this.expiresInDays(),
             rateLimitPerMinute: this.rateLimit(),
+            writesPerHour,
           }),
         );
         this.newToken.set(res.token);
@@ -459,6 +677,16 @@ export class AiAccessComponent {
     } catch (err) {
       this.toasts.error(err);
     }
+  }
+
+  protected async restore(itemId: string) {
+    try {
+      await firstValueFrom(this.http.post(`/api/ai-admin/recycle-bin/${itemId}/restore`, {}));
+      this.toasts.show(this.i18n.instant('ai.restored'), 'info');
+    } catch (err) {
+      this.toasts.error(err);
+    }
+    this.refresh.update((v) => v + 1);
   }
 
   protected async revoke(c: AiClient) {

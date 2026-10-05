@@ -99,6 +99,131 @@ public sealed partial class ToolArgs
     public bool Has(string name) => _args.ValueKind == JsonValueKind.Object && _args.TryGetProperty(name, out var v) &&
                                     v.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
 
+    // ---- Write-tool arguments. Every value is checked here before any service sees it; ids and text are data.
+
+    public static T Required<T>(string name, T? value) where T : struct =>
+        value ?? throw new ToolArgumentException($"{name} is required.");
+
+    /// <summary>An id of an existing record (a UUID). Whether it exists is checked by the tool.</summary>
+    public Guid? Id(string name)
+    {
+        var raw = String(name);
+        if (raw is null)
+        {
+            return null;
+        }
+
+        return Guid.TryParseExact(raw, "D", out var id) && id != Guid.Empty
+            ? id
+            : throw Invalid(name, $"{name} must be an id as returned by a read tool.");
+    }
+
+    /// <summary>A decimal with at most <paramref name="maxDecimals"/> decimal places, within bounds.</summary>
+    public decimal? Decimal(string name, decimal min, decimal max, int maxDecimals)
+    {
+        if (!Has(name))
+        {
+            return null;
+        }
+
+        var v = _args.GetProperty(name);
+        var d = 0m;
+        var ok = v.ValueKind switch
+        {
+            JsonValueKind.Number => v.TryGetDecimal(out d),
+            JsonValueKind.String => decimal.TryParse(v.GetString(), NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture, out d),
+            _ => false,
+        };
+        if (!ok)
+        {
+            throw new ToolArgumentException($"{name} must be a number.");
+        }
+
+        if (d < min || d > max)
+        {
+            throw new ToolArgumentException(
+                $"{name} must be between {min.ToString(CultureInfo.InvariantCulture)} and {max.ToString(CultureInfo.InvariantCulture)}.");
+        }
+
+        if (decimal.Round(d, maxDecimals) != d)
+        {
+            throw new ToolArgumentException($"{name} can have at most {maxDecimals} decimal places.");
+        }
+
+        _used[name] = d.ToString(CultureInfo.InvariantCulture);
+        return d;
+    }
+
+    /// <summary>
+    /// Free text from the model (a description, a name). Control, zero-width and bidi characters are refused rather
+    /// than silently dropped, and the length is capped. It is stored as data and returned as untrusted_text.
+    /// </summary>
+    public string? Text(string name, int maxLength)
+    {
+        if (!Has(name))
+        {
+            return null;
+        }
+
+        var v = _args.GetProperty(name);
+        if (v.ValueKind != JsonValueKind.String)
+        {
+            throw new ToolArgumentException($"{name} must be text.");
+        }
+
+        var text = v.GetString()!.Trim();
+        if (text.Length == 0 || text.Length > maxLength)
+        {
+            throw new ToolArgumentException($"{name} must be 1-{maxLength} characters.");
+        }
+
+        if (text.Any(c => char.IsControl(c) || c is '​' or '‌' or '‍' or '⁠' or '﻿' ||
+                          c is >= '‪' and <= '‮' || c is >= '⁦' and <= '⁩'))
+        {
+            throw new ToolArgumentException($"{name} contains control or invisible characters.");
+        }
+
+        _used[name] = text;
+        return text;
+    }
+
+    /// <summary>An optional month, yyyy-MM.</summary>
+    public YearMonth? Month(string name)
+    {
+        var raw = String(name);
+        if (raw is null)
+        {
+            return null;
+        }
+
+        return YearMonth.TryParse(raw, out var ym) && ym.Year is >= 1970 and <= 2100
+            ? ym
+            : throw Invalid(name, $"{name} must be yyyy-MM.");
+    }
+
+    public int? Integer(string name, int min, int max)
+    {
+        var v = Int(name);
+        return v is null || (v >= min && v <= max)
+            ? v
+            : throw Invalid(name, $"{name} must be between {min} and {max}.");
+    }
+
+    /// <summary>Optional client-chosen key that makes a retried write a no-op.</summary>
+    public string? IdempotencyKey()
+    {
+        var key = String("idempotency_key", 64);
+        return key is null || KeyPattern().IsMatch(key)
+            ? key
+            : throw Invalid("idempotency_key", "idempotency_key must be 8-64 letters, digits, - or _.");
+    }
+
+    /// <summary>Validated arguments without the idempotency key: what an idempotency receipt's hash covers.</summary>
+    public IReadOnlyDictionary<string, string> UsedWithoutKey =>
+        _used.Where(kv => kv.Key != "idempotency_key").OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
     /// <summary>A rejected value is not audited: only validated values are recorded.</summary>
     private ToolArgumentException Invalid(string name, string message)
     {
@@ -106,7 +231,7 @@ public sealed partial class ToolArgs
         return new ToolArgumentException(message);
     }
 
-    private string? String(string name)
+    private string? String(string name, int maxLength = 40)
     {
         if (!Has(name))
         {
@@ -115,7 +240,7 @@ public sealed partial class ToolArgs
 
         var v = _args.GetProperty(name);
         var text = v.ValueKind == JsonValueKind.String ? v.GetString() : v.GetRawText();
-        if (text is null || text.Length > 40)
+        if (text is null || text.Length > maxLength)
         {
             throw new ToolArgumentException($"{name} is too long.");
         }
@@ -148,4 +273,7 @@ public sealed partial class ToolArgs
 
     [GeneratedRegex(@"^[\p{L}\p{N} &/\-.,'+]{2,40}$")]
     private static partial Regex SearchPattern();
+
+    [GeneratedRegex("^[A-Za-z0-9_-]{8,64}$")]
+    private static partial Regex KeyPattern();
 }

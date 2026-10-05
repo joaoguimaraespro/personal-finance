@@ -19,6 +19,7 @@ public static class FinanceModule
         services.AddValidatorsFromAssemblyContaining<TransactionRequestValidator>(includeInternalTypes: true);
         services.AddScoped<RecurringProposer>();
         services.AddScoped<InterestAccrualService>();
+        services.AddScoped<Abstractions.ActorScope>();
         return services;
     }
 
