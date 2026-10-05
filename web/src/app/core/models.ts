@@ -525,6 +525,29 @@ export interface ManualHoldingsView {
   pricesEnabled: boolean;
 }
 
+/** Period a return is measured over: the portfolio page's selector. */
+export type ReturnPeriod = '1M' | 'YTD' | '1Y' | 'ALL';
+
+/**
+ * What a day change compares with: the previous trading day's close (shares, ETFs), the price 24 hours ago
+ * (coins, quoted around the clock) or both (a total).
+ */
+export type DayChangeBasis = 'PreviousClose' | 'Rolling24Hours' | 'Mixed';
+
+/**
+ * Return over a period. ALL: value minus net contributions since `from` (the first deposit, trade or valuation).
+ * 1M/YTD/1Y: `percent` is time-weighted (deposits don't distort it) and `gain` is the value change minus money put
+ * in during the period. `partial`: history starts after the period's start, at `from`.
+ */
+export interface PeriodReturn {
+  period: ReturnPeriod;
+  gain: number | null;
+  percent: number | null;
+  from: string | null;
+  partial: boolean;
+  timeWeighted: boolean;
+}
+
 export interface PortfolioSummary {
   totalValue: number;
   marketValue: number;
@@ -541,6 +564,10 @@ export interface PortfolioSummary {
   accounts: AccountTotal[];
   dayChange: number | null;
   dayChangePercent: number | null;
+  /** First deposit, trade or valuation of the scope. */
+  since?: string | null;
+  periodReturn?: PeriodReturn | null;
+  dayChangeBasis?: DayChangeBasis;
 }
 
 /** One account of the portfolio (a broker account or a crypto wallet), as its own scoped summary would show it. */
@@ -556,6 +583,9 @@ export interface AccountTotal {
   dayChange: number | null;
   dayChangePercent: number | null;
   positions: number;
+  since?: string | null;
+  periodReturn?: PeriodReturn | null;
+  dayChangeBasis?: DayChangeBasis;
 }
 
 export interface PositionLine {
@@ -580,9 +610,10 @@ export interface PositionLine {
     quantity: number;
     averagePrice: number;
   }[];
-  /** Change since the previous recorded close (EUR); null until prices from an earlier day exist. */
+  /** Change since the previous recorded close (EUR) — coins: over 24 hours; null until a reference price exists. */
   dayChangeBase: number | null;
   dayChangePercent: number | null;
+  dayChangeBasis?: DayChangeBasis;
 }
 
 export interface AllocationLine {

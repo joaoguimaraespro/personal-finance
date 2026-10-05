@@ -19,6 +19,13 @@ public readonly record struct DailyClose(DateOnly Date, decimal Close);
 /// <param name="Symbol">Ticker to show ("PEPE").</param>
 public sealed record CoinMatch(string Id, string Symbol, string Name);
 
+/// <summary>
+/// The latest quote and the price 24 hours before it (a rolling day, as crypto exchanges show the change), in
+/// <see cref="Currency"/>.
+/// </summary>
+public sealed record Rolling24h(string Currency, DateTimeOffset LatestAtUtc, decimal LatestPrice,
+    DateTimeOffset ReferenceAtUtc, decimal ReferencePrice);
+
 /// <summary>Daily closes in <see cref="Currency"/> (minor units such as GBp already converted to GBP).</summary>
 public sealed record PriceSeries(string Currency, IReadOnlyList<DailyClose> Closes);
 
@@ -45,6 +52,12 @@ public interface IPriceHistorySource
     /// </summary>
     Task<IReadOnlyList<CoinMatch>> SearchCoinsAsync(string query, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<CoinMatch>>([]);
+
+    /// <summary>
+    /// The latest quote of a listing traded around the clock (a coin) and its price 24 hours earlier; null when the
+    /// provider has no intraday prices. Only the listing symbol is sent.
+    /// </summary>
+    Task<Rolling24h?> GetRolling24hAsync(string symbol, CancellationToken ct) => Task.FromResult<Rolling24h?>(null);
 }
 
 /// <summary>Used when <c>MarketData:Provider</c> is <c>none</c>: no request is ever made.</summary>

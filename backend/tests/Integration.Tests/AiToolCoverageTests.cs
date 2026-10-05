@@ -288,7 +288,10 @@ public sealed class AiToolCoverageTests(ApiFactory factory)
             var btc = data.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("symbol").GetString() == "BTC");
             btc.GetProperty("source").GetString().ShouldBe("manual");
             btc.GetProperty("assetClass").GetString().ShouldBe("Crypto");
-            btc.GetProperty("dayChange").GetDecimal().ShouldBe(0.26m * (50_000m * FakePriceHistory.CoinTodayFactor - 50_000m));
+            // Coins: over a rolling 24 hours (live price against the price 24 hours ago), labelled as such.
+            btc.GetProperty("dayChange").GetDecimal().ShouldBe(0.26m * 50_000m *
+                (FakePriceHistory.CoinTodayFactor - FakePriceHistory.Coin24hAgoFactor));
+            btc.GetProperty("dayChangeBasis").GetString().ShouldBe("rolling24h");
             btc.GetProperty("dayChangePercent").ValueKind.ShouldBe(JsonValueKind.Number);
             btc.GetProperty("locations").EnumerateArray().ShouldHaveSingleItem()
                 .GetProperty("location").GetProperty("untrusted_text").GetString().ShouldBe("AI cold wallet");
@@ -297,6 +300,7 @@ public sealed class AiToolCoverageTests(ApiFactory factory)
             var summaryToken = await TokenAsync(owner, "Crypto summary", "portfolio.summary.read");
             var (_, summary, _) = await CallAsync(summaryToken, "get_portfolio_summary", new { broker = "Manual" });
             summary.GetProperty("dayChange").ValueKind.ShouldBe(JsonValueKind.Number);
+            summary.GetProperty("dayChangeBasis").GetString().ShouldBe("rolling24h");
             var (allocStatus, allocation, _) = await CallAsync(summaryToken, "get_allocation");
             allocStatus.ShouldBe(HttpStatusCode.OK);
             var crypto = allocation.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("assetClass").GetString() == "Crypto");

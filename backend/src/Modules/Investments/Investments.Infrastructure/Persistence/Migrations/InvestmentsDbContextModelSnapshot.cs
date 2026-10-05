@@ -586,6 +586,15 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("provider");
 
+                    b.Property<DateTimeOffset?>("Reference24hAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reference24h_at_utc");
+
+                    b.Property<decimal?>("Reference24hPrice")
+                        .HasPrecision(28, 12)
+                        .HasColumnType("numeric(28,12)")
+                        .HasColumnName("reference24h_price");
+
                     b.Property<DateTimeOffset>("ResolvedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("resolved_at_utc");

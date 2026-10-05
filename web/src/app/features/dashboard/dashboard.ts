@@ -7,7 +7,8 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents, QuickAdd } from '../../core/data-events';
 import { DayPipe, MoneyPipe, MonthNamePipe, PercentPipe } from '../../core/format';
-import type { MonthlySummary } from '../../core/models';
+import type { DayChangeBasis, MonthlySummary } from '../../core/models';
+import { dayChangeHint, dayChangeLabel, monthYear } from '../portfolio/periods';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ChartComponent } from '../../shared/chart';
@@ -421,7 +422,13 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
                     · {{ signedPct(p.dayChangePercent) }}
                   }
                 </span>
-                <span class="text-muted-foreground">{{ 'portfolio.today' | translate }}</span>
+                <span
+                  class="text-muted-foreground"
+                  [attr.title]="
+                    dayHint(p.dayChangeBasis) ? (dayHint(p.dayChangeBasis)! | translate) : null
+                  "
+                  >{{ dayLabel(p.dayChangeBasis) | translate }}</span
+                >
               } @else {
                 <span class="text-muted-foreground">{{
                   'portfolio.todayPending' | translate
@@ -430,7 +437,13 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             </p>
             <dl class="mt-auto grid gap-2 pt-4 text-xs">
               <div class="flex items-center justify-between gap-3">
-                <dt class="text-muted-foreground">{{ 'portfolio.totalReturn' | translate }}</dt>
+                <dt class="text-muted-foreground" [title]="'portfolio.returnAllHint' | translate">
+                  @if (p.since) {
+                    {{ 'portfolio.returnSince' | translate: { date: monthYear(p.since) } }}
+                  } @else {
+                    {{ 'portfolio.totalReturn' | translate }}
+                  }
+                </dt>
                 <dd
                   class="num font-medium"
                   [class.tone-pos]="p.totalReturn > 0"
@@ -1019,6 +1032,14 @@ export class DashboardComponent {
   protected barWidth(value: number, m: MonthlySummary): number {
     const max = Math.max(m.income, m.totalExpenses);
     return max > 0 ? Math.max(2, (value / max) * 100) : 0;
+  }
+
+  /** "Today", or "24h" when the portfolio is only coins; the hint says when coins count over 24 hours. */
+  protected dayLabel = (b: DayChangeBasis | undefined) => dayChangeLabel(b);
+  protected dayHint = (b: DayChangeBasis | undefined) => dayChangeHint(b);
+
+  protected monthYear(isoDate: string): string {
+    return monthYear(isoDate, this.prefs.locale());
   }
 
   protected signedPct(v: number): string {

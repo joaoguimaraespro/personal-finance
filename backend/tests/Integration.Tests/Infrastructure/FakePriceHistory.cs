@@ -11,6 +11,9 @@ public sealed class FakePriceHistory : IPriceHistorySource
 {
     public const decimal CoinTodayFactor = 1.02m;
 
+    /// <summary>A coin's price 24 hours ago, relative to its constant close (the live price is 1.02×).</summary>
+    public const decimal Coin24hAgoFactor = 1.01m;
+
     public ConcurrentDictionary<string, decimal> ClosesByIsin { get; } = new()
     {
         ["IE00BK5BQT80"] = 110m,
@@ -67,6 +70,18 @@ public sealed class FakePriceHistory : IPriceHistorySource
         }
 
         return Task.FromResult<PriceSeries?>(new PriceSeries("EUR", days));
+    }
+
+    public Task<Rolling24h?> GetRolling24hAsync(string symbol, CancellationToken ct)
+    {
+        if (!CoinCloses.TryGetValue(symbol, out var coin))
+        {
+            return Task.FromResult<Rolling24h?>(null);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        return Task.FromResult<Rolling24h?>(new Rolling24h("EUR", now, coin * CoinTodayFactor, now.AddHours(-24),
+            coin * Coin24hAgoFactor));
     }
 
     public Task<IReadOnlyList<CoinMatch>> SearchCoinsAsync(string query, CancellationToken ct) =>

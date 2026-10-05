@@ -35,4 +35,44 @@ public static class DayChange
     /// <summary>Change relative to yesterday's value (today's value minus the change).</summary>
     public static decimal? Percent(decimal? change, decimal marketValue) =>
         change is { } c && marketValue - c != 0 ? decimal.Round(c / (marketValue - c), 6) : null;
+
+    /// <summary>How far a stored 24-hour reference may be from exactly 24 hours before the current price.</summary>
+    public static readonly TimeSpan Rolling24hTolerance = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// The reference price for a coin's rolling 24-hour change: the price stored 24 hours before the current
+    /// price was quoted. Null when there is none or it belongs to another quote (e.g. the latest refresh could not
+    /// fetch it) — the previous close is used then.
+    /// </summary>
+    public static decimal? Reference24h(decimal? referencePrice, DateTimeOffset? referenceAtUtc,
+        DateTimeOffset priceAsOfUtc) =>
+        referencePrice is > 0 && referenceAtUtc is { } at &&
+        (priceAsOfUtc - TimeSpan.FromHours(24) - at).Duration() <= Rolling24hTolerance
+            ? referencePrice
+            : null;
+
+    /// <summary>The basis of a total: the same as all its parts, else mixed (nothing held: since the previous close).</summary>
+    public static DayChangeBasis Combine(IEnumerable<DayChangeBasis> parts)
+    {
+        var distinct = parts.Distinct().ToList();
+        return distinct.Count switch
+        {
+            0 => DayChangeBasis.PreviousClose,
+            1 => distinct[0],
+            _ => DayChangeBasis.Mixed,
+        };
+    }
+}
+
+/// <summary>What a day change compares the current price with.</summary>
+public enum DayChangeBasis
+{
+    /// <summary>The previous trading day's close ("today").</summary>
+    PreviousClose,
+
+    /// <summary>The price 24 hours ago (coins, quoted around the clock, as exchanges show it).</summary>
+    Rolling24Hours,
+
+    /// <summary>A total of both kinds (shares since the previous close, coins over 24 hours).</summary>
+    Mixed,
 }

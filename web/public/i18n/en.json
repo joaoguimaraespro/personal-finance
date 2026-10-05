@@ -541,7 +541,18 @@
   "today": "Today",
   "todayPending": "Available from the second day of syncs",
   "gain": "Gain",
-  "invested": "Invested"
+  "invested": "Invested",
+  "period": "Period",
+  "returnSince": "Return since {{date}}",
+  "returnPeriodTwr": "Return {{period}} (TWR)",
+  "returnSinceTwr": "Return since {{date}} (TWR)",
+  "returnAllHint": "Value minus net contributions (deposits − withdrawals), as a share of net contributions, since the first deposit or trade.",
+  "returnTwrHint": "Time-weighted return (TWR) over the period: it chains daily returns, so deposits and withdrawals don't distort it. The amount is the change in value minus the money put in during the period.",
+  "returnPending": "Needs two days of history",
+  "change24h": "24h",
+  "change24hHint": "Crypto trades around the clock: change over the last 24 hours, as exchanges show it.",
+  "todayMixedHint": "Shares and ETFs since the previous close; crypto over the last 24 hours.",
+  "positionsNote": "Gain is since purchase, whatever the period. Today is since the previous close; crypto shows the last 24 hours."
  },
  "netWorth": {
   "addAsset": "Add asset or debt",
@@ -953,5 +964,11 @@
   "today": "Today",
   "return": "Return",
   "showing": "Showing {{name}}"
+ },
+ "periods": {
+  "1M": "1M",
+  "YTD": "YTD",
+  "1Y": "1Y",
+  "ALL": "All"
  }
 }

@@ -1,6 +1,7 @@
 using FluentValidation;
 using Finance.Application.Http;
 using Investments.Application.Abstractions;
+using Investments.Application.Calculations;
 using Investments.Application.Fx;
 using Investments.Application.Manual;
 using Investments.Application.NetWorth;
@@ -47,16 +48,21 @@ public static class InvestmentEndpoints
     {
         var portfolio = app.MapGroup("/portfolio").WithTags("Portfolio");
 
-        portfolio.MapGet("/summary", (PortfolioQueries q, DataSource? broker, Guid? accountId, CancellationToken ct) =>
-            q.SummaryAsync(new PortfolioScope(broker, accountId), ct));
+        // period: ALL (default), 1M, YTD or 1Y — the return in the summary and its accounts is measured over it.
+        portfolio.MapGet("/summary", (PortfolioQueries q, DataSource? broker, Guid? accountId, string? period,
+            CancellationToken ct) => q.SummaryAsync(new PortfolioScope(broker, accountId), PeriodReturns.Parse(period), ct));
         portfolio.MapGet("/positions", (PortfolioQueries q, DataSource? broker, Guid? accountId, CancellationToken ct) =>
             q.PositionsAsync(new PortfolioScope(broker, accountId), ct));
         portfolio.MapGet("/allocation", (PortfolioQueries q, DataSource? broker, Guid? accountId, CancellationToken ct) =>
             q.AllocationAsync(new PortfolioScope(broker, accountId), ct));
         portfolio.MapGet("/dividends", (PortfolioQueries q, DataSource? broker, Guid? accountId, DateOnly? from,
             DateOnly? to, CancellationToken ct) => q.DividendsAsync(new PortfolioScope(broker, accountId), from, to, ct));
+        // Either a period (measured as the summary's, up to today's live value) or an explicit from/to range.
         portfolio.MapGet("/performance", (PortfolioQueries q, DataSource? broker, Guid? accountId, DateOnly? from,
-            DateOnly? to, CancellationToken ct) => q.PerformanceAsync(new PortfolioScope(broker, accountId), from, to, ct));
+            DateOnly? to, string? period, CancellationToken ct) =>
+            period is not null && from is null && to is null
+                ? q.PerformanceAsync(new PortfolioScope(broker, accountId), PeriodReturns.Parse(period), ct)
+                : q.PerformanceAsync(new PortfolioScope(broker, accountId), from, to, ct));
 
         portfolio.MapGet("/targets", async (IInvestmentsDb db, CancellationToken ct) =>
             await db.TargetAllocations.AsNoTracking()

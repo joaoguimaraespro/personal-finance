@@ -114,6 +114,7 @@ public sealed class InvestmentsDbContext(DbContextOptions<InvestmentsDbContext> 
             e.Property(x => x.Provider).HasMaxLength(16);
             e.Property(x => x.Symbol).HasMaxLength(40);
             e.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+            e.Property(x => x.Reference24hPrice).HasPrecision(28, 12);
             e.HasOne<Security>().WithMany().HasForeignKey(x => x.SecurityId).OnDelete(DeleteBehavior.Cascade);
         });
 

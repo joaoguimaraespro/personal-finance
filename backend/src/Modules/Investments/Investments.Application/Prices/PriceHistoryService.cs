@@ -125,6 +125,11 @@ public sealed class PriceHistoryService(IInvestmentsDb db, IPriceHistorySource s
                 listing.Cover(coveredFrom, to);
             }
 
+            if (security.EffectiveAssetClass == AssetClass.Crypto)
+            {
+                await RefreshRolling24hAsync(security, listing, symbol, ct);
+            }
+
             await db.SaveChangesAsync(ct);
             return latest;
         }
@@ -133,6 +138,28 @@ public sealed class PriceHistoryService(IInvestmentsDb db, IPriceHistorySource s
             logger.LogWarning(ex, "Latest price unavailable for security {SecurityId} from {Provider}", securityId,
                 source.Name);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Stores the coin's price 24 hours ago on its listing (one more request for the coin's symbol). Both prices are
+    /// converted at the same day's rate, so a USD-quoted coin's 24-hour change is the coin's move, not the rate's.
+    /// A failure keeps the previous reference; the portfolio then falls back to the previous close.
+    /// </summary>
+    private async Task RefreshRolling24hAsync(Security security, PriceListing listing, string symbol,
+        CancellationToken ct)
+    {
+        if (await source.GetRolling24hAsync(symbol, ct) is not { } quote)
+        {
+            return;
+        }
+
+        var day = DateOnly.FromDateTime(quote.LatestAtUtc.UtcDateTime);
+        var converted = await InSecurityCurrencyAsync(security,
+            new PriceSeries(quote.Currency, [new DailyClose(day, quote.ReferencePrice)]), ct);
+        if (converted.Currency == security.Currency && converted.Closes is [{ Close: > 0 } reference])
+        {
+            listing.SetReference24h(decimal.Round(reference.Close, 12), quote.ReferenceAtUtc);
         }
     }
 

@@ -100,6 +100,62 @@ public sealed class PortfolioTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task The_summary_measures_the_return_over_a_period_as_the_chart_does()
+    {
+        var api = await factory.OwnerAsync();
+        await ConnectDemoBrokersAsync(api);
+
+        // Without a period: total return since the first known day, which the summary now states.
+        var all = await api.GetJsonAsync("/api/portfolio/summary");
+        var since = all.GetProperty("since").GetString()!;
+        var allReturn = all.GetProperty("periodReturn");
+        allReturn.GetProperty("period").GetString().ShouldBe("ALL");
+        allReturn.GetProperty("timeWeighted").GetBoolean().ShouldBeFalse();
+        allReturn.GetProperty("percent").GetDecimal().ShouldBe(all.GetProperty("totalReturnPercent").GetDecimal());
+        allReturn.GetProperty("gain").GetDecimal().ShouldBe(all.GetProperty("totalReturn").GetDecimal());
+        allReturn.GetProperty("from").GetString().ShouldBe(since);
+        DateOnly.Parse(since).ShouldBeLessThan(DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-1));
+        foreach (var account in all.GetProperty("accounts").EnumerateArray())
+        {
+            account.GetProperty("since").ValueKind.ShouldBe(JsonValueKind.String);
+            account.GetProperty("periodReturn").GetProperty("period").GetString().ShouldBe("ALL");
+        }
+
+        foreach (var period in new[] { "1M", "YTD", "1Y" })
+        {
+            var summary = await api.GetJsonAsync($"/api/portfolio/summary?period={period}");
+            // The totals don't depend on the period; only the return does.
+            summary.GetProperty("totalValue").GetDecimal().ShouldBe(all.GetProperty("totalValue").GetDecimal());
+            summary.GetProperty("totalReturn").GetDecimal().ShouldBe(all.GetProperty("totalReturn").GetDecimal());
+
+            var r = summary.GetProperty("periodReturn");
+            r.GetProperty("period").GetString().ShouldBe(period);
+            r.GetProperty("timeWeighted").GetBoolean().ShouldBeTrue();
+            r.GetProperty("partial").GetBoolean().ShouldBeFalse(); // the demo history goes back years
+            DateOnly.Parse(r.GetProperty("from").GetString()!).ShouldBeGreaterThan(DateOnly.Parse(since));
+
+            // The chart for the same period starts at the same value and ends at the live total.
+            var chart = await api.GetJsonAsync($"/api/portfolio/performance?period={period}");
+            chart.GetProperty("from").GetString().ShouldBe(r.GetProperty("from").GetString());
+            chart.GetProperty("endValue").GetDecimal().ShouldBe(summary.GetProperty("totalValue").GetDecimal());
+            chart.GetProperty("timeWeightedReturn").GetDecimal().ShouldBe(r.GetProperty("percent").GetDecimal());
+            chart.GetProperty("gain").GetDecimal().ShouldBe(r.GetProperty("gain").GetDecimal());
+
+            foreach (var account in summary.GetProperty("accounts").EnumerateArray())
+            {
+                var own = account.GetProperty("periodReturn");
+                own.GetProperty("period").GetString().ShouldBe(period);
+                var scoped = await api.GetJsonAsync(
+                    $"/api/portfolio/summary?period={period}&accountId={account.GetProperty("accountId").GetGuid()}");
+                own.GetProperty("gain").GetDecimal()
+                    .ShouldBe(scoped.GetProperty("periodReturn").GetProperty("gain").GetDecimal());
+                own.GetProperty("percent").GetDecimal()
+                    .ShouldBe(scoped.GetProperty("periodReturn").GetProperty("percent").GetDecimal());
+            }
+        }
+    }
+
+    [Fact]
     public async Task Repeated_syncs_never_duplicate_records()
     {
         var api = await factory.OwnerAsync();

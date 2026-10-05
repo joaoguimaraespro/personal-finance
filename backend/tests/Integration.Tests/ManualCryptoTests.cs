@@ -10,6 +10,7 @@ public sealed class ManualCryptoTests(ApiFactory factory)
 {
     private const decimal Close = 50_000m;
     private const decimal Live = Close * FakePriceHistory.CoinTodayFactor;
+    private const decimal DayAgo = Close * FakePriceHistory.Coin24hAgoFactor;
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -48,8 +49,9 @@ public sealed class ManualCryptoTests(ApiFactory factory)
         line.GetProperty("marketValueBase").GetDecimal().ShouldBe(0.5m * Live);
         line.GetProperty("costBase").GetDecimal().ShouldBe(20_000m);
         line.GetProperty("unrealizedPnlBase").GetDecimal().ShouldBe(0.5m * Live - 20_000m);
-        // 24/7 market: today's change is against yesterday's close.
-        line.GetProperty("dayChangeBase").GetDecimal().ShouldBe(0.5m * (Live - Close));
+        // 24/7 market: the change is over a rolling 24 hours, as exchanges show it (not since yesterday's close).
+        line.GetProperty("dayChangeBase").GetDecimal().ShouldBe(0.5m * (Live - DayAgo));
+        line.GetProperty("dayChangeBasis").GetString().ShouldBe("Rolling24Hours");
         var h0 = line.GetProperty("holdings")[0];
         h0.GetProperty("broker").GetString().ShouldBe("Manual");
         h0.GetProperty("accountName").GetString().ShouldBe("Binance");
@@ -68,7 +70,9 @@ public sealed class ManualCryptoTests(ApiFactory factory)
         wallet.GetProperty("totalReturn").GetDecimal().ShouldBe(0.5m * Live - 20_000m);
         wallet.GetProperty("totalReturnPercent").GetDecimal()
             .ShouldBe(decimal.Round((0.5m * Live - 20_000m) / 20_000m, 6));
-        wallet.GetProperty("dayChange").GetDecimal().ShouldBe(0.5m * (Live - Close));
+        wallet.GetProperty("dayChange").GetDecimal().ShouldBe(0.5m * (Live - DayAgo));
+        wallet.GetProperty("dayChangeBasis").GetString().ShouldBe("Rolling24Hours");
+        wallet.GetProperty("since").GetString().ShouldBe(Today.AddDays(-30).ToString("yyyy-MM-dd"));
         var scoped = await api.GetJsonAsync($"/api/portfolio/summary?accountId={accountId}");
         wallet.GetProperty("totalReturn").GetDecimal().ShouldBe(scoped.GetProperty("totalReturn").GetDecimal());
         wallet.GetProperty("dayChangePercent").GetDecimal()

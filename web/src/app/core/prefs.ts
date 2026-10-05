@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { injectBrnCalendarI18n } from '@spartan-ng/brain/calendar';
+import type { ReturnPeriod } from './models';
 
 type Theme = 'light' | 'dark' | 'system';
 export type Lang = 'en' | 'pt-PT';
@@ -13,6 +14,11 @@ function read(key: string): string | null {
   }
 }
 
+function readPeriod(): ReturnPeriod {
+  const stored = read('pf.portfolioPeriod');
+  return stored === '1M' || stored === 'YTD' || stored === '1Y' ? stored : 'ALL';
+}
+
 function write(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
@@ -22,8 +28,8 @@ function write(key: string, value: string) {
 }
 
 /**
- * UI-only preferences. Never stores financial data in the browser — only theme, language and the last
- * account used for quick entry (an id, not a balance).
+ * UI-only preferences. Never stores financial data in the browser — only theme, language, the last
+ * account used for quick entry (an id, not a balance) and the period the portfolio's returns are shown for.
  */
 @Injectable({ providedIn: 'root' })
 export class Prefs {
@@ -35,6 +41,8 @@ export class Prefs {
   );
   readonly locale = computed(() => (this.lang() === 'pt-PT' ? 'pt-PT' : 'en-IE'));
   readonly lastAccountId = signal<string | null>(read('pf.lastAccount'));
+  /** Period of the returns on the portfolio page (1M, YTD, 1Y or ALL). */
+  readonly portfolioPeriod = signal<ReturnPeriod>(readPeriod());
   /** Bumps when a translation file finishes loading, so computed labels (charts) re-evaluate. */
   readonly translations = signal(0);
 
@@ -60,6 +68,7 @@ export class Prefs {
       const id = this.lastAccountId();
       if (id) write('pf.lastAccount', id);
     });
+    effect(() => write('pf.portfolioPeriod', this.portfolioPeriod()));
   }
 
   /** Calendar vocabulary from Intl, so pickers match the rest of the app's date formatting. Weeks start on Monday. */
