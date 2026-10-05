@@ -174,8 +174,14 @@ date and notes. The app prices it itself.
   The listing is the coin's EUR pair (`BTC-EUR`), else its USD pair (`KAS-USD`; many smaller coins have no EUR
   pair), cached in `price_listings`. USD closes are stored in EUR at the ECB rate of the day. Daily closes go to
   `market_prices`; the last days are re-downloaded when the portfolio is opened (at most every 15 minutes) and by
-  the 6-hourly snapshot job, so today's bar is the live price and yesterday's close is final. Crypto trades 24/7:
-  *Today* compares with yesterday's close, weekends included.
+  the 6-hourly snapshot job, so today's bar is the live price and yesterday's close is final.
+- **24-hour change.** Coins trade around the clock, so their change is shown as **24h** (the price now against
+  24 hours ago, as exchanges such as Binance show it) rather than *Today*. Each refresh also downloads the coin's last
+  two days of 15-minute bars (`/v8/finance/chart/{symbol}?interval=15m&range=2d`, the same allow-listed endpoint) and
+  stores the price 24 hours before the latest quote on its listing (`price_listings.reference24h_*`, converted at the
+  same day's ECB rate as the live price for USD-quoted coins). The change is quantity × (price now − price 24 h ago).
+  If that request fails, the coin falls back to the change since yesterday's close and is labelled *Today*. Shares and
+  ETFs keep *Today* (since the previous close; at weekends, Friday's move); the portfolio's total adds both.
 - **History.** Editing a holding drops the location's snapshots and rebuilds them from the daily closes since the
   "held since" date, so the performance chart never jumps on an edit (it shows the holding as if held at the
   current quantity since that date).

@@ -90,6 +90,16 @@ internal sealed class YahooPriceHistorySource(HttpClient http, ILogger<YahooPric
         return json is null ? null : YahooParser.Chart(json);
     }
 
+    /// <summary>
+    /// Two days of 15-minute bars (Yahoo's <c>range=2d</c> starts at midnight UTC yesterday, so it always reaches
+    /// 24 hours back).
+    /// </summary>
+    public async Task<Rolling24h?> GetRolling24hAsync(string symbol, CancellationToken ct)
+    {
+        var json = await GetAsync($"/v8/finance/chart/{Uri.EscapeDataString(symbol)}?interval=15m&range=2d", ct);
+        return json is null ? null : YahooParser.Rolling24h(json);
+    }
+
     /// <summary>The body, or null on "not found" and on any failure (logged without the query string).</summary>
     private async Task<string?> GetAsync(string pathAndQuery, CancellationToken ct)
     {
@@ -242,6 +252,74 @@ internal static partial class YahooParser
             .Where(s => s.Length is > 0 and <= 32)
             .Distinct(StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// The latest quote of an intraday chart response and the price 24 hours before it: the open of the bar that
+    /// was trading then (bars are 15 minutes, so within 15 minutes of the exact time). Null when the chart does not
+    /// reach that far back.
+    /// </summary>
+    public static Rolling24h? Rolling24h(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("chart", out var chart) ||
+            !chart.TryGetProperty("result", out var results) || results.ValueKind != JsonValueKind.Array ||
+            results.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var result = results[0];
+        if (!result.TryGetProperty("meta", out var meta) ||
+            !meta.TryGetProperty("currency", out var c) || c.ValueKind != JsonValueKind.String ||
+            !meta.TryGetProperty("regularMarketPrice", out var p) || p.ValueKind != JsonValueKind.Number ||
+            !meta.TryGetProperty("regularMarketTime", out var t) || t.ValueKind != JsonValueKind.Number ||
+            !result.TryGetProperty("timestamp", out var timestamps) || timestamps.ValueKind != JsonValueKind.Array ||
+            !result.TryGetProperty("indicators", out var indicators) ||
+            !indicators.TryGetProperty("quote", out var quotes) || quotes.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var latest = (decimal)p.GetDouble();
+        if (latest <= 0)
+        {
+            return null;
+        }
+
+        var (currency, factor) = CurrencyUnits.Normalize(c.GetString()!);
+        var target = t.GetInt64() - 24 * 3600;
+        var quote = quotes[0];
+        var opens = quote.TryGetProperty("open", out var o) ? o : default;
+        var closes = quote.TryGetProperty("close", out var cl) ? cl : default;
+
+        static decimal? PriceAt(JsonElement series, int i) =>
+            series.ValueKind == JsonValueKind.Array && i >= 0 && i < series.GetArrayLength() &&
+            series[i].ValueKind == JsonValueKind.Number && series[i].GetDouble() > 0
+                ? (decimal)series[i].GetDouble()
+                : null;
+
+        // The bar trading at the target time: the last one that started at or before it.
+        for (var i = timestamps.GetArrayLength() - 1; i >= 0; i--)
+        {
+            if (timestamps[i].ValueKind != JsonValueKind.Number || timestamps[i].GetInt64() > target)
+            {
+                continue;
+            }
+
+            if ((PriceAt(opens, i) ?? PriceAt(closes, i - 1) ?? PriceAt(closes, i)) is not { } reference)
+            {
+                return null;
+            }
+
+            return new Rolling24h(currency, DateTimeOffset.FromUnixTimeSeconds(t.GetInt64()), Quote(latest) * factor,
+                DateTimeOffset.FromUnixTimeSeconds(target), Quote(reference) * factor);
+        }
+
+        return null;
+    }
+
+    /// <summary>Quotes arrive as float32 noise: 4 decimals are exact enough, except for coins worth fractions of a cent.</summary>
+    private static decimal Quote(decimal value) => decimal.Round(value, value >= 1 ? 4 : 10);
 
     /// <summary>Daily closes from a chart response; days are the exchange's local dates.</summary>
     public static PriceSeries? Chart(string json)

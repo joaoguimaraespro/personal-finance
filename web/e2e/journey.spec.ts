@@ -104,6 +104,15 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   const holdings = page.getByRole('row').filter({ hasText: 'Demo broker A' }).filter({ hasText: 'Demo broker B' });
   await expect(holdings).toBeVisible();
   await expect(page.getByText('TWR')).toBeVisible();
+  // All-time return states where it starts; one period control drives every return and the chart, and a
+  // period's return is time-weighted and labelled so.
+  const heroReturn = page.getByTestId('hero-return-label');
+  await expect(heroReturn).toContainText(/Return since \d{2}\/\d{4}/);
+  await page.locator('[data-period="1Y"]').click();
+  await expect(heroReturn).toContainText('Return 1Y (TWR)');
+  await expect(page.getByTestId('wallet-return-label').first()).toContainText('Return 1Y (TWR)');
+  await page.locator('[data-period="ALL"]').click();
+  await expect(heroReturn).toContainText('Return since');
   await page.waitForTimeout(1000);
   if (shots) await page.screenshot({ path: `${shots}/portfolio.png`, fullPage: true });
   // Each account is a wallet card at the top; picking one scopes the whole page to it.
@@ -111,7 +120,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await walletA.click();
   await expect(walletA).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/Total value\s*· Demo broker A/)).toBeVisible();
-  await page.getByRole('button', { name: /^All/ }).click();
+  await page.locator('[data-wallet="all"]').click();
   await expect(walletA).toHaveAttribute('aria-pressed', 'false');
 
   await page.goto('/net-worth');

@@ -34,6 +34,15 @@ public sealed class PriceListing
     public DateOnly? CoveredFrom { get; private set; }
     public DateOnly? CoveredTo { get; private set; }
 
+    /// <summary>
+    /// A coin's price 24 hours before its latest quote, in the security's currency. Coins trade around the clock,
+    /// so their change is over a rolling 24 hours, as exchanges show it. Refreshed with the coin's price.
+    /// </summary>
+    public decimal? Reference24hPrice { get; private set; }
+
+    /// <summary>When <see cref="Reference24hPrice"/> was quoted (24 hours before the latest quote).</summary>
+    public DateTimeOffset? Reference24hAtUtc { get; private set; }
+
     public static PriceListing Create(Guid securityId, string provider, string? symbol, string? currency,
         DateTimeOffset at) => new()
     {
@@ -63,6 +72,12 @@ public sealed class PriceListing
     {
         CoveredFrom = CoveredFrom is { } f && f < from ? f : from;
         CoveredTo = CoveredTo is { } t && t > to ? t : to;
+    }
+
+    public void SetReference24h(decimal price, DateTimeOffset at)
+    {
+        Reference24hPrice = price;
+        Reference24hAtUtc = at;
     }
 }
 

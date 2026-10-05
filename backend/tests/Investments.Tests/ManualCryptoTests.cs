@@ -94,6 +94,58 @@ public sealed class ManualCryptoTests
     }
 
     [Fact]
+    public void The_24_hour_reference_is_the_price_of_the_bar_trading_24_hours_before_the_latest_quote()
+    {
+        // Recorded BTC-EUR 15-minute bars (interval=15m&range=2d), trimmed around the 24-hour mark.
+        var quote = YahooParser.Rolling24h(Fixture("chart-intraday-BTC-EUR.json"))!;
+
+        quote.Currency.ShouldBe("EUR");
+        quote.LatestAtUtc.ShouldBe(DateTimeOffset.FromUnixTimeSeconds(1791192388)); // Mon 5 Oct 09:26:28 UTC
+        quote.LatestPrice.ShouldBe(76_567.3m);
+        quote.ReferenceAtUtc.ShouldBe(quote.LatestAtUtc.AddHours(-24));
+        // The 09:15 bar was trading at 09:26:28 the day before: its open.
+        quote.ReferencePrice.ShouldBe(75_705.0391m);
+    }
+
+    [Fact]
+    public void An_intraday_chart_that_does_not_reach_24_hours_back_has_no_reference()
+    {
+        YahooParser.Rolling24h("""
+            {"chart":{"result":[{"meta":{"currency":"EUR","regularMarketPrice":100.0,"regularMarketTime":1791192388},
+            "timestamp":[1791190000,1791192388],"indicators":{"quote":[{"open":[99.0,100.0],"close":[99.5,100.0]}]}}]}}
+            """).ShouldBeNull();
+        YahooParser.Rolling24h(Fixture("chart-not-found.json")).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Coins_change_over_24_hours_when_the_reference_matches_the_current_price()
+    {
+        var priceAsOf = new DateTimeOffset(2026, 10, 5, 9, 30, 0, TimeSpan.Zero);
+        var referenceAt = new DateTimeOffset(2026, 10, 4, 9, 26, 28, TimeSpan.Zero);
+
+        var reference = DayChange.Reference24h(75_705.0391m, referenceAt, priceAsOf);
+        reference.ShouldBe(75_705.0391m);
+        // 0.5 BTC × (76 567.30 − 75 705.0391) = 431.13 EUR
+        var change = DayChange.Amount(0.5m, 76_567.3m, reference, 1m);
+        change.ShouldBe(431.13m);
+        DayChange.Percent(change, 0.5m * 76_567.3m).ShouldBe(0.01139m);
+
+        // A reference from an older refresh (the latest one could not fetch it) is not a 24-hour change.
+        DayChange.Reference24h(75_705m, referenceAt.AddHours(-6), priceAsOf).ShouldBeNull();
+        DayChange.Reference24h(null, null, priceAsOf).ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_total_of_shares_and_coins_has_a_mixed_basis()
+    {
+        DayChange.Combine([]).ShouldBe(DayChangeBasis.PreviousClose);
+        DayChange.Combine([DayChangeBasis.Rolling24Hours, DayChangeBasis.Rolling24Hours])
+            .ShouldBe(DayChangeBasis.Rolling24Hours);
+        DayChange.Combine([DayChangeBasis.PreviousClose, DayChangeBasis.Rolling24Hours])
+            .ShouldBe(DayChangeBasis.Mixed);
+    }
+
+    [Fact]
     public void An_older_close_is_that_days_final_price()
     {
         ManualCrypto.PriceAsOf(new DateOnly(2026, 10, 3), Now)

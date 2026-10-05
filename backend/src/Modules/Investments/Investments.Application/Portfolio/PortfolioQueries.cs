@@ -29,7 +29,8 @@ public sealed record Holding(
     decimal MarketValueBase,
     decimal CostBase,
     DateTimeOffset PriceAsOfUtc,
-    decimal? DayChangeBase);
+    decimal? DayChangeBase,
+    DayChangeBasis DayChangeBasis = DayChangeBasis.PreviousClose);
 
 public sealed record PositionLine(
     Guid SecurityId,
@@ -48,7 +49,8 @@ public sealed record PositionLine(
     decimal PortfolioWeight,
     IReadOnlyList<PositionHolding> Holdings,
     decimal? DayChangeBase,
-    decimal? DayChangePercent);
+    decimal? DayChangePercent,
+    DayChangeBasis DayChangeBasis = DayChangeBasis.PreviousClose);
 
 public sealed record PositionHolding(Guid AccountId, string AccountName, DataSource Broker, decimal Quantity,
     decimal AveragePrice);
@@ -68,11 +70,30 @@ public sealed record PortfolioSummary(
     DateTimeOffset? LastSyncUtc,
     IReadOnlyList<AccountTotal> Accounts,
     decimal? DayChange,
-    decimal? DayChangePercent);
+    decimal? DayChangePercent,
+    DateOnly? Since = null,
+    PeriodReturn? PeriodReturn = null,
+    DayChangeBasis DayChangeBasis = DayChangeBasis.PreviousClose);
+
+/// <summary>
+/// The return over the period asked for. For "ALL" it is the total return (value minus net contributions, over net
+/// contributions) since <see cref="From"/>, the first deposit, trade or valuation. For 1M, YTD and 1Y,
+/// <see cref="Percent"/> is the time-weighted return (deposits and withdrawals don't distort it) and
+/// <see cref="Gain"/> is value at the end − value at the start − net deposits in the period, up to the live value.
+/// </summary>
+/// <param name="Period">"ALL", "1M", "YTD" or "1Y".</param>
+/// <param name="From">The day the return is measured from: the period's start (the last value on or before it),
+/// or the first value when history begins later (<see cref="Partial"/>).</param>
+/// <param name="Partial">History starts inside the period, so the return covers less than the period.</param>
+/// <param name="TimeWeighted">True when <see cref="Percent"/> is a time-weighted return.</param>
+public sealed record PeriodReturn(string Period, decimal? Gain, decimal? Percent, DateOnly? From, bool Partial,
+    bool TimeWeighted);
 
 /// <summary>One account ("wallet") of the summary, with enough to draw its card without a scoped request.</summary>
 /// <param name="TotalReturn">Value minus net contributions of this account, as the summary computes it.</param>
-/// <param name="DayChange">Change since the previous close of the account's holdings; null while unknown.</param>
+/// <param name="DayChange">Change since the previous close of the account's holdings (coins: over the last 24 hours,
+/// see <see cref="DayChangeBasis"/>); null while unknown.</param>
+/// <param name="Since">First deposit, trade or valuation of the account.</param>
 public sealed record AccountTotal(
     Guid AccountId,
     string Name,
@@ -84,7 +105,10 @@ public sealed record AccountTotal(
     decimal? TotalReturnPercent = null,
     decimal? DayChange = null,
     decimal? DayChangePercent = null,
-    int Positions = 0);
+    int Positions = 0,
+    DateOnly? Since = null,
+    PeriodReturn? PeriodReturn = null,
+    DayChangeBasis DayChangeBasis = DayChangeBasis.PreviousClose);
 
 public sealed record AllocationLine(AssetClass AssetClass, decimal Value, decimal Actual, decimal? Target,
     decimal? Difference);
@@ -139,17 +163,26 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 .Select(m => new { m.SecurityId, m.Date, m.Close, m.Currency })
                 .ToListAsync(ct))
             .ToLookup(m => (m.SecurityId, m.Currency), m => (m.Date, m.Close));
+        // Coins: the price 24 hours before the latest quote, stored with the coin's listing on each refresh.
+        var references = await db.PriceListings.AsNoTracking()
+            .Where(l => securityIds.Contains(l.SecurityId) && l.Reference24hPrice != null)
+            .Select(l => new { l.SecurityId, l.Reference24hPrice, l.Reference24hAtUtc })
+            .ToDictionaryAsync(l => l.SecurityId, ct);
         return rows.Select(r =>
         {
             var factor = factors.GetValueOrDefault(r.s.Currency);
             var account = accounts[r.p.AccountId];
-            var previous = DayChange.PreviousClose(closes[(r.s.Id, r.s.Currency)],
-                DayChange.TradingDay(DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime),
-                    tradesEveryDay: r.s.EffectiveAssetClass == AssetClass.Crypto));
+            var crypto = r.s.EffectiveAssetClass == AssetClass.Crypto;
+            var reference = crypto && references.TryGetValue(r.s.Id, out var l)
+                ? DayChange.Reference24h(l.Reference24hPrice, l.Reference24hAtUtc, r.p.PriceAsOfUtc)
+                : null;
+            var previous = reference ?? DayChange.PreviousClose(closes[(r.s.Id, r.s.Currency)],
+                DayChange.TradingDay(DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime), tradesEveryDay: crypto));
             return new Holding(r.p.AccountId, account.Name, r.p.Source, r.s.Id, r.s.Symbol, r.s.Isin, r.s.Name,
                 r.s.Currency, r.s.EffectiveAssetClass, r.p.Quantity, r.p.AveragePrice, r.p.LastPrice,
                 decimal.Round(r.p.MarketValue * factor, 2), decimal.Round(r.p.CostBasis * factor, 2),
-                r.p.PriceAsOfUtc, DayChange.Amount(r.p.Quantity, r.p.LastPrice, previous, factor));
+                r.p.PriceAsOfUtc, DayChange.Amount(r.p.Quantity, r.p.LastPrice, previous, factor),
+                reference is null ? DayChangeBasis.PreviousClose : DayChangeBasis.Rolling24Hours);
         }).ToList();
     }
 
@@ -173,7 +206,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                     total == 0 ? 0 : decimal.Round(mv / total, 6),
                     g.Select(h => new PositionHolding(h.AccountId, h.AccountName, h.Broker, h.Quantity, h.AveragePrice))
                         .ToList(),
-                    day, DayChange.Percent(day, mv));
+                    day, DayChange.Percent(day, mv), DayChange.Combine(g.Select(h => h.DayChangeBasis)));
             })
             .OrderByDescending(p => p.MarketValueBase)
             .ToList();
@@ -186,7 +219,14 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         return known.Count == 0 ? null : known.Sum();
     }
 
-    public async Task<PortfolioSummary> SummaryAsync(PortfolioScope scope, CancellationToken ct)
+    public Task<PortfolioSummary> SummaryAsync(PortfolioScope scope, CancellationToken ct) =>
+        SummaryAsync(scope, ReturnPeriod.All, ct);
+
+    /// <summary>
+    /// Totals of the scope and of each account, with the return over <paramref name="period"/> (see
+    /// <see cref="PeriodReturn"/>). Coins' day change is over a rolling 24 hours when their 24-hour price is known.
+    /// </summary>
+    public async Task<PortfolioSummary> SummaryAsync(PortfolioScope scope, ReturnPeriod period, CancellationToken ct)
     {
         var accounts = await BrokerAccountsAsync(scope, ct);
         var ids = accounts.Keys.ToList();
@@ -205,6 +245,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             .SumAsync(d => d.NetBaseAmount, ct);
         var lastSync = await db.Positions.AsNoTracking().Where(p => ids.Contains(p.AccountId))
             .MaxAsync(p => (DateTimeOffset?)p.SyncedAtUtc, ct);
+        var since = await InceptionAsync(ids, ct);
 
         var marketValue = holdings.Sum(h => h.MarketValueBase);
         var cashTotal = cash.Sum(c => c.Value);
@@ -216,29 +257,99 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         var fees = tradeCosts - flows.Where(f => f.Type == CashMovementType.Fee).Sum(f => f.Base);
         var totalValue = marketValue + cashTotal;
         var dayChange = SumKnown(holdings.Select(h => h.DayChangeBase));
+        var totals = accounts.Values.Select(a => AccountTotalOf(a, holdings.Where(h => h.AccountId == a.Id).ToList(),
+            cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value), contributionsByAccount.GetValueOrDefault(a.Id),
+            since.TryGetValue(a.Id, out var first) ? first : null)).ToList();
+        var totalReturnPercent =
+            contributions > 0 ? decimal.Round((totalValue - contributions) / contributions, 6) : (decimal?)null;
+        DateOnly? firstDay = since.Count == 0 ? null : since.Values.Min();
+        var periodReturn = new PeriodReturn("ALL", totalValue - contributions, totalReturnPercent, firstDay, false,
+            false);
+
+        if (period != ReturnPeriod.All)
+        {
+            var (valuations, deposits) = await HistoryAsync(ids, ct);
+            var live = totals.Select(t => new AccountValuation(t.AccountId, Today, t.MarketValue + t.Cash)).ToList();
+            valuations = WithLiveValues(valuations, live, Today);
+            var baseDate = PeriodReturns.BaseDate(period, Today)!.Value;
+            periodReturn = Measured(period, PeriodReturns.Compute(valuations, deposits, baseDate, Today));
+            totals = totals.Select(t => t with
+            {
+                PeriodReturn = Measured(period, PeriodReturns.Compute(
+                    valuations.Where(v => v.AccountId == t.AccountId).ToList(),
+                    deposits.Where(f => f.AccountId == t.AccountId).ToList(), baseDate, Today)),
+            }).ToList();
+        }
 
         return new PortfolioSummary(
-            totalValue, marketValue, cashTotal, contributions, totalValue - contributions,
-            contributions > 0 ? decimal.Round((totalValue - contributions) / contributions, 6) : null,
+            totalValue, marketValue, cashTotal, contributions, totalValue - contributions, totalReturnPercent,
             realized, holdings.Sum(h => h.MarketValueBase - h.CostBase), dividends, fees, holdings.Count, lastSync,
-            accounts.Values.Select(a => AccountTotalOf(a, holdings.Where(h => h.AccountId == a.Id).ToList(),
-                cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value),
-                contributionsByAccount.GetValueOrDefault(a.Id))).ToList(),
-            dayChange, DayChange.Percent(dayChange, marketValue));
+            totals, dayChange, DayChange.Percent(dayChange, marketValue), firstDay, periodReturn,
+            DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
     }
 
-    /// <summary>Same figures as <see cref="SummaryAsync"/> scoped to one account.</summary>
+    private static PeriodReturn Measured(ReturnPeriod period, PeriodResult? result) =>
+        new(PeriodReturns.Code(period), result?.Gain, result?.TimeWeightedReturn, result?.From,
+            result?.Partial ?? false, true);
+
+    /// <summary>The summary's figures for one account.</summary>
     private static AccountTotal AccountTotalOf(BrokerAccount account, List<Holding> holdings, decimal cash,
-        decimal contributions)
+        decimal contributions, DateOnly? since)
     {
         var marketValue = holdings.Sum(h => h.MarketValueBase);
         var total = marketValue + cash;
         var day = SumKnown(holdings.Select(h => h.DayChangeBase));
+        var percent = contributions > 0 ? decimal.Round((total - contributions) / contributions, 6) : (decimal?)null;
         return new AccountTotal(account.Id, account.Name, account.Broker, marketValue, cash, contributions,
-            total - contributions,
-            contributions > 0 ? decimal.Round((total - contributions) / contributions, 6) : null,
-            day, DayChange.Percent(day, marketValue), holdings.Count);
+            total - contributions, percent, day, DayChange.Percent(day, marketValue), holdings.Count, since,
+            new PeriodReturn("ALL", total - contributions, percent, since, false, false),
+            DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
     }
+
+    /// <summary>First known day of each account: its first cash movement, trade or valuation.</summary>
+    private async Task<Dictionary<Guid, DateOnly>> InceptionAsync(List<Guid> ids, CancellationToken ct)
+    {
+        var firstMovement = await db.CashMovements.AsNoTracking().Where(c => ids.Contains(c.AccountId))
+            .GroupBy(c => c.AccountId).Select(g => new { g.Key, At = g.Min(c => c.OccurredAtUtc) }).ToListAsync(ct);
+        var firstTrade = await db.Trades.AsNoTracking().Where(t => ids.Contains(t.AccountId))
+            .GroupBy(t => t.AccountId).Select(g => new { g.Key, At = g.Min(t => t.ExecutedAtUtc) }).ToListAsync(ct);
+        var firstValuation = await db.PortfolioSnapshots.AsNoTracking().Where(s => ids.Contains(s.AccountId))
+            .GroupBy(s => s.AccountId).Select(g => new { g.Key, Date = g.Min(s => s.Date) }).ToListAsync(ct);
+        return firstMovement.Select(m => (m.Key, Date: DateOnly.FromDateTime(m.At.UtcDateTime)))
+            .Concat(firstTrade.Select(t => (t.Key, Date: DateOnly.FromDateTime(t.At.UtcDateTime))))
+            .Concat(firstValuation.Select(v => (v.Key, v.Date)))
+            .GroupBy(x => x.Key)
+            .ToDictionary(g => g.Key, g => g.Min(x => x.Date));
+    }
+
+    /// <summary>Daily account values (snapshots) and deposits/withdrawals of the accounts, up to today.</summary>
+    private async Task<(List<AccountValuation> Valuations, List<AccountFlow> Flows)> HistoryAsync(List<Guid> ids,
+        CancellationToken ct)
+    {
+        var today = Today;
+        var valuations = await db.PortfolioSnapshots.AsNoTracking()
+            .Where(s => ids.Contains(s.AccountId) && s.Date <= today)
+            .Select(s => new AccountValuation(s.AccountId, s.Date, s.MarketValueBase + s.CashBase))
+            .ToListAsync(ct);
+        var flows = (await db.CashMovements.AsNoTracking()
+                .Where(c => ids.Contains(c.AccountId) &&
+                            (c.Type == CashMovementType.Deposit || c.Type == CashMovementType.Withdrawal))
+                .Select(c => new { c.AccountId, c.OccurredAtUtc, c.BaseAmount })
+                .ToListAsync(ct))
+            .Select(f => new AccountFlow(f.AccountId, DateOnly.FromDateTime(f.OccurredAtUtc.UtcDateTime), f.BaseAmount))
+            .ToList();
+        return (valuations, flows);
+    }
+
+    /// <summary>
+    /// Today's value of each account is its live value (current prices), so a period's return runs up to now and
+    /// matches the value shown.
+    /// </summary>
+    public static List<AccountValuation> WithLiveValues(IEnumerable<AccountValuation> valuations,
+        IReadOnlyList<AccountValuation> live, DateOnly today) =>
+        valuations.Where(v => v.Date < today || live.All(l => l.AccountId != v.AccountId))
+            .Concat(live)
+            .ToList();
 
     public async Task<IReadOnlyList<AllocationLine>> AllocationAsync(PortfolioScope scope, CancellationToken ct)
     {
@@ -290,8 +401,18 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 r.d.WithholdingTax, r.d.NetAmount, r.d.Currency, r.d.NetBaseAmount, r.d.WithholdingDerived)).ToList());
     }
 
-    public async Task<PerformanceReport> PerformanceAsync(PortfolioScope scope, DateOnly? from, DateOnly? to,
-        CancellationToken ct)
+    public Task<PerformanceReport> PerformanceAsync(PortfolioScope scope, DateOnly? from, DateOnly? to,
+        CancellationToken ct) => PerformanceAsync(scope, from, to, null, ct);
+
+    /// <summary>
+    /// The value chart and returns over <paramref name="period"/>, measured exactly as the summary's period return:
+    /// from the last value on or before the period's start, up to today's live value.
+    /// </summary>
+    public Task<PerformanceReport> PerformanceAsync(PortfolioScope scope, ReturnPeriod period, CancellationToken ct) =>
+        PerformanceAsync(scope, null, null, period, ct);
+
+    private async Task<PerformanceReport> PerformanceAsync(PortfolioScope scope, DateOnly? from, DateOnly? to,
+        ReturnPeriod? period, CancellationToken ct)
     {
         var ids = (await BrokerAccountsAsync(scope, ct)).Keys.ToList();
         var end = to ?? Today;
@@ -300,6 +421,18 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             .Select(s => new { s.AccountId, s.Date, Value = s.MarketValueBase + s.CashBase, s.Origin, s.EstimatedHoldings })
             .ToListAsync(ct);
         var valuations = snapshots.Select(s => new AccountValuation(s.AccountId, s.Date, s.Value)).ToList();
+        if (period is { } p)
+        {
+            var holdings = await HoldingsAsync(scope, ct);
+            var cash = await CashAsync(scope, ct);
+            var live = ids.Select(id => new AccountValuation(id, end,
+                holdings.Where(h => h.AccountId == id).Sum(h => h.MarketValueBase) +
+                cash.Where(c => c.AccountId == id).Sum(c => c.Value))).ToList();
+            valuations = WithLiveValues(valuations, live, end);
+            from = PeriodReturns.BaseDate(p, end) is { } baseDate
+                ? PeriodReturns.StartDate(valuations, baseDate, end)
+                : null;
+        }
         var flows = (await db.CashMovements.AsNoTracking()
                 .Where(c => ids.Contains(c.AccountId) &&
                             (c.Type == CashMovementType.Deposit || c.Type == CashMovementType.Withdrawal))

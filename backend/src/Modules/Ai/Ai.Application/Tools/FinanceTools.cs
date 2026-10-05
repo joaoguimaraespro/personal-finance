@@ -8,6 +8,7 @@ using Finance.Domain.Categories;
 using Finance.Domain.Interest;
 using Finance.Domain.Recurring;
 using Finance.Domain.Transactions;
+using Investments.Application.Calculations;
 using Investments.Application.Fx;
 using Investments.Application.NetWorth;
 using Investments.Application.Portfolio;
@@ -236,13 +237,22 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
         {
             currency = Currency.Base,
             totalValue = s.TotalValue, marketValue = s.MarketValue, cash = s.Cash,
-            dayChange = s.DayChange, dayChangePercent = s.DayChangePercent, netContributions = s.NetContributions,
-            totalReturn = s.TotalReturn, totalReturnPercent = s.TotalReturnPercent, unrealizedPnl = s.UnrealizedPnl,
+            dayChange = s.DayChange, dayChangePercent = s.DayChangePercent, dayChangeBasis = Basis(s.DayChangeBasis),
+            netContributions = s.NetContributions, totalReturn = s.TotalReturn,
+            totalReturnPercent = s.TotalReturnPercent, since = s.Since, unrealizedPnl = s.UnrealizedPnl,
             realizedPnl = s.RealizedPnl, dividendsNet = s.Dividends, feesAndTaxes = s.Fees, positions = s.Positions,
             brokers = s.Accounts.Select(a => a.Broker.ToString()).Distinct(),
             lastSyncUtc = s.LastSyncUtc,
         }, 1);
     }
+
+    /// <summary>What dayChange compares with: previousClose (shares, ETFs), rolling24h (coins) or mixed (a total of both).</summary>
+    private static string Basis(DayChangeBasis basis) => basis switch
+    {
+        DayChangeBasis.Rolling24Hours => "rolling24h",
+        DayChangeBasis.Mixed => "mixed",
+        _ => "previousClose",
+    };
 
     private async Task<ToolOutput> PositionsAsync(ToolContext ctx, CancellationToken ct)
     {
@@ -259,6 +269,7 @@ public sealed class FinanceTools(IFinanceDb finance, LedgerAggregates ledger, Po
                     symbol = p.Symbol, name = UntrustedText.From(p.Name), isin = p.Isin, assetClass = p.AssetClass.ToString(),
                     quantity = p.Quantity, priceCurrency = p.Currency, lastPrice = p.LastPrice, averagePrice = p.AveragePrice,
                     marketValue = p.MarketValueBase, dayChange = p.DayChangeBase, dayChangePercent = p.DayChangePercent,
+                    dayChangeBasis = Basis(p.DayChangeBasis),
                     unrealizedPnl = p.UnrealizedPnlBase, unrealizedPnlPercent = p.UnrealizedPnlPercent,
                     portfolioWeight = p.PortfolioWeight,
                     source = manual.Count == p.Holdings.Count ? "manual" : manual.Count == 0 ? "broker" : "mixed",

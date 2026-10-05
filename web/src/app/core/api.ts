@@ -15,6 +15,7 @@ import {
   NetWorthHistory,
   PerformanceReport,
   PortfolioSummary,
+  ReturnPeriod,
   PositionLine,
   ProviderInfo,
   SyncJob,
@@ -190,17 +191,21 @@ export class Api {
   undoImport = (id: string) => this.http.post<{ removed: number }>(`/api/imports/${id}/undo`, {});
 
   // Portfolio (read-only broker data)
-  portfolioSummary = (scope: PortfolioScope = {}) =>
-    this.http.get<PortfolioSummary>('/api/portfolio/summary', { params: scopeParams(scope) });
+  /** `period` sets what `periodReturn` covers (ALL by default: total return since the first deposit). */
+  portfolioSummary = (scope: PortfolioScope = {}, period: ReturnPeriod = 'ALL') =>
+    this.http.get<PortfolioSummary>('/api/portfolio/summary', {
+      params: period === 'ALL' ? scopeParams(scope) : { ...scopeParams(scope), period },
+    });
   positions = (scope: PortfolioScope = {}) =>
     this.http.get<PositionLine[]>('/api/portfolio/positions', { params: scopeParams(scope) });
   allocation = (scope: PortfolioScope = {}) =>
     this.http.get<AllocationLine[]>('/api/portfolio/allocation', { params: scopeParams(scope) });
   dividends = (scope: PortfolioScope = {}) =>
     this.http.get<DividendSummary>('/api/portfolio/dividends', { params: scopeParams(scope) });
-  performance = (scope: PortfolioScope = {}, from?: string) =>
+  /** The value chart and its returns over a period, measured as the summary's period return (up to the live value). */
+  performance = (scope: PortfolioScope = {}, period: ReturnPeriod = 'ALL') =>
     this.http.get<PerformanceReport>('/api/portfolio/performance', {
-      params: from ? { ...scopeParams(scope), from } : scopeParams(scope),
+      params: { ...scopeParams(scope), period },
     });
   targets = () =>
     this.http.get<{ assetClass: AssetClass; percent: number }[]>('/api/portfolio/targets');
