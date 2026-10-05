@@ -44,13 +44,18 @@ flowchart LR
 | `networth.read` | `get_net_worth` (group totals), `get_net_worth_history` (month-end series) |
 | `accounts.balances.read` | `get_accounts`: type, institution and balance in EUR (brokers and crypto locations valued from the portfolio); savings rate (TANB), withholding and interest this year, estimated vs confirmed (no names, no IBANs) |
 | `recurring.read` | `get_recurring`: recurring items, monthly fixed costs, what is due or awaiting confirmation in the next 1–90 days (no accounts) |
-| `portfolio.summary.read` | `get_portfolio_summary` (with today's change), `get_allocation` (by asset class vs target) |
-| `portfolio.positions.read` | `get_positions` (asset class, today's change; hand-entered crypto marked `source: manual` with its location) |
+| `portfolio.summary.read` | `get_portfolio_summary` (today's change — coins over a rolling 24 hours, see below — and the total return since the first deposit or trade, `since`), `get_allocation` (by asset class vs target) |
+| `portfolio.positions.read` | `get_positions` (asset class, day change — 24 h for coins; hand-entered crypto marked `source: manual` with its location) |
 | `portfolio.performance.read` | `get_portfolio_performance` |
 | `dividends.read` | `get_dividend_summary` (dividends and crypto rewards, each total separately) |
 | **`accounts.identifiers.read`** (sensitive) | adds account names and IBANs to `get_net_worth` and `get_accounts` |
 | **`raw.transactions.read`** (sensitive) | adds account and source to transactions |
 | **`personal.notes.read`** (sensitive) | adds personal notes to transactions |
+
+**Day change of crypto.** `dayChange` in `get_portfolio_summary` and `get_positions` comes with `dayChangeBasis`:
+`previousClose` (shares and ETFs: since the previous trading day's close, a weekend shows Friday's move),
+`rolling24h` (coins: the price now against 24 hours ago, as exchanges show it) or `mixed` (a total of both). A coin
+whose 24-hour price could not be fetched falls back to `previousClose`.
 
 There are no write scopes, and no SQL, shell, file, trading or write tools — architecture tests fail the build if
 one is added, and the exact tool → scope list is pinned by a test, so widening a scope is always a reviewed change.
@@ -80,7 +85,7 @@ More examples:
 | *"Which month did I save the most in 2025?"* | `get_year_breakdown(year: 2025)` |
 | *"How has my net worth evolved?"* | `get_net_worth_history(range: "3y")` |
 | *"Am I on target with my allocation?"* | `get_allocation` → actual vs target share per asset class |
-| *"How are my coins on Binance doing today?"* | `get_positions(broker: "Manual")` → today's change and location per coin |
+| *"How are my coins on Binance doing today?"* | `get_positions(broker: "Manual")` → 24-hour change and location per coin |
 
 ## Connecting Claude Code
 

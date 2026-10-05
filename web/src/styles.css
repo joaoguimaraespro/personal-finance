@@ -155,6 +155,11 @@
     @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
   }
 
+  /* A label whose tooltip explains how the figure is measured. */
+  .hint {
+    @apply cursor-help underline decoration-dotted underline-offset-4;
+  }
+
   /* Segmented control with the spartan tabs-list look. */
   .segmented {
     @apply bg-muted text-muted-foreground inline-flex h-9 items-center rounded-lg p-[3px];

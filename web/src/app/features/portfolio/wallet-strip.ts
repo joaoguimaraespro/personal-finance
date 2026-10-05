@@ -2,10 +2,17 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output } f
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { NgIcon } from '@ng-icons/core';
 import { MoneyPipe, PercentPipe } from '../../core/format';
-import { AccountTotal, Broker, PortfolioSummary } from '../../core/models';
+import {
+  AccountTotal,
+  Broker,
+  DayChangeBasis,
+  PeriodReturn,
+  PortfolioSummary,
+} from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { BrokerLogoComponent } from '../../shared/broker-logo';
 import { APP_ICONS } from '../../shared/icons';
+import { Label, dayChangeHint, dayChangeLabel, returnHint, returnLabel } from './periods';
 
 interface WalletCard {
   /** '' for all wallets, else the account id. */
@@ -16,7 +23,13 @@ interface WalletCard {
   value: number;
   dayChange: number | null;
   dayChangePercent: number | null;
+  /** "Today" or "24h" (a crypto wallet), with a tooltip when it isn't simply since the previous close. */
+  dayLabel: string;
+  dayHint: string | null;
   returnPercent: number | null;
+  /** "Return since 03/2024", "Return 1Y (TWR)"… */
+  returnLabel: Label;
+  returnHint: string;
 }
 
 /**
@@ -60,10 +73,14 @@ interface WalletCard {
           <span class="num block text-lg leading-tight font-semibold tracking-tight">{{
             c.value | money
           }}</span>
-          <!-- Two labelled lines: today's move and the total return are different measures. -->
+          <!-- Two labelled lines: the day's move and the return over the period are different measures. -->
           <span class="block space-y-0.5 text-[11px] leading-tight">
             <span class="flex items-center justify-between gap-2">
-              <span class="text-muted-foreground">{{ 'wallets.today' | translate }}</span>
+              <span
+                class="text-muted-foreground"
+                [attr.title]="c.dayHint ? (c.dayHint | translate) : null"
+                >{{ c.dayLabel | translate }}</span
+              >
               @if (c.dayChange !== null) {
                 <span class="num truncate" [class]="tone(c.dayChange)"
                   >{{ c.dayChange | money: 'EUR' : true }} ({{
@@ -74,8 +91,13 @@ interface WalletCard {
                 <span class="text-muted-foreground">—</span>
               }
             </span>
-            <span class="flex items-center justify-between gap-2">
-              <span class="text-muted-foreground">{{ 'wallets.return' | translate }}</span>
+            <span class="flex items-end justify-between gap-2">
+              <span
+                class="text-muted-foreground min-w-0"
+                data-testid="wallet-return-label"
+                [title]="c.returnHint | translate"
+                >{{ c.returnLabel.key | translate: c.returnLabel.params }}</span
+              >
               <span class="num shrink-0 font-medium" [class]="tone(c.returnPercent)">{{
                 signedPct(c.returnPercent)
               }}</span>
@@ -101,7 +123,7 @@ interface WalletCard {
       flex: none;
       flex-direction: column;
       gap: 0.5rem;
-      width: 12.5rem;
+      width: 13.5rem;
       padding: 0.875rem;
       text-align: left;
       scroll-snap-align: start;
@@ -142,6 +164,7 @@ export class WalletStripComponent {
   private readonly pct = new PercentPipe();
 
   /** The unscoped summary: its totals feed "All" and its accounts the other cards. */
+  /** The unscoped summary for the chosen period: its accounts carry their own period return. */
   readonly summary = input.required<PortfolioSummary>();
   /** '' for all wallets, else the selected account id. */
   readonly selected = input('');
@@ -162,7 +185,8 @@ export class WalletStripComponent {
         value: s.totalValue,
         dayChange: s.dayChange,
         dayChangePercent: s.dayChangePercent,
-        returnPercent: s.totalReturnPercent,
+        ...this.day(s.dayChangeBasis),
+        ...this.returns(s.periodReturn, s.totalReturnPercent, s.since),
       },
       ...wallets.map((a) => ({
         key: a.accountId,
@@ -172,10 +196,34 @@ export class WalletStripComponent {
         value: a.marketValue + a.cash,
         dayChange: a.dayChange ?? null,
         dayChangePercent: a.dayChangePercent ?? null,
-        returnPercent: a.totalReturnPercent ?? null,
+        ...this.day(a.dayChangeBasis),
+        ...this.returns(a.periodReturn, a.totalReturnPercent ?? null, a.since),
       })),
     ];
   });
+
+  private day(basis: DayChangeBasis | undefined) {
+    return { dayLabel: dayChangeLabel(basis), dayHint: dayChangeHint(basis) };
+  }
+
+  /** The period's return when the server sent one, else the total return (an older server). */
+  private returns(r: PeriodReturn | null | undefined, total: number | null, since?: string | null) {
+    const period: PeriodReturn = r ?? {
+      period: 'ALL',
+      gain: null,
+      percent: total,
+      from: since ?? null,
+      partial: false,
+      timeWeighted: false,
+    };
+    return {
+      returnPercent: period.percent,
+      returnLabel: returnLabel(period, this.prefs.locale(), (p) =>
+        this.i18n.instant(`periods.${p}`),
+      ),
+      returnHint: returnHint(period),
+    };
+  }
 
   /** "Trading 212 · 12 positions"; crypto wallets count coins. The provider is left out when it's the name. */
   private detail(a: AccountTotal): string {

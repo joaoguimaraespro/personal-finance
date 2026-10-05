@@ -14,7 +14,15 @@ import { firstValueFrom } from 'rxjs';
 import { Api, PortfolioScope } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, PercentPipe, PricePipe } from '../../core/format';
-import { AssetClass, Broker, ManualHolding, PositionLine } from '../../core/models';
+import {
+  AssetClass,
+  Broker,
+  DayChangeBasis,
+  ManualHolding,
+  PeriodReturn,
+  PortfolioSummary,
+  PositionLine,
+} from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ChartComponent } from '../../shared/chart';
@@ -37,6 +45,14 @@ import { CoinIconComponent } from '../../shared/coin-icon';
 import { CryptoDialogComponent } from './crypto-dialog';
 import { WalletStripComponent } from './wallet-strip';
 import {
+  Label,
+  RETURN_PERIODS,
+  dayChangeHint,
+  dayChangeLabel,
+  returnHint,
+  returnLabel,
+} from './periods';
+import {
   lucideArrowDown,
   lucideArrowUp,
   lucideArrowUpDown,
@@ -57,8 +73,6 @@ const CLASS_COLORS: Record<AssetClass, string> = {
   Cash: '#a1a1aa',
   Other: '#a855f7',
 };
-
-type Range = '1Y' | '3Y' | 'ALL';
 
 /**
  * Read-only view of broker data: nothing on this page can change a broker account. Coins held elsewhere (an
@@ -109,9 +123,25 @@ type Range = '1Y' | '3Y' | 'ALL';
           }
         </p>
       </div>
-      <button hlmBtn variant="outline" (click)="openCrypto(null)">
-        <ng-icon name="lucidePlus" aria-hidden="true" />{{ 'crypto.addButton' | translate }}
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- One control for the period of every return on the page and of the value chart. -->
+        <div class="segmented" role="group" [attr.aria-label]="'portfolio.period' | translate">
+          @for (p of periods; track p) {
+            <button
+              type="button"
+              [class.active]="period() === p"
+              [attr.aria-pressed]="period() === p"
+              [attr.data-period]="p"
+              (click)="prefs.portfolioPeriod.set(p)"
+            >
+              {{ 'periods.' + p | translate }}
+            </button>
+          }
+        </div>
+        <button hlmBtn variant="outline" (click)="openCrypto(null)">
+          <ng-icon name="lucidePlus" aria-hidden="true" />{{ 'crypto.addButton' | translate }}
+        </button>
+      </div>
     </div>
 
     @if (allAccounts.value(); as all) {
@@ -148,7 +178,15 @@ type Range = '1Y' | '3Y' | 'ALL';
             <p class="num mt-1 text-3xl font-semibold tracking-tight">{{ s.totalValue | money }}</p>
           </div>
           <div>
-            <p class="text-xs text-muted-foreground">{{ 'portfolio.today' | translate }}</p>
+            <p class="text-xs text-muted-foreground">
+              <span
+                [class.hint]="dayHint(s.dayChangeBasis)"
+                [attr.title]="
+                  dayHint(s.dayChangeBasis) ? (dayHint(s.dayChangeBasis)! | translate) : null
+                "
+                >{{ dayLabel(s.dayChangeBasis) | translate }}</span
+              >
+            </p>
             @if (s.dayChange !== null) {
               <p
                 class="num mt-1 flex items-center gap-1.5 text-xl font-semibold"
@@ -168,18 +206,29 @@ type Range = '1Y' | '3Y' | 'ALL';
             }
           </div>
           <div>
-            <p class="text-xs text-muted-foreground">{{ 'portfolio.totalReturn' | translate }}</p>
-            <p
-              class="num mt-1 flex items-center gap-1.5 text-xl font-semibold"
-              [class]="tone(s.totalReturn)"
-            >
-              <ng-icon
-                [name]="s.totalReturn >= 0 ? 'lucideTrendingUp' : 'lucideTrendingDown'"
-                aria-hidden="true"
-              />
-              {{ s.totalReturn | money: 'EUR' : true }}
-              <span class="text-sm font-medium">({{ signedPct(s.totalReturnPercent) }})</span>
+            @let r = heroReturn();
+            <p class="text-xs text-muted-foreground" data-testid="hero-return-label">
+              <span class="hint" [title]="returnHint(r) | translate">{{
+                label(r).key | translate: label(r).params
+              }}</span>
             </p>
+            @if (r.gain !== null && r.gain !== undefined) {
+              <p
+                class="num mt-1 flex items-center gap-1.5 text-xl font-semibold"
+                [class]="tone(r.gain)"
+              >
+                <ng-icon
+                  [name]="r.gain >= 0 ? 'lucideTrendingUp' : 'lucideTrendingDown'"
+                  aria-hidden="true"
+                />
+                {{ r.gain | money: 'EUR' : true }}
+                <span class="text-sm font-medium">({{ signedPct(r.percent) }})</span>
+              </p>
+            } @else {
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ 'portfolio.returnPending' | translate }}
+              </p>
+            }
           </div>
         </section>
 
@@ -235,12 +284,10 @@ type Range = '1Y' | '3Y' | 'ALL';
                     [title]="'portfolio.xirrHint' | translate"
                     >XIRR <b class="num text-foreground">{{ p.moneyWeightedReturn | pct }}</b></span
                   >
+                  <span class="badge bg-muted text-muted-foreground">{{
+                    'periods.' + period() | translate
+                  }}</span>
                 }
-                <div class="segmented">
-                  @for (r of ranges; track r) {
-                    <button [class.active]="range() === r" (click)="range.set(r)">{{ r }}</button>
-                  }
-                </div>
               </div>
             </div>
             @if (hasHistory()) {
@@ -423,7 +470,17 @@ type Range = '1Y' | '3Y' | 'ALL';
                   <td hlmTd class="text-right" [class]="tone(p.dayChangeBase)">
                     @if (p.dayChangeBase !== null) {
                       <div class="num font-medium">{{ p.dayChangeBase | money: 'EUR' : true }}</div>
-                      <div class="num text-xs">{{ signedPct(p.dayChangePercent) }}</div>
+                      <div class="num text-xs">
+                        @if (p.dayChangeBasis === 'Rolling24Hours') {
+                          <span
+                            class="text-muted-foreground"
+                            data-testid="change-24h"
+                            [title]="'portfolio.change24hHint' | translate"
+                            >{{ 'portfolio.change24h' | translate }} ·</span
+                          >
+                        }
+                        {{ signedPct(p.dayChangePercent) }}
+                      </div>
                     } @else {
                       <span class="text-muted-foreground">—</span>
                     }
@@ -520,6 +577,9 @@ type Range = '1Y' | '3Y' | 'ALL';
               }
             </tbody>
           </table>
+          <p class="px-5 py-3 text-[11px] text-muted-foreground">
+            {{ 'portfolio.positionsNote' | translate }}
+          </p>
         </section>
 
         <section class="mt-6 grid gap-4 lg:grid-cols-2">
@@ -623,11 +683,11 @@ type Range = '1Y' | '3Y' | 'ALL';
 export class PortfolioComponent {
   private readonly api = inject(Api);
   protected readonly events = inject(DataEvents);
-  private readonly prefs = inject(Prefs);
+  protected readonly prefs = inject(Prefs);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
   protected readonly colors = SERIES_COLORS;
-  protected readonly ranges: Range[] = ['1Y', '3Y', 'ALL'];
+  protected readonly periods = RETURN_PERIODS;
   protected readonly classes: AssetClass[] = [
     'Etf',
     'Stock',
@@ -640,7 +700,8 @@ export class PortfolioComponent {
 
   /** The wallet (account) the page is scoped to; '' for all of them. */
   protected readonly walletId = signal('');
-  protected readonly range = signal<Range>('ALL');
+  /** Period of the returns and the value chart; remembered in this browser like the theme. */
+  protected readonly period = this.prefs.portfolioPeriod;
   protected readonly expanded = signal<string | null>(null);
   private readonly pct = new PercentPipe();
   protected readonly targetsOpen = signal(false);
@@ -652,17 +713,10 @@ export class PortfolioComponent {
     this.walletId() ? { accountId: this.walletId() } : {},
   );
   private readonly key = computed(() => ({ scope: this.scope(), v: this.events.version() }));
-  private readonly from = computed(() => {
-    const years = this.range() === '1Y' ? 1 : this.range() === '3Y' ? 3 : 0;
-    if (!years) return undefined;
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - years);
-    return d.toISOString().slice(0, 10);
-  });
 
   protected readonly summary = liveResource({
-    params: this.key,
-    stream: ({ params }) => this.api.portfolioSummary(params.scope),
+    params: () => ({ ...this.key(), period: this.period() }),
+    stream: ({ params }) => this.api.portfolioSummary(params.scope, params.period),
   });
   protected readonly positions = liveResource({
     params: this.key,
@@ -677,8 +731,8 @@ export class PortfolioComponent {
     stream: ({ params }) => this.api.dividends(params.scope),
   });
   protected readonly performance = liveResource({
-    params: () => ({ ...this.key(), from: this.from() }),
-    stream: ({ params }) => this.api.performance(params.scope, params.from),
+    params: () => ({ ...this.key(), period: this.period() }),
+    stream: ({ params }) => this.api.performance(params.scope, params.period),
   });
 
   /** Coins entered by hand (edit buttons, location suggestions). */
@@ -701,8 +755,8 @@ export class PortfolioComponent {
 
   /** Every wallet regardless of the selected one, with its own totals: the wallet cards come from here. */
   protected readonly allAccounts = liveResource({
-    params: () => this.events.version(),
-    stream: () => this.api.portfolioSummary(),
+    params: () => ({ v: this.events.version(), period: this.period() }),
+    stream: ({ params }) => this.api.portfolioSummary({}, params.period),
   });
   protected readonly selectedWallet = computed(() => {
     const id = this.walletId();
@@ -726,6 +780,30 @@ export class PortfolioComponent {
       error: () => undefined, // Keep the last known prices.
     });
   }
+
+  /** The return of the hero: over the chosen period (total return since the first deposit for "All"). */
+  protected readonly heroReturn = computed<PeriodReturn>(() => {
+    const s: PortfolioSummary | undefined = this.summary.value();
+    return (
+      s?.periodReturn ?? {
+        period: 'ALL',
+        gain: s?.totalReturn ?? null,
+        percent: s?.totalReturnPercent ?? null,
+        from: s?.since ?? null,
+        partial: false,
+        timeWeighted: false,
+      }
+    );
+  });
+
+  protected label(r: PeriodReturn): Label {
+    this.prefs.translations();
+    return returnLabel(r, this.prefs.locale(), (p) => this.i18n.instant(`periods.${p}`));
+  }
+
+  protected returnHint = returnHint;
+  protected dayLabel = (b: DayChangeBasis | undefined) => dayChangeLabel(b);
+  protected dayHint = (b: DayChangeBasis | undefined) => dayChangeHint(b);
 
   protected brokerLabel(b: Broker): string {
     this.prefs.translations();

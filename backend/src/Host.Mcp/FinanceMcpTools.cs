@@ -91,7 +91,7 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         CancellationToken ct = default) => Call("get_recurring", ct, ("days", days));
 
     [McpServerTool(Name = "get_portfolio_summary", Title = "Portfolio summary", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Portfolio value, today's change, net contributions, total return, unrealised/realised P&L, dividends and fees.")]
+    [Description("Portfolio value, today's change (crypto: rolling 24 hours, see dayChangeBasis), net contributions, total return since the first deposit or trade (since), unrealised/realised P&L, dividends and fees.")]
     public Task<string> GetPortfolioSummary([Description("Optional: Trading212, InteractiveBrokers, Manual (crypto entered by hand) or Demo.")] string? broker = null,
         CancellationToken ct = default) => Call("get_portfolio_summary", ct, ("broker", broker));
 
@@ -101,7 +101,7 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         CancellationToken ct = default) => Call("get_allocation", ct, ("broker", broker));
 
     [McpServerTool(Name = "get_positions", Title = "Positions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Largest holdings with asset class, weight, value, today's change and P&L. Crypto entered by hand is marked source manual with its location.")]
+    [Description("Largest holdings with asset class, weight, value, today's change and P&L. Crypto's change is over a rolling 24 hours (dayChangeBasis rolling24h) when known; shares and ETFs since the previous close. Crypto entered by hand is marked source manual with its location.")]
     public Task<string> GetPositions([Description("Optional: Trading212, InteractiveBrokers, Manual (crypto entered by hand) or Demo.")] string? broker = null,
         [Description("Number of positions (1-25, default 10).")] int? top = null,
         CancellationToken ct = default) => Call("get_positions", ct, ("broker", broker), ("top", top));

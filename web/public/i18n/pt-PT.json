@@ -541,7 +541,18 @@
   "today": "Hoje",
   "todayPending": "Disponível a partir do segundo dia de sincronizações",
   "gain": "Lucro",
-  "invested": "Investido"
+  "invested": "Investido",
+  "period": "Período",
+  "returnSince": "Retorno desde {{date}}",
+  "returnPeriodTwr": "Retorno {{period}} (TWR)",
+  "returnSinceTwr": "Retorno desde {{date}} (TWR)",
+  "returnAllHint": "Valor menos contribuições líquidas (depósitos − levantamentos), em percentagem das contribuições líquidas, desde o primeiro depósito ou compra.",
+  "returnTwrHint": "Rentabilidade ponderada pelo tempo (TWR) no período: encadeia as rentabilidades diárias, por isso depósitos e levantamentos não a distorcem. O valor em euros é a variação do valor menos o dinheiro entregue no período.",
+  "returnPending": "Precisa de dois dias de histórico",
+  "change24h": "24h",
+  "change24hHint": "As criptomoedas negociam sem parar: variação nas últimas 24 horas, como nas corretoras.",
+  "todayMixedHint": "Ações e ETFs desde o fecho anterior; cripto nas últimas 24 horas.",
+  "positionsNote": "O lucro é desde a compra, seja qual for o período. Hoje é desde o fecho anterior; cripto mostra as últimas 24 horas."
  },
  "netWorth": {
   "addAsset": "Adicionar ativo ou dívida",
@@ -953,5 +964,11 @@
   "today": "Hoje",
   "return": "Retorno",
   "showing": "A mostrar {{name}}"
+ },
+ "periods": {
+  "1M": "1M",
+  "YTD": "YTD",
+  "1Y": "1A",
+  "ALL": "Tudo"
  }
 }
