@@ -53,7 +53,66 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
                 [class.opacity-50]="c.archived"
               >
                 <span class="h-3 w-3 shrink-0 rounded-full" [style.background]="c.color"></span>
-                <span class="min-w-0 flex-1 text-sm">{{ c | categoryLabel }}</span>
+                @if (renamingId() === c.id) {
+                  <form
+                    class="flex min-w-0 flex-1 items-center gap-1"
+                    (submit)="$event.preventDefault(); saveRename(c)"
+                  >
+                    <input
+                      hlmInput
+                      class="h-8 min-w-0 flex-1 text-sm"
+                      maxlength="60"
+                      [attr.aria-label]="'categories.newName' | translate"
+                      [value]="renameValue()"
+                      (input)="renameValue.set($any($event.target).value)"
+                      (keydown.escape)="renamingId.set(null)"
+                      autofocus
+                    />
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="icon-sm"
+                      type="submit"
+                      [attr.aria-label]="'common.save' | translate"
+                    >
+                      <ng-icon name="lucideCheck" />
+                    </button>
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="icon-sm"
+                      type="button"
+                      [attr.aria-label]="'common.cancel' | translate"
+                      (click)="renamingId.set(null)"
+                    >
+                      <ng-icon name="lucideX" />
+                    </button>
+                  </form>
+                } @else {
+                  <span class="min-w-0 flex-1 truncate text-sm">{{ c | categoryLabel }}</span>
+                  @if (c.renamed) {
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="icon-sm"
+                      (click)="resetName(c)"
+                      [attr.aria-label]="'categories.resetName' | translate"
+                      [hlmTooltip]="'categories.resetName' | translate"
+                    >
+                      <ng-icon name="lucideRotateCcw" />
+                    </button>
+                  }
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="icon-sm"
+                    (click)="startRename(c)"
+                    [attr.aria-label]="'categories.rename' | translate"
+                    [hlmTooltip]="'categories.rename' | translate"
+                  >
+                    <ng-icon name="lucidePencil" />
+                  </button>
+                }
                 @if (c.type === 'Expense') {
                   <app-select
                     class="w-32"
@@ -256,6 +315,42 @@ export class CategoriesComponent {
           icon: c.icon,
         }),
       );
+      this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected readonly renamingId = signal<string | null>(null);
+  protected readonly renameValue = signal('');
+
+  protected startRename(c: Category) {
+    this.renameValue.set(categoryLabel(this.i18n, c));
+    this.renamingId.set(c.id);
+  }
+
+  protected async saveRename(c: Category) {
+    const name = this.renameValue().trim();
+    this.renamingId.set(null);
+    if (!name || name === categoryLabel(this.i18n, c)) return;
+    try {
+      await firstValueFrom(
+        this.api.updateCategory(c.id, {
+          name,
+          defaultNature: c.defaultNature,
+          color: c.color,
+          icon: c.icon,
+        }),
+      );
+      this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async resetName(c: Category) {
+    try {
+      await firstValueFrom(this.api.resetCategoryName(c.id));
       this.events.bump();
     } catch (err) {
       this.toasts.error(err);

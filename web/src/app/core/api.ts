@@ -89,13 +89,14 @@ export class Api {
     this.http.post<{ transactionId: string | null }>(`/api/interest/${id}/reconcile`, body);
 
   // Categories & buckets
-  categories = (includeArchived = false) =>
-    this.http.get<Category[]>('/api/categories', { params: { includeArchived } });
+  categories = (includeArchived = false, context?: HttpContext) =>
+    this.http.get<Category[]>('/api/categories', { params: { includeArchived }, context });
   createCategory = (body: unknown) => this.http.post<{ id: string }>('/api/categories', body);
   updateCategory = (id: string, body: unknown) =>
     this.http.put<void>(`/api/categories/${id}`, body);
   archiveCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/archive`, {});
   restoreCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/restore`, {});
+  resetCategoryName = (id: string) => this.http.post<void>(`/api/categories/${id}/reset-name`, {});
   buckets = () => this.http.get<Bucket[]>('/api/buckets');
   createBucket = (body: unknown) => this.http.post<{ id: string }>('/api/buckets', body);
   allocationChecks = (period: string) =>

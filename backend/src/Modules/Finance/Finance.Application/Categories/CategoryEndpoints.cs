@@ -1,6 +1,7 @@
 using FluentValidation;
 using Finance.Application.Abstractions;
 using Finance.Application.Http;
+using Finance.Domain;
 using Finance.Domain.Categories;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -20,7 +21,9 @@ public sealed record CategoryDto(
     bool IsSystem,
     string? Color,
     string? Icon,
-    bool Archived);
+    bool Archived,
+    // A built-in category the owner renamed: show its name instead of the translated label.
+    bool Renamed);
 
 public sealed record CreateCategoryRequest(string Name, CategoryType Type, ExpenseNature? DefaultNature, Guid? ParentId,
     string? Color, string? Icon);
@@ -57,12 +60,13 @@ public static class CategoryEndpoints
         var group = app.MapGroup("/categories").WithTags("Categories");
 
         group.MapGet("/", async (IFinanceDb db, bool? includeArchived, CancellationToken ct) =>
-            Results.Ok(await db.Categories.AsNoTracking()
-                .Where(c => includeArchived == true || c.ArchivedAtUtc == null)
-                .OrderBy(c => c.Type).ThenBy(c => c.SortOrder).ThenBy(c => c.Name)
+            Results.Ok((await db.Categories.AsNoTracking()
+                    .Where(c => includeArchived == true || c.ArchivedAtUtc == null)
+                    .OrderBy(c => c.Type).ThenBy(c => c.SortOrder).ThenBy(c => c.Name)
+                    .ToListAsync(ct))
                 .Select(c => new CategoryDto(c.Id, c.Key, c.Name, c.Type, c.DefaultNature, c.ParentId, c.IsSystem,
-                    c.Color, c.Icon, c.ArchivedAtUtc != null))
-                .ToListAsync(ct)));
+                    c.Color, c.Icon, c.ArchivedAtUtc != null,
+                    c.IsSystem && SystemCatalog.DefaultCategoryName(c.Key) is { } original && original != c.Name))));
 
         group.MapPost("/", async (CreateCategoryRequest req, IFinanceDb db, CancellationToken ct) =>
         {
@@ -91,6 +95,25 @@ public static class CategoryEndpoints
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         }).Validate<UpdateCategoryRequest>();
+
+        // Undo a rename of a built-in category: back to the catalogue name (shown translated again).
+        group.MapPost("/{id:guid}/reset-name", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+        {
+            var category = await db.Categories.FindAsync([id], ct);
+            if (category is null)
+            {
+                return ResultHttp.Problem(NotFound);
+            }
+
+            if (!category.IsSystem || SystemCatalog.DefaultCategoryName(category.Key) is not { } original)
+            {
+                return ResultHttp.Problem(Error.Validation("Category.NotBuiltIn", "Only built-in categories have a default name."));
+            }
+
+            category.Update(original, category.DefaultNature, category.Color, category.Icon);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
 
         // Categories are archived rather than deleted so historical transactions keep their meaning.
         group.MapPost("/{id:guid}/archive", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
