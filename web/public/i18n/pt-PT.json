@@ -870,7 +870,22 @@
   "days": "{{count}} dia(s)",
   "restore": "Repor",
   "restored": "Reposto.",
-  "changes": "Alterações"
+  "changes": "Alterações",
+  "active": "Ativo",
+  "activeClients": "Clientes ativos",
+  "denied24h": "Recusados (24h)",
+  "writesShort": "Escritas (24h)",
+  "writes24hTotal": "Escritas (24h)",
+  "tab": {
+   "clients": "Clientes",
+   "recycle": "Reciclagem",
+   "activity": "Atividade"
+  },
+  "filter": {
+   "all": "Tudo",
+   "writes": "Escritas",
+   "denied": "Recusados"
+  }
  },
  "assistant": {
   "subtitle": "Pergunta sobre as tuas finanças. As respostas usam as mesmas ferramentas com permissões dos clientes MCP — só de leitura, salvo se deres ao assistente uma permissão de escrita em Acesso de IA.",
