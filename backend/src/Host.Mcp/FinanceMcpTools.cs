@@ -144,10 +144,11 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         [Description("Expense or income category key or name (required for expense and income).")] string? category = null,
         [Description("Destination account id (transfers only).")] string? to_account_id = null,
         [Description("Short description (max 120 characters).")] string? description = null,
+        [Description(Ai.Contracts.AiTools.SplitsHelp + " Instead of category.")] string? splits = null,
         [Description(KeyHelp)] string? idempotency_key = null,
         CancellationToken ct = default) => Call("create_transaction", ct, ("type", type), ("date", date), ("amount", amount),
         ("account_id", account_id), ("category", category), ("to_account_id", to_account_id), ("description", description),
-        ("idempotency_key", idempotency_key));
+        ("splits", splits), ("idempotency_key", idempotency_key));
 
     [McpServerTool(Name = "update_transaction", Title = "Edit a transaction", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Changes the date, amount, category, account or description of one hand-entered expense, income or transfer; only the fields given change. Broker, investment and estimated-interest rows are refused.")]
@@ -159,10 +160,11 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         [Description("New account id.")] string? account_id = null,
         [Description("New destination account id (transfers).")] string? to_account_id = null,
         [Description("New description (max 120 characters).")] string? description = null,
+        [Description(Ai.Contracts.AiTools.SplitsHelp + " Replaces the category or current lines.")] string? splits = null,
         [Description(KeyHelp)] string? idempotency_key = null,
         CancellationToken ct = default) => Call("update_transaction", ct, ("transaction_id", transaction_id), ("date", date),
         ("amount", amount), ("category", category), ("account_id", account_id), ("to_account_id", to_account_id),
-        ("description", description), ("idempotency_key", idempotency_key));
+        ("description", description), ("splits", splits), ("idempotency_key", idempotency_key));
 
     [McpServerTool(Name = "delete_transaction", Title = "Delete a transaction", ReadOnly = false, Destructive = true, Idempotent = true, OpenWorld = false)]
     [Description("Moves one hand-entered expense, income or transfer to the recycle bin (the owner can restore it in the app for 30 days, then it is purged). Broker, investment and estimated-interest rows are refused.")]

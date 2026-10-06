@@ -58,6 +58,28 @@ public static class TransactionReferences
             nature ??= category.DefaultNature;
         }
 
+        var splits = draft.Splits;
+        if (draft.Type is TransactionType.Expense or TransactionType.Income && draft.Splits is { Count: > 0 } lines)
+        {
+            // Every line must be a category of the transaction's own type. Each expense line takes the transaction's
+            // explicit nature, or else its category's default nature (Variable when the category has none).
+            var expected = draft.Type == TransactionType.Expense ? CategoryType.Expense : CategoryType.Income;
+            var ids = lines.Select(l => l.CategoryId).Distinct().ToList();
+            var categories = await db.Categories.AsNoTracking().Where(c => ids.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, ct);
+            if (ids.Any(id => !categories.TryGetValue(id, out var c) || c.Type != expected))
+            {
+                return Error.Validation("Transaction.Splits", $"Every split line needs an {expected} category.");
+            }
+
+            splits = lines.Select(l => l with
+            {
+                Nature = draft.Type == TransactionType.Expense
+                    ? draft.Nature ?? categories[l.CategoryId].DefaultNature ?? ExpenseNature.Variable
+                    : null,
+            }).ToList();
+        }
+
         if ((draft.Type == TransactionType.Savings || TransactionTypes.IsInvestment(draft.Type)) &&
             draft.BucketId is { } bucketId)
         {
@@ -74,6 +96,6 @@ public static class TransactionReferences
             return Error.Validation("Transaction.Goal", "Goal does not exist.");
         }
 
-        return draft with { Nature = nature };
+        return draft with { Nature = nature, Splits = splits };
     }
 }

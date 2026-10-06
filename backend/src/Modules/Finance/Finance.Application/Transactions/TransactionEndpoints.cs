@@ -39,7 +39,20 @@ public sealed record TransactionDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     TransactionFlow Flow,
-    InvestmentAssetDto? Asset);
+    InvestmentAssetDto? Asset,
+    IReadOnlyList<SplitDto> Splits,
+    // Only when the list is filtered by category and this transaction is split: the part in that category.
+    decimal? CategoryAmount = null);
+
+/// <summary>A category line of a split transaction. Amount is in the transaction's currency.</summary>
+public sealed record SplitDto(Guid CategoryId, string CategoryKey, string CategoryName, decimal Amount,
+    decimal BaseAmount, ExpenseNature? Nature, string? Note);
+
+/// <summary>Request shape of a split line: the nature is the transaction's (explicit) or the category default.</summary>
+public sealed record SplitLineRequest(Guid CategoryId, decimal Amount, string? Note)
+{
+    public SplitLine ToDomain() => new(CategoryId, Amount, Note);
+}
 
 /// <summary>Instrument details of an investment entry. Also the request shape.</summary>
 public sealed record InvestmentAssetDto(
@@ -68,11 +81,12 @@ public sealed record TransactionRequest(
     decimal? FxRate,
     string? Description,
     string? Notes,
-    InvestmentAssetDto? Asset = null)
+    InvestmentAssetDto? Asset = null,
+    IReadOnlyList<SplitLineRequest>? Splits = null)
 {
     public TransactionDraft ToDraft() => new(Type, OccurredOn, Amount, Currency ?? SharedKernel.Currency.Base,
         AccountId, CategoryId, Nature, CounterAccountId, BucketId, GoalId, FxRate, Description, Notes,
-        Asset: Asset?.ToDomain());
+        Asset: Asset?.ToDomain(), Splits: Splits is { Count: > 0 } ? Splits.Select(s => s.ToDomain()).ToList() : null);
 }
 
 public sealed class TransactionRequestValidator : AbstractValidator<TransactionRequest>
@@ -86,6 +100,23 @@ public sealed class TransactionRequestValidator : AbstractValidator<TransactionR
         RuleFor(x => x.Description).MaximumLength(200);
         RuleFor(x => x.Notes).MaximumLength(2000);
         RuleFor(x => x.FxRate).GreaterThan(0).When(x => x.FxRate is not null);
+        When(x => x.Splits is { Count: > 0 }, () =>
+        {
+            RuleFor(x => x.Splits!.Count).InclusiveBetween(SplitRules.MinLines, SplitRules.MaxLines)
+                .OverridePropertyName("Splits")
+                .WithMessage($"A split needs {SplitRules.MinLines} to {SplitRules.MaxLines} category lines.");
+            RuleForEach(x => x.Splits).ChildRules(line =>
+            {
+                line.RuleFor(l => l.CategoryId).NotEmpty();
+                line.RuleFor(l => l.Amount).GreaterThan(0).LessThan(1_000_000_000m).PrecisionScale(19, 4, true);
+                line.RuleFor(l => l.Note).MaximumLength(SplitRules.MaxNoteLength);
+            });
+            RuleFor(x => x.Splits!.Sum(l => l.Amount)).Equal(x => x.Amount).OverridePropertyName("Splits")
+                .WithMessage("The split lines must add up exactly to the amount.");
+            RuleFor(x => x.Type).Must(t => t is TransactionType.Expense or TransactionType.Income)
+                .WithMessage("Only expenses and income can be split by category.");
+            RuleFor(x => x.CategoryId).Null().WithMessage("Give either one category or split lines, not both.");
+        });
         When(x => x.Asset is not null, () =>
         {
             RuleFor(x => x.Asset!.Kind).IsInEnum();
@@ -206,12 +237,16 @@ public static class TransactionEndpoints
             query = query.Where(t => t.AccountId == accountId || t.CounterAccountId == accountId);
         }
 
+        List<Guid>? categoryIds = null;
         if (categoryId is not null)
         {
-            // Selecting a parent category also includes its children.
-            var ids = await db.Categories.Where(c => c.Id == categoryId || c.ParentId == categoryId)
+            // Selecting a parent category also includes its children; a split transaction matches when any of its
+            // lines is in one of them.
+            categoryIds = await db.Categories.Where(c => c.Id == categoryId || c.ParentId == categoryId)
                 .Select(c => c.Id).ToListAsync(ct);
-            query = query.Where(t => t.CategoryId != null && ids.Contains(t.CategoryId.Value));
+            var ids = categoryIds;
+            query = query.Where(t => (t.CategoryId != null && ids.Contains(t.CategoryId.Value)) ||
+                                     t.Splits.Any(s => ids.Contains(s.CategoryId)));
         }
 
         if (bucketId is not null)
@@ -221,7 +256,7 @@ public static class TransactionEndpoints
 
         if (nature is not null)
         {
-            query = query.Where(t => t.Nature == nature);
+            query = query.Where(t => t.Nature == nature || t.Splits.Any(s => s.Nature == nature));
         }
 
         if (source is not null)
@@ -245,6 +280,14 @@ public static class TransactionEndpoints
                 .OrderByDescending(t => t.OccurredOn).ThenByDescending(t => t.CreatedAtUtc)
                 .Skip((number - 1) * size).Take(size), db)
             .ToListAsync(ct);
+        if (categoryIds is not null)
+        {
+            items = items.Select(i => i.Splits.Count == 0
+                ? i
+                : i with { CategoryAmount = i.Splits.Where(s => categoryIds.Contains(s.CategoryId)).Sum(s => s.Amount) })
+                .ToList();
+        }
+
         return Results.Ok(new TransactionPage(items, total, number, size));
     }
 
@@ -286,5 +329,10 @@ public static class TransactionEndpoints
             t.AssetKind == null || t.AssetSymbol == null
                 ? null
                 : new InvestmentAssetDto(t.AssetKind!.Value, t.AssetSymbol!, t.AssetName, t.AssetIsin, t.AssetQuantity,
-                    t.AssetUnitPrice, t.AssetPriceSource));
+                    t.AssetUnitPrice, t.AssetPriceSource),
+            (from s in t.Splits
+                join sc in db.Categories on s.CategoryId equals sc.Id
+                orderby s.Position
+                select new SplitDto(s.CategoryId, sc.Key, sc.Name, s.OriginalAmount, s.BaseAmount, s.Nature, s.Note))
+            .ToList());
 }

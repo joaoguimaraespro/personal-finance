@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Finance.Application.Abstractions;
 using Finance.Domain.Transactions;
@@ -51,19 +52,30 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, TimeProvider cloc
             }
         }
 
+        // Split lines are owned rows: a change to them alone leaves the transaction itself unmodified.
+        var linesBefore = SplitLinesBefore(context);
+
         var audits = new List<TransactionAudit>();
         foreach (var entry in context.ChangeTracker.Entries<Transaction>())
         {
+            var splitsChanged = linesBefore.TryGetValue(entry.Entity.Id, out var before) &&
+                                Describe(entry.Entity.Splits) != before;
             var action = entry.State switch
             {
                 EntityState.Added => AuditAction.Created,
                 EntityState.Deleted => AuditAction.Deleted,
-                EntityState.Modified => ModifiedAction(entry),
+                EntityState.Modified => ModifiedAction(entry) ?? (splitsChanged ? AuditAction.Updated : null),
+                EntityState.Unchanged when splitsChanged => AuditAction.Updated,
                 _ => (AuditAction?)null,
             };
             if (action is null)
             {
                 continue;
+            }
+
+            if (action == AuditAction.Updated && splitsChanged)
+            {
+                entry.Entity.UpdatedAtUtc = now;
             }
 
             audits.Add(new TransactionAudit
@@ -72,7 +84,7 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, TimeProvider cloc
                 Action = action.Value,
                 AtUtc = now,
                 Actor = currentUser.Actor,
-                Changes = Serialize(entry, action.Value),
+                Changes = Serialize(entry, action.Value, splitsChanged, before),
             });
         }
 
@@ -92,7 +104,42 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, TimeProvider cloc
             : null;
     }
 
-    private static string Serialize(EntityEntry<Transaction> entry, AuditAction action)
+    /// <summary>
+    /// For each transaction whose split lines are being added, changed or removed in this save: its lines as they
+    /// were (original values of every line that existed before this save).
+    /// </summary>
+    private static Dictionary<Guid, string?> SplitLinesBefore(DbContext context)
+    {
+        var entries = context.ChangeTracker.Entries<TransactionSplit>().ToList();
+        var changedOwners = entries
+            .Where(e => e.State is EntityState.Added or EntityState.Deleted or EntityState.Modified)
+            .Select(OwnerId).ToHashSet();
+        return changedOwners.ToDictionary(id => id, id => Describe(entries
+            .Where(e => OwnerId(e) == id && e.State != EntityState.Added)
+            .Select(e => (
+                (int)e.Property(nameof(TransactionSplit.Position)).OriginalValue!,
+                (Guid)e.Property(nameof(TransactionSplit.CategoryId)).OriginalValue!,
+                (decimal)e.Property(nameof(TransactionSplit.OriginalAmount)).OriginalValue!))));
+    }
+
+    private static Guid OwnerId(EntityEntry e) =>
+        (Guid)(e.Property("TransactionId").CurrentValue ?? e.Property("TransactionId").OriginalValue)!;
+
+    private static string? Describe(IEnumerable<TransactionSplit> lines) =>
+        Describe(lines.Select(l => (l.Position, l.CategoryId, l.OriginalAmount)));
+
+    /// <summary>Lines as one readable audit value, "amount category-id; …" in order; null when not split.</summary>
+    private static string? Describe(IEnumerable<(int Position, Guid CategoryId, decimal Amount)> lines)
+    {
+        var ordered = lines.OrderBy(l => l.Position).ToList();
+        return ordered.Count == 0
+            ? null
+            : string.Join("; ", ordered.Select(l =>
+                $"{l.Amount.ToString("0.00##", CultureInfo.InvariantCulture)} {l.CategoryId}"));
+    }
+
+    private static string Serialize(EntityEntry<Transaction> entry, AuditAction action, bool splitsChanged,
+        string? splitsBefore)
     {
         var changes = new Dictionary<string, object?>();
         foreach (var p in entry.Properties)
@@ -111,6 +158,17 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, TimeProvider cloc
             {
                 changes[name] = new { from = p.OriginalValue, to = p.CurrentValue };
             }
+        }
+
+        var splitsNow = Describe(entry.Entity.Splits);
+        if (action == AuditAction.Created && splitsNow is not null)
+        {
+            changes[nameof(Transaction.Splits)] = new { to = splitsNow };
+        }
+        else if (action == AuditAction.Updated && splitsChanged)
+        {
+            // "—" means the split was removed: the transaction has a single category again.
+            changes[nameof(Transaction.Splits)] = new { from = splitsBefore, to = splitsNow ?? "—" };
         }
 
         return JsonSerializer.Serialize(changes);

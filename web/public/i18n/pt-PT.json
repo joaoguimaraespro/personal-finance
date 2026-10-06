@@ -1036,5 +1036,29 @@
   "aiDetail": "Nas últimas 24 h. Revê-as no registo de auditoria de IA.",
   "aiDetailDeleted": "Nas últimas 24 h, {{deleted}} eliminada(s) — recuperáveis na reciclagem.",
   "manyNew": "{{count}} novas notificações"
+ },
+ "split": {
+  "action": "Dividir por categorias",
+  "title": "Dividir por categorias",
+  "single": "Uma categoria",
+  "addLine": "Adicionar linha",
+  "removeLine": "Remover linha",
+  "note": "Nota (opcional)",
+  "pickCategory": "Escolher categoria",
+  "fillRemaining": "Preencher restante",
+  "remaining": "Faltam {{amount}}",
+  "over": "{{amount}} acima do total",
+  "balanced": "Soma igual ao total",
+  "naturePerCategory": "Por categoria",
+  "count": "{{count}} categorias",
+  "ofTotal": "de {{amount}}",
+  "errors": {
+   "count": "Uma divisão precisa de 2 a 20 linhas.",
+   "category": "Escolha uma categoria em cada linha.",
+   "duplicate": "Cada categoria só pode aparecer uma vez.",
+   "amount": "Cada linha precisa de um valor maior que zero.",
+   "note": "As notas têm no máximo 120 caracteres.",
+   "sum": "As linhas têm de somar exatamente o valor."
+  }
  }
 }

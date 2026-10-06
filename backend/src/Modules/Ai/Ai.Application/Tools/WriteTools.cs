@@ -82,10 +82,12 @@ public sealed class WriteTools(
         var categoryText = a.Category();
         var toAccountId = a.Id("to_account_id");
         var description = a.Text("description", 120);
+        var splitsText = a.Splits(MaxAmount);
         a.IdempotencyKey();
 
         Guid? categoryId = null;
         string? categoryName = null;
+        List<SplitLineRequest>? splits = null;
         if (type == TransactionType.Transfer)
         {
             if (toAccountId is null)
@@ -93,9 +95,9 @@ public sealed class WriteTools(
                 throw new ToolArgumentException("to_account_id is required for a transfer.");
             }
 
-            if (categoryText is not null)
+            if (categoryText is not null || splitsText is not null)
             {
-                throw new ToolArgumentException("Transfers have no category.");
+                throw new ToolArgumentException("Transfers have no category and cannot be split.");
             }
         }
         else
@@ -105,8 +107,21 @@ public sealed class WriteTools(
                 throw new ToolArgumentException("to_account_id is only for transfers.");
             }
 
-            (categoryId, categoryName) = await CategoryAsync(
-                Required("category", categoryText), type == TransactionType.Expense ? CategoryType.Expense : CategoryType.Income, ct);
+            var categoryType = type == TransactionType.Expense ? CategoryType.Expense : CategoryType.Income;
+            if (splitsText is not null)
+            {
+                if (categoryText is not null)
+                {
+                    throw new ToolArgumentException("Give either category or splits, not both.");
+                }
+
+                splits = await SplitsAsync(splitsText, categoryType, amount, ct);
+                categoryName = $"{splits.Count} categories";
+            }
+            else
+            {
+                (categoryId, categoryName) = await CategoryAsync(Required("category", categoryText), categoryType, ct);
+            }
         }
 
         var account = await WritableAccountAsync(accountId, "account_id", ct);
@@ -117,7 +132,7 @@ public sealed class WriteTools(
 
         var fxRate = await FxRateAsync(account.Currency, date, ct);
         var request = new TransactionRequest(type, date, amount, account.Currency, accountId, categoryId, null,
-            toAccountId, null, null, fxRate, description, null);
+            toAccountId, null, null, fxRate, description, null, Splits: splits);
         await CheckAsync(transactionValidator, request, ct);
 
         var created = Ok(await TransactionCommands.CreateAsync(finance, interest, request.ToDraft(), DataSource.Manual, ct));
@@ -137,9 +152,10 @@ public sealed class WriteTools(
         var accountId = a.Id("account_id");
         var toAccountId = a.Id("to_account_id");
         var description = a.Text("description", 120);
+        var splitsText = a.Splits(MaxAmount);
         a.IdempotencyKey();
         if (date is null && amount is null && categoryText is null && accountId is null && toAccountId is null &&
-            description is null)
+            description is null && splitsText is null)
         {
             throw new ToolArgumentException("Give at least one field to change.");
         }
@@ -161,6 +177,38 @@ public sealed class WriteTools(
             nature = categoryId == current.CategoryId ? nature : null; // a new category brings its default nature
         }
 
+        // Split lines: new ones replace the old; a single category removes the split; otherwise they are kept, which
+        // only works while the amount stays the same (the lines must add up to it).
+        var newAmount = amount ?? current.OriginalAmount;
+        List<SplitLineRequest>? splits = null;
+        if (splitsText is not null)
+        {
+            if (current.Type == TransactionType.Transfer)
+            {
+                throw new ToolArgumentException("Transfers cannot be split.");
+            }
+
+            if (categoryText is not null)
+            {
+                throw new ToolArgumentException("Give either category or splits, not both.");
+            }
+
+            splits = await SplitsAsync(splitsText,
+                current.Type == TransactionType.Expense ? CategoryType.Expense : CategoryType.Income, newAmount, ct);
+            categoryId = null;
+        }
+        else if (categoryText is null && current.IsSplit)
+        {
+            if (newAmount != current.OriginalAmount)
+            {
+                throw new ToolArgumentException(
+                    "This transaction is split by category: give splits that add up to the new amount (or one category).");
+            }
+
+            splits = current.Splits.OrderBy(sp => sp.Position)
+                .Select(sp => new SplitLineRequest(sp.CategoryId, sp.OriginalAmount, sp.Note)).ToList();
+        }
+
         if (toAccountId is not null && current.Type != TransactionType.Transfer)
         {
             throw new ToolArgumentException("to_account_id is only for transfers.");
@@ -173,13 +221,12 @@ public sealed class WriteTools(
         }
 
         var newDate = date ?? current.OccurredOn;
-        var newAmount = amount ?? current.OriginalAmount;
         var sameRate = account.Currency == current.OriginalCurrency && newDate == current.OccurredOn;
         var fxRate = account.Currency == Currency.Base ? null
             : sameRate ? current.FxRate : await FxRateAsync(account.Currency, newDate, ct);
         var request = new TransactionRequest(current.Type, newDate, newAmount, account.Currency, account.Id, categoryId,
             nature, toAccountId ?? current.CounterAccountId, null, null, fxRate, description ?? current.Description,
-            current.Notes);
+            current.Notes, Splits: splits);
         await CheckAsync(transactionValidator, request, ct);
 
         var draft = request.ToDraft() with { OccurredAtUtc = date is null ? current.OccurredAtUtc : null, TimeZone = current.TimeZone };
@@ -282,8 +329,21 @@ public sealed class WriteTools(
             throw new ToolArgumentException("type is required to create a recurring item.");
         }
 
-        Guid categoryId;
-        if (categoryText is not null)
+        Guid? categoryId;
+        List<SplitLineRequest>? keptSplits = null;
+        if (existing is { Splits.Count: > 0 } && categoryText is null && (type == existing.Type))
+        {
+            // A split recurring item keeps its lines; they must still add up, so its amount is changed in the app.
+            if (amount is not null && amount != existing.Amount)
+            {
+                throw new ToolArgumentException("This recurring item is split by category; change its amount in the app, or give one category.");
+            }
+
+            categoryId = null;
+            keptSplits = existing.Splits.OrderBy(sp => sp.Position)
+                .Select(sp => new SplitLineRequest(sp.CategoryId, sp.Amount, sp.Note)).ToList();
+        }
+        else if (categoryText is not null)
         {
             (categoryId, _) = await CategoryAsync(categoryText,
                 type == TransactionType.Expense ? CategoryType.Expense : CategoryType.Income, ct);
@@ -319,10 +379,10 @@ public sealed class WriteTools(
             interval ?? existing?.Interval ?? 1,
             // A stored day of month means nothing for daily items (and is cleared when switching to daily).
             frequency == RecurrenceFrequency.Daily ? null : dayOfMonth ?? existing?.DayOfMonth, endOn ?? existing?.EndOn,
-            categoryId, nature, null, null, existing?.Description);
+            categoryId, nature, null, null, existing?.Description, keptSplits);
         await CheckAsync(recurringValidator, request, ct);
 
-        var categoryName = await CategoryNameAsync(categoryId, ct);
+        var categoryName = keptSplits is null ? await CategoryNameAsync(categoryId, ct) : $"{keptSplits.Count} categories";
         var saved = existing is null
             ? Ok(await RecurringCommands.CreateAsync(finance, proposer, request.ToDefinition(), ct))
             : Ok(await RecurringCommands.UpdateAsync(finance, proposer, existing.Id, request.ToDefinition(), ct));
@@ -571,6 +631,29 @@ public sealed class WriteTools(
         await FinanceTools.ResolveCategoryAsync(finance, text, type, activeOnly: true, ct)
         ?? throw new ToolArgumentException($"Unknown {type.ToString().ToLowerInvariant()} category. Use a category key or name.");
 
+    /// <summary>Resolves "category: amount" lines (active categories of the transaction's type); they must add up.</summary>
+    private async Task<List<SplitLineRequest>> SplitsAsync(IReadOnlyList<(string Category, decimal Amount)> lines,
+        CategoryType type, decimal total, CancellationToken ct)
+    {
+        var result = new List<SplitLineRequest>();
+        foreach (var (category, lineAmount) in lines)
+        {
+            var (id, _) = await CategoryAsync(category, type, ct);
+            if (result.Any(r => r.CategoryId == id))
+            {
+                throw new ToolArgumentException("Each category can appear only once in splits.");
+            }
+
+            result.Add(new SplitLineRequest(id, lineAmount, null));
+        }
+
+        var sum = result.Sum(r => r.Amount);
+        return sum == total
+            ? result
+            : throw new ToolArgumentException(
+                $"The splits add up to {sum.ToString(CultureInfo.InvariantCulture)} but the amount is {total.ToString(CultureInfo.InvariantCulture)}.");
+    }
+
     private async Task<string?> CategoryNameAsync(Guid? id, CancellationToken ct) => id is null
         ? null
         : await finance.Categories.AsNoTracking().Where(c => c.Id == id).Select(c => c.Name).FirstOrDefaultAsync(ct);
@@ -616,6 +699,7 @@ public sealed class WriteTools(
     {
         type = TypeName(t.Type), date = t.OccurredOn, amount = t.OriginalAmount, currency = t.OriginalCurrency,
         category, accountId = t.AccountId, toAccountId = t.CounterAccountId, description = t.Description,
+        splits = t.IsSplit ? t.Splits.OrderBy(sp => sp.Position).Select(sp => new { categoryId = sp.CategoryId, amount = sp.OriginalAmount }).ToList() : null,
     };
 
     private static string ScheduleText(RecurringTransaction r) => r.Frequency switch

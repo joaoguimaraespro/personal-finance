@@ -111,8 +111,10 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
             var ids = await finance.Categories.Where(c => c.Id == match.Value.Id || c.ParentId == match.Value.Id)
                 .Select(c => c.Id).ToListAsync(ct);
             var selected = lines.Where(l => ids.Contains(l.CategoryId)).ToList();
+            // A split expense counts once when any of its lines is in the category; the total above sums only
+            // those lines.
             var count = await finance.Transactions.CountAsync(t => t.Type == TransactionType.Expense &&
-                t.CategoryId != null && ids.Contains(t.CategoryId.Value) &&
+                ((t.CategoryId != null && ids.Contains(t.CategoryId.Value)) || t.Splits.Any(sp => ids.Contains(sp.CategoryId))) &&
                 t.OccurredOn >= period.FirstDay && t.OccurredOn <= period.LastDay, ct);
             var own = selected.FirstOrDefault(l => l.CategoryId == match.Value.Id);
             return new(new
@@ -157,14 +159,24 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
 
             var ids = await finance.Categories.Where(c => c.Id == match.Value.Id || c.ParentId == match.Value.Id)
                 .Select(c => c.Id).ToListAsync(ct);
-            query = query.Where(t => t.CategoryId != null && ids.Contains(t.CategoryId.Value));
+            query = query.Where(t => (t.CategoryId != null && ids.Contains(t.CategoryId.Value)) ||
+                                     t.Splits.Any(sp => ids.Contains(sp.CategoryId)));
         }
 
         var rows = await (from t in query
-                join c in finance.Categories on t.CategoryId equals c.Id
+                join c in finance.Categories on t.CategoryId equals c.Id into cs
+                from c in cs.DefaultIfEmpty()
                 join a in finance.Accounts on t.AccountId equals a.Id
                 orderby t.OccurredOn descending, t.CreatedAtUtc descending
-                select new { t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount, Category = c.Name, t.Description, t.Notes, Account = a.Institution ?? a.Name, t.Source })
+                select new
+                {
+                    t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount,
+                    Category = c == null ? null : c.Name, t.Description, t.Notes, Account = a.Institution ?? a.Name,
+                    t.Source, Splits = (from sp in t.Splits
+                        join sc in finance.Categories on sp.CategoryId equals sc.Id
+                        orderby sp.Position
+                        select new SplitRow(sc.Name, sp.OriginalAmount)).ToList(),
+                })
             .Take(limit).ToListAsync(ct);
 
         var withAccount = ctx.Has(AiScopes.RawTransactions);
@@ -183,6 +195,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 currency = r.OriginalCurrency,
                 amountEur = r.BaseAmount,
                 category = r.Category,
+                splits = Shape(r.Splits),
                 description = UntrustedText.From(r.Description),
                 account = withAccount ? r.Account : null,
                 source = withAccount ? r.Source.ToString() : null,
@@ -421,6 +434,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         var category = ctx.Args.Category();
         var search = ctx.Args.Search();
         var limit = ctx.Args.Bounded("limit", 20, 1, 50);
+        List<Guid>? categoryIds = null;
 
         var query = finance.Transactions.AsNoTracking().Where(t => t.OccurredOn >= from && t.OccurredOn <= to);
         if (type is not null)
@@ -445,7 +459,9 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
 
             var ids = await finance.Categories.Where(c => c.Id == match.Value.Id || c.ParentId == match.Value.Id)
                 .Select(c => c.Id).ToListAsync(ct);
-            query = query.Where(t => t.CategoryId != null && ids.Contains(t.CategoryId.Value));
+            categoryIds = ids;
+            query = query.Where(t => (t.CategoryId != null && ids.Contains(t.CategoryId.Value)) ||
+                                     t.Splits.Any(sp => ids.Contains(sp.CategoryId)));
         }
 
         if (search is not null)
@@ -460,6 +476,17 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         var totals = await query.GroupBy(t => t.Type)
             .Select(g => new { Type = g.Key, Count = g.Count(), Total = g.Sum(t => t.BaseAmount) })
             .ToListAsync(ct);
+        if (categoryIds is { } wanted)
+        {
+            // Filtered by category, a split transaction contributes only its lines in that category.
+            var outside = await query.SelectMany(t => t.Splits.Where(sp => !wanted.Contains(sp.CategoryId)),
+                    (t, sp) => new { t.Type, sp.BaseAmount })
+                .GroupBy(x => x.Type).Select(g => new { Type = g.Key, Total = g.Sum(x => x.BaseAmount) })
+                .ToListAsync(ct);
+            totals = totals.Select(x => x with { Total = x.Total - outside.Where(o => o.Type == x.Type).Sum(o => o.Total) })
+                .ToList();
+        }
+
         var rows = await (from t in query
                 join c in finance.Categories on t.CategoryId equals c.Id into cs
                 from c in cs.DefaultIfEmpty()
@@ -472,7 +499,10 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                     t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount,
                     Category = c == null ? null : c.Name, t.Nature, t.Description, t.Notes,
                     Account = a.Institution ?? a.Name, Counter = ca == null ? null : ca.Institution ?? ca.Name,
-                    t.Source, t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetQuantity,
+                    t.Source, t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetQuantity, Splits = (from sp in t.Splits
+                        join sc in finance.Categories on sp.CategoryId equals sc.Id
+                        orderby sp.Position
+                        select new SplitRow(sc.Name, sp.OriginalAmount)).ToList(),
                 })
             .Take(limit).ToListAsync(ct);
 
@@ -498,6 +528,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 amountEur = r.BaseAmount,
                 category = r.Category,
                 nature = r.Nature?.ToString(),
+                splits = Shape(r.Splits),
                 description = UntrustedText.From(r.Description),
                 asset = r.AssetSymbol is null
                     ? null
@@ -649,6 +680,10 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
             dayOfMonth = r.DayOfMonth,
             category = r.CategoryId is { } c ? categories.GetValueOrDefault(c) : null,
             nature = r.Nature?.ToString(),
+            splits = r.Splits.Count == 0
+                ? null
+                : r.Splits.OrderBy(sp => sp.Position)
+                    .Select(sp => new { category = categories.GetValueOrDefault(sp.CategoryId), amount = sp.Amount }),
             monthlyEquivalentEur = decimal.Round(Eur(PerMonth(r), r.Currency), 2),
             nextDueOn = r.NextOccurrenceOnOrAfter(ctx.Today) ?? r.NextDueOn,
             active = r.IsActive && (r.EndOn is null || r.EndOn >= ctx.Today),
@@ -708,6 +743,12 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
     }
 
     private static decimal PerMonth(RecurringTransaction r) => r.MonthlyEquivalent();
+
+    private static object? Shape(List<SplitRow> lines) => lines.Count == 0
+        ? null
+        : lines.Select(l => new { category = l.Category, amount = l.Amount });
+
+    private sealed record SplitRow(string Category, decimal Amount);
 
     private static TransactionType[] TypesOf(string type) => type switch
     {

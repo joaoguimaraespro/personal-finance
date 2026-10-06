@@ -128,7 +128,7 @@ public static class RecurringCommands
     {
         var probe = new TransactionDraft(def.Type, def.StartOn, def.Amount, def.Currency, def.AccountId,
             def.CategoryId, def.Nature, def.CounterAccountId, def.BucketId,
-            FxRate: def.Currency == Currency.Base ? null : 1m);
+            FxRate: def.Currency == Currency.Base ? null : 1m, Splits: def.Splits);
         var resolved = await TransactionReferences.ResolveAsync(db, probe, ct);
         if (resolved.IsFailure)
         {

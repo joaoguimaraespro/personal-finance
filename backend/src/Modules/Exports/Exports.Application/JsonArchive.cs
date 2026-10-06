@@ -58,17 +58,32 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 }).ToListAsync(ct),
                 buckets = await finance.Buckets.AsNoTracking().Select(b => new { b.Id, b.Key, b.Name, b.Group, b.IsSystem }).ToListAsync(ct),
                 // Estimated interest is derived from the rates above and recalculated after import.
-                transactions = await finance.Transactions.AsNoTracking()
+                transactions = (await finance.Transactions.AsNoTracking()
                     .Where(t => t.Source != DataSource.InterestEstimate)
-                    .OrderBy(t => t.OccurredOn).Select(t => new
+                    .OrderBy(t => t.OccurredOn).ToListAsync(ct)).Select(t => new
                 {
                     t.Id, t.Type, t.OccurredOn, t.OccurredAtUtc, t.TimeZone, t.AccountId, t.CounterAccountId, t.CategoryId,
                     t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount,
                     t.BaseCurrency, t.Description, t.Notes, t.Source, t.ExternalId, t.CreatedAtUtc, t.UpdatedAtUtc,
                     t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetIsin, t.AssetQuantity, t.AssetUnitPrice,
                     t.AssetPriceSource,
-                }).ToListAsync(ct),
-                recurring = await finance.RecurringTransactions.AsNoTracking().ToListAsync(ct),
+                    // Category lines of a split transaction (absent otherwise). EUR amounts are re-derived on import.
+                    splits = t.IsSplit
+                        ? t.Splits.OrderBy(s => s.Position).Select(s => new
+                        {
+                            s.CategoryId, amount = s.OriginalAmount, s.BaseAmount, s.Nature, s.Note,
+                        }).ToList()
+                        : null,
+                }).ToList(),
+                recurring = (await finance.RecurringTransactions.AsNoTracking().ToListAsync(ct)).Select(r => new
+                {
+                    r.Id, r.Name, r.Type, r.Amount, r.Currency, r.AccountId, r.CounterAccountId, r.CategoryId, r.Nature,
+                    r.BucketId, r.Description, r.Frequency, r.Interval, r.DayOfMonth, r.StartOn, r.EndOn, r.NextDueOn,
+                    r.IsActive, r.CreatedAtUtc, r.UpdatedAtUtc,
+                    splits = r.Splits.Count == 0
+                        ? null
+                        : r.Splits.OrderBy(s => s.Position).Select(s => new { s.CategoryId, s.Amount, s.Note }).ToList(),
+                }).ToList(),
                 budgets = (await finance.Budgets.AsNoTracking().Include(b => b.Items).ToListAsync(ct)).Select(b => new
                 {
                     effectiveFrom = YearMonth.From(b.EffectiveFrom).ToString(), b.Note,
@@ -243,6 +258,13 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     continue;
                 }
 
+                var splits = Splits(t, map);
+                if (splits is { Count: 0 })
+                {
+                    skipped++; // a split line's category is missing from the archive
+                    continue;
+                }
+
                 var draft = new TransactionDraft(Enum.Parse<TransactionType>(Str(t, "type")!),
                     DateOnly.Parse(Str(t, "occurredOn")!, System.Globalization.CultureInfo.InvariantCulture), Dec(t, "originalAmount") ?? 0,
                     Str(t, "originalCurrency") ?? Currency.Base, accountId, Mapped(t, "categoryId", map),
@@ -251,7 +273,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     Asset: Str(t, "assetKind") is { } kind && Str(t, "assetSymbol") is { } symbol
                         ? new InvestmentAsset(Enum.Parse<InvestmentAssetKind>(kind), symbol, Str(t, "assetName"),
                             Str(t, "assetIsin"), Dec(t, "assetQuantity"), Dec(t, "assetUnitPrice"), Str(t, "assetPriceSource"))
-                        : null);
+                        : null,
+                    Splits: splits);
                 var created = Transaction.Create(draft, DataSource.Json, externalId: $"json:{originalId}");
                 if (created.IsSuccess)
                 {
@@ -267,7 +290,10 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
             var recurringNames = await finance.RecurringTransactions.Select(r => r.Name).ToListAsync(ct);
             foreach (var r in Items(f, "recurring"))
             {
-                if (recurringNames.Contains(Str(r, "name") ?? "") || Mapped(r, "accountId", map) is not { } accountId)
+                var recurringSplits = Splits(r, map);
+                if (recurringNames.Contains(Str(r, "name") ?? "") || Mapped(r, "accountId", map) is not { } accountId ||
+                    recurringSplits is { Count: 0 } ||
+                    (recurringSplits is not null && SplitRules.Validate(Dec(r, "amount") ?? 0, recurringSplits) is not null))
                 {
                     continue;
                 }
@@ -280,7 +306,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     r.TryGetProperty("dayOfMonth", out var dm) && dm.ValueKind == JsonValueKind.Number ? dm.GetInt32() : null,
                     Str(r, "endOn") is { } e ? DateOnly.Parse(e, System.Globalization.CultureInfo.InvariantCulture) : null,
                     Mapped(r, "categoryId", map), Str(r, "nature") is { } n ? Enum.Parse<ExpenseNature>(n) : null,
-                    Mapped(r, "counterAccountId", map), Mapped(r, "bucketId", map), Str(r, "description"))));
+                    Mapped(r, "counterAccountId", map), Mapped(r, "bucketId", map), Str(r, "description"),
+                    recurringSplits)));
                 recurring++;
             }
 
@@ -316,6 +343,33 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
             await interest.TryRecalculateAsync(map.Values.Distinct().Select(id => (Guid?)id), ct);
             return new ImportResult(accounts, categories, buckets, goals, budgets, recurring, transactions, skipped);
         }
+    }
+
+    /// <summary>
+    /// The "splits" of an archived transaction or recurring item, with categories mapped to this instance: null when
+    /// not split, empty when a line's category cannot be mapped (the record is then skipped).
+    /// </summary>
+    private static List<SplitLine>? Splits(JsonElement e, Dictionary<Guid, Guid> map)
+    {
+        var items = Items(e, "splits");
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        var lines = new List<SplitLine>();
+        foreach (var s in items)
+        {
+            if (Mapped(s, "categoryId", map) is not { } categoryId || Dec(s, "amount") is not { } amount)
+            {
+                return [];
+            }
+
+            lines.Add(new SplitLine(categoryId, amount, Str(s, "note"),
+                Str(s, "nature") is { } n && Enum.TryParse<ExpenseNature>(n, out var nature) ? nature : null));
+        }
+
+        return lines;
     }
 
     private static List<JsonElement> Items(JsonElement parent, string name) =>

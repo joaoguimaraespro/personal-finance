@@ -91,6 +91,26 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await expect(page.getByText('Dinner with friends').and(page.locator(':visible'))).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/transactions.png` });
 
+  // One movement split over two categories: the remaining amount must reach zero before saving.
+  await page.keyboard.press('n');
+  await expect(page.getByLabel('Amount', { exact: true })).toBeFocused();
+  await page.getByLabel('Amount', { exact: true }).fill('100');
+  await page.getByRole('dialog').getByRole('button', { name: 'Groceries' }).first().click();
+  await page.getByTestId('split-start').click();
+  await page.locator('#qa-split-amt-0').fill('60');
+  await page.locator('#qa-split-cat-1').click();
+  await page.getByRole('option', { name: 'Restaurants' }).click();
+  await expect(page.getByTestId('split-remaining')).toContainText('40');
+  await page.getByRole('button', { name: 'Fill remaining' }).click();
+  await expect(page.getByTestId('split-remaining')).toHaveText('Adds up to the total');
+  await page.locator('#qa-desc').fill('Market and lunch');
+  await page.locator('#qa-desc').press('Enter');
+  await expect(page.getByText('Transaction saved')).toBeVisible();
+  const splitRow = page.getByRole('row').filter({ hasText: 'Market and lunch' });
+  await expect(splitRow.getByTestId('split-toggle')).toHaveText(/2 categories/);
+  await splitRow.getByTestId('split-toggle').click();
+  await expect(splitRow.getByTestId('split-list')).toContainText('Restaurants');
+
   await page.goto('/budgets');
   await expect(page.getByText('Income allocation')).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/budgets.png` });

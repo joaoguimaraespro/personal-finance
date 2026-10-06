@@ -31,7 +31,11 @@ public sealed record RecurringDto(
     DateOnly StartOn,
     DateOnly? EndOn,
     DateOnly NextDueOn,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<RecurringSplitDto> Splits);
+
+/// <summary>A category line of a split recurring item (amount in the item's currency).</summary>
+public sealed record RecurringSplitDto(Guid CategoryId, decimal Amount, string? Note);
 
 public sealed record RecurringRequest(
     string Name,
@@ -48,11 +52,12 @@ public sealed record RecurringRequest(
     ExpenseNature? Nature,
     Guid? CounterAccountId,
     Guid? BucketId,
-    string? Description)
+    string? Description,
+    IReadOnlyList<SplitLineRequest>? Splits = null)
 {
     public RecurringDefinition ToDefinition() => new(Name, Type, Amount, Currency ?? SharedKernel.Currency.Base,
         AccountId, Frequency, StartOn, Interval ?? 1, DayOfMonth, EndOn, CategoryId, Nature, CounterAccountId,
-        BucketId, Description);
+        BucketId, Description, Splits is { Count: > 0 } ? Splits.Select(s => s.ToDomain()).ToList() : null);
 }
 
 public sealed class RecurringRequestValidator : AbstractValidator<RecurringRequest>
@@ -73,6 +78,17 @@ public sealed class RecurringRequestValidator : AbstractValidator<RecurringReque
         RuleFor(x => x.EndOn).GreaterThanOrEqualTo(x => x.StartOn).When(x => x.EndOn is not null);
         RuleFor(x => x.Currency).Must(c => c is null || Currency.IsValid(c));
         RuleFor(x => x.Description).MaximumLength(200);
+        When(x => x.Splits is { Count: > 0 }, () =>
+        {
+            RuleForEach(x => x.Splits).ChildRules(line =>
+            {
+                line.RuleFor(l => l.CategoryId).NotEmpty();
+                line.RuleFor(l => l.Amount).GreaterThan(0).PrecisionScale(19, 4, true);
+                line.RuleFor(l => l.Note).MaximumLength(SplitRules.MaxNoteLength);
+            });
+            RuleFor(x => x.Splits!.Sum(l => l.Amount)).Equal(x => x.Amount).OverridePropertyName("Splits")
+                .WithMessage("The split lines must add up exactly to the amount.");
+        });
     }
 }
 
@@ -85,7 +101,9 @@ public sealed record ExpectedDto(
     decimal Amount,
     string Currency,
     ExpectedStatus Status,
-    Guid? TransactionId);
+    Guid? TransactionId,
+    // A split template's lines scaled to this occurrence's amount; empty when not split.
+    IReadOnlyList<RecurringSplitDto>? Splits = null);
 
 /// <summary>Optional overrides when confirming: the real amount/date often differ slightly from the template.</summary>
 public sealed record ConfirmExpectedRequest(decimal? Amount, DateOnly? OccurredOn, Guid? AccountId, decimal? FxRate,
@@ -109,7 +127,9 @@ public static class RecurringEndpoints
             return Results.Ok(templates
                 .Select(r => new RecurringDto(r.Id, r.Name, r.Type, r.Amount, r.Currency, r.AccountId,
                     r.CounterAccountId, r.CategoryId, r.Nature, r.BucketId, r.Description, r.Frequency, r.Interval,
-                    r.DayOfMonth, r.StartOn, r.EndOn, r.NextOccurrenceOnOrAfter(today) ?? r.NextDueOn, r.IsActive))
+                    r.DayOfMonth, r.StartOn, r.EndOn, r.NextOccurrenceOnOrAfter(today) ?? r.NextDueOn, r.IsActive,
+                    r.Splits.OrderBy(s => s.Position).Select(s => new RecurringSplitDto(s.CategoryId, s.Amount, s.Note))
+                        .ToList()))
                 .OrderBy(r => r.NextDueOn)
                 .ToList());
         });
@@ -149,15 +169,20 @@ public static class RecurringEndpoints
         var expected = app.MapGroup("/expected").WithTags("Recurring");
 
         expected.MapGet("/", async (IFinanceDb db, ExpectedStatus? status, CancellationToken ct) =>
-            Results.Ok(await (
+        {
+            var rows = await (
                     from e in db.ExpectedTransactions.AsNoTracking()
                     join r in db.RecurringTransactions on e.RecurringTransactionId equals r.Id
                     where e.Status == (status ?? ExpectedStatus.Pending)
                     orderby e.DueOn
-                    select new ExpectedDto(e.Id, r.Id, r.Name, r.Type, e.DueOn, e.Amount, e.Currency, e.Status,
-                        e.TransactionId))
+                    select new { e, r })
                 .Take(200)
-                .ToListAsync(ct)));
+                .ToListAsync(ct);
+            return Results.Ok(rows.Select(x => new ExpectedDto(x.e.Id, x.r.Id, x.r.Name, x.r.Type, x.e.DueOn,
+                x.e.Amount, x.e.Currency, x.e.Status, x.e.TransactionId,
+                x.r.SplitLinesFor(x.e.Amount)?.Select(l => new RecurringSplitDto(l.CategoryId, l.Amount, l.Note))
+                    .ToList())));
+        });
 
         expected.MapPost("/{id:guid}/confirm", async (Guid id, ConfirmExpectedRequest? req, IFinanceDb db,
                 TimeProvider clock, CancellationToken ct) =>

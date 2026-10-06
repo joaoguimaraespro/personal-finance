@@ -1042,6 +1042,59 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_recurring_transactions_categories_category_id");
+
+                    b.OwnsMany("Finance.Domain.Recurring.RecurringSplit", "Splits", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(19, 4)
+                                .HasColumnType("numeric(19,4)")
+                                .HasColumnName("amount");
+
+                            b1.Property<Guid>("CategoryId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("category_id");
+
+                            b1.Property<string>("Note")
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("note");
+
+                            b1.Property<int>("Position")
+                                .HasColumnType("integer")
+                                .HasColumnName("position");
+
+                            b1.Property<Guid>("RecurringTransactionId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("recurring_transaction_id");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_recurring_transaction_splits");
+
+                            b1.HasIndex("CategoryId")
+                                .HasDatabaseName("ix_recurring_transaction_splits_category_id");
+
+                            b1.HasIndex("RecurringTransactionId")
+                                .HasDatabaseName("ix_recurring_transaction_splits_recurring_transaction_id");
+
+                            b1.ToTable("recurring_transaction_splits", "finance");
+
+                            b1.HasOne("Finance.Domain.Categories.Category", null)
+                                .WithMany()
+                                .HasForeignKey("CategoryId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired()
+                                .HasConstraintName("fk_recurring_transaction_splits_categories_category_id");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RecurringTransactionId")
+                                .HasConstraintName("fk_recurring_transaction_splits_recurring_transactions_recurri");
+                        });
+
+                    b.Navigation("Splits");
                 });
 
             modelBuilder.Entity("Finance.Domain.Transactions.Transaction", b =>
@@ -1076,6 +1129,69 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasForeignKey("GoalId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_transactions_goals_goal_id");
+
+                    b.OwnsMany("Finance.Domain.Transactions.TransactionSplit", "Splits", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<decimal>("BaseAmount")
+                                .HasPrecision(19, 4)
+                                .HasColumnType("numeric(19,4)")
+                                .HasColumnName("base_amount");
+
+                            b1.Property<Guid>("CategoryId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("category_id");
+
+                            b1.Property<string>("Nature")
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)")
+                                .HasColumnName("nature");
+
+                            b1.Property<string>("Note")
+                                .HasMaxLength(120)
+                                .HasColumnType("character varying(120)")
+                                .HasColumnName("note");
+
+                            b1.Property<decimal>("OriginalAmount")
+                                .HasPrecision(19, 4)
+                                .HasColumnType("numeric(19,4)")
+                                .HasColumnName("original_amount");
+
+                            b1.Property<int>("Position")
+                                .HasColumnType("integer")
+                                .HasColumnName("position");
+
+                            b1.Property<Guid>("TransactionId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("transaction_id");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_transaction_splits");
+
+                            b1.HasIndex("CategoryId")
+                                .HasDatabaseName("ix_transaction_splits_category_id");
+
+                            b1.HasIndex("TransactionId")
+                                .HasDatabaseName("ix_transaction_splits_transaction_id");
+
+                            b1.ToTable("transaction_splits", "finance");
+
+                            b1.HasOne("Finance.Domain.Categories.Category", null)
+                                .WithMany()
+                                .HasForeignKey("CategoryId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired()
+                                .HasConstraintName("fk_transaction_splits_categories_category_id");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TransactionId")
+                                .HasConstraintName("fk_transaction_splits_transactions_transaction_id");
+                        });
+
+                    b.Navigation("Splits");
                 });
 
             modelBuilder.Entity("Finance.Domain.Budgets.Budget", b =>

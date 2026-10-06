@@ -183,6 +183,27 @@ export interface Transaction {
   updatedAtUtc: string;
   flow: TransactionFlow;
   asset: InvestmentAsset | null;
+  /** Category lines of a split expense/income (empty when it has one category). */
+  splits: TransactionSplit[];
+  /** Only when the list is filtered by category and this row is split: the part in that category. */
+  categoryAmount?: number | null;
+}
+
+export interface TransactionSplit {
+  categoryId: string;
+  categoryKey: string;
+  categoryName: string;
+  amount: number;
+  baseAmount: number;
+  nature: ExpenseNature | null;
+  note: string | null;
+}
+
+/** A split line as sent to the API (amount in the transaction's currency). */
+export interface SplitLineRequest {
+  categoryId: string;
+  amount: number;
+  note?: string | null;
 }
 
 export interface TransactionRequest {
@@ -200,6 +221,7 @@ export interface TransactionRequest {
   description?: string | null;
   notes?: string | null;
   asset?: InvestmentAsset | null;
+  splits?: SplitLineRequest[] | null;
 }
 
 export interface Page<T> {
@@ -400,6 +422,7 @@ export interface Recurring {
   endOn: string | null;
   nextDueOn: string;
   isActive: boolean;
+  splits: SplitLineRequest[];
 }
 
 export interface Expected {
@@ -412,6 +435,7 @@ export interface Expected {
   currency: string;
   status: 'Pending' | 'Confirmed' | 'Skipped';
   transactionId: string | null;
+  splits?: SplitLineRequest[] | null;
 }
 
 export interface AllocationCheck {

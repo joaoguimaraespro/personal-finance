@@ -188,6 +188,45 @@ public sealed partial class ToolArgs
         return text;
     }
 
+    /// <summary>
+    /// Optional split of one transaction over categories: "category: amount; category: amount" (2-20 lines, each
+    /// category a key or name, each amount positive with at most 2 decimals). Returned in order, unresolved.
+    /// </summary>
+    public IReadOnlyList<(string Category, decimal Amount)>? Splits(decimal maxAmount)
+    {
+        var raw = String("splits", 1200);
+        if (raw is null)
+        {
+            return null;
+        }
+
+        var parts = raw.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is < 2 or > 20)
+        {
+            throw Invalid("splits", "splits needs 2-20 lines as \"category: amount; category: amount\".");
+        }
+
+        var lines = new List<(string, decimal)>();
+        foreach (var part in parts)
+        {
+            var colon = part.LastIndexOf(':');
+            var category = colon > 0 ? part[..colon].Trim() : "";
+            var amountText = colon > 0 ? part[(colon + 1)..].Trim() : "";
+            if (!CategoryPattern().IsMatch(category) ||
+                !decimal.TryParse(amountText, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount) ||
+                amount <= 0 || amount > maxAmount || decimal.Round(amount, 2) != amount)
+            {
+                throw Invalid("splits",
+                    "Each split line is \"category: amount\" with a category key or name and a positive amount (at most 2 decimals, dot as decimal separator).");
+            }
+
+            lines.Add((category, amount));
+        }
+
+        _used["splits"] = string.Join("; ", lines.Select(l => $"{l.Item1}: {l.Item2.ToString(CultureInfo.InvariantCulture)}"));
+        return lines;
+    }
+
     /// <summary>An optional month, yyyy-MM.</summary>
     public YearMonth? Month(string name)
     {

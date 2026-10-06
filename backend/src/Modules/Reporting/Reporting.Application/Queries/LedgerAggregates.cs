@@ -17,8 +17,11 @@ public sealed class LedgerAggregates(IFinanceDb db)
     {
         var start = from.FirstDay;
         var end = to.LastDay;
-        var rows = await db.Transactions.AsNoTracking()
-            .Where(t => t.OccurredOn >= start && t.OccurredOn <= end && t.Type != TransactionType.Transfer)
+        var inRange = db.Transactions.AsNoTracking()
+            .Where(t => t.OccurredOn >= start && t.OccurredOn <= end && t.Type != TransactionType.Transfer);
+
+        // Transactions with a single category are grouped as they are.
+        var whole = await inRange.Where(t => !t.Splits.Any())
             .GroupBy(t => new
             {
                 t.OccurredOn.Year,
@@ -28,18 +31,34 @@ public sealed class LedgerAggregates(IFinanceDb db)
                 t.CategoryId,
                 t.BucketId,
             })
-            .Select(g => new
-            {
-                g.Key.Year,
-                g.Key.Month,
-                g.Key.Type,
-                g.Key.Nature,
-                g.Key.CategoryId,
-                g.Key.BucketId,
-                Amount = g.Sum(t => t.BaseAmount),
-                Count = g.Count(),
-            })
+            .Select(g => new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, g.Key.Nature, g.Key.CategoryId,
+                g.Key.BucketId, g.Sum(t => t.BaseAmount), g.Count()))
             .ToListAsync(ct);
+
+        // A split transaction counts by its lines: each line's category, nature and EUR amount (the lines add up
+        // exactly to the transaction's EUR amount, so totals are unchanged).
+        var lines = await inRange
+            .SelectMany(t => t.Splits, (t, s) => new
+            {
+                t.OccurredOn.Year,
+                t.OccurredOn.Month,
+                t.Type,
+                s.Nature,
+                s.CategoryId,
+                s.BaseAmount,
+            })
+            .GroupBy(x => new { x.Year, x.Month, x.Type, x.Nature, x.CategoryId })
+            .Select(g => new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, g.Key.Nature, g.Key.CategoryId, null,
+                g.Sum(x => x.BaseAmount), 0))
+            .ToListAsync(ct);
+
+        // Still one transaction each, however many lines.
+        var splitCounts = await inRange.Where(t => t.Splits.Any())
+            .GroupBy(t => new { t.OccurredOn.Year, t.OccurredOn.Month, t.Type })
+            .Select(g => new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, null, null, null, 0, g.Count()))
+            .ToListAsync(ct);
+
+        var rows = whole.Concat(lines).Concat(splitCounts).ToList();
 
         var result = new List<MonthTotals>();
         for (var p = from; p <= to; p = p.Next())
@@ -95,3 +114,7 @@ public sealed class LedgerAggregates(IFinanceDb db)
     public Task<Budget?> EffectiveBudgetAsync(YearMonth period, CancellationToken ct) =>
         BudgetEndpoints.FindEffectiveAsync(db, period, ct);
 }
+
+/// <summary>One grouped slice of the ledger: a group of whole transactions, of split lines, or only a count.</summary>
+internal sealed record LedgerRow(int Year, int Month, TransactionType Type, ExpenseNature? Nature, Guid? CategoryId,
+    Guid? BucketId, decimal Amount, int Count);

@@ -169,14 +169,14 @@ public sealed class WorkbookBuilder(ExportData data)
         var rows = (await data.TransactionsAsync(r.From, r.To, types, ct)).Select(t => new object?[]
         {
             t.Date, t.Type, t.Category, t.Nature, t.Account, t.CounterAccount, t.Bucket, t.Description, t.Amount,
-            t.Currency, t.FxRate, t.AmountEur, t.Source, t.Notes,
+            t.Currency, t.FxRate, t.AmountEur, t.Source, t.Notes, t.Split, t.SplitNote,
         });
         Table(wb, name,
         [
             new("Date", Date, 12), new("Type", Width: 14), new("Category", Width: 18), new("Nature", Width: 10),
             new("Account", Width: 18), new("To account", Width: 18), new("Bucket", Width: 16), new("Description", Width: 32),
             new("Amount", Money), new("Currency", Width: 9), new("FX rate", "0.000000", 11), new("Amount (EUR)", Money),
-            new("Source", Width: 12), new("Notes", Width: 30),
+            new("Source", Width: 12), new("Notes", Width: 30), new("Split", Width: 7), new("Split note", Width: 24),
         ], rows);
     }
 

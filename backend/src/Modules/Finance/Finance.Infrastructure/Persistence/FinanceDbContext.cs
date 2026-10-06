@@ -134,6 +134,19 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<AllocationBucket>().WithMany().HasForeignKey(x => x.BucketId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<FinancialGoal>().WithMany().HasForeignKey(x => x.GoalId).OnDelete(DeleteBehavior.SetNull);
+            e.Ignore(x => x.IsSplit);
+            // Split lines live in their own table so reports can group by a line's category in SQL.
+            e.OwnsMany(x => x.Splits, s =>
+            {
+                s.ToTable("transaction_splits");
+                s.WithOwner().HasForeignKey("TransactionId");
+                s.HasKey(x => x.Id);
+                s.Property(x => x.Id).ValueGeneratedNever();
+                s.Property(x => x.Note).HasMaxLength(SplitRules.MaxNoteLength);
+                s.HasIndex(x => x.CategoryId);
+                s.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
+            });
+            e.Navigation(x => x.Splits).UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
         b.Entity<TransactionAudit>(e =>
@@ -150,6 +163,17 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
             e.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
+            e.OwnsMany(x => x.Splits, s =>
+            {
+                s.ToTable("recurring_transaction_splits");
+                s.WithOwner().HasForeignKey("RecurringTransactionId");
+                s.HasKey(x => x.Id);
+                s.Property(x => x.Id).ValueGeneratedNever();
+                s.Property(x => x.Note).HasMaxLength(SplitRules.MaxNoteLength);
+                s.HasIndex(x => x.CategoryId);
+                s.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
+            });
+            e.Navigation(x => x.Splits).UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
         b.Entity<ExpectedTransaction>(e =>
