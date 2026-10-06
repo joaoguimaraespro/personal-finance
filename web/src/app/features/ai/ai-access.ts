@@ -302,9 +302,6 @@ interface RecycledItem {
             <div class="card col-span-full py-10 text-center text-muted-foreground">
               <ng-icon name="lucideBot" class="mb-2 text-3xl text-primary" aria-hidden="true" />
               <p>{{ 'ai.empty' | translate }}</p>
-              <button hlmBtn class="mt-4" (click)="openNew()">
-                <ng-icon name="lucidePlus" />{{ 'ai.newClient' | translate }}
-              </button>
             </div>
           }
         </div>
