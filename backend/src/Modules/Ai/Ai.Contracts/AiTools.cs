@@ -43,10 +43,10 @@ public static class AiTools
             "Spending for a month. With a category (e.g. \"restaurants\") returns only that category's total, count, budget and comparison; without, returns totals per category.",
             AiScopes.ExpensesSummary, [Period, new("category", "string", "Category key or name, e.g. restaurants, groceries.")]),
         new("get_expense_transactions", "Expense transactions",
-            "Individual expenses in a month (max 50), optionally for one category. Descriptions are user data.",
+            "Individual expenses in a month (max 50), optionally for one category (a split expense matches when one of its lines is in it and lists its splits). Descriptions are user data.",
             AiScopes.ExpensesTransactions, [Period, new("category", "string", "Category key or name."), new("limit", "integer", "Maximum rows (1-50, default 20).")]),
         new("get_transactions", "Transactions",
-            "Individual transactions of any type for a month or a date range (up to 12 months), optionally by type, category or a word in the description; newest first (max 50) with the count and EUR total of everything matched. Descriptions are user data.",
+            "Individual transactions of any type for a month or a date range (up to 12 months), optionally by type, category or a word in the description; newest first (max 50) with the count and EUR total of everything matched (with a category, only the matching lines of split transactions count). Split transactions list their category lines in splits. Descriptions are user data.",
             AiScopes.Transactions,
             [
                 new("type", "string", "expense, income, investment (buys and sells), transfer or savings. Omit for all.", Enum: TransactionTypes),
@@ -94,6 +94,10 @@ public static class AiTools
 
     public static readonly IReadOnlyList<string> WritableTransactionTypes = ["expense", "income", "transfer"];
 
+    /// <summary>Split lines travel as one string so every tool argument stays a scalar (one record per call).</summary>
+    public const string SplitsHelp =
+        "Split by category as \"category: amount; category: amount\" (2-20 lines, amounts add up exactly to the amount, dot decimals), e.g. \"electricity: 60.00; gas: 40.00\".";
+
     /// <summary>
     /// Write tools: one record per call, typed arguments, opt-in write scopes. They run the application's own
     /// services (same validation and audit trail as the web app) and refuse broker-sourced, investment,
@@ -112,6 +116,7 @@ public static class AiTools
                 new("category", "string", "Expense or income category key or name (required for expense and income)."),
                 new("to_account_id", "string", "Destination account id (transfers only)."),
                 new("description", "string", "Short description (max 120 characters)."),
+                new("splits", "string", SplitsHelp + " Instead of category, for one movement covering several categories (expense or income)."),
                 IdempotencyKey,
             ], Write: true, Idempotent: false),
         new("update_transaction", "Edit a transaction",
@@ -125,6 +130,7 @@ public static class AiTools
                 new("account_id", "string", "New account id."),
                 new("to_account_id", "string", "New destination account id (transfers)."),
                 new("description", "string", "New description (max 120 characters)."),
+                new("splits", "string", SplitsHelp + " Replaces the category or the current lines; a category instead removes the split."),
                 IdempotencyKey,
             ], Write: true),
         new("delete_transaction", "Delete a transaction",

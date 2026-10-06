@@ -161,9 +161,19 @@ const SIGN: Partial<Record<TransactionType, string>> = {
             <div class="min-w-0 flex-1">
               <div class="truncate font-medium">{{ title(t) }}</div>
               <div class="text-muted-foreground truncate text-xs">
-                {{ t.occurredOn | day: 'short' }} · {{ 'type.' + t.type | translate }} ·
-                {{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? t.accountName) }}
+                {{ t.occurredOn | day: 'short' }} · {{ 'type.' + t.type | translate }}
+                @if (!t.splits.length) {
+                  · {{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? t.accountName) }}
+                }
               </div>
+              @if (t.splits.length) {
+                <div class="text-muted-foreground text-xs">
+                  <ng-container *ngTemplateOutlet="splitToggle; context: { $implicit: t }" />
+                </div>
+              }
+              @if (expanded().has(t.id)) {
+                <ng-container *ngTemplateOutlet="splitList; context: { $implicit: t }" />
+              }
               @if (t.asset; as a) {
                 <div class="text-muted-foreground num truncate text-xs">
                   {{ a.symbol }}
@@ -179,8 +189,13 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                 @if (t.source === 'InterestEstimate') {
                   <span aria-hidden="true">≈</span>
                 }
-                {{ sign(t.type) }}{{ t.amount | money: t.currency }}
+                {{ sign(t.type) }}{{ shownAmount(t) | money: t.currency }}
               </span>
+              @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
+                <span class="text-muted-foreground num text-[11px]">{{
+                  'split.ofTotal' | translate: { amount: (t.amount | money: t.currency) }
+                }}</span>
+              }
               @if (t.source === 'InterestEstimate') {
                 <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
                   'source.InterestEstimate' | translate
@@ -273,7 +288,16 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                     }
                   </div>
                 </td>
-                <td hlmTd>{{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? '—') }}</td>
+                <td hlmTd class="align-top">
+                  @if (t.splits.length) {
+                    <ng-container *ngTemplateOutlet="splitToggle; context: { $implicit: t }" />
+                    @if (expanded().has(t.id)) {
+                      <ng-container *ngTemplateOutlet="splitList; context: { $implicit: t }" />
+                    }
+                  } @else {
+                    {{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? '—') }}
+                  }
+                </td>
                 <td hlmTd class="text-muted-foreground">
                   {{ t.accountName }}
                   @if (t.counterAccountName) {
@@ -290,7 +314,12 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                       >≈</span
                     >
                   }
-                  {{ sign(t.type) }}{{ t.amount | money: t.currency }}
+                  {{ sign(t.type) }}{{ shownAmount(t) | money: t.currency }}
+                  @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
+                    <div class="text-xs font-normal text-muted-foreground">
+                      {{ 'split.ofTotal' | translate: { amount: (t.amount | money: t.currency) } }}
+                    </div>
+                  }
                   @if (t.currency !== 'EUR') {
                     <div class="text-xs font-normal text-muted-foreground">
                       {{ t.baseAmount | money }}
@@ -371,6 +400,44 @@ const SIGN: Partial<Record<TransactionType, string>> = {
         </div>
       }
     </section>
+
+    <!-- A split transaction: "2 categories", expanding to its lines. -->
+    <ng-template #splitToggle let-t>
+      <button
+        type="button"
+        class="hover:text-foreground inline-flex items-center gap-1 underline-offset-2 hover:underline"
+        data-testid="split-toggle"
+        [attr.aria-expanded]="expanded().has(t.id)"
+        (click)="toggleSplit(t.id)"
+      >
+        <ng-icon name="lucideChartPie" aria-hidden="true" />{{
+          'split.count' | translate: { count: t.splits.length }
+        }}<ng-icon
+          name="lucideChevronDown"
+          aria-hidden="true"
+          class="transition-transform"
+          [class.rotate-180]="expanded().has(t.id)"
+        />
+      </button>
+    </ng-template>
+
+    <ng-template #splitList let-t>
+      <ul class="text-muted-foreground mt-1 space-y-0.5 text-xs" data-testid="split-list">
+        @for (s of asTransaction(t).splits; track s.categoryId) {
+          <li class="flex justify-between gap-3">
+            <span class="truncate"
+              >{{ s | categoryLabel }}
+              @if (s.note) {
+                <span class="opacity-75">· {{ s.note }}</span>
+              }
+            </span>
+            <span class="num whitespace-nowrap">{{
+              s.amount | money: asTransaction(t).currency
+            }}</span>
+          </li>
+        }
+      </ul>
+    </ng-template>
 
     <ng-template #empty>
       <app-empty-state
@@ -458,6 +525,8 @@ export class TransactionsComponent {
   protected readonly typeFilter = signal<TransactionType[]>([]);
   protected readonly pageNo = signal(1);
   protected readonly history = signal<AuditEntry[] | null>(null);
+  /** Split transactions whose lines are shown. */
+  protected readonly expanded = signal<ReadonlySet<string>>(new Set());
 
   protected readonly accounts = liveResource({ stream: () => this.api.accounts(true) });
   protected readonly categories = liveResource({ stream: () => this.api.categories() });
@@ -516,6 +585,19 @@ export class TransactionsComponent {
   );
 
   protected tone = (type: TransactionType) => TYPE_TONE[type];
+
+  /** Filtered by category, a split row shows only its part in that category. */
+  protected shownAmount = (t: Transaction) => t.categoryAmount ?? t.amount;
+
+  protected asTransaction = (t: unknown) => t as Transaction;
+
+  protected toggleSplit(id: string) {
+    this.expanded.update((set) => {
+      const next = new Set(set);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
   protected sign = (type: TransactionType) => SIGN[type] ?? '';
 
   /** Descriptions are user/imported data and rendered as text only. */

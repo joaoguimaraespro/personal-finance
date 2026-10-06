@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { liveResource } from '../../core/resource';
@@ -39,6 +40,17 @@ import { SelectComponent, SelectOption } from '../../shared/select';
 import { DateFieldComponent } from '../../shared/date-field';
 import { InstrumentSearchComponent } from './instrument-search';
 import { APP_ICONS } from '../../shared/icons';
+import { parseAmount, parseDecimal } from '../../shared/parse-amount';
+import {
+  SplitDraftLine,
+  SplitLinesComponent,
+  fromSplits,
+  splitError,
+  startSplit,
+  toSplitRequests,
+} from '../../shared/split-lines';
+
+export { parseAmount, parseDecimal } from '../../shared/parse-amount';
 
 const FLOWS: TransactionFlow[] = ['Everyday', 'Investment', 'Movement'];
 const ASSET_KINDS: InvestmentAssetKind[] = ['Stock', 'Etf', 'Crypto', 'Fund', 'Bond', 'Other'];
@@ -66,6 +78,7 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
     TranslatePipe,
     CategoryLabelPipe,
     InstrumentSearchComponent,
+    SplitLinesComponent,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -240,9 +253,44 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
           </div>
         }
 
-        @if (type() === 'Expense' || type() === 'Income') {
+        @if ((type() === 'Expense' || type() === 'Income') && splitMode()) {
           <div>
-            <span class="label">{{ 'tx.category' | translate }}</span>
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <span class="label !mb-0">{{ 'split.title' | translate }}</span>
+              <button
+                type="button"
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                data-testid="split-cancel"
+                (click)="cancelSplit()"
+              >
+                {{ 'split.single' | translate }}
+              </button>
+            </div>
+            <app-split-lines
+              idPrefix="qa-split"
+              [(lines)]="splitLines"
+              [options]="splitCategoryOptions()"
+              [total]="parsedAmount()"
+              [currency]="currency()"
+            />
+          </div>
+        } @else if (type() === 'Expense' || type() === 'Income') {
+          <div>
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <span class="label !mb-0">{{ 'tx.category' | translate }}</span>
+              <button
+                type="button"
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                data-testid="split-start"
+                (click)="startSplitMode()"
+              >
+                <ng-icon name="lucideChartPie" />{{ 'split.action' | translate }}
+              </button>
+            </div>
             <div class="flex flex-wrap gap-2">
               @for (c of suggested(); track c.id) {
                 <button
@@ -268,6 +316,11 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
 
         @if (type() === 'Expense') {
           <div class="segmented">
+            @if (splitMode()) {
+              <button type="button" [class.active]="nature() === null" (click)="nature.set(null)">
+                {{ 'split.naturePerCategory' | translate }}
+              </button>
+            }
             @for (n of natures; track n) {
               <button type="button" [class.active]="nature() === n" (click)="nature.set(n)">
                 {{ 'nature.' + n | translate }}
@@ -436,7 +489,12 @@ export class QuickAddComponent {
   protected readonly accountId = signal<string | null>(null);
   protected readonly counterAccountId = signal<string | null>(null);
   protected readonly categoryId = signal<string | null>(null);
-  protected readonly nature = signal<ExpenseNature>('Variable');
+  /** null only while split: each line then takes its category's default nature. */
+  protected readonly nature = signal<ExpenseNature | null>('Variable');
+  /** "Dividir por categorias": one movement spread over several category lines. */
+  protected readonly splitMode = signal(false);
+  protected readonly splitLines = signal<SplitDraftLine[]>([]);
+  protected readonly parsedAmount = computed(() => parseAmount(this.amount()));
   protected readonly bucketId = signal<string | null>(null);
   protected readonly goalId = signal<string | null>(null);
   protected readonly date = signal(today());
@@ -510,6 +568,16 @@ export class QuickAddComponent {
       })),
     ];
   });
+  protected readonly splitCategoryOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('split.pickCategory') },
+      ...this.categoryOptions().map((c) => ({
+        value: c.id,
+        label: (c.parentId ? '— ' : '') + categoryLabel(this.i18n, c),
+      })),
+    ];
+  });
   protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
     { value: '', label: '—' },
     ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
@@ -558,7 +626,10 @@ export class QuickAddComponent {
         this.accountId.set(t.accountId);
         this.counterAccountId.set(t.counterAccountId);
         this.categoryId.set(t.categoryId);
-        this.nature.set(t.nature ?? 'Variable');
+        const split = (t.splits ?? []).length > 0;
+        this.splitMode.set(split);
+        this.splitLines.set(split ? fromSplits(t.splits) : []);
+        this.nature.set(split ? t.nature : (t.nature ?? 'Variable'));
         this.bucketId.set(t.bucketId);
         this.goalId.set(t.goalId);
         this.date.set(t.occurredOn);
@@ -609,6 +680,8 @@ export class QuickAddComponent {
     const wasInvestment = this.isInvestment();
     this.type.set(t);
     this.categoryId.set(null);
+    // Expense and income categories differ: a split starts again from one category.
+    this.cancelSplit();
     this.counterAccountId.set(null);
     // Buy ↔ sell keeps the instrument and bucket; anything else starts clean.
     if (!(wasInvestment && this.isInvestment())) {
@@ -724,6 +797,24 @@ export class QuickAddComponent {
     this.amountTouched.set(false);
   }
 
+  protected startSplitMode() {
+    this.splitLines.set(startSplit(this.categoryId()));
+    this.splitMode.set(true);
+    // Each line takes its category's nature unless the user picks one for the whole movement.
+    if (this.type() === 'Expense') this.nature.set(null);
+    setTimeout(() => document.getElementById('qa-split-amt-0')?.focus());
+  }
+
+  protected cancelSplit() {
+    if (!this.splitMode()) return;
+    const first = this.splitLines().find((l) => l.categoryId)?.categoryId ?? null;
+    this.splitMode.set(false);
+    this.splitLines.set([]);
+    this.categoryId.set(null);
+    this.nature.set('Variable');
+    if (first) this.pickCategory(first);
+  }
+
   protected pickCategory(id: string) {
     this.categoryId.set(id || null);
     const category = this.categoryOptions().find((c) => c.id === id);
@@ -740,6 +831,14 @@ export class QuickAddComponent {
       this.error.set(this.i18n.instant('tx.errors.account'));
       return;
     }
+    const split = this.splitMode() && (this.type() === 'Expense' || this.type() === 'Income');
+    if (split) {
+      const problem = splitError(amount, this.splitLines());
+      if (problem) {
+        this.error.set(this.i18n.instant('split.errors.' + problem));
+        return;
+      }
+    }
     const asset = this.isInvestment() ? this.assetBody() : null;
     if (asset === undefined) {
       this.error.set(this.i18n.instant('tx.errors.symbol'));
@@ -753,8 +852,9 @@ export class QuickAddComponent {
       currency: this.currency(),
       fxRate: this.currency() === 'EUR' ? null : parseAmount(this.fxRate()),
       accountId: this.accountId()!,
-      categoryId: this.categoryId(),
+      categoryId: split ? null : this.categoryId(),
       nature: this.type() === 'Expense' ? this.nature() : null,
+      splits: split ? toSplitRequests(this.splitLines()) : null,
       counterAccountId: this.counterAccountId(),
       bucketId: this.bucketId(),
       goalId: this.type() === 'Savings' ? this.goalId() : null,
@@ -817,6 +917,10 @@ export class QuickAddComponent {
     this.description.set('');
     this.notes.set('');
     this.categoryId.set(null);
+    this.splitMode.set(false);
+    this.splitLines.set([]);
+    // untracked: reset runs inside the open/edit effect, which must not re-run when the nature changes.
+    if (untracked(this.nature) === null) this.nature.set('Variable');
     this.goalId.set(null);
     this.fxRate.set('');
     if (full) {
@@ -828,25 +932,6 @@ export class QuickAddComponent {
       this.nature.set('Variable');
     }
   }
-}
-
-/** Accepts "1.234,56", "1234.56", "45,9" and "€ 45.90". */
-export function parseAmount(text: string): number | null {
-  const value = parseDecimal(text);
-  return value === null ? null : Math.round(value * 10000) / 10000;
-}
-
-/** Same formats as {@link parseAmount}, without rounding (crypto quantities need many decimals). */
-export function parseDecimal(text: string): number | null {
-  const cleaned = text.replace(/[€$£\s]/g, '');
-  if (!cleaned) return null;
-  const lastComma = cleaned.lastIndexOf(',');
-  const lastDot = cleaned.lastIndexOf('.');
-  const decimalSep = lastComma > lastDot ? ',' : '.';
-  const thousandSep = decimalSep === ',' ? '.' : ',';
-  const normalised = cleaned.split(thousandSep).join('').replace(decimalSep, '.');
-  const value = Number(normalised);
-  return Number.isFinite(value) ? Math.round(value * 1e10) / 1e10 : null;
 }
 
 /** Number → input text with a decimal comma, as the fields accept it. */

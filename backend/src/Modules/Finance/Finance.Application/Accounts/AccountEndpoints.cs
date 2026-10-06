@@ -228,6 +228,18 @@ public static class AccountEndpoints
                 Original = g.Sum(t => t.OriginalAmount),
             })
             .ToListAsync(ct);
+        // Interest booked as one line of a split income counts too (split rows are never estimates).
+        var splitLines = await db.Transactions.AsNoTracking()
+            .Where(t => ids.Contains(t.AccountId) && t.Type == TransactionType.Income && t.OccurredOn >= yearStart)
+            .SelectMany(t => t.Splits.Where(s => s.CategoryId == interestCategory),
+                (t, s) => new { t.AccountId, s.BaseAmount, s.OriginalAmount })
+            .GroupBy(x => x.AccountId)
+            .Select(g => new { AccountId = g.Key, Base = g.Sum(x => x.BaseAmount), Original = g.Sum(x => x.OriginalAmount) })
+            .ToListAsync(ct);
+        sums.AddRange(splitLines.Select(l => new
+        {
+            l.AccountId, Estimated = false, ThisYear = true, l.Base, l.Original,
+        }));
 
         var result = new Dictionary<Guid, AccountInterestDto>();
         foreach (var account in accounts.Where(a => a.SupportsInterest))

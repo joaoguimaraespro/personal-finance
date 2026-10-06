@@ -97,10 +97,23 @@ public sealed class ExportTests(ApiFactory factory)
     public async Task Json_export_round_trips_into_a_fresh_instance()
     {
         var api = await factory.OwnerAsync();
-        await SeedAsync(api, 2034);
+        var bank = await SeedAsync(api, 2034);
+        // One energy bill split over two categories survives the round trip with its lines.
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = "2034-02-14", amount = 90m, accountId = bank, description = "Energy 2034",
+            splits = new object[]
+            {
+                new { categoryId = SystemCatalog.CategoryId("electricity"), amount = 55.55m, note = "power" },
+                new { categoryId = SystemCatalog.CategoryId("groceries"), amount = 34.45m },
+            },
+        });
         var export = await api.Http.GetByteArrayAsync("/api/exports/json");
         var json = JsonDocument.Parse(export).RootElement;
         json.GetProperty("schemaVersion").GetInt32().ShouldBe(1);
+        var archived = json.GetProperty("finance").GetProperty("transactions").EnumerateArray()
+            .Single(t => t.TryGetProperty("description", out var d) && d.GetString() == "Energy 2034");
+        archived.GetProperty("splits").GetArrayLength().ShouldBe(2);
 
         // Importing into the same instance is idempotent.
         var again = await UploadAsync(api, export);
@@ -120,6 +133,19 @@ public sealed class ExportTests(ApiFactory factory)
         {
             restored.GetProperty(field).GetDecimal().ShouldBe(original.GetProperty(field).GetDecimal(), field);
         }
+
+        static async Task<Dictionary<string, decimal>> ByCategory(ApiClient client) =>
+            (await client.GetAsync<JsonElement[]>("/api/reports/categories/2034-02"))
+            .ToDictionary(l => l.GetProperty("key").GetString()!, l => l.GetProperty("actual").GetDecimal());
+        var restoredLines = await ByCategory(freshApi);
+        restoredLines["electricity"].ShouldBe(55.55m);
+        restoredLines["groceries"].ShouldBe(34.45m);
+        restoredLines.ShouldBe(await ByCategory(api), ignoreOrder: true);
+        var page = await freshApi.GetJsonAsync("/api/transactions?search=Energy%202034");
+        var restoredSplit = page.GetProperty("items")[0];
+        restoredSplit.GetProperty("categoryId").ValueKind.ShouldBe(JsonValueKind.Null);
+        restoredSplit.GetProperty("splits").EnumerateArray().Select(l => l.GetProperty("note").ValueKind == JsonValueKind.String ? l.GetProperty("note").GetString() : null)
+            .ShouldBe(["power", null]);
     }
 
     [Fact]

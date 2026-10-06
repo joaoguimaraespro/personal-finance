@@ -10,9 +10,13 @@ using SharedKernel;
 
 namespace Exports.Application;
 
+/// <summary>
+/// One export row. A split transaction becomes one row per category line: <see cref="Split"/> is "1/2", "2/2", …
+/// and Amount/AmountEur are the line's, so summing a column by category gives the report figures.
+/// </summary>
 public sealed record TransactionRow(DateOnly Date, string Type, string? Category, string? Nature, string Account,
     string? CounterAccount, string? Bucket, string? Description, decimal Amount, string Currency, decimal FxRate,
-    decimal AmountEur, string Source, string? Notes);
+    decimal AmountEur, string Source, string? Notes, string? Split = null, string? SplitNote = null);
 
 /// <summary>Reads everything an export needs. All figures come from the same calculators as the app.</summary>
 public sealed class ExportData(IFinanceDb finance, IInvestmentsDb investments, LedgerAggregates ledger,
@@ -29,7 +33,7 @@ public sealed class ExportData(IFinanceDb finance, IInvestmentsDb investments, L
             query = query.Where(t => types.Contains(t.Type));
         }
 
-        return await (
+        var rows = await (
                 from t in query
                 join a in finance.Accounts on t.AccountId equals a.Id
                 join ca in finance.Accounts on t.CounterAccountId equals ca.Id into cas
@@ -39,11 +43,32 @@ public sealed class ExportData(IFinanceDb finance, IInvestmentsDb investments, L
                 join b in finance.Buckets on t.BucketId equals b.Id into bs
                 from b in bs.DefaultIfEmpty()
                 orderby t.OccurredOn, t.CreatedAtUtc
-                select new TransactionRow(t.OccurredOn, t.Type.ToString(), c == null ? null : c.Name,
-                    t.Nature == null ? null : t.Nature.ToString(), a.Name, ca == null ? null : ca.Name,
-                    b == null ? null : b.Name, t.Description, t.OriginalAmount, t.OriginalCurrency, t.FxRate,
-                    t.BaseAmount, t.Source.ToString(), t.Notes))
+                select new
+                {
+                    Row = new TransactionRow(t.OccurredOn, t.Type.ToString(), c == null ? null : c.Name,
+                        t.Nature == null ? null : t.Nature.ToString(), a.Name, ca == null ? null : ca.Name,
+                        b == null ? null : b.Name, t.Description, t.OriginalAmount, t.OriginalCurrency, t.FxRate,
+                        t.BaseAmount, t.Source.ToString(), t.Notes, null, null),
+                    Lines = (from s in t.Splits
+                            join sc in finance.Categories on s.CategoryId equals sc.Id
+                            orderby s.Position
+                            select new { sc.Name, s.Nature, s.OriginalAmount, s.BaseAmount, s.Note })
+                        .ToList(),
+                })
             .ToListAsync(ct);
+
+        return rows.SelectMany(x => x.Lines.Count == 0
+                ? [x.Row]
+                : x.Lines.Select((l, i) => x.Row with
+                {
+                    Category = l.Name,
+                    Nature = l.Nature?.ToString(),
+                    Amount = l.OriginalAmount,
+                    AmountEur = l.BaseAmount,
+                    Split = $"{i + 1}/{x.Lines.Count}",
+                    SplitNote = l.Note,
+                }))
+            .ToList();
     }
 
     public Task<IReadOnlyList<MonthlySummary>> MonthsAsync(DateOnly from, DateOnly to, CancellationToken ct) =>

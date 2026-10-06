@@ -46,6 +46,21 @@ The spreadsheet had twelve identical month sheets. The application has one `tran
 | `source`, `import_id`, `external_id` | Provenance; `(source, external_id)` is unique so re-imports and re-syncs cannot duplicate |
 | `deleted_at_utc` | Soft delete (global query filter) |
 
+### Split transactions
+
+One movement (one bank line, one total) can be split over categories — one energy bill for electricity and gas.
+An expense or income with lines in `transaction_splits` (category, amount in the original currency, EUR amount,
+nature, optional note) has `category_id = NULL`: the categories are on the lines, which add up exactly to the
+transaction's amount; EUR amounts use the transaction's rate with the rounding remainder on the last line. Each
+expense line takes the transaction's explicit nature, else its category's default nature. Transfers, savings,
+investments, broker rows and estimated interest cannot be split.
+
+Everything grouped by category reads the lines: monthly/annual reports, category and budget figures, the dashboard,
+the transaction list's category and nature filters (a filtered row shows its part in that category), CSV/Excel
+exports (one row per line with a `split` marker such as `1/2`), the JSON archive (round-trips `splits`) and the AI
+tools. Recurring templates can be split too (`recurring_transaction_splits`); a confirmation with a different amount
+rescales the lines proportionally (cents, remainder on the last line).
+
 Every insert, update, delete and restore writes a row to `transaction_audit` from an EF Core
 `SaveChangesInterceptor`, so there is no code path that changes money without a trace.
 

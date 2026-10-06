@@ -241,19 +241,19 @@ public sealed class AiToolCoverageTests(ApiFactory factory)
     {
         var owner = await factory.OwnerAsync();
         var bank = await owner.CreateAsync("/api/accounts", new { name = "AI year bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
-        await owner.CreateAsync("/api/transactions", new { type = "Income", occurredOn = "2041-02-01", amount = 2_000m, accountId = bank, categoryId = SystemCatalog.CategoryId("salary") });
-        await owner.CreateAsync("/api/transactions", new { type = "Expense", occurredOn = "2041-02-11", amount = 500m, accountId = bank, categoryId = SystemCatalog.CategoryId("groceries"), description = "Groceries 2041" });
+        await owner.CreateAsync("/api/transactions", new { type = "Income", occurredOn = "2042-02-01", amount = 2_000m, accountId = bank, categoryId = SystemCatalog.CategoryId("salary") });
+        await owner.CreateAsync("/api/transactions", new { type = "Expense", occurredOn = "2042-02-11", amount = 500m, accountId = bank, categoryId = SystemCatalog.CategoryId("groceries"), description = "Groceries 2042" });
 
         var overview = await TokenAsync(owner, "Year breakdown", "overview.read");
-        var (status, year, raw) = await CallAsync(overview, "get_year_breakdown", new { year = 2041 });
+        var (status, year, raw) = await CallAsync(overview, "get_year_breakdown", new { year = 2042 });
         status.ShouldBe(HttpStatusCode.OK);
         var months = year.GetProperty("months").EnumerateArray().ToList();
         months.Count.ShouldBe(12);
-        var feb = months.Single(m => m.GetProperty("month").GetString() == "2041-02");
+        var feb = months.Single(m => m.GetProperty("month").GetString() == "2042-02");
         feb.GetProperty("income").GetDecimal().ShouldBe(2_000m);
         feb.GetProperty("totalExpenses").GetDecimal().ShouldBe(500m);
         year.GetProperty("totals").GetProperty("income").GetDecimal().ShouldBe(2_000m);
-        raw.ShouldNotContain("Groceries 2041");
+        raw.ShouldNotContain("Groceries 2042");
         (await CallAsync(overview, "get_year_breakdown", new { year = 1800 })).Status.ShouldBe(HttpStatusCode.BadRequest);
 
         var networth = await TokenAsync(owner, "Net worth history", "networth.read");

@@ -1036,5 +1036,29 @@
   "aiDetail": "In the last 24 h. Review them in the AI audit log.",
   "aiDetailDeleted": "In the last 24 h, {{deleted}} deleted — restorable from the recycle bin.",
   "manyNew": "{{count}} new notifications"
+ },
+ "split": {
+  "action": "Split by category",
+  "title": "Split by category",
+  "single": "One category",
+  "addLine": "Add line",
+  "removeLine": "Remove line",
+  "note": "Note (optional)",
+  "pickCategory": "Choose a category",
+  "fillRemaining": "Fill remaining",
+  "remaining": "{{amount}} left to assign",
+  "over": "{{amount}} over the total",
+  "balanced": "Adds up to the total",
+  "naturePerCategory": "Per category",
+  "count": "{{count}} categories",
+  "ofTotal": "of {{amount}}",
+  "errors": {
+   "count": "A split needs 2 to 20 lines.",
+   "category": "Choose a category for every line.",
+   "duplicate": "Each category can appear only once.",
+   "amount": "Every line needs an amount greater than zero.",
+   "note": "Notes are at most 120 characters.",
+   "sum": "The lines must add up exactly to the amount."
+  }
  }
 }

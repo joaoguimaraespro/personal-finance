@@ -91,7 +91,9 @@ public sealed class InterestAccrualService(IFinanceDb db, TimeProvider clock, IL
                         (t.AccountId == accountId || t.CounterAccountId == accountId))
             .Select(t => new
             {
-                t.OccurredOn, t.Type, t.AccountId, t.CategoryId, t.BaseAmount, t.OriginalAmount,
+                t.OccurredOn, t.Type, t.AccountId, t.BaseAmount, t.OriginalAmount,
+                // A split income with an interest line is real interest too.
+                IsInterest = t.CategoryId == InterestCategoryId || t.Splits.Any(s => s.CategoryId == InterestCategoryId),
             })
             .ToListAsync(ct);
 
@@ -106,7 +108,7 @@ public sealed class InterestAccrualService(IFinanceDb db, TimeProvider clock, IL
 
         // Real interest already in the ledger (bank export, manual entry, reconciliation) settles its month.
         var settled = rows
-            .Where(r => r.AccountId == accountId && r.Type == TransactionType.Income && r.CategoryId == InterestCategoryId)
+            .Where(r => r.AccountId == accountId && r.Type == TransactionType.Income && r.IsInterest)
             .Select(r => YearMonth.From(r.OccurredOn))
             .ToHashSet();
         settled.UnionWith(months.Where(m => m.IsResolved).Select(m => m.Period));
