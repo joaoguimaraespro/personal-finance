@@ -12,17 +12,23 @@ archive="${1:?usage: restore.sh <backup.tar.age> <age-identity-file>}"
 identity="${2:?usage: restore.sh <backup.tar.age> <age-identity-file>}"
 DEPLOY_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 set -a; source "${DEPLOY_DIR}/.env"; set +a
-command -v age >/dev/null || { echo "age is not installed (apt install age)" >&2; exit 1; }
+command -v age >/dev/null || { echo "age is not installed (apt install age / brew install age)" >&2; exit 1; }
 
-compose() { docker compose --project-directory "${DEPLOY_DIR}" -f "${DEPLOY_DIR}/compose.yml" --env-file "${DEPLOY_DIR}/.env" "$@"; }
+# PF_COMPOSE_OVERRIDE: the PC's loopback-HTTP override (deploy/desktop); empty on the server.
+compose() {
+  docker compose --project-directory "${DEPLOY_DIR}" -f "${DEPLOY_DIR}/compose.yml" \
+    ${PF_COMPOSE_OVERRIDE:+-f "${DEPLOY_DIR}/${PF_COMPOSE_OVERRIDE}"} --env-file "${DEPLOY_DIR}/.env" "$@"
+}
+# sha256sum is GNU coreutils; macOS has shasum.
+sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
 
 work="$(mktemp -d)"
 trap 'rm -rf "${work}"' EXIT
 age -d -i "${identity}" "${archive}" | tar -C "${work}" -xf -
 
 echo "Verifying checksums…"
-grep -q "dump_sha256=$(sha256sum "${work}/finance.dump" | cut -d' ' -f1)" "${work}/manifest.txt"
-grep -q "keys_sha256=$(sha256sum "${work}/dp-keys.tar" | cut -d' ' -f1)" "${work}/manifest.txt"
+grep -q "dump_sha256=$(sha256 "${work}/finance.dump")" "${work}/manifest.txt"
+grep -q "keys_sha256=$(sha256 "${work}/dp-keys.tar")" "${work}/manifest.txt"
 cat "${work}/manifest.txt"
 
 read -r -p "This will REPLACE all data in the running stack. Type 'restore' to continue: " answer
