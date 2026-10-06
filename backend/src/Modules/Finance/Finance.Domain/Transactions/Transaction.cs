@@ -92,6 +92,8 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
 {
     public const string DefaultTimeZone = "Europe/Lisbon";
 
+    private readonly List<TransactionSplit> _splits = [];
+
     private Transaction() { }
 
     public TransactionType Type { get; private set; }
@@ -135,9 +137,23 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? DeletedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Category lines of a split expense or income, in order; empty when the transaction has a single category. A split
+    /// transaction has no <see cref="CategoryId"/>: its categories (and natures) are on the lines.
+    /// </summary>
+    public IReadOnlyList<TransactionSplit> Splits => _splits;
+
+    public bool IsSplit => _splits.Count > 0;
+
     public static Result<Transaction> Create(TransactionDraft draft, DataSource source, Guid? importId = null,
         string? externalId = null, Guid? expectedTransactionId = null)
     {
+        if (draft.Splits is { Count: > 0 } && source is DataSource.Trading212 or DataSource.InteractiveBrokers
+                or DataSource.InterestEstimate)
+        {
+            return SplitRules.NotAllowedForSource;
+        }
+
         var transaction = new Transaction
         {
             Source = source,
@@ -169,8 +185,10 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
         TimeZone = string.IsNullOrWhiteSpace(d.TimeZone) ? DefaultTimeZone : d.TimeZone;
         AccountId = d.AccountId;
         CounterAccountId = d.CounterAccountId;
-        CategoryId = d.Type is TransactionType.Expense or TransactionType.Income ? d.CategoryId : null;
-        Nature = d.Type == TransactionType.Expense ? d.Nature ?? ExpenseNature.Variable : null;
+        var split = d.Splits is { Count: > 0 };
+        CategoryId = d.Type is TransactionType.Expense or TransactionType.Income && !split ? d.CategoryId : null;
+        // A split expense keeps only an explicit nature; otherwise each line carries its category's nature.
+        Nature = d.Type == TransactionType.Expense ? split ? d.Nature : d.Nature ?? ExpenseNature.Variable : null;
         BucketId = d.Type == TransactionType.Savings || TransactionTypes.IsInvestment(d.Type) ? d.BucketId : null;
         GoalId = d.Type == TransactionType.Savings ? d.GoalId : null;
         ApplyAsset(TransactionTypes.IsInvestment(d.Type) ? d.Asset : null);
@@ -181,7 +199,21 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
         BaseCurrency = Currency.Base;
         Description = string.IsNullOrWhiteSpace(d.Description) ? null : d.Description.Trim();
         Notes = string.IsNullOrWhiteSpace(d.Notes) ? null : d.Notes.Trim();
+        ApplySplits(split ? d.Splits! : []);
         return Result.Success();
+    }
+
+    private void ApplySplits(IReadOnlyList<SplitLine> lines)
+    {
+        // Lines are replaced as a whole: they have no identity of their own outside the transaction.
+        _splits.Clear();
+        var bases = SplitRules.BaseAmounts(lines.Select(l => l.Amount).ToList(), FxRate, BaseAmount,
+            OriginalCurrency == Currency.Base);
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var nature = Type == TransactionType.Expense ? Nature ?? lines[i].Nature ?? ExpenseNature.Variable : (ExpenseNature?)null;
+            _splits.Add(TransactionSplit.Create(i, lines[i], bases[i], nature));
+        }
     }
 
     private void ApplyAsset(InvestmentAsset? a)
@@ -221,7 +253,8 @@ public sealed record TransactionDraft(
     string? Notes = null,
     DateTimeOffset? OccurredAtUtc = null,
     string? TimeZone = null,
-    InvestmentAsset? Asset = null);
+    InvestmentAsset? Asset = null,
+    IReadOnlyList<SplitLine>? Splits = null);
 
 public static class TransactionErrors
 {
@@ -277,9 +310,34 @@ internal static class TransactionRules
             return TransactionErrors.FxRateRequired;
         }
 
+        if (d.Splits is { Count: > 0 } splits)
+        {
+            if (d.Type is not (TransactionType.Expense or TransactionType.Income))
+            {
+                return SplitRules.NotAllowedForType;
+            }
+
+            if (d.CategoryId is not null)
+            {
+                return SplitRules.CategoryAndSplits;
+            }
+
+            if (SplitRules.Validate(d.Amount, splits) is { } splitError)
+            {
+                return splitError;
+            }
+
+            if (d.Currency != Currency.Base &&
+                SplitRules.BaseAmounts(splits.Select(l => l.Amount).ToList(), d.FxRate!.Value,
+                    decimal.Round(d.Amount * d.FxRate!.Value, 4), false).Any(b => b <= 0))
+            {
+                return SplitRules.LineAmount;
+            }
+        }
+
         return d.Type switch
         {
-            TransactionType.Expense or TransactionType.Income when d.CategoryId is null =>
+            TransactionType.Expense or TransactionType.Income when d.CategoryId is null && d.Splits is not { Count: > 0 } =>
                 TransactionErrors.CategoryRequired,
             TransactionType.Transfer when d.CounterAccountId is null => TransactionErrors.CounterAccountRequired,
             TransactionType.Savings or TransactionType.InvestmentContribution or TransactionType.InvestmentSale

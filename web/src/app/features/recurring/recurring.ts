@@ -30,6 +30,14 @@ import {
   withFrequency,
 } from './schedule';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
+import {
+  SplitDraftLine,
+  SplitLinesComponent,
+  fromSplits,
+  splitError,
+  startSplit,
+  toSplitRequests,
+} from '../../shared/split-lines';
 
 interface Form {
   name: string;
@@ -43,6 +51,8 @@ interface Form {
   dayOfMonth: string;
   startOn: string;
   endOn: string;
+  /** Category lines when the item is split (e.g. one energy bill: electricity + gas); null otherwise. */
+  splits: SplitDraftLine[] | null;
 }
 
 @Component({
@@ -58,6 +68,7 @@ interface Form {
     HlmTableImports,
     HlmInputImports,
     HlmButtonImports,
+    SplitLinesComponent,
     TranslatePipe,
     MoneyPipe,
     DayPipe,
@@ -132,7 +143,11 @@ interface Form {
                 <div class="font-medium">{{ r.name }}</div>
                 <div class="text-xs text-muted-foreground">
                   {{ 'type.' + r.type | translate }} ·
-                  {{ categoryFor(r.categoryId) | categoryLabel }}
+                  @if (r.splits.length) {
+                    {{ 'split.count' | translate: { count: r.splits.length } }}
+                  } @else {
+                    {{ categoryFor(r.categoryId) | categoryLabel }}
+                  }
                 </div>
                 <!-- Narrow screens: schedule and next date under the name instead of their own columns. -->
                 <div class="text-xs text-muted-foreground sm:hidden">
@@ -235,7 +250,9 @@ interface Form {
             inputId="r-type"
             [options]="typeOptions()"
             [value]="form().type"
-            (valueChange)="patch({ type: $any($event), categoryId: '', bucketId: '' })"
+            (valueChange)="
+              patch({ type: $any($event), categoryId: '', bucketId: '', splits: null })
+            "
           />
         </div>
         <div>
@@ -250,9 +267,36 @@ interface Form {
             (input)="patch({ amount: $any($event.target).value })"
           />
         </div>
-        @if (form().type === 'Expense' || form().type === 'Income') {
+        @if ((form().type === 'Expense' || form().type === 'Income') && form().splits) {
           <div class="col-span-2">
-            <label class="label" for="r-cat">{{ 'tx.category' | translate }}</label>
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <span class="label !mb-0">{{ 'split.title' | translate }}</span>
+              <button type="button" hlmBtn variant="ghost" size="sm" (click)="cancelSplit()">
+                {{ 'split.single' | translate }}
+              </button>
+            </div>
+            <app-split-lines
+              idPrefix="r-split"
+              [lines]="form().splits ?? []"
+              (linesChange)="patch({ splits: $event })"
+              [options]="splitCategoryOptions()"
+              [total]="parsedAmount()"
+            />
+          </div>
+        } @else if (form().type === 'Expense' || form().type === 'Income') {
+          <div class="col-span-2">
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <label class="label !mb-0" for="r-cat">{{ 'tx.category' | translate }}</label>
+              <button
+                type="button"
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                (click)="patch({ splits: startSplit(form().categoryId || null) })"
+              >
+                <ng-icon name="lucideChartPie" />{{ 'split.action' | translate }}
+              </button>
+            </div>
             <app-select
               inputId="r-cat"
               [options]="categorySelectOptions()"
@@ -414,6 +458,15 @@ export class RecurringComponent {
       ...this.categoryOptions().map((c) => ({ value: c.id, label: categoryLabel(this.i18n, c) })),
     ];
   });
+  protected readonly splitCategoryOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('split.pickCategory') },
+      ...this.categoryOptions().map((c) => ({ value: c.id, label: categoryLabel(this.i18n, c) })),
+    ];
+  });
+  protected readonly parsedAmount = computed(() => parseAmount(this.form().amount));
+  protected readonly startSplit = startSplit;
   protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
     { value: '', label: '—' },
     ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
@@ -450,14 +503,28 @@ export class RecurringComponent {
             dayOfMonth: r.dayOfMonth ? String(r.dayOfMonth) : '',
             startOn: r.startOn,
             endOn: r.endOn ?? '',
+            splits: r.splits?.length ? fromSplits(r.splits) : null,
           }
         : { ...this.blank(), accountId: this.manualAccounts()[0]?.id ?? '' },
     );
     this.formOpen.set(true);
   }
 
+  protected cancelSplit() {
+    const first = this.form().splits?.find((l) => l.categoryId)?.categoryId ?? '';
+    this.patch({ splits: null, categoryId: first });
+  }
+
   protected async save() {
     const f = this.form();
+    const split = !!f.splits && (f.type === 'Expense' || f.type === 'Income');
+    if (split) {
+      const problem = splitError(parseAmount(f.amount), f.splits!);
+      if (problem) {
+        this.toasts.show(this.i18n.instant('split.errors.' + problem), 'error');
+        return;
+      }
+    }
     const body = {
       name: f.name,
       type: f.type,
@@ -467,8 +534,9 @@ export class RecurringComponent {
       ...scheduleBody(f),
       startOn: f.startOn,
       endOn: f.endOn || null,
-      categoryId: f.categoryId || null,
+      categoryId: split ? null : f.categoryId || null,
       bucketId: f.bucketId || null,
+      splits: split ? toSplitRequests(f.splits!) : null,
     };
     try {
       const id = this.editingId();
@@ -528,6 +596,7 @@ export class RecurringComponent {
       dayOfMonth: '',
       startOn: today(),
       endOn: '',
+      splits: null,
     };
   }
 }

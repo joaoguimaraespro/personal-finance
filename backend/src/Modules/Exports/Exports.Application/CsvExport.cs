@@ -25,8 +25,8 @@ public sealed class CsvExport(ExportData data)
         var separator = excelPt ? ';' : ',';
         var (header, rows) = dataset switch
         {
-            CsvDataset.Transactions => (new[] { "date", "type", "category", "nature", "account", "to_account", "bucket", "description", "amount", "currency", "fx_rate", "amount_eur", "source", "notes" },
-                (await data.TransactionsAsync(from, to, null, ct)).Select(t => new object?[] { t.Date, t.Type, t.Category, t.Nature, t.Account, t.CounterAccount, t.Bucket, t.Description, t.Amount, t.Currency, t.FxRate, t.AmountEur, t.Source, t.Notes })),
+            CsvDataset.Transactions => (new[] { "date", "type", "category", "nature", "account", "to_account", "bucket", "description", "amount", "currency", "fx_rate", "amount_eur", "source", "notes", "split", "split_note" },
+                (await data.TransactionsAsync(from, to, null, ct)).Select(t => new object?[] { t.Date, t.Type, t.Category, t.Nature, t.Account, t.CounterAccount, t.Bucket, t.Description, t.Amount, t.Currency, t.FxRate, t.AmountEur, t.Source, t.Notes, t.Split, t.SplitNote })),
             CsvDataset.Monthly => (new[] { "month", "income", "expense_budget", "fixed_expenses", "variable_expenses", "total_expenses", "invested", "saved", "net_balance", "savings_rate" },
                 (await data.MonthsAsync(from, to, ct)).Select(m => new object?[] { m.Period.ToString(), m.Income, m.ExpenseBudget, m.FixedExpenses, m.VariableExpenses, m.TotalExpenses, m.Invested, m.Saved, m.NetBalance, m.SavingsRate })),
             CsvDataset.Positions => (new[] { "security", "ticker", "isin", "asset_class", "quantity", "average_price", "current_price", "currency", "market_value_eur", "pnl_eur", "weight" },

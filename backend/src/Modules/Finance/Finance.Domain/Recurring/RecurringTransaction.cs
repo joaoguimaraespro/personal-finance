@@ -20,6 +20,8 @@ public enum RecurrenceFrequency
 /// </summary>
 public sealed class RecurringTransaction : Entity, IAuditable
 {
+    private readonly List<RecurringSplit> _splits = [];
+
     private RecurringTransaction() { }
 
     public string Name { get; private set; } = null!;
@@ -49,6 +51,9 @@ public sealed class RecurringTransaction : Entity, IAuditable
     public bool IsActive { get; private set; } = true;
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+
+    /// <summary>Category lines (e.g. one energy bill split into electricity and gas); empty for a single category.</summary>
+    public IReadOnlyList<RecurringSplit> Splits => _splits;
 
     public static RecurringTransaction Create(RecurringDefinition def)
     {
@@ -120,9 +125,22 @@ public sealed class RecurringTransaction : Entity, IAuditable
         return due;
     }
 
-    public TransactionDraft ToDraft(DateOnly occurredOn, decimal? amountOverride = null) => new(
-        Type, occurredOn, amountOverride ?? Amount, Currency, AccountId, CategoryId, Nature, CounterAccountId,
-        BucketId, Description: Description ?? Name);
+    /// <summary>
+    /// The transaction this template proposes. Split lines are carried over; when the amount is adjusted they are
+    /// rescaled proportionally (cents, remainder on the last line).
+    /// </summary>
+    public TransactionDraft ToDraft(DateOnly occurredOn, decimal? amountOverride = null)
+    {
+        var amount = amountOverride ?? Amount;
+        return new(Type, occurredOn, amount, Currency, AccountId, CategoryId, Nature, CounterAccountId,
+            BucketId, Description: Description ?? Name, Splits: SplitLinesFor(amount));
+    }
+
+    /// <summary>The split lines for an occurrence of <paramref name="amount"/>; null when the template is not split.</summary>
+    public IReadOnlyList<SplitLine>? SplitLinesFor(decimal amount) => _splits.Count == 0
+        ? null
+        : SplitRules.Rescale(_splits.OrderBy(s => s.Position).Select(s => new SplitLine(s.CategoryId, s.Amount, s.Note)).ToList(),
+            Amount, amount);
 
     private void Apply(RecurringDefinition def)
     {
@@ -132,8 +150,16 @@ public sealed class RecurringTransaction : Entity, IAuditable
         Currency = def.Currency;
         AccountId = def.AccountId;
         CounterAccountId = def.CounterAccountId;
-        CategoryId = def.CategoryId;
-        Nature = def.Type == TransactionType.Expense ? def.Nature ?? ExpenseNature.Fixed : null;
+        var split = def.Splits is { Count: > 0 };
+        CategoryId = split ? null : def.CategoryId;
+        // Split templates keep only an explicit nature: each line otherwise takes its category's default.
+        Nature = def.Type == TransactionType.Expense ? split ? def.Nature : def.Nature ?? ExpenseNature.Fixed : null;
+        _splits.Clear();
+        if (split)
+        {
+            _splits.AddRange(def.Splits!.Select((l, i) => RecurringSplit.Create(i, l)));
+        }
+
         BucketId = def.BucketId;
         Description = def.Description;
         Frequency = def.Frequency;
@@ -206,7 +232,29 @@ public sealed record RecurringDefinition(
     ExpenseNature? Nature = null,
     Guid? CounterAccountId = null,
     Guid? BucketId = null,
-    string? Description = null);
+    string? Description = null,
+    IReadOnlyList<SplitLine>? Splits = null);
+
+/// <summary>A category line of a split recurring template. Amounts are in the template's currency.</summary>
+public sealed class RecurringSplit
+{
+    private RecurringSplit() { }
+
+    public Guid Id { get; private set; }
+    public int Position { get; private set; }
+    public Guid CategoryId { get; private set; }
+    public decimal Amount { get; private set; }
+    public string? Note { get; private set; }
+
+    internal static RecurringSplit Create(int position, SplitLine line) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        Position = position,
+        CategoryId = line.CategoryId,
+        Amount = line.Amount,
+        Note = string.IsNullOrWhiteSpace(line.Note) ? null : line.Note.Trim(),
+    };
+}
 
 public enum ExpectedStatus
 {
