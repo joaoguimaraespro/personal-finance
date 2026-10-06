@@ -28,7 +28,7 @@ check "port() defaults without .env" '[ "$(port)" = 8080 ]'
 
 check "age public key accepted" 'is_age_recipient age1z7n5p84295kgxz9ef3u5wjzdh6gkxmv3wrpwxzu95ckw2lad05jsnh9stj'
 # Built at runtime: a literal private-key-shaped string would (rightly) trip the secret scanner.
-fake_identity="AGE-SECRET-KEY-1$(printf 'Q%.0s' $(seq 58))"
+fake_identity="AGE-SECRET-KEY-1$(printf '%058d' 0 | tr 0 Q)"
 check "age private key rejected" '! is_age_recipient "${fake_identity}"'
 
 printf 'BACKUP_DIR=%s\n' "${tmp}/b" > "${ENV_FILE}"
