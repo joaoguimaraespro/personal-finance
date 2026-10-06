@@ -158,7 +158,8 @@
   "Trading212": "Trading 212",
   "InteractiveBrokers": "IBKR",
   "Demo": "Demo",
-  "InterestEstimate": "Estimado"
+  "InterestEstimate": "Estimado",
+  "Binance": "Binance"
  },
  "audit": {
   "Created": "Criado",
@@ -666,7 +667,8 @@
    "noSpaces": "Contém espaços — cola novamente sem caracteres a mais.",
    "t212SameValue": "O segredo é igual à chave. Copia o segundo valor mostrado pelo Trading 212.",
    "ibkrQueryIdDigits": "O ID da query é um número (ex.: 123456), mostrado junto ao nome da query — não o próprio nome.",
-   "ibkrSameValue": "O ID da query e o token têm o mesmo valor. O token é o valor longo da Flex Web Service Configuration."
+   "ibkrSameValue": "O ID da query e o token têm o mesmo valor. O token é o valor longo da Flex Web Service Configuration.",
+   "binanceSameValue": "O segredo é igual à chave. Copie a Secret Key que aparece junto da API Key."
   },
   "errors": {
    "t212Unauthorized": "O Trading 212 não aceitou a chave e o segredo. Confirma que copiaste ambos (o segredo só é mostrado uma vez) ou gera uma nova chave e atualiza as credenciais.",
@@ -677,7 +679,12 @@
    "ibkrQueryId": "O IBKR não reconhece o ID da query. Usa o número mostrado junto à tua Activity Flex Query.",
    "ibkrToken": "O IBKR não reconhece o token. Copia-o de novo da Flex Web Service Configuration (um novo token invalida o anterior).",
    "ibkrNoStatement": "O IBKR ainda não tem extrato para esta conta (erro 1003). Confirma que o ID da query é o número da tua Activity Flex Query, com período \"Last 365 Calendar Days\", e que a conta já tem movimentos.",
-   "ibkrLocked": "O IBKR bloqueou temporariamente o token depois de demasiadas tentativas falhadas (erro 1025). As sincronizações automáticas param 12 horas — não carregues em Sincronizar entretanto, prolonga o bloqueio. Se persistir, gera um novo token Flex e atualiza a ligação."
+   "ibkrLocked": "O IBKR bloqueou temporariamente o token depois de demasiadas tentativas falhadas (erro 1025). As sincronizações automáticas param 12 horas — não carregues em Sincronizar entretanto, prolonga o bloqueio. Se persistir, gera um novo token Flex e atualiza a ligação.",
+   "binanceNotReadOnly": "Esta chave Binance pode negociar, transferir ou levantar, por isso foi recusada. Crie uma nova chave API só com \"Enable Reading\" e atualize as credenciais.",
+   "binanceNoReading": "Esta chave Binance não consegue ler a conta. Edite-a em API Management e ative \"Enable Reading\".",
+   "binanceUnauthorized": "A Binance não aceitou a chave: confirme a API Key e a Secret Key, e que o IP deste servidor está na lista de IPs de confiança da chave.",
+   "binanceRateLimited": "A Binance está a limitar pedidos. Não precisa de fazer nada — a próxima sincronização tenta de novo.",
+   "binanceClock": "A Binance recusou a hora do pedido. Confirme que o relógio deste computador está sincronizado."
   },
   "guide": {
    "title": "Como ligar",

@@ -158,7 +158,8 @@
   "Trading212": "Trading 212",
   "InteractiveBrokers": "IBKR",
   "Demo": "Demo",
-  "InterestEstimate": "Estimated"
+  "InterestEstimate": "Estimated",
+  "Binance": "Binance"
  },
  "audit": {
   "Created": "Created",
@@ -666,7 +667,8 @@
    "noSpaces": "Contains spaces — paste it again without extra characters.",
    "t212SameValue": "The secret is the same as the key. Copy the second value shown by Trading 212.",
    "ibkrQueryIdDigits": "The query ID is a number (e.g. 123456), shown next to the query name — not the name itself.",
-   "ibkrSameValue": "The query ID and the token are the same value. The token is the long value from Flex Web Service Configuration."
+   "ibkrSameValue": "The query ID and the token are the same value. The token is the long value from Flex Web Service Configuration.",
+   "binanceSameValue": "The secret is the same as the key. Copy the Secret Key shown next to the API Key."
   },
   "errors": {
    "t212Unauthorized": "Trading 212 did not accept the key and secret. Check you copied both (the secret is shown only once), or generate a new key and update the credentials.",
@@ -677,7 +679,12 @@
    "ibkrQueryId": "IBKR does not recognise the query ID. Use the number shown next to your Activity Flex Query.",
    "ibkrToken": "IBKR does not recognise the token. Copy it again from Flex Web Service Configuration (a new token invalidates the old one).",
    "ibkrNoStatement": "IBKR has no statement for this account yet (error 1003). Check that the Query ID is the number of your Activity Flex Query, with Period \"Last 365 Calendar Days\", and that the account already has activity.",
-   "ibkrLocked": "IBKR temporarily blocked the token after too many failed attempts (error 1025). Automatic syncs pause for 12 hours — don't press Sync meanwhile, it extends the block. If it persists, generate a new Flex token and update the connection."
+   "ibkrLocked": "IBKR temporarily blocked the token after too many failed attempts (error 1025). Automatic syncs pause for 12 hours — don't press Sync meanwhile, it extends the block. If it persists, generate a new Flex token and update the connection.",
+   "binanceNotReadOnly": "This Binance key can trade, transfer or withdraw, so it was refused. Create a new API key with only \"Enable Reading\" ticked and update the credentials.",
+   "binanceNoReading": "This Binance key cannot read the account. Edit it in API Management and tick \"Enable Reading\".",
+   "binanceUnauthorized": "Binance did not accept the key: check the API Key and Secret Key, and that this server's IP is on the key's list of trusted IPs.",
+   "binanceRateLimited": "Binance is rate-limiting requests. Nothing to do — the next sync retries automatically.",
+   "binanceClock": "Binance rejected the request time. Check that this computer's clock is synchronised."
   },
   "guide": {
    "title": "How to connect",

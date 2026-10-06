@@ -10,6 +10,7 @@ import { APP_ICONS } from './icons';
 const LOGOS: Partial<Record<Broker, string>> = {
   Trading212: 'brokers/trading212.png',
   InteractiveBrokers: 'brokers/interactive-brokers.png',
+  Binance: 'wallets/binance.png',
 };
 
 /** Exchanges and hardware wallets recognised in the name of a hand-entered crypto wallet (same terms as above). */

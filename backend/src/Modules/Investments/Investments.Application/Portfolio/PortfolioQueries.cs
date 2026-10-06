@@ -489,7 +489,9 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             ?? cashSources.FirstOrDefault(s => s.AccountId == id)?.Source
             ?? (institution?.Contains("Interactive", StringComparison.OrdinalIgnoreCase) == true
                 ? DataSource.InteractiveBrokers
-                : DataSource.Trading212);
+                : institution?.Contains("Binance", StringComparison.OrdinalIgnoreCase) == true
+                    ? DataSource.Binance
+                    : DataSource.Trading212);
 
         // An archived account with nothing left in it (a purged connection, an emptied crypto location) is gone.
         return accounts

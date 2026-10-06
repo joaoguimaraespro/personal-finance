@@ -59,7 +59,8 @@ public static partial class ListingHints
             {
                 hints.Add(hint);
             }
-            else if (source == DataSource.Manual && security.EffectiveAssetClass == AssetClass.Crypto)
+            else if (source is DataSource.Manual or DataSource.Binance &&
+                     security.EffectiveAssetClass == AssetClass.Crypto)
             {
                 hints.Add((symbol.ToUpperInvariant(), Crypto));
             }
