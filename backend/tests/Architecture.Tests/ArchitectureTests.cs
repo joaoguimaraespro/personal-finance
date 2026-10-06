@@ -96,6 +96,7 @@ public sealed class ArchitectureTests
         [
             "Finance.Application:FinanceNotificationSource",
             "Reporting.Application:BudgetNotificationSource",
+            "Reporting.Application:AllocationNotificationSource",
             "Integrations.Application:ConnectionNotificationSource",
             "Ai.Application:AiNotificationSource",
         ], ignoreOrder: true);

@@ -138,7 +138,11 @@
   "Todo": "To do",
   "Done": "Done",
   "Partial": "Partial",
-  "NotApplicable": "N/A"
+  "NotApplicable": "N/A",
+  "Auto": "Automatic",
+  "record": "Record",
+  "notThisMonth": "Not this month",
+  "entryDescription": "Allocation: {{bucket}}"
  },
  "accountKind": {
   "Bank": "Bank",
@@ -1035,7 +1039,11 @@
   "aiWrites": "{{client}} made {{count}} change(s)",
   "aiDetail": "In the last 24 h. Review them in the AI audit log.",
   "aiDetailDeleted": "In the last 24 h, {{deleted}} deleted — restorable from the recycle bin.",
-  "manyNew": "{{count}} new notifications"
+  "manyNew": "{{count}} new notifications",
+  "allocationDue": "Set aside for {{bucket}}",
+  "allocationPartial": "Finish setting aside for {{bucket}}",
+  "allocationDetail": "This month's allocation is not done yet.",
+  "allocationLeft": "{{remaining}} left of {{target}}"
  },
  "split": {
   "action": "Split by category",

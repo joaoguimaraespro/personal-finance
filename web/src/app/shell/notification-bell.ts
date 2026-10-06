@@ -20,6 +20,7 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 import { DayPipe, MoneyPipe, PercentPipe } from '../core/format';
 import { Prefs } from '../core/prefs';
 import {
+  NotificationAction,
   NotificationItem,
   NotificationKind,
   NotificationSeverity,
@@ -37,6 +38,13 @@ const KIND_ICONS: Record<NotificationKind, string> = {
   BudgetNear: 'lucideChartPie',
   GoalReached: 'lucideTrophy',
   AiWrites: 'lucideBot',
+  AllocationDue: 'lucideLayers',
+};
+
+const ACTION_ICONS: Record<NotificationAction, string> = {
+  confirm: 'lucideCheck',
+  record: 'lucidePlus',
+  skip: 'lucideSkipForward',
 };
 
 const SEVERITY_TONES: Record<NotificationSeverity, string> = {
@@ -54,7 +62,9 @@ export class LabelDialogDirective {
   constructor() {
     const host = inject(ElementRef<HTMLElement>);
     afterNextRender(() =>
-      host.nativeElement.closest('[role=dialog]')?.setAttribute('aria-labelledby', 'notifications-title'),
+      host.nativeElement
+        .closest('[role=dialog]')
+        ?.setAttribute('aria-labelledby', 'notifications-title'),
     );
   }
 }
@@ -90,7 +100,9 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
       @if (n.unseenCount(); as count) {
         <span
           class="pointer-events-none absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold tabular-nums ring-2 ring-background"
-          [class]="n.hasError() ? 'bg-destructive text-white' : 'bg-primary text-primary-foreground'"
+          [class]="
+            n.hasError() ? 'bg-destructive text-white' : 'bg-primary text-primary-foreground'
+          "
           aria-hidden="true"
           data-testid="notification-badge"
           >{{ count > 9 ? '9+' : count }}</span
@@ -155,9 +167,10 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
           {{ 'notifications.title' | translate }}
         </h2>
         @if (n.items().length) {
-          <span class="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs tabular-nums">{{
-            n.items().length
-          }}</span>
+          <span
+            class="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs tabular-nums"
+            >{{ n.items().length }}</span
+          >
         }
       </div>
       @if (!n.items().length) {
@@ -192,7 +205,10 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                   <span class="flex items-center gap-1.5">
                     <span class="truncate text-sm font-medium">{{ title(item) }}</span>
                     @if (fresh().has(item.id)) {
-                      <span class="bg-primary size-1.5 shrink-0 rounded-full" aria-hidden="true"></span>
+                      <span
+                        class="bg-primary size-1.5 shrink-0 rounded-full"
+                        aria-hidden="true"
+                      ></span>
                       <span class="sr-only">{{ 'notifications.new' | translate }}</span>
                     }
                   </span>
@@ -203,10 +219,15 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                           $any(item.args['amount']) | money: $any(item.args['currency'])
                         }}</span>
                         ·
-                        <span [class]="item.args['overdue'] ? 'text-amber-700 dark:text-amber-300' : ''">{{
-                          (item.args['overdue'] ? 'notifications.overdueSince' : 'notifications.dueToday')
-                            | translate: { date: (item.date | day) }
-                        }}</span>
+                        <span
+                          [class]="item.args['overdue'] ? 'text-amber-700 dark:text-amber-300' : ''"
+                          >{{
+                            (item.args['overdue']
+                              ? 'notifications.overdueSince'
+                              : 'notifications.dueToday'
+                            ) | translate: { date: (item.date | day) }
+                          }}</span
+                        >
                       }
                       @case ('InterestToReconcile') {
                         {{
@@ -214,13 +235,20 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                             | translate
                               : {
                                   month: monthLabel($any(item.args['month'])),
-                                  amount: ($any(item.args['amount']) | money: $any(item.args['currency'])),
+                                  amount:
+                                    ($any(item.args['amount'])
+                                    | money: $any(item.args['currency'])),
                                 }
                         }}
                       }
                       @case ('BrokerAttention') {
-                        @if (item.args['reason'] === 'expired' || item.args['reason'] === 'expiring') {
-                          {{ 'notifications.brokerExpires' | translate: { date: ($any(item.args['expiresOn']) | day) } }}
+                        @if (
+                          item.args['reason'] === 'expired' || item.args['reason'] === 'expiring'
+                        ) {
+                          {{
+                            'notifications.brokerExpires'
+                              | translate: { date: ($any(item.args['expiresOn']) | day) }
+                          }}
                         } @else if (friendly($any(item.args['error'])); as key) {
                           {{ key | translate }}
                         } @else {
@@ -253,10 +281,22 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                             | translate: { amount: ($any(item.args['amount']) | money) }
                         }}
                       }
+                      @case ('AllocationDue') {
+                        {{
+                          'notifications.allocationLeft'
+                            | translate
+                              : {
+                                  remaining: ($any(item.args['remaining']) | money),
+                                  target: ($any(item.args['target']) | money),
+                                }
+                        }}
+                      }
                       @case ('AiWrites') {
                         {{
-                          (item.args['deleted'] ? 'notifications.aiDetailDeleted' : 'notifications.aiDetail')
-                            | translate: { deleted: item.args['deleted'] }
+                          (item.args['deleted']
+                            ? 'notifications.aiDetailDeleted'
+                            : 'notifications.aiDetail'
+                          ) | translate: { deleted: item.args['deleted'] }
                         }}
                       }
                     }
@@ -268,13 +308,15 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                       <button
                         hlmBtn
                         size="sm"
-                        [variant]="action === 'confirm' ? 'default' : 'outline'"
+                        [variant]="action === 'skip' ? 'outline' : 'default'"
                         [disabled]="n.busy().has(item.id)"
-                        (click)="n.act(item, action)"
-                        [attr.aria-label]="(actionLabel(action) | translate) + ' · ' + title(item)"
+                        (click)="n.act(item, action); action === 'record' && close()"
+                        [attr.aria-label]="
+                          (actionLabel(item, action) | translate) + ' · ' + title(item)
+                        "
                       >
-                        <ng-icon [name]="action === 'confirm' ? 'lucideCheck' : 'lucideSkipForward'" />
-                        {{ actionLabel(action) | translate }}
+                        <ng-icon [name]="actionIcon[action]" />
+                        {{ actionLabel(item, action) | translate }}
                       </button>
                     }
                   </div>
@@ -336,8 +378,15 @@ export class NotificationBellComponent {
   protected icon = (kind: NotificationKind) => KIND_ICONS[kind];
   protected tone = (severity: NotificationSeverity) => SEVERITY_TONES[severity];
   protected friendly = friendlyError;
-  protected actionLabel = (action: string) =>
-    action === 'confirm' ? 'recurring.confirm' : 'recurring.skip';
+  protected readonly actionIcon = ACTION_ICONS;
+  protected actionLabel = (item: NotificationItem, action: NotificationAction) =>
+    action === 'record'
+      ? 'allocation.record'
+      : action === 'confirm'
+        ? 'recurring.confirm'
+        : item.kind === 'AllocationDue'
+          ? 'allocation.notThisMonth'
+          : 'recurring.skip';
 
   protected title(item: NotificationItem): string {
     this.prefs.translations(); // a language switch re-renders the titles

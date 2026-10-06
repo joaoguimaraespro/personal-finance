@@ -9,6 +9,7 @@ public static class ReportingModule
     {
         services.AddScoped<LedgerAggregates>();
         services.AddScoped<SharedKernel.Notifications.INotificationSource, BudgetNotificationSource>();
+        services.AddScoped<SharedKernel.Notifications.INotificationSource, AllocationNotificationSource>();
         return services;
     }
 }

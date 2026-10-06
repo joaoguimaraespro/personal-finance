@@ -648,6 +648,15 @@ export class QuickAddComponent {
         }
       } else {
         this.reset(true);
+        const p = untracked(this.quick.prefill);
+        if (p) {
+          this.type.set(p.type);
+          if (p.amount) this.amount.set(formatInput(Math.round(p.amount * 100) / 100));
+          this.bucketId.set(p.bucketId ?? null);
+          if (p.occurredOn) this.date.set(p.occurredOn);
+          this.description.set(p.description ?? '');
+          this.amountTouched.set(!!p.amount);
+        }
       }
       setTimeout(() => this.amountInput()?.nativeElement.focus(), 50);
     });
