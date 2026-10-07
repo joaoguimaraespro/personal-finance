@@ -124,5 +124,20 @@ public static class BucketEndpoints
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
+
+        // Back to automatic: the status follows what was actually set aside against the target.
+        checks.MapDelete("/{period}/{bucketId:guid}", async (string period, Guid bucketId, IFinanceDb db,
+            CancellationToken ct) =>
+        {
+            if (!YearMonth.TryParse(period, out var ym))
+            {
+                return ResultHttp.Problem(Error.Validation("Period", "Use yyyy-MM."));
+            }
+
+            await db.AllocationChecks
+                .Where(c => c.Year == ym.Year && c.Month == ym.Month && c.BucketId == bucketId)
+                .ExecuteDeleteAsync(ct);
+            return Results.NoContent();
+        });
     }
 }

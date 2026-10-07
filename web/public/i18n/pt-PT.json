@@ -138,7 +138,11 @@
   "Todo": "Por fazer",
   "Done": "Feito",
   "Partial": "Parcial",
-  "NotApplicable": "N/A"
+  "NotApplicable": "N/A",
+  "Auto": "Automático",
+  "record": "Registar",
+  "notThisMonth": "Este mês não",
+  "entryDescription": "Alocação: {{bucket}}"
  },
  "accountKind": {
   "Bank": "Banco",
@@ -1050,7 +1054,11 @@
   "aiWrites": "{{client}} fez {{count}} alteração(ões)",
   "aiDetail": "Nas últimas 24 h. Revê-as no registo de auditoria de IA.",
   "aiDetailDeleted": "Nas últimas 24 h, {{deleted}} eliminada(s) — recuperáveis na reciclagem.",
-  "manyNew": "{{count}} novas notificações"
+  "manyNew": "{{count}} novas notificações",
+  "allocationDue": "Alocar para {{bucket}}",
+  "allocationPartial": "Completar a alocação de {{bucket}}",
+  "allocationDetail": "A alocação deste mês ainda não está feita.",
+  "allocationLeft": "Faltam {{remaining}} de {{target}}"
  },
  "split": {
   "action": "Dividir por categorias",

@@ -16,7 +16,9 @@ import { firstValueFrom, map } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
 import { MoneyPipe, currentPeriod } from '../../core/format';
-import { AllocationStatus, MonthlySummary } from '../../core/models';
+import { AllocationStatus, BucketLine, MonthlySummary } from '../../core/models';
+import { QuickAdd } from '../../core/data-events';
+import { autoStatus, canRecord, remaining } from './allocation';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
@@ -26,6 +28,7 @@ import { KpiComponent } from '../../shared/kpi';
 import { MonthPickerComponent } from '../../shared/month-picker';
 import { ProgressComponent } from '../../shared/progress';
 import { HlmTableImports } from '@spartan-ng/helm/table';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
 import { PageHeaderComponent } from '../../shared/page-header';
@@ -41,6 +44,7 @@ type Reference = 'previous' | 'average' | 'budget';
     EmptyStateComponent,
     SelectComponent,
     HlmTableImports,
+    HlmButtonImports,
     MonthPickerComponent,
     KpiComponent,
     ProgressComponent,
@@ -195,15 +199,32 @@ type Reference = 'previous' | 'average' | 'budget';
                     {{ b.difference | money: 'EUR' : true }}
                   </td>
                   <td hlmTd>
-                    <app-select
-                      class="w-36"
-                      size="sm"
-                      triggerClass="text-xs"
-                      [options]="statusOptions()"
-                      [value]="checkFor(b.bucketId)"
-                      [ariaLabel]="b.name"
-                      (valueChange)="setCheck(b.bucketId, $any($event))"
-                    />
+                    <!-- Like a recurring item: the status follows what was set aside, and one click records the rest. -->
+                    <div class="flex flex-wrap items-center gap-2">
+                      <app-select
+                        class="w-40"
+                        size="sm"
+                        triggerClass="text-xs"
+                        [options]="optionsFor(b)"
+                        [value]="manualFor(b.bucketId) ?? 'Auto'"
+                        [ariaLabel]="b.name"
+                        (valueChange)="setCheck(b.bucketId, $any($event))"
+                      />
+                      @if (recordable(b)) {
+                        <button
+                          hlmBtn
+                          size="sm"
+                          variant="outline"
+                          [attr.aria-label]="('allocation.record' | translate) + ' · ' + b.name"
+                          (click)="record(b)"
+                        >
+                          <ng-icon name="lucidePlus" aria-hidden="true" />{{
+                            'allocation.record' | translate
+                          }}
+                          <span class="num text-muted-foreground">{{ left(b) | money }}</span>
+                        </button>
+                      }
+                    </div>
                   </td>
                 </tr>
               } @empty {
@@ -340,6 +361,7 @@ export class MonthlyComponent {
   private readonly i18n = inject(TranslateService);
   protected readonly colors = SERIES_COLORS;
   protected readonly references: Reference[] = ['previous', 'average', 'budget'];
+  private readonly quickAdd = inject(QuickAdd);
   protected readonly statuses: AllocationStatus[] = ['Todo', 'Done', 'Partial', 'NotApplicable'];
   protected readonly statusOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
@@ -446,14 +468,46 @@ export class MonthlyComponent {
     };
   });
 
-  protected checkFor(bucketId: string): AllocationStatus {
-    return this.checks.value()?.find((c) => c.bucketId === bucketId)?.status ?? 'Todo';
+  /** The status picked by hand, if any; without one it follows the figures ("Automatic"). */
+  protected manualFor(bucketId: string): AllocationStatus | undefined {
+    return this.checks.value()?.find((c) => c.bucketId === bucketId)?.status;
   }
 
-  protected async setCheck(bucketId: string, status: AllocationStatus) {
+  /** "Automatic · Partial" first, then the statuses that can be picked by hand. */
+  protected optionsFor(b: BucketLine): SelectOption[] {
+    const auto = autoStatus(b);
+    const label =
+      this.i18n.instant('allocation.Auto') +
+      (auto ? ' · ' + this.i18n.instant(`allocation.${auto}`) : '');
+    return [{ value: 'Auto', label }, ...this.statusOptions()];
+  }
+
+  protected recordable = (b: BucketLine) => canRecord(this.manualFor(b.bucketId), b);
+  protected left = (b: BucketLine) => remaining(b);
+
+  /** Opens the movement that sets aside the rest, prefilled: contribution or savings, the bucket and the amount left. */
+  protected record(b: BucketLine) {
+    const [y, m] = this.period().split('-').map(Number);
+    const now = new Date();
+    const current = now.getFullYear() === y && now.getMonth() + 1 === m;
+    this.quickAdd.addWith({
+      type: b.isInvestment ? 'InvestmentContribution' : 'Savings',
+      amount: remaining(b),
+      bucketId: b.bucketId,
+      occurredOn: current ? undefined : this.monthEnd(),
+      description: this.i18n.instant('allocation.entryDescription', { bucket: b.name }),
+    });
+  }
+
+  protected async setCheck(bucketId: string, status: AllocationStatus | 'Auto') {
     try {
-      await firstValueFrom(this.api.setAllocationCheck(this.period(), bucketId, status));
+      await firstValueFrom(
+        status === 'Auto'
+          ? this.api.clearAllocationCheck(this.period(), bucketId)
+          : this.api.setAllocationCheck(this.period(), bucketId, status),
+      );
       this.checks.reload();
+      this.events.bump(); // the notification centre follows
     } catch (err) {
       this.toasts.error(err);
     }

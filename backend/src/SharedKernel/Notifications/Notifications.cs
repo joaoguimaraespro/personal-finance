@@ -26,6 +26,9 @@ public enum NotificationKind
 
     /// <summary>An AI client changed data in the last 24 hours.</summary>
     AiWrites = 6,
+
+    /// <summary>This month's income is in but a bucket's allocation (investments, savings) is not done yet.</summary>
+    AllocationDue = 7,
 }
 
 public enum NotificationSeverity

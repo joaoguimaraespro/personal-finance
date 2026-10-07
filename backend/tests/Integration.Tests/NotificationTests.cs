@@ -184,6 +184,80 @@ public sealed class NotificationTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Allocations_still_to_do_this_month_show_with_the_amount_left_until_done_or_marked()
+    {
+        var api = await factory.OwnerAsync();
+        var period = $"{Today:yyyy-MM}";
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = "Notify allocation bank", kind = "Bank", currency = "EUR", openingBalance = 0 });
+        // Buckets of its own, so contributions from other tests this month never change the figures.
+        var etf = await api.CreateAsync("/api/buckets", new { name = "Notify ETFs", group = "Investment" });
+        var trip = await api.CreateAsync("/api/buckets", new { name = "Notify trip", group = "Savings" });
+        (await api.GetAsync<JsonElement[]>("/api/budgets"))
+            .Any(b => b.GetProperty("effectiveFrom").GetString() == period)
+            .ShouldBeFalse("this test owns the current month's budget version");
+        async Task Contribute(decimal amount) => await api.CreateAsync("/api/transactions", new
+        {
+            type = "InvestmentContribution", occurredOn = Iso(Today), amount, accountId = bank, bucketId = etf,
+        });
+        JsonElement? Item(JsonElement[] items, Guid bucket, string status) =>
+            Find(items, $"allocation:{period}:{bucket}:{status}");
+
+        try
+        {
+            await ApiClient.EnsureAsync(await api.PutAsync($"/api/budgets/{period}", new
+            {
+                note = (string?)null,
+                items = new object[]
+                {
+                    new { target = "Bucket", mode = "FixedAmount", value = 300m, bucketId = etf },
+                    new { target = "Bucket", mode = "FixedAmount", value = 200m, bucketId = trip },
+                },
+            }));
+            await api.CreateAsync("/api/transactions", new
+            {
+                type = "Income", occurredOn = Iso(Today), amount = 1_000m, accountId = bank,
+                categoryId = SystemCatalog.CategoryId("salary"),
+            });
+
+            var items = await ItemsAsync(api);
+            var todo = Item(items, etf, "Todo").ShouldNotBeNull();
+            todo.GetProperty("kind").GetString().ShouldBe("AllocationDue");
+            todo.GetProperty("targetId").GetGuid().ShouldBe(etf);
+            todo.GetProperty("link").GetString().ShouldBe($"/monthly?period={period}");
+            todo.GetProperty("actions").EnumerateArray().Select(a => a.GetString()).ShouldBe(["record", "skip"]);
+            todo.GetProperty("args").GetProperty("remaining").GetDecimal().ShouldBe(300m);
+            todo.GetProperty("args").GetProperty("investment").GetBoolean().ShouldBeTrue();
+            Item(items, trip, "Todo").ShouldNotBeNull();
+
+            // Part of it set aside: a new item with what is left.
+            await Contribute(100m);
+            items = await ItemsAsync(api);
+            Item(items, etf, "Todo").ShouldBeNull();
+            var partial = Item(items, etf, "Partial").ShouldNotBeNull();
+            partial.GetProperty("args").GetProperty("remaining").GetDecimal().ShouldBe(200m);
+
+            // All of it: done, nothing left to ask.
+            await Contribute(200m);
+            items = await ItemsAsync(api);
+            items.ShouldNotContain(i => i.GetProperty("id").GetString()!.StartsWith($"allocation:{period}:{etf}"));
+
+            // Marked not applicable by hand: gone; back to automatic: back.
+            await ApiClient.EnsureAsync(await api.PutAsync($"/api/allocation-checks/{period}",
+                new { bucketId = trip, status = "NotApplicable" }));
+            Item(await ItemsAsync(api), trip, "Todo").ShouldBeNull();
+            (await api.Http.DeleteAsync($"/api/allocation-checks/{period}/{trip}")).StatusCode
+                .ShouldBe(HttpStatusCode.NoContent);
+            Item(await ItemsAsync(api), trip, "Todo").ShouldNotBeNull();
+        }
+        finally
+        {
+            await api.Http.DeleteAsync($"/api/budgets/{period}");
+            await api.Http.DeleteAsync($"/api/allocation-checks/{period}/{trip}");
+        }
+    }
+
+    [Fact]
     public async Task Reached_goals_show_until_archived()
     {
         var api = await factory.OwnerAsync();

@@ -103,6 +103,9 @@ export class Api {
     this.http.get<AllocationCheck[]>(`/api/allocation-checks/${period}`);
   setAllocationCheck = (period: string, bucketId: string, status: AllocationStatus) =>
     this.http.put<void>(`/api/allocation-checks/${period}`, { bucketId, status });
+  /** Back to automatic: the status follows what was set aside against the target. */
+  clearAllocationCheck = (period: string, bucketId: string) =>
+    this.http.delete<void>(`/api/allocation-checks/${period}/${bucketId}`);
 
   // Transactions
   transactions(filter: TransactionFilter): Observable<Page<Transaction>> {
