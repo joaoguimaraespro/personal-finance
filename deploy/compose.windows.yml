@@ -1,6 +1,7 @@
-# Windows PC with Docker Desktop (WSL 2 backend). Layered on compose.yml; nothing else changes:
+# Everyday computer: Windows (Docker Desktop, WSL 2) and, despite the name, macOS/Linux (deploy/desktop). Layered on
+# compose.yml; nothing else changes:
 #   docker compose -f deploy/compose.yml -f deploy/compose.windows.yml --env-file deploy/.env up -d
-# deploy/windows/Install.ps1 and Start-PersonalFinance.ps1 run this for you (docs/windows.md).
+# deploy/windows/*.ps1 and deploy/desktop/personal-finance.sh run this for you (docs/windows.md, docs/desktop.md).
 #
 # The web container serves plain HTTP on 127.0.0.1 (no `tailscale serve` in front by default) and tells the API that the
 # loopback hop is secure, so the browser app window at http://localhost:<HTTP_PORT> can sign in (deploy/Caddyfile.windows).

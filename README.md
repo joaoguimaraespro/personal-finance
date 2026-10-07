@@ -165,6 +165,17 @@ and a daily encrypted backup that runs as soon as the PC is on after a missed 03
 recurring items, interest, snapshots) catch up minutes after the PC starts or wakes. Update with `Update.ps1`, remove
 with `Uninstall.ps1` (keeps data unless `-Purge`). Details in [docs/windows.md](docs/windows.md).
 
+### macOS or Linux computer (not on 24 h)
+
+```bash
+git clone https://github.com/joaoguimaraespro/personal-finance.git ~/.local/share/personal-finance   # macOS: see docs
+~/.local/share/personal-finance/deploy/desktop/personal-finance.sh install --autostart --backup-recipient age1…
+```
+
+The same as on Windows with one script: an applications-menu entry (Linux) or `Personal Finance.app` (macOS), an
+optional sign-in item, a daily encrypted backup that catches up after the computer was off, `update`, `uninstall`.
+Backups move between Linux, macOS and Windows. Details and the install matrix in [docs/desktop.md](docs/desktop.md).
+
 ### Production (home server)
 
 ```bash

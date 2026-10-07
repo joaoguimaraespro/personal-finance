@@ -19,9 +19,15 @@ set -a; source "${DEPLOY_DIR}/.env"; set +a
 : "${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT (age public key) is required}"
 : "${BACKUP_DIR:?BACKUP_DIR is required}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-35}"
-command -v age >/dev/null || { echo "age is not installed (apt install age)" >&2; exit 1; }
+command -v age >/dev/null || { echo "age is not installed (apt install age / brew install age)" >&2; exit 1; }
 
-compose() { docker compose --project-directory "${DEPLOY_DIR}" -f "${DEPLOY_DIR}/compose.yml" --env-file "${DEPLOY_DIR}/.env" "$@"; }
+# PF_COMPOSE_OVERRIDE: the PC's loopback-HTTP override (deploy/desktop); empty on the server.
+compose() {
+  docker compose --project-directory "${DEPLOY_DIR}" -f "${DEPLOY_DIR}/compose.yml" \
+    ${PF_COMPOSE_OVERRIDE:+-f "${DEPLOY_DIR}/${PF_COMPOSE_OVERRIDE}"} --env-file "${DEPLOY_DIR}/.env" "$@"
+}
+# sha256sum is GNU coreutils; macOS has shasum.
+sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 work="$(mktemp -d)"
@@ -40,19 +46,20 @@ compose run --rm --no-deps -T --user 1654:1654 --entrypoint "" -v personal-finan
 cat > "${work}/manifest.txt" <<MANIFEST
 created_utc=${stamp}
 host=$(hostname)
-dump_sha256=$(sha256sum "${work}/finance.dump" | cut -d' ' -f1)
-keys_sha256=$(sha256sum "${work}/dp-keys.tar" | cut -d' ' -f1)
+dump_sha256=$(sha256 "${work}/finance.dump")
+keys_sha256=$(sha256 "${work}/dp-keys.tar")
 MANIFEST
 
 tar -C "${work}" -cf - finance.dump dp-keys.tar manifest.txt \
   | age -r "${BACKUP_AGE_RECIPIENT}" > "${BACKUP_DIR}/finance-${stamp}.tar.age"
 
-find "${BACKUP_DIR}" -name 'finance-*.tar.age' -mtime "+${RETENTION_DAYS}" -delete
+# Never deletes the archive just written, so a computer left off for months still keeps its last backup.
+find "${BACKUP_DIR}" -name 'finance-*.tar.age' ! -name "finance-${stamp}.tar.age" -mtime "+${RETENTION_DAYS}" -delete
 echo "Backup written: ${BACKUP_DIR}/finance-${stamp}.tar.age ($(du -h "${BACKUP_DIR}/finance-${stamp}.tar.age" | cut -f1))"
 
 if [ -n "${BACKUP_REMOTE:-}" ]; then
   trap - ERR
-  command -v rclone >/dev/null || { echo "OFF-SITE COPY FAILED: rclone is not installed (apt install rclone)." >&2; exit 1; }
+  command -v rclone >/dev/null || { echo "OFF-SITE COPY FAILED: rclone is not installed (apt install rclone / brew install rclone)." >&2; exit 1; }
   # copy (not sync): never deletes remotely; also catches up on uploads missed while the remote was down.
   if ! rclone copy "${BACKUP_DIR}" "${BACKUP_REMOTE}" --include 'finance-*.tar.age' --immutable --retries 5; then
     echo "OFF-SITE COPY FAILED to ${BACKUP_REMOTE}. The local backup is fine; the next run retries." >&2

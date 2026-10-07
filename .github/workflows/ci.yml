@@ -119,6 +119,25 @@ jobs:
           $config.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $config
 
+  desktop-scripts:
+    # Linux/macOS desktop install (deploy/desktop): shellcheck, then the helpers on each OS's own shell and userland
+    # (macOS: bash 3.2 and BSD tools). The stack itself is the same images and compose files as the E2E job.
+    name: Desktop scripts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        if: runner.os == 'Linux'
+        run: shellcheck -S warning deploy/desktop/personal-finance.sh deploy/desktop/tests/smoke.sh deploy/scripts/*.sh
+      - name: Syntax (system bash)
+        run: for f in deploy/desktop/personal-finance.sh deploy/scripts/backup.sh deploy/scripts/restore.sh; do /bin/bash -n "$f"; done
+      - name: Smoke tests (system bash)
+        run: /bin/bash deploy/desktop/tests/smoke.sh
+
   e2e:
     name: E2E against the production images
     runs-on: ubuntu-latest
