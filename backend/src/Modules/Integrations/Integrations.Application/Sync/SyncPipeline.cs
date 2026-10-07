@@ -111,6 +111,7 @@ public sealed class SyncPipeline(
     {
         BrokerKind.Trading212 => DataSource.Trading212,
         BrokerKind.InteractiveBrokers => DataSource.InteractiveBrokers,
+        BrokerKind.Binance => DataSource.Binance,
         _ => DataSource.Demo,
     };
 

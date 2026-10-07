@@ -72,6 +72,7 @@ export type DataSource =
   | 'Json'
   | 'Trading212'
   | 'InteractiveBrokers'
+  | 'Binance'
   | 'InterestEstimate';
 export type InterestPayout = 'Monthly' | 'Daily';
 export type BucketGroup = 'Investment' | 'Savings';
@@ -509,7 +510,7 @@ export interface ImportSummary {
 
 export type AssetClass = 'Stock' | 'Etf' | 'Bond' | 'Fund' | 'Crypto' | 'Cash' | 'Other';
 /** 'Manual' = coins entered by hand (an exchange account or wallet), priced from public quotes. */
-export type Broker = 'Trading212' | 'InteractiveBrokers' | 'Demo' | 'Manual';
+export type Broker = 'Trading212' | 'InteractiveBrokers' | 'Binance' | 'Demo' | 'Manual';
 
 export interface CoinMatch {
   id: string;
