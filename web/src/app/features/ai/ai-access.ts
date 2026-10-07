@@ -13,6 +13,9 @@ import { Confirm } from '../../core/confirm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBan,
+  lucideBot,
+  lucideHistory,
+  lucideMessageSquare,
   lucidePencil,
   lucidePlus,
   lucideRotateCcw,
@@ -69,6 +72,9 @@ interface AuditEvent {
   recordId: string | null;
   changes: string | null;
 }
+type Tab = 'clients' | 'recycle' | 'activity';
+type AuditFilter = 'all' | 'writes' | 'denied';
+
 interface RecycledItem {
   id: string;
   kind: string;
@@ -95,7 +101,18 @@ interface RecycledItem {
     DateTimePipe,
     ModalComponent,
   ],
-  providers: [provideIcons({ lucideBan, lucidePencil, lucidePlus, lucideRotateCcw, lucideTrash2 })],
+  providers: [
+    provideIcons({
+      lucideBan,
+      lucideBot,
+      lucideHistory,
+      lucideMessageSquare,
+      lucidePencil,
+      lucidePlus,
+      lucideRotateCcw,
+      lucideTrash2,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -108,240 +125,331 @@ interface RecycledItem {
       </button>
     </div>
 
-    <section class="card mb-6 !p-0 overflow-x-auto">
-      <table hlmTable>
-        <thead hlmTHead>
-          <tr hlmTr>
-            <th hlmTh>{{ 'common.name' | translate }}</th>
-            <th hlmTh>{{ 'ai.scopes' | translate }}</th>
-            <th hlmTh>{{ 'ai.lastUsed' | translate }}</th>
-            <th hlmTh class="text-right">{{ 'ai.calls24h' | translate }}</th>
-            <th hlmTh></th>
-          </tr>
-        </thead>
-        <tbody hlmTBody>
+    <!-- At a glance: what the AI clients did in the last 24 hours. -->
+    <div class="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      @for (k of kpis(); track k.label) {
+        <div class="card !p-4">
+          <div class="text-xs font-medium text-muted-foreground">{{ k.label | translate }}</div>
+          <div class="num mt-1 text-2xl font-semibold" [class]="k.tone">{{ k.value }}</div>
+        </div>
+      }
+    </div>
+
+    <div class="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div class="segmented" role="tablist">
+        @for (t of tabs; track t) {
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="tab() === t"
+            [class.active]="tab() === t"
+            (click)="tab.set(t)"
+          >
+            <ng-icon [name]="tabIcon[t]" aria-hidden="true" class="mr-1.5" />{{
+              'ai.tab.' + t | translate
+            }}
+            @if (tabCount(t); as n) {
+              <span
+                class="ml-1.5 rounded-full bg-muted-foreground/15 px-1.5 text-[11px] leading-4"
+                >{{ n }}</span
+              >
+            }
+          </button>
+        }
+      </div>
+    </div>
+
+    @switch (tab()) {
+      @case ('clients') {
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           @for (c of clients.value() ?? []; track c.id) {
-            <tr hlmTr [class.opacity-50]="!!c.revokedAtUtc">
-              <td hlmTd>
-                <div class="font-medium">
-                  {{ c.name }}
+            <section
+              class="card card-hover flex flex-col !p-0"
+              [class.opacity-60]="!!c.revokedAtUtc"
+            >
+              <div class="flex items-start gap-3 p-5 pb-3">
+                <div
+                  class="flex size-10 shrink-0 items-center justify-center rounded-lg"
+                  [class]="
+                    canWrite(c)
+                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+                      : 'bg-primary/10 text-primary'
+                  "
+                >
+                  <ng-icon
+                    [name]="c.internal ? 'lucideMessageSquare' : 'lucideBot'"
+                    class="text-lg"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <h2 class="truncate font-semibold">{{ c.name }}</h2>
+                  <div class="font-mono text-xs text-muted-foreground">
+                    {{ c.tokenPrefix }}_…
+                    @if (c.expiresAtUtc) {
+                      · {{ 'ai.expires' | translate }} {{ c.expiresAtUtc | day }}
+                    }
+                  </div>
+                </div>
+                <div class="flex shrink-0 flex-col items-end gap-1">
+                  @if (c.revokedAtUtc) {
+                    <span class="badge bg-muted">{{ 'ai.revoked' | translate }}</span>
+                  } @else {
+                    <span
+                      class="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                      >{{ 'ai.active' | translate }}</span
+                    >
+                  }
                   @if (c.internal) {
-                    <span class="badge ml-1 bg-primary/10 text-primary">{{
+                    <span class="badge bg-primary/10 text-primary">{{
                       'ai.internal' | translate
                     }}</span>
                   }
                   @if (canWrite(c)) {
                     <span
-                      class="badge ml-1 bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                      class="badge bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
                       >{{ 'ai.canWrite' | translate }}</span
                     >
                   }
                 </div>
-                <div class="font-mono text-xs text-muted-foreground">
-                  {{ c.tokenPrefix }}_…
-                  @if (c.expiresAtUtc) {
-                    · {{ 'ai.expires' | translate }} {{ c.expiresAtUtc | day }}
+              </div>
+
+              <div class="flex-1 px-5 pb-4">
+                <div class="label">{{ 'ai.scopes' | translate }}</div>
+                <div class="flex flex-wrap gap-1">
+                  @for (s of c.scopes; track s) {
+                    <span
+                      class="badge"
+                      [class]="
+                        isSensitive(s)
+                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+                          : 'bg-muted'
+                      "
+                      [class.font-semibold]="isWrite(s)"
+                      >{{ s }}</span
+                    >
+                  } @empty {
+                    <span class="text-xs text-muted-foreground">{{
+                      'ai.noScopes' | translate
+                    }}</span>
                   }
                 </div>
-              </td>
-              <td hlmTd class="max-w-md whitespace-normal">
-                @for (s of c.scopes; track s) {
-                  <span
-                    class="badge mr-1 mb-1"
-                    [class]="
-                      isSensitive(s)
-                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
-                        : 'bg-muted'
-                    "
-                    [class.font-semibold]="isWrite(s)"
-                    >{{ s }}</span
-                  >
-                } @empty {
-                  <span class="text-xs text-muted-foreground">{{ 'ai.noScopes' | translate }}</span>
-                }
-              </td>
-              <td hlmTd class="text-sm text-muted-foreground">{{ c.lastUsedAtUtc | dateTime }}</td>
-              <td hlmTd class="num text-right text-sm">
-                {{ c.callsLast24h }}
-                @if (c.deniedLast24h) {
-                  <span class="text-rose-600"> ({{ c.deniedLast24h }} denied)</span>
-                }
-                @if (c.writesLast24h) {
-                  <div class="text-xs text-rose-700 dark:text-rose-300">
-                    {{ 'ai.writes24h' | translate: { count: c.writesLast24h } }}
-                  </div>
-                }
-              </td>
-              <td hlmTd class="text-right whitespace-nowrap">
-                @if (!c.revokedAtUtc) {
-                  <button hlmBtn variant="ghost" size="sm" (click)="openEdit(c)">
-                    <ng-icon name="lucidePencil" aria-hidden="true" />{{
-                      'common.edit' | translate
-                    }}
-                  </button>
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="sm"
-                    class="text-destructive hover:text-destructive"
-                    (click)="revoke(c)"
-                  >
-                    <ng-icon name="lucideBan" aria-hidden="true" />{{ 'ai.revoke' | translate }}
-                  </button>
-                } @else {
-                  <span class="mr-2 text-xs text-muted-foreground">{{
-                    'ai.revoked' | translate
-                  }}</span>
-                }
-                @if (!c.internal) {
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="sm"
-                    class="text-destructive hover:text-destructive"
-                    [attr.aria-label]="('common.delete' | translate) + ' ' + c.name"
-                    (click)="remove(c)"
-                  >
-                    <ng-icon name="lucideTrash2" aria-hidden="true" />{{
-                      'common.delete' | translate
-                    }}
-                  </button>
-                }
-              </td>
-            </tr>
-          } @empty {
-            <tr hlmTr>
-              <td hlmTd colspan="5" class="py-10 text-center text-muted-foreground">
-                {{ 'ai.empty' | translate }}
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
+              </div>
 
-    <section class="card mb-6 !p-0 overflow-x-auto" aria-labelledby="ai-recycle-title">
-      <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5">
-        <h2 id="ai-recycle-title" class="card-title">{{ 'ai.recycleBin' | translate }}</h2>
-        <p class="mb-4 text-xs text-muted-foreground">{{ 'ai.recycleNote' | translate }}</p>
-      </div>
-      <table hlmTable>
-        <thead hlmTHead>
-          <tr hlmTr>
-            <th hlmTh>{{ 'ai.deletedAt' | translate }}</th>
-            <th hlmTh>{{ 'ai.client' | translate }}</th>
-            <th hlmTh>{{ 'ai.item' | translate }}</th>
-            <th hlmTh class="text-right">{{ 'ai.purgeIn' | translate }}</th>
-            <th hlmTh></th>
-          </tr>
-        </thead>
-        <tbody hlmTBody>
-          @for (b of bin.value() ?? []; track b.id) {
-            <tr hlmTr>
-              <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
-                {{ b.deletedAtUtc | dateTime }}
-              </td>
-              <td hlmTd class="text-sm">{{ b.clientName }}</td>
-              <td hlmTd class="text-sm whitespace-normal">{{ b.summary }}</td>
-              <td hlmTd class="num text-right text-sm">
-                {{ 'ai.days' | translate: { count: daysLeft(b.purgeAfterUtc) } }}
-              </td>
-              <td hlmTd class="text-right">
+              <dl class="grid grid-cols-3 border-t text-center">
+                <div class="px-2 py-3">
+                  <dt class="text-[11px] text-muted-foreground">{{ 'ai.calls24h' | translate }}</dt>
+                  <dd class="num font-medium">{{ c.callsLast24h }}</dd>
+                </div>
+                <div class="border-x px-2 py-3">
+                  <dt class="text-[11px] text-muted-foreground">
+                    {{ 'ai.denied24h' | translate }}
+                  </dt>
+                  <dd class="num font-medium" [class.tone-neg]="c.deniedLast24h > 0">
+                    {{ c.deniedLast24h }}
+                  </dd>
+                </div>
+                <div class="px-2 py-3">
+                  <dt class="text-[11px] text-muted-foreground">
+                    {{ 'ai.writesShort' | translate }}
+                  </dt>
+                  <dd class="num font-medium" [class.tone-neg]="c.writesLast24h > 0">
+                    {{ c.writesLast24h }}
+                  </dd>
+                </div>
+              </dl>
+
+              <div class="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
+                <span class="px-2 text-xs text-muted-foreground"
+                  >{{ 'ai.lastUsed' | translate }}:
+                  {{ c.lastUsedAtUtc ? (c.lastUsedAtUtc | dateTime) : '—' }}</span
+                >
+                <div class="flex">
+                  @if (!c.revokedAtUtc) {
+                    <button hlmBtn variant="ghost" size="sm" (click)="openEdit(c)">
+                      <ng-icon name="lucidePencil" aria-hidden="true" />{{
+                        'common.edit' | translate
+                      }}
+                    </button>
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      class="text-destructive hover:text-destructive"
+                      (click)="revoke(c)"
+                    >
+                      <ng-icon name="lucideBan" aria-hidden="true" />{{ 'ai.revoke' | translate }}
+                    </button>
+                  }
+                  @if (!c.internal) {
+                    <button
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      class="text-destructive hover:text-destructive"
+                      [attr.aria-label]="('common.delete' | translate) + ' ' + c.name"
+                      (click)="remove(c)"
+                    >
+                      <ng-icon name="lucideTrash2" aria-hidden="true" />{{
+                        'common.delete' | translate
+                      }}
+                    </button>
+                  }
+                </div>
+              </div>
+            </section>
+          } @empty {
+            <div class="card col-span-full py-10 text-center text-muted-foreground">
+              <ng-icon name="lucideBot" class="mb-2 text-3xl text-primary" aria-hidden="true" />
+              <p>{{ 'ai.empty' | translate }}</p>
+            </div>
+          }
+        </div>
+      }
+      @case ('recycle') {
+        <section class="card !p-0 overflow-x-auto" aria-labelledby="ai-recycle-title">
+          <div class="px-5 pt-5">
+            <h2 id="ai-recycle-title" class="sr-only">{{ 'ai.recycleBin' | translate }}</h2>
+            <p class="mb-4 text-xs text-muted-foreground">{{ 'ai.recycleNote' | translate }}</p>
+          </div>
+          <table hlmTable>
+            <thead hlmTHead>
+              <tr hlmTr>
+                <th hlmTh>{{ 'ai.deletedAt' | translate }}</th>
+                <th hlmTh>{{ 'ai.client' | translate }}</th>
+                <th hlmTh>{{ 'ai.item' | translate }}</th>
+                <th hlmTh class="text-right">{{ 'ai.purgeIn' | translate }}</th>
+                <th hlmTh></th>
+              </tr>
+            </thead>
+            <tbody hlmTBody>
+              @for (b of bin.value() ?? []; track b.id) {
+                <tr hlmTr>
+                  <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
+                    {{ b.deletedAtUtc | dateTime }}
+                  </td>
+                  <td hlmTd class="text-sm">{{ b.clientName }}</td>
+                  <td hlmTd class="text-sm whitespace-normal">{{ b.summary }}</td>
+                  <td hlmTd class="num text-right text-sm">
+                    {{ 'ai.days' | translate: { count: daysLeft(b.purgeAfterUtc) } }}
+                  </td>
+                  <td hlmTd class="text-right">
+                    <button
+                      hlmBtn
+                      variant="outline"
+                      size="sm"
+                      [attr.aria-label]="('ai.restore' | translate) + ': ' + b.summary"
+                      (click)="restore(b.id)"
+                    >
+                      <ng-icon name="lucideRotateCcw" aria-hidden="true" />{{
+                        'ai.restore' | translate
+                      }}
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr hlmTr>
+                  <td hlmTd colspan="5" class="py-6 text-center text-sm text-muted-foreground">
+                    {{ 'ai.recycleEmpty' | translate }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+      @case ('activity') {
+        <section class="card !p-0 overflow-x-auto">
+          <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-4">
+            <div
+              class="flex flex-wrap gap-2"
+              role="group"
+              [attr.aria-label]="'ai.audit' | translate"
+            >
+              @for (f of auditFilters; track f) {
                 <button
-                  hlmBtn
-                  variant="outline"
-                  size="sm"
-                  [attr.aria-label]="('ai.restore' | translate) + ': ' + b.summary"
-                  (click)="restore(b.id)"
+                  type="button"
+                  class="chip"
+                  [class.chip-active]="auditFilter() === f"
+                  (click)="auditFilter.set(f)"
                 >
-                  <ng-icon name="lucideRotateCcw" aria-hidden="true" />{{
-                    'ai.restore' | translate
-                  }}
+                  {{ 'ai.filter.' + f | translate }}
                 </button>
-              </td>
-            </tr>
-          } @empty {
-            <tr hlmTr>
-              <td hlmTd colspan="5" class="py-6 text-center text-sm text-muted-foreground">
-                {{ 'ai.recycleEmpty' | translate }}
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
-
-    <section class="card !p-0 overflow-x-auto">
-      <div class="flex items-center justify-between px-5 pt-5">
-        <h2 class="card-title">{{ 'ai.audit' | translate }}</h2>
-        <p class="mb-4 text-xs text-muted-foreground">{{ 'ai.auditNote' | translate }}</p>
-      </div>
-      <table hlmTable>
-        <thead hlmTHead>
-          <tr hlmTr>
-            <th hlmTh>{{ 'tx.date' | translate }}</th>
-            <th hlmTh>{{ 'ai.client' | translate }}</th>
-            <th hlmTh>{{ 'ai.tool' | translate }}</th>
-            <th hlmTh>{{ 'ai.arguments' | translate }}</th>
-            <th hlmTh>{{ 'ai.decision' | translate }}</th>
-            <th hlmTh class="text-right">{{ 'ai.records' | translate }}</th>
-          </tr>
-        </thead>
-        <tbody hlmTBody>
-          @for (e of audit.value() ?? []; track e.id) {
-            <tr hlmTr [class.font-medium]="e.write">
-              <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
-                {{ e.atUtc | day }} {{ e.atUtc.slice(11, 19) }}
-              </td>
-              <td hlmTd class="text-sm">{{ e.clientName ?? '—' }}</td>
-              <td hlmTd class="font-mono text-xs">
-                @if (e.write) {
-                  <span
-                    class="badge mr-1 bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
-                    >{{ 'ai.writeBadge' | translate }}</span
+              }
+            </div>
+            <p class="text-xs text-muted-foreground">{{ 'ai.auditNote' | translate }}</p>
+          </div>
+          <table hlmTable>
+            <thead hlmTHead>
+              <tr hlmTr>
+                <th hlmTh>{{ 'tx.date' | translate }}</th>
+                <th hlmTh>{{ 'ai.client' | translate }}</th>
+                <th hlmTh>{{ 'ai.tool' | translate }}</th>
+                <th hlmTh>{{ 'ai.arguments' | translate }}</th>
+                <th hlmTh>{{ 'ai.decision' | translate }}</th>
+                <th hlmTh class="text-right">{{ 'ai.records' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody hlmTBody>
+              @for (e of auditShown(); track e.id) {
+                <tr hlmTr [class.font-medium]="e.write">
+                  <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
+                    {{ e.atUtc | day }} {{ e.atUtc.slice(11, 19) }}
+                  </td>
+                  <td hlmTd class="text-sm">{{ e.clientName ?? '—' }}</td>
+                  <td hlmTd class="font-mono text-xs">
+                    @if (e.write) {
+                      <span
+                        class="badge mr-1 bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                        >{{ 'ai.writeBadge' | translate }}</span
+                      >
+                    }
+                    {{ e.tool }}
+                  </td>
+                  <td
+                    hlmTd
+                    class="font-mono text-xs text-muted-foreground whitespace-normal break-all"
                   >
-                }
-                {{ e.tool }}
-              </td>
-              <td hlmTd class="font-mono text-xs text-muted-foreground whitespace-normal break-all">
-                {{ e.arguments }}
-                @if (e.changes) {
-                  <div class="mt-1 text-[11px]" [title]="e.changes">
-                    {{ 'ai.changes' | translate }}: {{ shorten(e.changes) }}
-                  </div>
-                }
-                @if (restorable(e); as itemId) {
-                  <button hlmBtn variant="link" size="sm" (click)="restore(itemId)">
-                    <ng-icon name="lucideRotateCcw" aria-hidden="true" />{{
-                      'ai.restore' | translate
-                    }}
-                  </button>
-                }
-              </td>
-              <td hlmTd>
-                <span
-                  class="badge"
-                  [class]="
-                    e.decision === 'Allowed'
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                      : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
-                  "
-                  [title]="e.reason ?? ''"
-                  >{{ e.decision }}</span
-                >
-              </td>
-              <td hlmTd class="num text-right text-sm">{{ e.recordCount }}</td>
-            </tr>
-          } @empty {
-            <tr hlmTr>
-              <td hlmTd colspan="6" class="py-8 text-center text-muted-foreground">
-                {{ 'ai.noAudit' | translate }}
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
+                    {{ e.arguments }}
+                    @if (e.changes) {
+                      <div class="mt-1 text-[11px]" [title]="e.changes">
+                        {{ 'ai.changes' | translate }}: {{ shorten(e.changes) }}
+                      </div>
+                    }
+                    @if (restorable(e); as itemId) {
+                      <button hlmBtn variant="link" size="sm" (click)="restore(itemId)">
+                        <ng-icon name="lucideRotateCcw" aria-hidden="true" />{{
+                          'ai.restore' | translate
+                        }}
+                      </button>
+                    }
+                  </td>
+                  <td hlmTd>
+                    <span
+                      class="badge"
+                      [class]="
+                        e.decision === 'Allowed'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                          : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+                      "
+                      [title]="e.reason ?? ''"
+                      >{{ e.decision }}</span
+                    >
+                  </td>
+                  <td hlmTd class="num text-right text-sm">{{ e.recordCount }}</td>
+                </tr>
+              } @empty {
+                <tr hlmTr>
+                  <td hlmTd colspan="6" class="py-8 text-center text-muted-foreground">
+                    {{ 'ai.noAudit' | translate }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+    }
 
     <app-modal
       [open]="formOpen()"
@@ -559,6 +667,44 @@ export class AiAccessComponent {
     params: () => this.refresh(),
     stream: () => this.http.get<RecycledItem[]>('/api/ai-admin/recycle-bin'),
   });
+
+  protected readonly tabs: Tab[] = ['clients', 'recycle', 'activity'];
+  protected readonly tabIcon: Record<Tab, string> = {
+    clients: 'lucideBot',
+    recycle: 'lucideTrash2',
+    activity: 'lucideHistory',
+  };
+  protected readonly tab = signal<Tab>('clients');
+  protected readonly auditFilters: AuditFilter[] = ['all', 'writes', 'denied'];
+  protected readonly auditFilter = signal<AuditFilter>('all');
+  protected readonly auditShown = computed(() => {
+    const events = this.audit.value() ?? [];
+    switch (this.auditFilter()) {
+      case 'writes':
+        return events.filter((e) => e.write);
+      case 'denied':
+        return events.filter((e) => e.decision !== 'Allowed');
+      default:
+        return events;
+    }
+  });
+  protected readonly kpis = computed(() => {
+    const clients = this.clients.value() ?? [];
+    const sum = (f: (c: AiClient) => number) => clients.reduce((n, c) => n + f(c), 0);
+    const denied = sum((c) => c.deniedLast24h);
+    const writes = sum((c) => c.writesLast24h);
+    return [
+      { label: 'ai.activeClients', value: clients.filter((c) => !c.revokedAtUtc).length, tone: '' },
+      { label: 'ai.calls24h', value: sum((c) => c.callsLast24h), tone: '' },
+      { label: 'ai.denied24h', value: denied, tone: denied ? 'tone-neg' : '' },
+      { label: 'ai.writes24hTotal', value: writes, tone: writes ? 'tone-neg' : '' },
+    ];
+  });
+  protected tabCount(t: Tab): number {
+    if (t === 'clients') return (this.clients.value() ?? []).filter((c) => !c.revokedAtUtc).length;
+    if (t === 'recycle') return (this.bin.value() ?? []).length;
+    return 0;
+  }
 
   private readonly scopes = computed(() => this.catalog.value()?.scopes ?? []);
   protected readonly groups = computed(() => groupScopes(this.scopes()));

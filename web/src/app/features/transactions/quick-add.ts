@@ -96,11 +96,12 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
       >
         <!-- Two levels: everyday money, investments and transfers are different things and reported apart. -->
         <div class="space-y-2">
-          <div class="segmented flex h-auto min-h-9 w-full">
+          <!-- Labels may wrap on phones: the pill stretches to the bar's full height instead of hugging the text. -->
+          <div class="segmented flex h-auto min-h-9 w-full items-stretch">
             @for (f of flows; track f) {
               <button
                 type="button"
-                class="min-w-0 flex-1 !whitespace-normal py-1 text-center leading-tight"
+                class="min-w-0 flex-1 !h-auto !whitespace-normal py-1.5 text-center leading-tight"
                 [class.active]="flow() === f"
                 (click)="setFlow(f)"
               >

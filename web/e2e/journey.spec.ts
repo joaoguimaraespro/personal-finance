@@ -238,6 +238,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
 
   // The deletion waits in the recycle bin; one click restores it.
   await page.goto('/ai');
+  await page.getByRole('tab', { name: /Recycle bin/ }).click();
   const recycled = page.locator('section[aria-labelledby="ai-recycle-title"]').getByRole('row').filter({ hasText: 'Coffee via AI' });
   await expect(recycled).toBeVisible();
   await expect(recycled).toContainText('30 day(s)');
@@ -249,8 +250,10 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await expect(page.getByText('Coffee via AI').and(page.locator(':visible'))).toBeVisible();
 
   await page.goto('/ai');
-  await expect(page.getByRole('cell', { name: 'get_expense_summary' }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Claude Code (writer)' })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/ai-access.png`, fullPage: true });
+  await page.getByRole('tab', { name: /Activity/ }).click();
+  await expect(page.getByRole('cell', { name: 'get_expense_summary' }).first()).toBeVisible();
 
   // Language switch is instant and total.
   await page.goto('/dashboard');

@@ -870,7 +870,22 @@
   "days": "{{count}} day(s)",
   "restore": "Restore",
   "restored": "Restored.",
-  "changes": "Changes"
+  "changes": "Changes",
+  "active": "Active",
+  "activeClients": "Active clients",
+  "denied24h": "Denied (24h)",
+  "writesShort": "Writes (24h)",
+  "writes24hTotal": "Writes (24h)",
+  "tab": {
+   "clients": "Clients",
+   "recycle": "Recycle bin",
+   "activity": "Activity"
+  },
+  "filter": {
+   "all": "All",
+   "writes": "Writes",
+   "denied": "Denied"
+  }
  },
  "assistant": {
   "subtitle": "Ask about your finances. Answers use the same permission-checked tools as MCP clients — read-only unless you grant the assistant a write permission under AI access.",
