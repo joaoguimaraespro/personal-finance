@@ -4,7 +4,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { BACKGROUND } from './activity';
 import { Api } from './api';
-import { DataEvents } from './data-events';
+import { DataEvents, QuickAdd, QuickAddPrefill } from './data-events';
 import { Toasts } from './toast';
 
 export type NotificationKind =
@@ -14,11 +14,12 @@ export type NotificationKind =
   | 'BudgetOver'
   | 'BudgetNear'
   | 'GoalReached'
-  | 'AiWrites';
+  | 'AiWrites'
+  | 'AllocationDue';
 
 export type NotificationSeverity = 'Info' | 'Warning' | 'Error';
 
-export type NotificationAction = 'confirm' | 'skip';
+export type NotificationAction = 'confirm' | 'skip' | 'record';
 
 /** One thing that needs the owner's attention; computed by the server, gone once resolved. */
 export interface NotificationItem {
@@ -45,6 +46,30 @@ const BROWSER_KEY = 'pf.notifications.browser';
 /** Upper bound for the remembered ids; resolved items are pruned anyway. */
 const MAX_SEEN = 500;
 
+/**
+ * The entry that sets aside what is left of a bucket's allocation: an investment contribution or a savings
+ * movement for the remaining amount, dated today (or the month's last day for a past month).
+ */
+export function allocationPrefill(
+  item: NotificationItem,
+  description: string,
+  today = new Date(),
+): QuickAddPrefill {
+  const month = String(item.args['month']);
+  const [y, m] = month.split('-').map(Number);
+  const current = today.getFullYear() === y && today.getMonth() + 1 === m;
+  const last = new Date(y, m, 0).getDate();
+  return {
+    type: item.args['investment'] ? 'InvestmentContribution' : 'Savings',
+    amount: Number(item.args['remaining']),
+    bucketId: item.targetId,
+    occurredOn: current
+      ? `${y}-${String(m).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+      : `${month}-${String(last).padStart(2, '0')}`,
+    description,
+  };
+}
+
 /** Items the owner has not seen yet. Pure, so the badge logic is testable. */
 export function unseenItems(items: readonly NotificationItem[], seen: ReadonlySet<string>) {
   return items.filter((i) => !seen.has(i.id));
@@ -54,7 +79,10 @@ export function unseenItems(items: readonly NotificationItem[], seen: ReadonlySe
  * Seen ids that still matter: only ids of items that still exist. A resolved item's id is forgotten, so the
  * stored list never grows without bound and a situation that comes back later counts as new.
  */
-export function pruneSeen(seen: ReadonlySet<string>, items: readonly NotificationItem[]): Set<string> {
+export function pruneSeen(
+  seen: ReadonlySet<string>,
+  items: readonly NotificationItem[],
+): Set<string> {
   const current = new Set(items.map((i) => i.id));
   return new Set([...seen].filter((id) => current.has(id)).slice(-MAX_SEEN));
 }
@@ -99,6 +127,7 @@ export class Notifications {
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
   private readonly zone = inject(NgZone);
+  private readonly quickAdd = inject(QuickAdd);
 
   readonly items = signal<NotificationItem[]>([]);
   readonly loaded = signal(false);
@@ -183,14 +212,25 @@ export class Notifications {
   /** Confirm or skip a recurring item, or confirm an interest estimate, straight from the list. */
   async act(item: NotificationItem, action: NotificationAction) {
     if (!item.targetId || this.busy().has(item.id)) return;
+    if (item.kind === 'AllocationDue' && action === 'record') {
+      this.quickAdd.addWith(
+        allocationPrefill(
+          item,
+          this.i18n.instant('allocation.entryDescription', { bucket: item.args['bucket'] }),
+        ),
+      );
+      return;
+    }
     const request: Observable<unknown> | null =
-      item.kind === 'RecurringDue'
-        ? action === 'confirm'
-          ? this.api.confirmExpected(item.targetId)
-          : this.api.skipExpected(item.targetId)
-        : item.kind === 'InterestToReconcile' && action === 'confirm'
-          ? this.api.reconcileInterest(item.targetId)
-          : null;
+      item.kind === 'AllocationDue' && action === 'skip'
+        ? this.api.setAllocationCheck(String(item.args['month']), item.targetId, 'NotApplicable')
+        : item.kind === 'RecurringDue'
+          ? action === 'confirm'
+            ? this.api.confirmExpected(item.targetId)
+            : this.api.skipExpected(item.targetId)
+          : item.kind === 'InterestToReconcile' && action === 'confirm'
+            ? this.api.reconcileInterest(item.targetId)
+            : null;
     if (!request) return;
 
     const before = this.items();
@@ -231,11 +271,17 @@ export class Notifications {
   }
 
   /** Text for one item: [title, detail]. Shared by the list and the browser alert. */
-  describe(item: NotificationItem, format: (key: string, params?: object) => string): [string, string] {
+  describe(
+    item: NotificationItem,
+    format: (key: string, params?: object) => string,
+  ): [string, string] {
     const a = item.args;
     switch (item.kind) {
       case 'RecurringDue':
-        return [String(a['name'] ?? ''), format(a['overdue'] ? 'notifications.overdue' : 'notifications.dueToday')];
+        return [
+          String(a['name'] ?? ''),
+          format(a['overdue'] ? 'notifications.overdue' : 'notifications.dueToday'),
+        ];
       case 'InterestToReconcile':
         return [
           format('notifications.interestTitle', { account: a['account'] }),
@@ -251,11 +297,21 @@ export class Notifications {
       case 'BudgetNear':
         return [format('notifications.budgetNear', { category: a['category'] }), ''];
       case 'GoalReached':
-        return [format('notifications.goalReached', { name: a['name'] }), format('notifications.goalDetail')];
+        return [
+          format('notifications.goalReached', { name: a['name'] }),
+          format('notifications.goalDetail'),
+        ];
       case 'AiWrites':
         return [
           format('notifications.aiWrites', { client: a['client'], count: a['count'] }),
           format('notifications.aiDetail'),
+        ];
+      case 'AllocationDue':
+        return [
+          format(a['partial'] ? 'notifications.allocationPartial' : 'notifications.allocationDue', {
+            bucket: a['bucket'],
+          }),
+          format('notifications.allocationDetail'),
         ];
     }
   }

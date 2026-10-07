@@ -10,6 +10,7 @@ import {
   NotificationItem,
   Notifications,
   NotificationsResponse,
+  allocationPrefill,
   arrivals,
   pruneSeen,
   unseenItems,
@@ -49,6 +50,34 @@ describe('notification seen logic', () => {
   });
 });
 
+describe('allocation prefill', () => {
+  const due = (month: string, investment: boolean) =>
+    item(`allocation:${month}:b1:Partial`, {
+      kind: 'AllocationDue',
+      targetId: 'b1',
+      args: { bucket: 'ETFs', investment, month, remaining: 179.6, target: 300, partial: true },
+      actions: ['record', 'skip'],
+    });
+
+  it('records what is left of an investment bucket today', () => {
+    expect(
+      allocationPrefill(due('2026-10', true), 'Allocation: ETFs', new Date(2026, 9, 6)),
+    ).toEqual({
+      type: 'InvestmentContribution',
+      amount: 179.6,
+      bucketId: 'b1',
+      occurredOn: '2026-10-06',
+      description: 'Allocation: ETFs',
+    });
+  });
+
+  it("dates a past month's savings on its last day", () => {
+    const p = allocationPrefill(due('2026-09', false), 'x', new Date(2026, 9, 6));
+    expect(p.type).toBe('Savings');
+    expect(p.occurredOn).toBe('2026-09-30');
+  });
+});
+
 describe('Notifications', () => {
   let http: HttpTestingController;
   let service: Notifications;
@@ -77,7 +106,14 @@ describe('Notifications', () => {
 
   it('badges unseen items, clears on open and remembers it across reloads', async () => {
     service.start();
-    respond([item('recurring:a'), item('broker:x:needsAttention:0', { severity: 'Error', kind: 'BrokerAttention', actions: [] })]);
+    respond([
+      item('recurring:a'),
+      item('broker:x:needsAttention:0', {
+        severity: 'Error',
+        kind: 'BrokerAttention',
+        actions: [],
+      }),
+    ]);
     await settle();
     expect(service.unseenCount()).toBe(2);
     expect(service.hasError()).toBe(true);
@@ -131,7 +167,9 @@ describe('Notifications', () => {
 
     const done = service.act(service.items()[0], 'skip');
     expect(service.items()).toEqual([]);
-    http.expectOne('/api/expected/a/skip').flush({ title: 'Already resolved' }, { status: 409, statusText: 'Conflict' });
+    http
+      .expectOne('/api/expected/a/skip')
+      .flush({ title: 'Already resolved' }, { status: 409, statusText: 'Conflict' });
     await done;
     expect(service.items().map((i) => i.id)).toEqual(['recurring:a']);
   });
@@ -147,4 +185,3 @@ describe('Notifications', () => {
     respond([]);
   });
 });
-
