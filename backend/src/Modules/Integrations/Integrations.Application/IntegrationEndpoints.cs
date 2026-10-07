@@ -59,6 +59,11 @@ public static class IntegrationEndpoints
             new("token", "Flex Web Service token", true, true, null),
             new("queryId", "Activity Flex Query ID", false, true, null),
         ], "Client Portal → Performance & Reports → Flex Queries. Create the Activity query described in docs/broker-integrations.md, enable Flex Web Service, restrict the token to your IP and set its expiry."),
+        new(BrokerKind.Binance, "Binance",
+        [
+            new("apiKey", "API key", false, true, null),
+            new("apiSecret", "Secret key", true, true, "Shown once when the key is created."),
+        ], "Binance → Account → API Management → Create API (system generated). Leave only \"Enable Reading\" ticked — a key that can trade, transfer or withdraw is refused — and restrict access to your home IP."),
         new(BrokerKind.Demo, "Demo broker (fictitious data)",
         [
             new("profile", "Profile", false, false, "a or b — both hold the same ETF to show consolidation; c has no valuation history, like Trading 212"),

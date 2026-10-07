@@ -30,7 +30,7 @@ public static class SyncSchedule
         var success = lastSuccess ?? DateTimeOffset.MinValue;
         return kind switch
         {
-            BrokerKind.Trading212 => now - success > TimeSpan.FromHours(4),
+            BrokerKind.Trading212 or BrokerKind.Binance => now - success > TimeSpan.FromHours(4),
             // Flex data is end-of-day: one run per day, after 06:00 UTC.
             BrokerKind.InteractiveBrokers => now.Hour >= 6 && success.UtcDateTime.Date < now.UtcDateTime.Date,
             _ => now - success > TimeSpan.FromHours(24),

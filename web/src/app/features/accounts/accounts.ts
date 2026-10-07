@@ -473,6 +473,7 @@ export class AccountsComponent {
     const institution = a.institution ?? '';
     if (institution.startsWith('Trading 212')) return 'Trading212';
     if (institution.startsWith('Interactive Brokers')) return 'InteractiveBrokers';
+    if (institution.startsWith('Binance')) return 'Binance';
     if (institution.startsWith('Manual')) return 'Manual';
     return null;
   }

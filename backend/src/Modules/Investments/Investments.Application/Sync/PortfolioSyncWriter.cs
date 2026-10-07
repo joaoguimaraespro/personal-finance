@@ -25,9 +25,13 @@ public sealed class PortfolioSyncWriter(IInvestmentsDb db, FxRates fx, TimeProvi
 
         // Same ISIN at another broker → same security; that is what makes the consolidated view work.
         var isin = report.Isin?.Trim().ToUpperInvariant();
-        var security = isin is null
-            ? null
-            : await db.Securities.FirstOrDefaultAsync(s => s.Isin == isin, ct);
+        // Coins have no ISIN: the same symbol is the same coin, so a Binance BTC joins a hand-entered BTC.
+        var security = isin is not null
+            ? await db.Securities.FirstOrDefaultAsync(s => s.Isin == isin, ct)
+            : report.AssetClass == AssetClass.Crypto
+                ? await db.Securities.FirstOrDefaultAsync(s => s.Isin == null && s.AssetClass == AssetClass.Crypto &&
+                                                               s.Symbol == report.Symbol.ToUpper(), ct)
+                : null;
         if (security is null)
         {
             security = Security.Create(isin, report.Symbol, report.Exchange, report.Name, report.Currency,

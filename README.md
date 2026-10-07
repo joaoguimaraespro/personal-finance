@@ -34,7 +34,7 @@ monthly checklist — and rebuilds it on a database.
 | **Recurring** | Salary, rent, subscriptions propose *expected* transactions; nothing is booked until you confirm, edit or skip. |
 | **Goals** | Emergency fund, trips, house deposit — progress from linked savings, monthly amount needed. |
 | **Excel migration** | Analyze → map → validate → preview → import → undo. Reconciles every month against the workbook's own totals to the cent before anything is written. Idempotent re-imports. |
-| **Investments** | Read-only sync from Trading 212 (Public API + CSV) and Interactive Brokers (Flex Web Service). Consolidated portfolio by ISIN with per-broker holdings, allocation vs target, dividends with withholding tax, TWR and XIRR, net worth history. [Setup](docs/broker-integrations.md). |
+| **Investments** | Read-only sync from Trading 212 (Public API + CSV), Interactive Brokers (Flex Web Service) and Binance (spot + Simple Earn, with Earn rewards as income; the key is checked to be read-only). Consolidated portfolio by ISIN with per-broker holdings, allocation vs target, dividends with withholding tax, TWR and XIRR, net worth history. [Setup](docs/broker-integrations.md). |
 | **Export** | Real .xlsx (Excel tables, native charts, schema-validated), CSV per dataset (Excel-PT dialect), complete JSON archive with restore. |
 | **AI** | MCP server for Claude Code / ChatGPT / local models and an optional in-app assistant, both behind a policy gateway: per-client revocable tokens, explicit scopes, question-specific minimal answers, untrusted-text wrapping, audit. Read-only by default; opt-in, audited write tools with a 30-day recycle bin. [Details](docs/ai.md). |
 | **Security** | Single owner, mandatory TOTP MFA, CSRF protection, rate limiting, encrypted identifiers, least-privilege database roles, VPN-only exposure, encrypted backups. |
@@ -214,6 +214,7 @@ cd web && npm test                # frontend unit tests
 - [x] Phase 7–8 — Read-only MCP server behind an AI policy gateway
 - [x] Phase 9 — In-app assistant through the same gateway
 - [x] Phase 10 — Opt-in AI write tools with a 30-day recycle bin ([ADR-0008](docs/adr/0008-ai-write-access.md))
+- [x] Phase 11 — Binance spot + Simple Earn through a key verified as read-only ([ADR-0009](docs/adr/0009-binance-read-only-key.md))
 
 ## Tech
 

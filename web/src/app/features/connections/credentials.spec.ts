@@ -39,6 +39,13 @@ describe('validateCredentials', () => {
     ]);
   });
 
+  it('checks a Binance key and secret like a Trading 212 one', () => {
+    expect(validateCredentials('Binance', { apiKey: 'k', apiSecret: 's' })).toEqual([]);
+    expect(validateCredentials('Binance', { apiKey: 'same', apiSecret: 'same' })).toEqual([
+      { key: 'apiSecret', message: 'connections.validation.binanceSameValue' },
+    ]);
+  });
+
   it('has no rules for the demo broker', () => {
     expect(validateCredentials('Demo', {})).toEqual([]);
   });
@@ -65,6 +72,14 @@ describe('friendlyError', () => {
     ],
   ])('explains %s', (message, key) => {
     expect(friendlyError(message)).toBe(`connections.errors.${key}`);
+  });
+
+  it('explains a Binance key that can do more than read', () => {
+    expect(
+      friendlyError(
+        'This Binance API key can do more than read (withdrawals). Create a key with only "Enable Reading" and update the connection.',
+      ),
+    ).toBe('connections.errors.binanceNotReadOnly');
   });
 
   it('leaves unknown errors alone', () => {

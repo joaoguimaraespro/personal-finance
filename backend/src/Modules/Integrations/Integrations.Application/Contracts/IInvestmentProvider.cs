@@ -23,6 +23,7 @@ public enum BrokerKind
 {
     Trading212 = 0,
     InteractiveBrokers = 1,
+    Binance = 2,
     Demo = 99,
 }
 

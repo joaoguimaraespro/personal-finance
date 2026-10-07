@@ -18,7 +18,7 @@ export function validateCredentials(kind: Broker, fields: Record<string, string>
     if (!ok) problems.push({ key, message: `connections.validation.${message}` });
   };
 
-  if (kind === 'Trading212') {
+  if (kind === 'Trading212' || kind === 'Binance') {
     const key = value('apiKey');
     const secret = value('apiSecret');
     // Checks run in form order so the first problem is the first field to fix.
@@ -26,7 +26,8 @@ export function validateCredentials(kind: Broker, fields: Record<string, string>
     check('apiKey', !/\s/.test(key), 'noSpaces');
     check('apiSecret', secret.length > 0, 'required');
     check('apiSecret', !/\s/.test(secret), 'noSpaces');
-    if (key && secret) check('apiSecret', key !== secret, 't212SameValue');
+    if (key && secret)
+      check('apiSecret', key !== secret, kind === 'Binance' ? 'binanceSameValue' : 't212SameValue');
   } else if (kind === 'InteractiveBrokers') {
     const token = value('token');
     const queryId = value('queryId');
@@ -58,6 +59,11 @@ export function friendlyError(message: string | null | undefined): string | null
     [/Flex token is invalid/i, 'ibkrToken'],
     [/no statement for the requested period/i, 'ibkrNoStatement'],
     [/too many failed attempts|Flex error 1025/i, 'ibkrLocked'],
+    [/Binance API key can do more than read/i, 'binanceNotReadOnly'],
+    [/Binance API key cannot read/i, 'binanceNoReading'],
+    [/Binance rejected the API key/i, 'binanceUnauthorized'],
+    [/Binance rate limit/i, 'binanceRateLimited'],
+    [/Binance rejected the request time/i, 'binanceClock'],
   ];
   const hit = rules.find(([pattern]) => pattern.test(message));
   return hit ? `connections.errors.${hit[1]}` : null;

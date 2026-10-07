@@ -12,6 +12,7 @@ public enum DataSource
     Json = 4,
     Trading212 = 10,
     InteractiveBrokers = 11,
+    Binance = 12,
 
     /// <summary>Public end-of-day closing prices from the configured market-data provider (never account data).</summary>
     MarketData = 20,

@@ -159,9 +159,38 @@ fails because of it. **Only ISINs, listing symbols and date ranges leave the ser
 values or account data. The Yahoo endpoints are unofficial and may change or be rate limited; set
 `none` if you prefer no third-party requests.
 
+## Binance — Spot and Simple Earn (read-only key)
+
+Binance is the one exchange that can be connected, because its API keys can be made read-only and the app can check
+that they are. Everything else (other exchanges, hardware wallets) is [entered by hand](#crypto-entered-by-hand).
+
+1. Binance → *Account → API Management → Create API → System generated*. Leave **only "Enable Reading"** ticked
+   (no spot/margin trading, futures, options, transfers or withdrawals) and restrict access to your home IP.
+2. *Connections → Add connection → Binance*: paste the API Key and Secret Key.
+
+- **Read-only by construction** ([ADR-0009](adr/0009-binance-read-only-key.md)). Before reading anything, each sync
+  asks Binance what the key may do (`GET /sapi/v1/account/apiRestrictions`) and refuses a key that can trade,
+  transfer or withdraw. The HTTP client is allow-listed to `GET` requests on the account, Simple Earn positions and
+  rewards, fill history, prices and daily candles; an order, convert, redeem, transfer or withdrawal request is
+  blocked before it leaves the process. Requests are signed (HMAC-SHA256) and the secret is stored encrypted like
+  the other brokers' credentials.
+- **Positions.** One position per coin: spot balance + flexible Earn + locked Earn, valued in EUR at Binance's
+  price (the EUR pair, else the USDT/USDC/FDUSD pair converted with EURUSDT). EUR balances are the account's cash.
+  Coins Binance cannot price in EUR or dollars are skipped. A coin held both on Binance and by hand is one position
+  line (coins have no ISIN, so the symbol identifies them).
+- **Cost.** The average buy price comes from the account's fills on EUR and dollar-stablecoin pairs (moving average;
+  dollar fills converted at that day's EURUSDT close). Coins that were never bought there (deposited, converted or
+  earned) have no known cost: they are valued from the first sync on, without a gain.
+- **Earn rewards** (flexible real-time APR, bonus tiers, locked rewards) are income, like dividends: one entry per
+  reward, valued at the coin's EUR close of that day, under *Dividends & rewards*. The first sync reads the last
+  180 days; later syncs read from the previous one, and the external id
+  (`binance:earn:<product>:<coin>:<time>:<amount>`) keeps re-syncs from counting a reward twice.
+- **Not imported.** Individual trades and deposits/withdrawals (dollar-quoted pairs do not map to the ledger's
+  currencies) and other Earn products (dual investment, launchpool). Sync every 4 hours, like Trading 212.
+
 ## Crypto entered by hand
 
-Coins held on an exchange or in a wallet are **never connected**: *Portfolio → Add crypto* records the coin,
+Coins held elsewhere — another exchange or a wallet — are **not connected**: *Portfolio → Add crypto* records the coin,
 quantity, average buy price (EUR), where it is held (free text, e.g. *Binance*, *Ledger*), an optional "held since"
 date and notes. The app prices it itself.
 

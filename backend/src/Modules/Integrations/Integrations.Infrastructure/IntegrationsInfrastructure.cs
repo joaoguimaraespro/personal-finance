@@ -3,6 +3,7 @@ using Integrations.Application;
 using Integrations.Application.Contracts;
 using Integrations.Application.Instruments;
 using Integrations.Application.Sync;
+using Integrations.Infrastructure.Binance;
 using Integrations.Infrastructure.Demo;
 using Integrations.Infrastructure.Ibkr;
 using Integrations.Infrastructure.Persistence;
@@ -30,8 +31,8 @@ internal sealed class InvestmentProviderFactory(IServiceProvider services, IConf
     : IInvestmentProviderFactory
 {
     public IReadOnlySet<BrokerKind> Available { get; } = config.GetValue<bool>("Integrations:EnableDemo")
-        ? new HashSet<BrokerKind> { BrokerKind.Trading212, BrokerKind.InteractiveBrokers, BrokerKind.Demo }
-        : new HashSet<BrokerKind> { BrokerKind.Trading212, BrokerKind.InteractiveBrokers };
+        ? new HashSet<BrokerKind> { BrokerKind.Trading212, BrokerKind.InteractiveBrokers, BrokerKind.Binance, BrokerKind.Demo }
+        : new HashSet<BrokerKind> { BrokerKind.Trading212, BrokerKind.InteractiveBrokers, BrokerKind.Binance };
 
     public IInvestmentProvider Create(BrokerKind kind, IReadOnlyDictionary<string, string> credentials)
     {
@@ -50,6 +51,8 @@ internal sealed class InvestmentProviderFactory(IServiceProvider services, IConf
                 .Configure(Required("apiKey"), Required("apiSecret"), credentials.GetValueOrDefault("environment") == "demo")),
             BrokerKind.InteractiveBrokers => new IbkrFlexProvider(services.GetRequiredService<FlexClient>(),
                 Required("token"), Required("queryId"), config.GetValue("Integrations:Ibkr:BackfillYears", 5), clock),
+            BrokerKind.Binance => new BinanceProvider(services.GetRequiredService<BinanceClient>()
+                .Configure(Required("apiKey"), Required("apiSecret")), clock),
             _ => new DemoProvider(credentials.GetValueOrDefault("profile") switch { "b" => "b", "c" => "c", _ => "a" },
                 clock),
         };
@@ -90,6 +93,12 @@ public static class IntegrationsInfrastructure
                 c.DefaultRequestHeaders.UserAgent.ParseAdd("personal-finance/1.0");
             })
             .AddHttpMessageHandler(() => new AllowListHttpHandler(FlexClient.AllowList()));
+        services.AddHttpClient<BinanceClient>(c =>
+            {
+                c.Timeout = TimeSpan.FromSeconds(60);
+                c.DefaultRequestHeaders.UserAgent.ParseAdd("personal-finance/1.0");
+            })
+            .AddHttpMessageHandler(() => new AllowListHttpHandler(BinanceClient.AllowList()));
         return services;
     }
 }
