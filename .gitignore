@@ -10,6 +10,7 @@ coverage*/
 node_modules/
 web/dist/
 web/.angular/
+.angular/
 web/coverage/
 web/playwright-report/
 web/test-results/
@@ -27,6 +28,9 @@ backups/
 # Windows install: launcher/backup logs and the app window's browser profile (deploy/windows)
 logs/
 browser-profile/
+# macOS/Linux install: launcher/backup locks (deploy/desktop)
+.launcher.lock/
+.backup.lock/
 *.dump
 *.sql.gz
 # Real spreadsheets never enter git; only synthetic fixtures do
