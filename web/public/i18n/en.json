@@ -631,7 +631,7 @@
   "confirmDelete": "Delete the connection \"{{name}}\"? Its credentials are erased immediately.",
   "confirmPurge": "Also delete all data imported from it? (Cancel keeps the history.)",
   "emptyTitle": "Connect your first broker",
-  "emptyBody": "Links are read-only: they import holdings, trades, dividends and cash movements, and can never place orders or move money. Follow the guide below — it takes about five minutes.",
+  "emptyBody": "Links are read-only: they import holdings, trades, dividends and cash movements, and can never place orders or move money. Pick your broker below: a step-by-step guide opens with the form — it takes about five minutes.",
   "checking": "Checking connection…",
   "setupGuide": "Where do I find these? Step-by-step guide",
   "fixHint": "How to fix it",
@@ -659,6 +659,16 @@
    "profile": {
     "label": "Profile",
     "hint": "a or b — both hold the same ETF to show consolidation."
+   },
+   "Binance": {
+    "apiKey": {
+     "label": "API Key",
+     "hint": "From Binance → API Management, next to the key."
+    },
+    "apiSecret": {
+     "label": "Secret Key",
+     "hint": "Shown once, right after the key is created."
+    }
    }
   },
   "env": {
@@ -722,7 +732,7 @@
      },
      "6": {
       "title": "Paste them here",
-      "body": "Click <strong>+ Trading 212</strong>, paste the key and secret, keep <strong>Live</strong> and save. The first sync starts right away; if something is wrong the card tells you what to fix."
+      "body": "Paste the key and secret in the form below, keep <strong>Live</strong> and save. The first sync starts right away; if something is wrong the card tells you what to fix."
      }
     },
     "onTitle": "Switch ON",
@@ -769,7 +779,7 @@
      },
      "7": {
       "title": "Paste them here",
-      "body": "Click <strong>+ Interactive Brokers</strong>, paste the token and the query ID and enter the token's expiry date. The first sync backfills several years and can take a few minutes."
+      "body": "Paste the token and the query ID in the form below and enter the token's expiry date. The first sync backfills several years and can take a few minutes."
      }
     },
     "onTitle": "Sections to include",
@@ -812,7 +822,7 @@
      },
      "6": {
       "title": "Paste them here",
-      "body": "Click <strong>+ Binance</strong>, paste the API Key and the Secret Key and save. The first sync reads your spot and Earn balances and the last 180 days of Earn rewards."
+      "body": "Paste the API Key and the Secret Key in the form below and save. The first sync reads your spot and Earn balances and the last 180 days of Earn rewards."
      }
     },
     "onTitle": "Keep ON",

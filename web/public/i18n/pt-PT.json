@@ -631,7 +631,7 @@
   "confirmDelete": "Eliminar a ligação \"{{name}}\"? As credenciais são apagadas de imediato.",
   "confirmPurge": "Apagar também todos os dados importados? (Cancelar mantém o histórico.)",
   "emptyTitle": "Liga a tua primeira corretora",
-  "emptyBody": "As ligações são só de leitura: importam posições, negócios, dividendos e movimentos de caixa, e nunca podem dar ordens nem mover dinheiro. Segue o guia abaixo — demora cerca de cinco minutos.",
+  "emptyBody": "As ligações são só de leitura: importam posições, negócios, dividendos e movimentos de caixa, e nunca podem dar ordens nem mover dinheiro. Escolhe a tua corretora abaixo: o guia passo a passo abre com o formulário — demora cerca de cinco minutos.",
   "checking": "A verificar a ligação…",
   "setupGuide": "Onde encontro isto? Guia passo a passo",
   "fixHint": "Como resolver",
@@ -659,6 +659,16 @@
    "profile": {
     "label": "Perfil",
     "hint": "a ou b — ambos têm o mesmo ETF para mostrar a consolidação."
+   },
+   "Binance": {
+    "apiKey": {
+     "label": "API Key",
+     "hint": "Na Binance → Gestão de API, junto à chave."
+    },
+    "apiSecret": {
+     "label": "Secret Key",
+     "hint": "Mostrada uma só vez, logo após criares a chave."
+    }
    }
   },
   "env": {
@@ -722,7 +732,7 @@
      },
      "6": {
       "title": "Cola-os aqui",
-      "body": "Clica em <strong>+ Trading 212</strong>, cola a chave e o segredo, mantém <strong>Real</strong> e guarda. A primeira sincronização começa logo; se algo estiver mal, o cartão diz-te o que corrigir."
+      "body": "Cola a chave e o segredo no formulário abaixo, mantém <strong>Real</strong> e guarda. A primeira sincronização começa logo; se algo estiver mal, o cartão diz-te o que corrigir."
      }
     },
     "onTitle": "ATIVAR",
@@ -769,7 +779,7 @@
      },
      "7": {
       "title": "Cola-os aqui",
-      "body": "Clica em <strong>+ Interactive Brokers</strong>, cola o token e o ID da query e indica a data de expiração do token. A primeira sincronização importa vários anos e pode demorar alguns minutos."
+      "body": "Cola o token e o ID da query no formulário abaixo e indica a data de expiração do token. A primeira sincronização importa vários anos e pode demorar alguns minutos."
      }
     },
     "onTitle": "Secções a incluir",
@@ -791,33 +801,33 @@
     "intro": "A Binance liga-se com uma chave API que só pode ler. Antes de cada sincronização a app pergunta à Binance o que a chave pode fazer e recusa-a se puder negociar, transferir ou levantar.",
     "steps": {
      "1": {
-      "title": "Confirme que pode criar chaves API",
-      "body": "A Binance só cria chaves API numa conta <strong>verificada</strong> e com <strong>autenticação de dois fatores</strong> ativa. Use o site (binance.com) — para isto é mais simples do que a app."
+      "title": "Confirma que podes criar chaves API",
+      "body": "A Binance só cria chaves API numa conta <strong>verificada</strong> e com <strong>autenticação de dois fatores</strong> ativa. Usa o site (binance.com) — para isto é mais simples do que a app."
      },
      "2": {
-      "title": "Crie a chave",
-      "body": "Vá a <strong>Perfil → Conta → Gestão de API → Criar API</strong>, escolha <strong>Gerada pelo sistema</strong>, dê-lhe um nome, p. ex. <code>personal-finance</code>, e confirme com 2FA."
+      "title": "Cria a chave",
+      "body": "Vai a <strong>Perfil → Conta → Gestão de API → Criar API</strong>, escolhe <strong>Gerada pelo sistema</strong>, dá-lhe um nome, p. ex. <code>personal-finance</code>, e confirma com 2FA."
      },
      "3": {
-      "title": "Deixe só a leitura ligada",
-      "body": "Clique em <strong>Editar restrições</strong>. Mantenha <strong>Enable Reading</strong> ativo e tudo o resto desligado. Uma chave com qualquer outra permissão é recusada pela app."
+      "title": "Deixa só a leitura ligada",
+      "body": "Clica em <strong>Editar restrições</strong>. Mantém <strong>Enable Reading</strong> ativo e tudo o resto desligado. Uma chave com qualquer outra permissão é recusada pela app."
      },
      "4": {
-      "title": "Restrinja-a ao seu IP",
-      "body": "Escolha <strong>Restringir o acesso apenas a IPs de confiança</strong> e indique o IP público do servidor (no servidor: <code>curl -4 ifconfig.me</code>). Guarde — a Binance volta a pedir 2FA."
+      "title": "Restringe-a ao teu IP",
+      "body": "Escolhe <strong>Restringir o acesso apenas a IPs de confiança</strong> e indica o IP público do servidor (no servidor: <code>curl -4 ifconfig.me</code>). Guarda — a Binance volta a pedir 2FA."
      },
      "5": {
-      "title": "Copie a API Key e a Secret Key",
-      "body": "A <strong>Secret Key</strong> só aparece <strong>uma vez</strong>, logo a seguir a criar a chave. Copie as duas agora; se perder o segredo, apague a chave e crie outra."
+      "title": "Copia a API Key e a Secret Key",
+      "body": "A <strong>Secret Key</strong> só aparece <strong>uma vez</strong>, logo a seguir a criares a chave. Copia as duas agora; se perderes o segredo, apaga a chave e cria outra."
      },
      "6": {
-      "title": "Cole-as aqui",
-      "body": "Clique em <strong>+ Binance</strong>, cole a API Key e a Secret Key e guarde. A primeira sincronização lê os saldos spot e Earn e as recompensas Earn dos últimos 180 dias."
+      "title": "Cola-as aqui",
+      "body": "Cola a API Key e a Secret Key no formulário abaixo e guarda. A primeira sincronização lê os saldos spot e Earn e as recompensas Earn dos últimos 180 dias."
      }
     },
     "onTitle": "Manter LIGADO",
     "on": {
-     "1": "<strong>Enable Reading</strong> — saldos, posições e recompensas Simple Earn, as suas execuções (para o preço médio)"
+     "1": "<strong>Enable Reading</strong> — saldos, posições e recompensas Simple Earn, as tuas execuções (para o preço médio)"
     },
     "offTitle": "Deixar DESLIGADO",
     "off": {
@@ -827,7 +837,7 @@
      "4": "<strong>Permits Universal Transfer</strong>",
      "5": "<strong>Futures, European Options</strong> e qualquer outra permissão de negociação"
     },
-    "revoke": "Revogue quando quiser: Binance → Gestão de API → Eliminar ao lado da chave. Deixa de funcionar de imediato.",
+    "revoke": "Revoga quando quiseres: Binance → Gestão de API → Eliminar ao lado da chave. Deixa de funcionar de imediato.",
     "csv": "Não há importação de ficheiros da Binance. Moedas noutras exchanges ou numa carteira podem ser adicionadas à mão em Portfólio → Adicionar cripto; a mesma moeda na Binance e à mão aparece como uma só posição."
    }
   },

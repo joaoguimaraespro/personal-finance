@@ -189,11 +189,11 @@ type CredentialField = ProviderInfo['fields'][number];
                 } @else {
                   <p>{{ c.lastError }}</p>
                 }
-                @if (guideFor(c.kind); as g) {
+                @if (guideFor(c.kind)) {
                   <button
                     type="button"
                     class="mt-1 font-medium underline underline-offset-2"
-                    (click)="showGuide(g)"
+                    (click)="fixCredentials(c)"
                   >
                     {{ 'connections.fixHint' | translate }}
                   </button>
@@ -330,57 +330,6 @@ type CredentialField = ProviderInfo['fields'][number];
       }
     </div>
 
-    @if (guideBrokers().length) {
-      <details
-        id="connection-guide"
-        class="card group mt-6"
-        [open]="guideOpen()"
-        (toggle)="guideToggled.set($any($event.target).open)"
-      >
-        <summary
-          class="-m-5 flex cursor-pointer list-none items-center gap-3 rounded-xl p-5 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <span
-            class="bg-primary/10 text-primary dark:bg-primary/20 flex size-9 shrink-0 items-center justify-center rounded-lg"
-            aria-hidden="true"
-          >
-            <ng-icon name="lucideBookOpen" class="text-lg" />
-          </span>
-          <span class="min-w-0 flex-1">
-            <span class="block font-semibold">{{ 'connections.guide.title' | translate }}</span>
-            <span class="block text-sm text-muted-foreground">{{
-              'connections.guide.subtitle' | translate
-            }}</span>
-          </span>
-          <ng-icon
-            name="lucideChevronDown"
-            class="text-muted-foreground shrink-0 transition-transform group-open:rotate-180"
-            aria-hidden="true"
-          />
-        </summary>
-        <div class="mt-8">
-          @if (guideBrokers().length > 1) {
-            <div class="segmented mb-4" role="tablist">
-              @for (b of guideBrokers(); track b) {
-                <button
-                  type="button"
-                  role="tab"
-                  [class.active]="guideKind() === b"
-                  [attr.aria-selected]="guideKind() === b"
-                  (click)="pickedGuide.set(b)"
-                >
-                  <app-broker-logo [broker]="b" [size]="16" class="mr-1.5" />{{
-                    'source.' + b | translate
-                  }}
-                </button>
-              }
-            </div>
-          }
-          <app-broker-guide [kind]="guideKind()" />
-        </div>
-      </details>
-    }
-
     <app-modal
       [open]="!!provider()"
       [title]="provider()?.name ?? ''"
@@ -395,7 +344,13 @@ type CredentialField = ProviderInfo['fields'][number];
           novalidate
         >
           @if (guideFor(p.kind); as g) {
-            <details class="rounded-xl border border-border p-3">
+            <!-- The one place the guide lives: open on a first connection of this broker or when fixing an error. -->
+            <details
+              id="connection-guide"
+              class="rounded-xl border border-border p-3"
+              [open]="guideExpanded()"
+              (toggle)="guideExpanded.set($any($event.target).open)"
+            >
               <summary class="flex cursor-pointer items-center gap-2 text-sm font-medium">
                 <ng-icon name="lucideBookOpen" class="text-primary" aria-hidden="true" />
                 {{ 'connections.setupGuide' | translate }}
@@ -624,19 +579,8 @@ export class ConnectionsComponent implements OnDestroy {
   protected readonly environments = ['live', 'demo'];
   protected readonly friendly = friendlyError;
 
-  /** Brokers with a step-by-step guide, in the order the server lists them. */
-  protected readonly guideBrokers = computed(() =>
-    (this.providers.value() ?? []).map((p) => p.kind).filter((k) => this.isGuided(k)),
-  );
-  protected readonly pickedGuide = signal<GuideBroker | null>(null);
-  protected readonly guideKind = computed(
-    () => this.pickedGuide() ?? this.guideBrokers()[0] ?? 'Trading212',
-  );
-  /** The guide is open until the first broker is connected; afterwards the user decides. */
-  protected readonly guideToggled = signal<boolean | null>(null);
-  protected readonly guideOpen = computed(
-    () => this.guideToggled() ?? (this.connections.value()?.length ?? 0) === 0,
-  );
+  /** The dialog's step-by-step guide: expanded for a broker's first connection and when fixing an error. */
+  protected readonly guideExpanded = signal(false);
 
   ngOnDestroy() {
     clearInterval(this.poll);
@@ -665,22 +609,22 @@ export class ConnectionsComponent implements OnDestroy {
     return this.isGuided(kind) ? kind : null;
   }
 
-  /** Opens the page guide on a broker's tab and scrolls to it (from a connection's error). */
-  protected showGuide(kind: GuideBroker) {
-    this.pickedGuide.set(kind);
-    this.guideToggled.set(true);
-    setTimeout(() =>
-      document.getElementById('connection-guide')?.scrollIntoView({ behavior: 'smooth' }),
-    );
-  }
-
   /** Field labels and hints are translated here; the server's English text is the fallback. */
+  /** A broker's own wording first (two brokers both call a field "apiKey"), then the shared one. */
   protected fieldLabel(f: CredentialField) {
-    return this.translated(`connections.fields.${f.key}.label`) ?? f.label;
+    return this.fieldText(f, 'label') ?? f.label;
   }
 
   protected fieldHint(f: CredentialField) {
-    return this.translated(`connections.fields.${f.key}.hint`) ?? f.hint;
+    return this.fieldText(f, 'hint') ?? f.hint;
+  }
+
+  private fieldText(f: CredentialField, part: 'label' | 'hint') {
+    const kind = this.provider()?.kind;
+    return (
+      (kind ? this.translated(`connections.fields.${kind}.${f.key}.${part}`) : null) ??
+      this.translated(`connections.fields.${f.key}.${part}`)
+    );
   }
 
   private translated(key: string): string | null {
@@ -698,7 +642,25 @@ export class ConnectionsComponent implements OnDestroy {
     this.fields.set({});
     this.problems.set([]);
     this.expires.set('');
+    this.guideExpanded.set(!(this.connections.value() ?? []).some((c) => c.kind === p.kind));
     this.provider.set(p);
+    this.guideToTop();
+  }
+
+  /** The dialog focuses its first field; with the guide open, start reading from step 1 instead. */
+  private guideToTop() {
+    if (!this.guideExpanded()) return;
+    setTimeout(
+      () => document.getElementById('connection-guide')?.scrollIntoView({ block: 'start' }),
+      120,
+    );
+  }
+
+  /** From a connection's error: new credentials, with the guide open to see what to change. */
+  protected fixCredentials(c: Connection) {
+    this.openCredentials(c);
+    this.guideExpanded.set(true);
+    this.guideToTop();
   }
 
   protected openCredentials(c: Connection) {
@@ -708,6 +670,7 @@ export class ConnectionsComponent implements OnDestroy {
     this.fields.set({});
     this.problems.set([]);
     this.expires.set(c.credentialsExpireOn ?? '');
+    this.guideExpanded.set(false);
     this.provider.set(p);
   }
 
