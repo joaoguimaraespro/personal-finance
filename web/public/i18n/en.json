@@ -786,6 +786,49 @@
     "off": {},
     "revoke": "Revoke anytime: Flex Web Service Configuration → Generate A New Token (the old one stops working) or switch the service off.",
     "csv": "IBKR has no CSV import here — the Flex query already delivers the full history. Without a token you can still record trades by hand in Portfolio."
+   },
+   "binance": {
+    "intro": "Binance connects with an API key that can only read. Before every sync the app asks Binance what the key is allowed to do and refuses it if it could trade, transfer or withdraw.",
+    "steps": {
+     "1": {
+      "title": "Make sure API keys are available",
+      "body": "Binance only creates API keys on a <strong>verified</strong> account with <strong>two-factor authentication</strong> on. Use the website (binance.com) — it is easier than the app for this."
+     },
+     "2": {
+      "title": "Create the key",
+      "body": "Go to <strong>Profile → Account → API Management → Create API</strong>, choose <strong>System generated</strong>, name it e.g. <code>personal-finance</code> and confirm with 2FA."
+     },
+     "3": {
+      "title": "Leave only reading on",
+      "body": "Click <strong>Edit restrictions</strong>. Keep <strong>Enable Reading</strong> ticked and everything else off. A key with any other permission is refused by the app."
+     },
+     "4": {
+      "title": "Restrict it to your IP",
+      "body": "Choose <strong>Restrict access to trusted IPs only</strong> and enter your server's public IP (on the server: <code>curl -4 ifconfig.me</code>). Save — Binance asks for 2FA again."
+     },
+     "5": {
+      "title": "Copy the API Key and the Secret Key",
+      "body": "The <strong>Secret Key</strong> is shown <strong>only once</strong>, right after creating the key. Copy both now; if you lose the secret, delete the key and create another."
+     },
+     "6": {
+      "title": "Paste them here",
+      "body": "Click <strong>+ Binance</strong>, paste the API Key and the Secret Key and save. The first sync reads your spot and Earn balances and the last 180 days of Earn rewards."
+     }
+    },
+    "onTitle": "Keep ON",
+    "on": {
+     "1": "<strong>Enable Reading</strong> — balances, Simple Earn positions and rewards, your fills (for the average price)"
+    },
+    "offTitle": "Leave OFF",
+    "off": {
+     "1": "<strong>Enable Spot & Margin Trading</strong>",
+     "2": "<strong>Enable Margin Loan, Repay & Transfer</strong>",
+     "3": "<strong>Enable Withdrawals</strong>",
+     "4": "<strong>Permits Universal Transfer</strong>",
+     "5": "<strong>Futures, European Options</strong> and any other trading permission"
+    },
+    "revoke": "Revoke anytime: Binance → API Management → Delete next to the key. It stops working immediately.",
+    "csv": "There is no Binance file import. Coins on other exchanges or in a wallet can be added by hand in Portfolio → Add crypto; the same coin on Binance and by hand shows as one position."
    }
   },
   "syncing": "Syncing…",

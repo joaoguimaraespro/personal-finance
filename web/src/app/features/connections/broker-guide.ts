@@ -9,7 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCheck, lucideFileSpreadsheet, lucideShieldCheck, lucideX } from '@ng-icons/lucide';
 
-export type GuideBroker = 'Trading212' | 'InteractiveBrokers';
+export type GuideBroker = 'Trading212' | 'InteractiveBrokers' | 'Binance';
 
 interface GuideContent {
   prefix: string;
@@ -23,6 +23,7 @@ interface GuideContent {
 const CONTENT: Record<GuideBroker, GuideContent> = {
   Trading212: { prefix: 'connections.guide.t212', steps: 6, on: 4, off: 2 },
   InteractiveBrokers: { prefix: 'connections.guide.ibkr', steps: 7, on: 7, off: 0 },
+  Binance: { prefix: 'connections.guide.binance', steps: 6, on: 1, off: 5 },
 };
 
 /**

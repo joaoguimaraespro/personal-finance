@@ -658,7 +658,7 @@ export class ConnectionsComponent implements OnDestroy {
   }
 
   protected isGuided(kind: Broker): kind is GuideBroker {
-    return kind === 'Trading212' || kind === 'InteractiveBrokers';
+    return kind === 'Trading212' || kind === 'InteractiveBrokers' || kind === 'Binance';
   }
 
   protected guideFor(kind: Broker): GuideBroker | null {
