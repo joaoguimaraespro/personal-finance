@@ -106,7 +106,7 @@ test('first run → MFA → quick add → dashboards', async ({ page, context })
   await page.locator('#qa-desc').fill('Market and lunch');
   await page.locator('#qa-desc').press('Enter');
   await expect(page.getByText('Transaction saved')).toBeVisible();
-  const splitRow = page.getByRole('row').filter({ hasText: 'Market and lunch' });
+  const splitRow = page.getByRole('listitem').filter({ hasText: 'Market and lunch' });
   await expect(splitRow.getByTestId('split-toggle')).toHaveText(/2 categories/);
   await splitRow.getByTestId('split-toggle').click();
   await expect(splitRow.getByTestId('split-list')).toContainText('Restaurants');

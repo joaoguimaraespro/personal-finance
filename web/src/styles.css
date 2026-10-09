@@ -301,3 +301,10 @@ body {
     display: none !important;
   }
 }
+
+/* Phones: filter rows marked .fold stay hidden until their panel is opened (data-folded="false"). */
+@media (width < 40rem) {
+  [data-folded='true'] > .fold {
+    display: none;
+  }
+}
