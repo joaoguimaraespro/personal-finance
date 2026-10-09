@@ -51,7 +51,8 @@ public sealed class Category : Entity
     public static Category CreateCustom(string name, CategoryType type, ExpenseNature? nature, Guid? parentId,
         string? color, string? icon) => new()
     {
-        Key = "custom-" + Guid.CreateVersion7().ToString("N")[..12],
+        // Random, not v7: a v7 GUID starts with the timestamp, so two created in the same millisecond collided.
+        Key = "custom-" + Guid.NewGuid().ToString("N")[..12],
         Name = name.Trim(),
         Type = type,
         DefaultNature = type == CategoryType.Expense ? nature ?? ExpenseNature.Variable : null,

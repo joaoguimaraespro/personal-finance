@@ -2,6 +2,7 @@ using System.Web;
 using Integrations.Application.Contracts;
 using Integrations.Infrastructure;
 using Integrations.Infrastructure.Binance;
+using Investments.Application.Sync;
 using Investments.Domain;
 using SharedKernel.Http;
 
@@ -36,6 +37,8 @@ public sealed class BinanceTests
 
     private static string Empty => """{"rows":[],"total":0}""";
 
+    private static string FiatEmpty => """{"code":"000000","data":[],"total":0}""";
+
     private static (BinanceProvider Provider, ScriptedHandler Http) Provider(string restrictions = ReadOnlyKey)
     {
         var http = new ScriptedHandler()
@@ -64,7 +67,24 @@ public sealed class BinanceTests
             .On("/sapi/v1/simple-earn/flexible/history/rewardsRecord?type=REWARDS", Empty)
             .On("/sapi/v1/simple-earn/locked/history/rewardsRecord",
                 $$"""{"rows":[{"positionId":7,"time":{{Ms(9, 21)}},"asset":"ETH","lockPeriod":"30","amount":"0.01","type":"Locked Rewards"}],"total":1}""")
-            .On("/sapi/v1/simple-earn/locked/history/rewardsRecord", Empty);
+            .On("/sapi/v1/simple-earn/locked/history/rewardsRecord", Empty)
+            // Fiat in and out: one SEPA deposit, one card purchase (and one that failed), one withdrawal.
+            .On("/sapi/v1/fiat/orders?transactionType=0", $$"""
+                {"code":"000000","message":"success","data":[{"orderNo":"D1","fiatCurrency":"EUR","indicatedAmount":"500.00",
+                 "amount":"500.00","totalFee":"0.00","method":"SEPA","status":"Successful","createTime":{{Ms(9, 1)}}}],"total":1,"success":true}
+                """)
+            .On("/sapi/v1/fiat/orders?transactionType=0", FiatEmpty)
+            .On("/sapi/v1/fiat/orders?transactionType=1", $$"""
+                {"code":"000000","data":[{"orderNo":"W1","fiatCurrency":"EUR","indicatedAmount":"50.00","amount":"49.00",
+                 "method":"SEPA","status":"Successful","createTime":{{Ms(9, 5)}}}],"total":1}
+                """)
+            .On("/sapi/v1/fiat/orders?transactionType=1", FiatEmpty)
+            .On("/sapi/v1/fiat/payments", $$"""
+                {"code":"000000","data":[
+                 {"orderNo":"P1","sourceAmount":"100.00","fiatCurrency":"EUR","obtainAmount":"0.0016","cryptoCurrency":"BTC","status":"Completed","createTime":{{Ms(9, 10)}}},
+                 {"orderNo":"P2","sourceAmount":"80.00","fiatCurrency":"EUR","obtainAmount":"0.0012","cryptoCurrency":"BTC","status":"Failed","createTime":{{Ms(9, 11)}}}],"total":2}
+                """)
+            .On("/sapi/v1/fiat/payments", FiatEmpty);
         var guard = new AllowListHttpHandler(BinanceClient.AllowList()) { InnerHandler = http };
         var clock = new InstantTimeProvider();
         var client = new BinanceClient(new HttpClient(guard), new RateGate(clock), clock).Configure("key", "secret");
@@ -124,6 +144,22 @@ public sealed class BinanceTests
         var (again, _) = Provider();
         (await again.GetDividendsAsync(null, CancellationToken.None)).Select(r => r.ExternalId)
             .ShouldBe(rewards.Select(r => r.ExternalId), ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task Fiat_deposits_card_purchases_and_withdrawals_are_the_accounts_flows()
+    {
+        var (provider, _) = Provider();
+
+        var flows = (await provider.GetTransactionsAsync(null, CancellationToken.None)).Select(t => t.Cash!).ToList();
+
+        flows.Select(f => (f.ExternalId, f.Type, f.Amount)).ShouldBe(
+        [
+            ("binance:fiat:deposit:D1", CashMovementType.Deposit, 500m),
+            ("binance:fiat:withdrawal:W1", CashMovementType.Withdrawal, -50m), // what was sent out, before fees
+            ("binance:fiat:purchase:P1", CashMovementType.Deposit, 100m),       // the failed card payment is not money in
+        ], ignoreOrder: true);
+        flows.ShouldAllBe(f => f.Currency == "EUR");
     }
 
     [Theory]

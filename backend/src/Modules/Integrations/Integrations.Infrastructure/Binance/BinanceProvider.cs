@@ -65,9 +65,57 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
         return positions;
     }
 
-    /// <summary>Fills only set the cost of each position; they are not reported as trades (dollar pairs).</summary>
-    public Task<IReadOnlyList<InvestmentTransaction>> GetTransactionsAsync(DateTimeOffset? since, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<InvestmentTransaction>>([]);
+    /// <summary>
+    /// Money in and out in fiat: bank/card deposits, crypto bought directly with fiat, and fiat withdrawals. They are the
+    /// account's external flows (returns, and deposits that count towards a linked allocation bucket). Fills only set
+    /// the cost of each position and are not reported as trades (dollar pairs do not map to the ledger's currencies).
+    /// </summary>
+    public async Task<IReadOnlyList<InvestmentTransaction>> GetTransactionsAsync(DateTimeOffset? since,
+        CancellationToken ct)
+    {
+        await HoldingsAsync(ct); // the read-only key check runs before anything else is read
+        var now = clock.GetUtcNow();
+        var movements = new List<CashMovementReport>();
+        for (var start = since ?? now.AddDays(-FirstSyncDays); start < now; start = start.AddDays(WindowDays))
+        {
+            var end = start.AddDays(WindowDays) < now ? start.AddDays(WindowDays) : now;
+            foreach (var o in await client.FiatOrdersAsync(0, start, end, ct))
+            {
+                if (IsDone(o.Status) && o.IndicatedAmount > 0)
+                {
+                    movements.Add(Movement("deposit", o.OrderNo, CashMovementType.Deposit, o.IndicatedAmount,
+                        o.FiatCurrency, o.CreateTime, $"Deposit ({o.Method ?? "fiat"})"));
+                }
+            }
+
+            foreach (var o in await client.FiatOrdersAsync(1, start, end, ct))
+            {
+                if (IsDone(o.Status) && o.IndicatedAmount > 0)
+                {
+                    movements.Add(Movement("withdrawal", o.OrderNo, CashMovementType.Withdrawal, -o.IndicatedAmount,
+                        o.FiatCurrency, o.CreateTime, $"Withdrawal ({o.Method ?? "fiat"})"));
+                }
+            }
+
+            foreach (var p in await client.FiatPurchasesAsync(start, end, ct))
+            {
+                if (IsDone(p.Status) && p.SourceAmount > 0)
+                {
+                    movements.Add(Movement("purchase", p.OrderNo, CashMovementType.Deposit, p.SourceAmount,
+                        p.FiatCurrency, p.CreateTime, $"Bought {p.CryptoCurrency} with {p.FiatCurrency}"));
+                }
+            }
+        }
+
+        return movements.DistinctBy(m => m.ExternalId).Select(InvestmentTransaction.Of).ToList();
+    }
+
+    private static bool IsDone(string? status) => status is "Successful" or "Completed";
+
+    private static CashMovementReport Movement(string kind, string orderNo, CashMovementType type, decimal amount,
+        string currency, long time, string description) =>
+        new($"binance:fiat:{kind}:{orderNo}", type, amount, currency.ToUpperInvariant(),
+            DateTimeOffset.FromUnixTimeMilliseconds(time), description);
 
     public async Task<IReadOnlyList<DividendReport>> GetDividendsAsync(DateTimeOffset? since, CancellationToken ct)
     {

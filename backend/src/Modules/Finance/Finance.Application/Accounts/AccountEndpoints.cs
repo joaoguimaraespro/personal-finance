@@ -25,7 +25,11 @@ public sealed record AccountDto(
     bool IsManual,
     bool IsLiability,
     bool Archived,
-    AccountInterestDto? Interest = null);
+    AccountInterestDto? Interest = null,
+    Guid? AllocationBucketId = null);
+
+/// <summary>Which allocation bucket a broker account's synced deposits count towards (null: none).</summary>
+public sealed record SetAllocationBucketRequest(Guid? BucketId);
 
 /// <summary>
 /// Interest picture of a savings/bank account. <see cref="EstimatedInBalance"/> is the part of <c>Balance</c> that is
@@ -154,6 +158,33 @@ public static class AccountEndpoints
             return Results.NoContent();
         }).Validate<UpdateAccountRequest>();
 
+        // Broker accounts are read-only, except for this: where their deposits count in the monthly allocation.
+        group.MapPut("/{id:guid}/allocation-bucket", async (Guid id, SetAllocationBucketRequest req, IFinanceDb db,
+            CancellationToken ct) =>
+        {
+            var account = await db.Accounts.FindAsync([id], ct);
+            if (account is null)
+            {
+                return ResultHttp.Problem(NotFound);
+            }
+
+            if (account.Kind != AccountKind.Broker)
+            {
+                return ResultHttp.Problem(Error.Validation("Account.AllocationBucket",
+                    "Only broker accounts count their deposits towards a bucket."));
+            }
+
+            if (req.BucketId is { } bucketId &&
+                !await db.Buckets.AnyAsync(b => b.Id == bucketId && b.ArchivedAtUtc == null, ct))
+            {
+                return ResultHttp.Problem(Buckets.BucketEndpoints.NotFound);
+            }
+
+            account.SetAllocationBucket(req.BucketId);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         group.MapPost("/{id:guid}/archive", (Guid id, IFinanceDb db, TimeProvider clock,
             InterestAccrualService interest, CancellationToken ct) =>
             SetArchived(id, archived: true, db, clock, interest, ct));
@@ -197,7 +228,8 @@ public static class AccountEndpoints
     private static AccountDto ToDto(Account a, decimal balance, AccountInterestDto? interest = null) => new(a.Id,
         a.Name, a.Kind, a.Currency, a.Institution, Mask(a.Identifier), a.OpeningBalance, a.OpeningBalanceOn, balance,
         a.IsManual, a.IsLiability, a.ArchivedAtUtc is not null,
-        interest ?? (a.SupportsInterest ? new AccountInterestDto(null, null, null, a.InterestPayout, 0, 0, 0) : null));
+        interest ?? (a.SupportsInterest ? new AccountInterestDto(null, null, null, a.InterestPayout, 0, 0, 0) : null),
+        a.AllocationBucketId);
 
     /// <summary>Current rate and this year's interest (real + estimated) for every account that can earn interest.</summary>
     public static async Task<Dictionary<Guid, AccountInterestDto>> InterestSummariesAsync(IFinanceDb db,

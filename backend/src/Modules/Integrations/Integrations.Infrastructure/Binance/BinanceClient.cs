@@ -31,6 +31,7 @@ internal sealed class BinanceClient(HttpClient http, RateGate gate, TimeProvider
         AllowedRequest.Get(Host, "/sapi/v1/account/apiRestrictions"),
         AllowedRequest.Get(Host, "/api/v3/account"),
         AllowedRequest.Get(Host, "/api/v3/myTrades"),
+        AllowedRequest.Get(Host, "/sapi/v1/fiat/(orders|payments)"),
         AllowedRequest.Get(Host, "/sapi/v1/simple-earn/(flexible|locked)/position"),
         AllowedRequest.Get(Host, "/sapi/v1/simple-earn/(flexible|locked)/history/rewardsRecord"),
         AllowedRequest.Get(Host, "/api/v3/ticker/price"),
@@ -97,6 +98,35 @@ internal sealed class BinanceClient(HttpClient http, RateGate gate, TimeProvider
         CancellationToken ct) =>
         PagedAsync<BinanceLockedReward>("/sapi/v1/simple-earn/locked/history/rewardsRecord",
             $"startTime={from.ToUnixTimeMilliseconds()}&endTime={to.ToUnixTimeMilliseconds()}", ct);
+
+    /// <summary>Fiat deposits (<paramref name="direction"/> 0) or withdrawals (1) between two instants.</summary>
+    public Task<List<BinanceFiatOrder>> FiatOrdersAsync(int direction, DateTimeOffset from, DateTimeOffset to,
+        CancellationToken ct) =>
+        FiatPagedAsync<BinanceFiatOrder>("/sapi/v1/fiat/orders", direction, from, to, ct);
+
+    /// <summary>Crypto bought with fiat (card or bank) between two instants.</summary>
+    public Task<List<BinanceFiatPayment>> FiatPurchasesAsync(DateTimeOffset from, DateTimeOffset to,
+        CancellationToken ct) =>
+        FiatPagedAsync<BinanceFiatPayment>("/sapi/v1/fiat/payments", 0, from, to, ct);
+
+    private async Task<List<T>> FiatPagedAsync<T>(string path, int transactionType, DateTimeOffset from,
+        DateTimeOffset to, CancellationToken ct)
+    {
+        var rows = new List<T>();
+        for (var page = 1; page <= 20; page++)
+        {
+            var result = await SignedAsync<BinanceFiatPage<T>>(path,
+                $"transactionType={transactionType}&beginTime={from.ToUnixTimeMilliseconds()}" +
+                $"&endTime={to.ToUnixTimeMilliseconds()}&page={page}&rows=500", ct);
+            rows.AddRange(result.Data ?? []);
+            if (result.Data is null || result.Data.Count < 500 || rows.Count >= result.Total)
+            {
+                break;
+            }
+        }
+
+        return rows;
+    }
 
     /// <summary>Every fill of the account on <paramref name="symbol"/>, oldest first (paged by fill id).</summary>
     public async Task<List<BinanceFill>> FillsAsync(string symbol, CancellationToken ct)
