@@ -200,8 +200,13 @@ const CLASS_COLORS: Record<AssetClass, string> = {
                 <span class="text-sm font-medium">({{ signedPct(s.dayChangePercent) }})</span>
               </p>
             } @else {
-              <p class="mt-1 text-sm text-muted-foreground">
-                {{ 'portfolio.todayPending' | translate }}
+              <!-- No change before a second day of data: a dash, with the reason on hover. -->
+              <p
+                class="num mt-1 cursor-help text-2xl font-semibold text-muted-foreground"
+                [attr.title]="'portfolio.todayPending' | translate"
+                [attr.aria-label]="'portfolio.todayPending' | translate"
+              >
+                —
               </p>
             }
           </div>
@@ -269,7 +274,8 @@ const CLASS_COLORS: Record<AssetClass, string> = {
         </section>
 
         <section class="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <div class="card">
+          <!-- The chart takes whatever height the allocation card next to it needs. -->
+          <div class="card flex flex-col">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 class="card-title !mb-0">{{ 'portfolio.performance' | translate }}</h2>
               <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -291,7 +297,7 @@ const CLASS_COLORS: Record<AssetClass, string> = {
               </div>
             </div>
             @if (hasHistory()) {
-              <app-chart class="h-72" [option]="valueChart()" />
+              <app-chart class="min-h-72 flex-1" [option]="valueChart()" />
               @if (performance.value()?.reconstructedBefore; as before) {
                 <p class="mt-2 text-xs text-muted-foreground">
                   {{ 'portfolio.reconstructedNote' | translate: { date: dayMonth(before) } }}
@@ -583,13 +589,13 @@ const CLASS_COLORS: Record<AssetClass, string> = {
         </section>
 
         <section class="mt-6 grid gap-4 lg:grid-cols-2">
-          <div class="card">
+          <div class="card flex flex-col">
             <h2 class="card-title">
               {{
                 (hasCrypto() ? 'crypto.incomeByMonth' : 'portfolio.dividendsByMonth') | translate
               }}
             </h2>
-            <app-chart class="h-64" [option]="dividendChart()" />
+            <app-chart class="min-h-64 flex-1" [option]="dividendChart()" />
           </div>
           <div class="card overflow-x-auto !p-0">
             <h2 class="card-title px-5 pt-5">

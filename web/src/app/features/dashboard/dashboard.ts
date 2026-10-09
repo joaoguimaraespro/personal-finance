@@ -7,7 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents, QuickAdd } from '../../core/data-events';
 import { DayPipe, MoneyPipe, MonthNamePipe, PercentPipe } from '../../core/format';
-import type { DayChangeBasis, MonthlySummary } from '../../core/models';
+import type { DayChangeBasis, MonthlySummary, NetWorthHistory } from '../../core/models';
 import { dayChangeHint, dayChangeLabel, monthYear } from '../portfolio/periods';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
@@ -29,7 +29,6 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 import { EmptyStateComponent } from '../../shared/empty-state';
 import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
 import { PageHeaderComponent } from '../../shared/page-header';
-import { StatusBadgeComponent } from '../../shared/status-badge';
 
 /**
  * Home overview: where things stand today (net worth, latest month's cash flow, portfolio), the selected
@@ -53,7 +52,6 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
     HlmTooltipImports,
     PageHeaderComponent,
     EmptyStateComponent,
-    StatusBadgeComponent,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -286,6 +284,20 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
                 }
               </p>
             }
+            <!-- What it is made of: fills the card from day one, before there is a history to chart. -->
+            <dl class="mt-3 space-y-1.5 text-xs">
+              @for (part of netWorthParts(nw); track part.key) {
+                <div class="flex items-center justify-between gap-3">
+                  <dt class="text-muted-foreground flex items-center gap-2">
+                    <span class="size-2 rounded-full" [style.background-color]="part.color"></span
+                    >{{ 'netWorth.' + part.key | translate }}
+                  </dt>
+                  <dd class="num" [class.tone-neg]="part.key === 'liabilities'">
+                    {{ part.key === 'liabilities' ? '−' : '' }}{{ part.value | money }}
+                  </dd>
+                </div>
+              }
+            </dl>
             @if (nw.series.length > 1) {
               <app-chart class="-mx-1 mt-auto h-16 pt-3" [option]="sparkline()" />
             }
@@ -430,9 +442,12 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
                   >{{ dayLabel(p.dayChangeBasis) | translate }}</span
                 >
               } @else {
-                <span class="text-muted-foreground">{{
-                  'portfolio.todayPending' | translate
-                }}</span>
+                <span
+                  class="text-muted-foreground cursor-help"
+                  [attr.title]="'portfolio.todayPending' | translate"
+                  [attr.aria-label]="'portfolio.todayPending' | translate"
+                  >—</span
+                >
               }
             </p>
             <dl class="mt-auto grid gap-2 pt-4 text-xs">
@@ -618,7 +633,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
 
     <!-- Needs attention: recurring to confirm, then goals. -->
     @let pendingList = pending.value() ?? [];
-    <section class="mt-6 grid gap-4" [class.xl:grid-cols-2]="pendingList.length > 0">
+    <section class="mt-6 grid items-start gap-4" [class.xl:grid-cols-2]="pendingList.length > 0">
       @if (pendingList.length) {
         <div class="card">
           <div class="mb-3 flex items-center justify-between gap-2">
@@ -765,7 +780,35 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
         <ng-icon name="lucideCalendarDays" />{{ 'dashboard.monthlyView' | translate }}
       </h2>
       @if (hasTransactions()) {
-        <div class="table-wrap">
+        <!-- Phones: one line per month with its balance; the full table from tablets up. -->
+        <ul class="divide-y md:hidden">
+          @for (row of shownMonths(); track row.month.period.month) {
+            <li>
+              <button
+                type="button"
+                class="hover:bg-muted/50 flex w-full items-center justify-between gap-3 px-5 py-3 text-left"
+                (click)="openMonth(row.month.period.month)"
+              >
+                <span class="min-w-0">
+                  <span class="block font-medium first-letter:uppercase">{{
+                    row.month.period.month | monthName
+                  }}</span>
+                  <span class="text-muted-foreground num block truncate text-xs">
+                    {{ 'kpi.income' | translate }} {{ row.month.income | money }} ·
+                    {{ 'kpi.savingsRate' | translate }} {{ row.month.savingsRate | pct }}
+                  </span>
+                </span>
+                <span
+                  class="num shrink-0 font-semibold"
+                  [class.tone-pos]="row.month.netBalance > 0"
+                  [class.tone-neg]="row.month.netBalance < 0"
+                  >{{ row.month.netBalance | money: 'EUR' : true }}</span
+                >
+              </button>
+            </li>
+          }
+        </ul>
+        <div class="table-wrap hidden md:block">
           <table hlmTable>
             <thead hlmTHead>
               <tr hlmTr class="border-b-0">
@@ -776,7 +819,6 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
                 <th hlmTh colspan="3" class="border-b text-center text-xs text-muted-foreground">
                   {{ 'dashboard.investments' | translate }} / {{ 'kpi.saved' | translate }}
                 </th>
-                <th hlmTh></th>
               </tr>
               <tr hlmTr>
                 <th hlmTh>{{ 'common.month' | translate }}</th>
@@ -787,11 +829,11 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
                 <th hlmTh class="text-right">{{ 'kpi.savingsRate' | translate }}</th>
                 <th hlmTh class="text-right">{{ 'kpi.invested' | translate }}</th>
                 <th hlmTh class="text-right">{{ 'kpi.saved' | translate }}</th>
-                <th hlmTh>{{ 'common.status' | translate }}</th>
               </tr>
             </thead>
             <tbody hlmTBody>
-              @for (row of annual.value()?.months ?? []; track row.month.period.month) {
+              <!-- The balance's colour says positive or negative; months still ahead are left out. -->
+              @for (row of shownMonths(); track row.month.period.month) {
                 <tr
                   hlmTr
                   class="cursor-pointer hover:bg-muted/50"
@@ -815,20 +857,6 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
                   <td hlmTd class="num text-right">{{ row.month.savingsRate | pct }}</td>
                   <td hlmTd class="num text-right">{{ row.month.invested | money }}</td>
                   <td hlmTd class="num text-right">{{ row.month.saved | money }}</td>
-                  <td hlmTd>
-                    @if (row.month.transactionCount) {
-                      <app-status-badge
-                        [tone]="row.month.status === 'Positive' ? 'success' : 'danger'"
-                        [icon]="
-                          row.month.status === 'Positive'
-                            ? 'lucideTrendingUp'
-                            : 'lucideTrendingDown'
-                        "
-                      >
-                        {{ 'status.' + row.month.status | translate }}
-                      </app-status-badge>
-                    }
-                  </td>
                 </tr>
               }
             </tbody>
@@ -870,6 +898,27 @@ export class DashboardComponent {
     params: () => this.events.version(),
     stream: () => this.api.goals(),
   });
+  /** Months of the selected year up to now (a past year: all twelve); empty months ahead are left out. */
+  protected readonly shownMonths = computed(() => {
+    const now = new Date();
+    return (this.annual.value()?.months ?? []).filter(
+      (r) =>
+        r.month.transactionCount > 0 ||
+        r.month.period.year < now.getFullYear() ||
+        (r.month.period.year === now.getFullYear() && r.month.period.month <= now.getMonth() + 1),
+    );
+  });
+
+  protected netWorthParts(nw: NetWorthHistory) {
+    const c = nw.current;
+    return [
+      { key: 'cash', value: c.cash, color: SERIES_COLORS.income },
+      { key: 'investments', value: c.investments, color: SERIES_COLORS.invested },
+      { key: 'manual', value: c.manualAssets, color: SERIES_COLORS.saved },
+      { key: 'liabilities', value: c.liabilities, color: SERIES_COLORS.expenses },
+    ].filter((p) => p.value !== 0);
+  }
+
   protected readonly netWorth = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.netWorth(),

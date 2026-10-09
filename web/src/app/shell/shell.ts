@@ -6,7 +6,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
+import { SETTINGS_ROUTES } from '../shared/settings-tabs';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -29,6 +32,8 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  /** Other routes that highlight this entry. */
+  also?: string[];
 }
 
 @Component({
@@ -75,7 +80,8 @@ interface NavItem {
                 @for (item of section.items; track item.path) {
                   <a
                     [routerLink]="item.path"
-                    routerLinkActive="nav-active"
+                    [class.nav-active]="isActive(item)"
+                    [attr.aria-current]="isActive(item) ? 'page' : null"
                     class="nav-link text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors duration-150"
                     (click)="menuOpen.set(false)"
                   >
@@ -204,6 +210,18 @@ export class ShellComponent {
   protected readonly prefs = inject(Prefs);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  protected isActive(item: NavItem): boolean {
+    const path = this.url().split(/[?#]/)[0];
+    return [item.path, ...(item.also ?? [])].some((p) => path === p || path.startsWith(p + '/'));
+  }
   protected readonly menuOpen = signal(false);
 
   protected readonly nav: { title: string; items: NavItem[] }[] = [
@@ -238,10 +256,13 @@ export class ShellComponent {
         { path: '/connections', label: 'nav.connections', icon: PAGE_ICONS.connections },
         { path: '/accounts', label: 'nav.accounts', icon: PAGE_ICONS.accounts },
         { path: '/categories', label: 'nav.categories', icon: PAGE_ICONS.categories },
-        { path: '/import', label: 'nav.import', icon: PAGE_ICONS.import },
-        { path: '/export', label: 'nav.export', icon: PAGE_ICONS.export },
-        { path: '/ai', label: 'nav.ai', icon: PAGE_ICONS.ai },
-        { path: '/settings', label: 'nav.settings', icon: PAGE_ICONS.settings },
+        // Import, export and AI access are tabs inside Settings (SettingsTabsComponent).
+        {
+          path: '/settings',
+          label: 'nav.settings',
+          icon: PAGE_ICONS.settings,
+          also: SETTINGS_ROUTES,
+        },
       ],
     },
   ];

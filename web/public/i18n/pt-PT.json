@@ -20,7 +20,8 @@
   "connections": "Ligações",
   "export": "Exportar",
   "ai": "Acesso de IA",
-  "assistant": "Assistente"
+  "assistant": "Assistente",
+  "general": "Geral"
  },
  "common": {
   "save": "Guardar",
@@ -355,7 +356,14 @@
   "saveVersion": "Guardar versão do orçamento",
   "saved": "Orçamento guardado",
   "versions": "Versões",
-  "none": "Ainda sem orçamentos."
+  "none": "Ainda sem orçamentos.",
+  "split": {
+   "invest": "Investir",
+   "save": "Poupar",
+   "expenses": "Despesas",
+   "fixed": "em valores fixos",
+   "over": "Soma mais de 100% do rendimento"
+  }
  },
  "goals": {
   "subtitle": "Poupanças associadas a um objetivo contam automaticamente.",
