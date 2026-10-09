@@ -109,9 +109,9 @@ interface NavItem {
           >
             <ng-icon name="lucideMenu" />
           </button>
+          <app-logo [size]="28" class="md:hidden" />
           <div class="flex-1"></div>
           <!-- Phones add from the bottom bar; the header keeps only icon actions there. -->
-          <app-logo [size]="28" class="md:hidden" />
           <button
             hlmBtn
             class="hidden md:inline-flex"
