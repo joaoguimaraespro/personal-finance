@@ -98,6 +98,8 @@ export class Api {
   restoreCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/restore`, {});
   resetCategoryName = (id: string) => this.http.post<void>(`/api/categories/${id}/reset-name`, {});
   buckets = () => this.http.get<Bucket[]>('/api/buckets');
+  setAccountAllocationBucket = (accountId: string, bucketId: string | null) =>
+    this.http.put<void>(`/api/accounts/${accountId}/allocation-bucket`, { bucketId });
   createBucket = (body: unknown) => this.http.post<{ id: string }>('/api/buckets', body);
   allocationChecks = (period: string) =>
     this.http.get<AllocationCheck[]>(`/api/allocation-checks/${period}`);

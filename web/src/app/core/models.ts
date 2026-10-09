@@ -96,6 +96,8 @@ export interface Account {
   archived: boolean;
   /** Only on savings and bank accounts. */
   interest?: AccountInterest | null;
+  /** Broker accounts: the allocation bucket their synced deposits count towards. */
+  allocationBucketId?: string | null;
 }
 
 /** Interest picture of a savings/bank account; all amounts are server-calculated. */
@@ -252,6 +254,8 @@ export interface BucketLine {
   target: number | null;
   actual: number;
   difference: number | null;
+  /** Part of `actual` that comes from deposits synced at a linked broker. */
+  fromBrokers?: number;
 }
 
 export interface MonthlySummary {
