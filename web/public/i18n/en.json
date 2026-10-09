@@ -22,7 +22,8 @@
   "ai": "AI access",
   "assistant": "Assistant",
   "more": "More",
-  "main": "Main navigation"
+  "main": "Main navigation",
+  "general": "General"
  },
  "common": {
   "save": "Save",
@@ -358,7 +359,14 @@
   "saveVersion": "Save budget version",
   "saved": "Budget saved",
   "versions": "Versions",
-  "none": "No budgets yet."
+  "none": "No budgets yet.",
+  "split": {
+   "invest": "Invest",
+   "save": "Save",
+   "expenses": "Expenses",
+   "fixed": "in fixed amounts",
+   "over": "Adds up to more than 100% of income"
+  }
  },
  "goals": {
   "subtitle": "Savings linked to a goal count towards it automatically.",

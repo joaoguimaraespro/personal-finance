@@ -11,11 +11,13 @@ import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { StatusBadgeComponent } from '../../shared/status-badge';
 
+import { SettingsTabsComponent } from '../../shared/settings-tabs';
 @Component({
   selector: 'app-settings',
   // Narrow content, centred in the main area like a document rather than pinned to the left.
   host: { class: 'mx-auto block w-full max-w-3xl' },
   imports: [
+    SettingsTabsComponent,
     NgIcon,
     PageHeaderComponent,
     StatusBadgeComponent,
@@ -26,6 +28,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-settings-tabs />
     <app-page-header [icon]="icons.settings" [title]="'nav.settings' | translate" />
     <div class="grid gap-4">
       <section class="card space-y-4">

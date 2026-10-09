@@ -22,11 +22,13 @@ import { StatusBadgeComponent, StatusTone } from '../../shared/status-badge';
 type Step = 'upload' | 'map' | 'done';
 
 /** Analyze → Map → Validate → Preview → Import. Nothing touches the ledger until "Import" is pressed. */
+import { SettingsTabsComponent } from '../../shared/settings-tabs';
 @Component({
   selector: 'app-import',
   // Narrow content, centred in the main area like a document rather than pinned to the left.
   host: { class: 'mx-auto block w-full max-w-4xl' },
   imports: [
+    SettingsTabsComponent,
     PageHeaderComponent,
     EmptyStateComponent,
     StatusBadgeComponent,
@@ -44,6 +46,7 @@ type Step = 'upload' | 'map' | 'done';
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-settings-tabs />
     <app-page-header
       [icon]="icons.import"
       [title]="'import.title' | translate"
