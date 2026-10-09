@@ -89,9 +89,11 @@ interface RecycledItem {
  * Owner-controlled AI access: every client gets its own revocable token and explicit scopes. Reading is the
  * default; write scopes are opt-in, flagged and confirmed, and AI deletions land in a 30-day recycle bin.
  */
+import { SettingsTabsComponent } from '../../shared/settings-tabs';
 @Component({
   selector: 'app-ai-access',
   imports: [
+    SettingsTabsComponent,
     NgIcon,
     HlmTableImports,
     HlmInputImports,
@@ -115,6 +117,7 @@ interface RecycledItem {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-settings-tabs />
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">{{ 'nav.ai' | translate }}</h1>

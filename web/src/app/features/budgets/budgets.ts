@@ -11,12 +11,13 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { MonthNamePipe, currentPeriod } from '../../core/format';
+import { MoneyPipe, MonthNamePipe, currentPeriod } from '../../core/format';
 import { Budget, BudgetItem, BudgetMode } from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { MonthPickerComponent } from '../../shared/month-picker';
 import { parseAmount } from '../transactions/quick-add';
+import { allocationSplit } from './allocation-split';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { SelectComponent, SelectOption } from '../../shared/select';
@@ -50,6 +51,7 @@ interface Row {
     TranslatePipe,
     MonthPickerComponent,
     MonthNamePipe,
+    MoneyPipe,
     CategoryLabelPipe,
   ],
   providers: [APP_ICONS],
@@ -123,6 +125,42 @@ interface Row {
                 />
               </div>
             }
+          </div>
+          <!-- Live preview of how income is divided by what is on screen (before saving). -->
+          @let sp = split();
+          <div class="mt-4" role="img" [attr.aria-label]="splitLabel()">
+            <div class="bg-muted flex h-2.5 overflow-hidden rounded-full">
+              <div class="bg-invest" [style.width.%]="sp.invest"></div>
+              <div class="bg-save" [style.width.%]="sp.save"></div>
+              @if (sp.expenses !== null) {
+                <div class="bg-expense/70" [style.width.%]="sp.expenses"></div>
+              }
+            </div>
+            <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              <span class="flex items-center gap-1.5"
+                ><span class="bg-invest size-2 rounded-full"></span
+                >{{ 'budgets.split.invest' | translate }} <b class="num">{{ sp.invest }}%</b></span
+              >
+              <span class="flex items-center gap-1.5"
+                ><span class="bg-save size-2 rounded-full"></span
+                >{{ 'budgets.split.save' | translate }} <b class="num">{{ sp.save }}%</b></span
+              >
+              @if (sp.expenses !== null) {
+                <span class="flex items-center gap-1.5"
+                  ><span class="bg-expense/70 size-2 rounded-full"></span
+                  >{{ 'budgets.split.expenses' | translate }}
+                  <b class="num">{{ sp.expenses }}%</b></span
+                >
+              }
+              @if (sp.fixed) {
+                <span class="text-muted-foreground"
+                  >+ {{ sp.fixed | money }} {{ 'budgets.split.fixed' | translate }}</span
+                >
+              }
+              @if (sp.over) {
+                <span class="tone-neg font-medium">{{ 'budgets.split.over' | translate }}</span>
+              }
+            </p>
           </div>
           <p class="text-muted-foreground mt-3 flex gap-1.5 text-xs">
             <ng-icon name="lucideInfo" class="mt-px shrink-0" aria-hidden="true" />{{
@@ -276,6 +314,23 @@ export class BudgetsComponent {
   protected readonly categories = liveResource({ stream: () => this.api.categories() });
 
   protected readonly bucketRows = computed(() => this.rows().filter((r) => r.target === 'Bucket'));
+  protected readonly split = computed(() => {
+    const investment = new Set(
+      (this.buckets.value() ?? []).filter((b) => b.group === 'Investment').map((b) => b.id),
+    );
+    return allocationSplit(this.rows(), (id) => investment.has(id));
+  });
+  protected readonly splitLabel = computed(() => {
+    this.prefs.translations();
+    const sp = this.split();
+    return [
+      `${this.i18n.instant('budgets.split.invest')} ${sp.invest}%`,
+      `${this.i18n.instant('budgets.split.save')} ${sp.save}%`,
+      sp.expenses === null ? '' : `${this.i18n.instant('budgets.split.expenses')} ${sp.expenses}%`,
+    ]
+      .filter(Boolean)
+      .join(', ');
+  });
   protected readonly poolRow = computed(() => this.rows().find((r) => r.target === 'ExpensePool'));
   protected readonly categoryRows = computed(() =>
     this.rows().filter((r) => r.target === 'Category'),

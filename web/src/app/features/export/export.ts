@@ -18,9 +18,11 @@ type Kind =
 type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades' | 'NetWorth';
 
 /** Everything can leave the app at any time: Excel, CSV or a complete JSON archive. */
+import { SettingsTabsComponent } from '../../shared/settings-tabs';
 @Component({
   selector: 'app-export',
   imports: [
+    SettingsTabsComponent,
     NgIcon,
     PageHeaderComponent,
     MonthPickerComponent,
@@ -32,6 +34,7 @@ type Dataset = 'Transactions' | 'Monthly' | 'Positions' | 'Dividends' | 'Trades'
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-settings-tabs />
     <app-page-header
       [icon]="icons.export"
       [title]="'export.title' | translate"
