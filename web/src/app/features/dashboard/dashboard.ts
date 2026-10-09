@@ -597,7 +597,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             <dl class="mt-3 divide-y text-sm">
               <div class="flex items-center justify-between gap-3 py-2">
                 <dt class="flex items-center gap-2 text-muted-foreground">
-                  <ng-icon name="lucideGauge" [style.color]="colors.net" aria-hidden="true" />
+                  <ng-icon name="lucideGauge" [style.color]="colors.saved" aria-hidden="true" />
                   {{ 'kpi.avgSavingsRate' | translate }}
                 </dt>
                 <dd class="num font-medium">{{ o.averageMonthlySavingsRate | pct }}</dd>
@@ -983,9 +983,9 @@ export class DashboardComponent {
           type: 'line',
           connectNulls: false,
           symbol: 'circle',
-          symbolSize: 6,
+          symbolSize: 5,
           data: months.map((r) => active(r.month, r.month.netBalance)),
-          lineStyle: { width: 2, color: SERIES_COLORS.net },
+          lineStyle: { width: 1.5, type: 'dashed', color: SERIES_COLORS.net },
           itemStyle: { color: SERIES_COLORS.net },
           z: 3,
         },

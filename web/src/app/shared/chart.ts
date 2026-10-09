@@ -15,6 +15,7 @@ import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Prefs } from '../core/prefs';
 import { APP_ICONS } from './icons';
+import { CHART_FONT } from './chart-options';
 
 /** True when no series has a single non-zero value: nothing worth drawing (e.g. a year without movements). */
 export function chartIsEmpty(option: EChartsOption): boolean {
@@ -104,7 +105,11 @@ export class ChartComponent implements OnDestroy {
       });
       (this.chart as unknown as { __theme?: string }).__theme = themeKey;
     }
-    this.chart.setOption({ backgroundColor: 'transparent', ...this.option() }, true);
+    // The app's font (ECharts draws its own text and does not inherit CSS).
+    this.chart.setOption(
+      { backgroundColor: 'transparent', textStyle: { fontFamily: CHART_FONT }, ...this.option() },
+      true,
+    );
   }
 
   ngOnDestroy() {
