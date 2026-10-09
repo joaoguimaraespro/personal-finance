@@ -340,7 +340,7 @@ export class NetWorthComponent {
           showSymbol: series.length < 3,
           areaStyle: { opacity: 0.12 },
           data: series.map((p) => [p.date, p.netWorth]),
-          itemStyle: { color: SERIES_COLORS.net },
+          itemStyle: { color: SERIES_COLORS.wealth },
         },
         {
           name: this.i18n.instant('netWorth.liabilities'),
