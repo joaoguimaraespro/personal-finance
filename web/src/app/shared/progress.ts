@@ -21,10 +21,6 @@ export class ProgressComponent {
   readonly barColor = computed(() => {
     if (this.tone() === 'brand') return 'var(--primary)';
     const v = this.value();
-    return v > 1
-      ? 'var(--color-rose-500)'
-      : v >= 0.9
-        ? 'var(--color-amber-500)'
-        : 'var(--primary)';
+    return v > 1 ? 'var(--color-rose-500)' : v >= 0.9 ? 'var(--color-amber-500)' : 'var(--primary)';
   });
 }

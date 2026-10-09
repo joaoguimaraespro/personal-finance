@@ -1,13 +1,38 @@
 import type { EChartsOption } from 'echarts';
 
+/**
+ * One meaning, one colour, on every page: money in and wealth are the brand green, spending is rose, investing is
+ * violet, saving is teal. Balances and references are neutral so they never compete with the series they summarise.
+ */
 export const SERIES_COLORS = {
   income: '#059669',
   expenses: '#e11d48',
+  /** Second expense shade (e.g. variable vs fixed). */
+  expensesLight: '#fb7185',
   invested: '#7c3aed',
   saved: '#0891b2',
   budget: '#a1a1aa',
-  net: '#f59e0b',
+  /** Net balance line drawn over income/expense bars: neutral, it summarises them. */
+  net: '#71717a',
+  /** Portfolio value: the investing colour. */
+  value: '#7c3aed',
+  /** Net worth: the brand green. */
+  wealth: '#059669',
+  muted: '#a1a1aa',
 };
+
+/** Asset classes, from the same family: shares violet, funds indigo, bonds teal, crypto amber, cash grey. */
+export const ASSET_CLASS_COLORS = {
+  Stock: '#7c3aed',
+  Etf: '#059669',
+  Bond: '#0891b2',
+  Fund: '#4f46e5',
+  Crypto: '#d97706',
+  Cash: '#a1a1aa',
+  Other: '#db2777',
+} as const;
+
+export const CHART_FONT = "'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif";
 
 const axisLabel = { color: '#a1a1aa', fontSize: 11 };
 

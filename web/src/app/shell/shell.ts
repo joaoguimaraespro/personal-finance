@@ -135,8 +135,16 @@ interface NavItem {
             variant="ghost"
             size="icon"
             (click)="toggleTheme()"
-            [attr.aria-label]="'settings.theme' | translate"
-            [hlmTooltip]="'settings.theme' | translate"
+            [attr.aria-label]="
+              ('settings.theme' | translate) +
+              ': ' +
+              ('settings.themes.' + prefs.theme() | translate)
+            "
+            [hlmTooltip]="
+              ('settings.theme' | translate) +
+              ': ' +
+              ('settings.themes.' + prefs.theme() | translate)
+            "
           >
             <ng-icon
               [name]="
