@@ -31,12 +31,23 @@ import { EmptyStateComponent } from '../../shared/empty-state';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 
 const TYPE_TONE: Record<TransactionType, string> = {
-  Expense: 'text-rose-600 dark:text-rose-400',
+  // Spending is the normal case: plain text keeps a list of expenses calm; money in stands out in green.
+  Expense: '',
   Income: 'text-emerald-700 dark:text-emerald-400',
   Transfer: 'text-muted-foreground',
   Savings: 'text-cyan-600 dark:text-cyan-400',
   InvestmentContribution: 'text-violet-600 dark:text-violet-400',
   InvestmentSale: 'text-violet-600 dark:text-violet-400',
+};
+
+/** Badge colour when the row has no category colour (transfers, investments, savings). */
+const TYPE_COLOR: Record<TransactionType, string> = {
+  Expense: '#71717a',
+  Income: '#059669',
+  Transfer: '#71717a',
+  Savings: '#0891b2',
+  InvestmentContribution: '#7c3aed',
+  InvestmentSale: '#7c3aed',
 };
 
 const SIGN: Partial<Record<TransactionType, string>> = {
@@ -92,24 +103,46 @@ const SIGN: Partial<Record<TransactionType, string>> = {
       </div>
     </div>
 
-    <section class="card mb-4 grid grid-cols-1 gap-3 !p-4 sm:grid-cols-2 lg:grid-cols-6">
-      <div class="relative sm:col-span-2">
-        <ng-icon
-          name="lucideSearch"
-          class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-          aria-hidden="true"
-        />
-        <input
-          hlmInput
-          class="w-full pl-9"
-          type="search"
-          [placeholder]="'common.search' | translate"
-          [attr.aria-label]="'common.search' | translate"
-          [value]="search()"
-          (input)="search.set($any($event.target).value); pageNo.set(1)"
-        />
+    <section
+      class="card mb-4 grid grid-cols-1 gap-3 !p-4 sm:grid-cols-2 lg:grid-cols-6"
+      [attr.data-folded]="!filtersOpen()"
+    >
+      <div class="flex gap-2 sm:col-span-2">
+        <div class="relative flex-1">
+          <ng-icon
+            name="lucideSearch"
+            class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+            aria-hidden="true"
+          />
+          <input
+            hlmInput
+            class="w-full pl-9"
+            type="search"
+            [placeholder]="'common.search' | translate"
+            [attr.aria-label]="'common.search' | translate"
+            [value]="search()"
+            (input)="search.set($any($event.target).value); pageNo.set(1)"
+          />
+        </div>
+        <!-- Phones: the other filters fold away behind one button so the list starts on screen. -->
+        <button
+          hlmBtn
+          variant="outline"
+          class="sm:hidden"
+          [attr.aria-expanded]="filtersOpen()"
+          (click)="filtersOpen.update((o) => !o)"
+        >
+          <ng-icon name="lucideSlidersHorizontal" />{{ 'tx.filters' | translate }}
+          @if (activeFilters()) {
+            <span
+              class="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px] leading-4"
+              >{{ activeFilters() }}</span
+            >
+          }
+        </button>
       </div>
       <app-date-field
+        class="fold"
         [value]="from()"
         [placeholder]="'common.from' | translate"
         (valueChange)="from.set($event); pageNo.set(1)"
@@ -117,6 +150,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
         clearable
       />
       <app-date-field
+        class="fold"
         [value]="to()"
         [placeholder]="'common.to' | translate"
         (valueChange)="to.set($event); pageNo.set(1)"
@@ -124,18 +158,20 @@ const SIGN: Partial<Record<TransactionType, string>> = {
         clearable
       />
       <app-select
+        class="fold"
         [options]="accountOptions()"
         [value]="accountId()"
         [ariaLabel]="'tx.account' | translate"
         (valueChange)="accountId.set($event); pageNo.set(1)"
       />
       <app-select
+        class="fold"
         [options]="categoryOptions()"
         [value]="categoryId()"
         [ariaLabel]="'tx.category' | translate"
         (valueChange)="categoryId.set($event); pageNo.set(1)"
       />
-      <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-6">
+      <div class="fold flex flex-wrap gap-2 sm:col-span-2 lg:col-span-6">
         @for (t of visibleTypes(); track t) {
           <button
             class="chip"
@@ -154,131 +190,63 @@ const SIGN: Partial<Record<TransactionType, string>> = {
     </section>
 
     <section class="card overflow-hidden !p-0">
-      <!-- Phones: one card per row instead of a wide table. -->
-      <ul class="divide-y md:hidden">
-        @for (t of page.value()?.items ?? []; track t.id) {
-          <li class="hover:bg-muted/40 flex items-start gap-3 px-4 py-3 transition-colors">
-            <div class="min-w-0 flex-1">
-              <div class="truncate font-medium">{{ title(t) }}</div>
-              <div class="text-muted-foreground truncate text-xs">
-                {{ t.occurredOn | day: 'short' }} · {{ 'type.' + t.type | translate }}
-                @if (!t.splits.length) {
-                  · {{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? t.accountName) }}
-                }
-              </div>
-              @if (t.splits.length) {
-                <div class="text-muted-foreground text-xs">
-                  <ng-container *ngTemplateOutlet="splitToggle; context: { $implicit: t }" />
-                </div>
-              }
-              @if (expanded().has(t.id)) {
-                <ng-container *ngTemplateOutlet="splitList; context: { $implicit: t }" />
-              }
-              @if (t.asset; as a) {
-                <div class="text-muted-foreground num truncate text-xs">
-                  {{ a.symbol }}
-                  @if (a.quantity !== null) {
-                    · {{ a.quantity }} ×
-                    {{ a.unitPrice !== null ? (a.unitPrice | money: t.currency) : '—' }}
-                  }
-                </div>
-              }
-            </div>
-            <div class="flex shrink-0 flex-col items-end gap-1">
-              <span class="num font-semibold whitespace-nowrap" [class]="tone(t.type)">
-                @if (t.source === 'InterestEstimate') {
-                  <span aria-hidden="true">≈</span>
-                }
-                {{ sign(t.type) }}{{ shownAmount(t) | money: t.currency }}
-              </span>
-              @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
-                <span class="text-muted-foreground num text-[11px]">{{
-                  'split.ofTotal' | translate: { amount: (t.amount | money: t.currency) }
-                }}</span>
-              }
-              @if (t.source === 'InterestEstimate') {
-                <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
-                  'source.InterestEstimate' | translate
-                }}</span>
-              }
-              <div class="flex">
-                <button
-                  hlmBtn
-                  variant="ghost"
-                  size="icon-sm"
-                  (click)="showHistory(t)"
-                  [attr.aria-label]="'tx.history' | translate"
-                  [hlmTooltip]="'tx.history' | translate"
+      <!-- Grouped by day, with the day's net; the newest day first (the API sorts by date). -->
+      @for (d of days(); track d.date) {
+        <div
+          class="bg-muted/40 text-muted-foreground flex items-center justify-between border-b px-4 py-2 text-xs font-medium first:rounded-t-xl md:px-5"
+        >
+          <span class="first-letter:uppercase">{{ d.date | day: 'full' }}</span>
+          @if (d.total !== 0) {
+            <span class="num" [class.tone-pos]="d.total > 0">{{
+              d.total | money: 'EUR' : true
+            }}</span>
+          }
+        </div>
+        <ul class="divide-y border-b last:border-b-0">
+          @for (t of d.items; track t.id) {
+            <li class="group relative">
+              <div
+                class="hover:bg-muted/40 flex items-center gap-3 px-4 py-3 transition-colors md:px-5"
+                [class.cursor-pointer]="t.editable"
+                (click)="open(t)"
+              >
+                <span
+                  class="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                  [style.background-color]="dotColor(t) + '22'"
+                  [style.color]="dotColor(t)"
+                  aria-hidden="true"
+                  >{{ initial(t) }}</span
                 >
-                  <ng-icon name="lucideHistory" />
-                </button>
-                @if (t.editable) {
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="icon-sm"
-                    (click)="quick.edit(t)"
-                    [attr.aria-label]="'common.edit' | translate"
-                    [hlmTooltip]="'common.edit' | translate"
-                  >
-                    <ng-icon name="lucidePencil" />
-                  </button>
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="icon-sm"
-                    class="text-destructive hover:text-destructive"
-                    (click)="remove(t)"
-                    [attr.aria-label]="'common.delete' | translate"
-                    [hlmTooltip]="'common.delete' | translate"
-                  >
-                    <ng-icon name="lucideTrash2" />
-                  </button>
-                }
-              </div>
-            </div>
-          </li>
-        } @empty {
-          <li>
-            <ng-container *ngTemplateOutlet="empty" />
-          </li>
-        }
-      </ul>
-
-      <div class="hidden overflow-x-auto md:block">
-        <table hlmTable>
-          <thead hlmTHead>
-            <tr hlmTr>
-              <th hlmTh>{{ 'tx.date' | translate }}</th>
-              <th hlmTh>{{ 'tx.description' | translate }}</th>
-              <th hlmTh>{{ 'tx.category' | translate }}</th>
-              <th hlmTh>{{ 'tx.account' | translate }}</th>
-              <th hlmTh class="text-right">{{ 'tx.amount' | translate }}</th>
-              <th hlmTh></th>
-            </tr>
-          </thead>
-          <tbody hlmTBody>
-            @for (t of page.value()?.items ?? []; track t.id) {
-              <tr hlmTr class="group">
-                <td hlmTd class="text-muted-foreground whitespace-nowrap">
-                  {{ t.occurredOn | day: 'short' }}
-                </td>
-                <td hlmTd class="max-w-72 whitespace-normal">
+                <div class="min-w-0 flex-1">
                   <!-- Descriptions are user/imported data; rendered as text only, never as HTML. -->
                   <div class="truncate font-medium">{{ title(t) }}</div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ 'type.' + t.type | translate }}
+                  <div class="text-muted-foreground truncate text-xs">
+                    @if (t.splits.length) {
+                      <ng-container *ngTemplateOutlet="splitToggle; context: { $implicit: t }" />
+                    } @else {
+                      {{
+                        t.categoryKey
+                          ? (t | categoryLabel)
+                          : (t.bucketName ?? ('type.' + t.type | translate))
+                      }}
+                    }
+                    <span class="hidden sm:inline">
+                      · {{ t.accountName }}
+                      @if (t.counterAccountName) {
+                        → {{ t.counterAccountName }}
+                      }
+                    </span>
+                    @if (t.nature) {
+                      <span class="hidden lg:inline">· {{ 'nature.' + t.nature | translate }}</span>
+                    }
                     @if (t.asset; as a) {
                       · <span class="num">{{ a.symbol }}</span>
                       @if (a.quantity !== null) {
-                        <span class="num">
+                        <span class="num hidden sm:inline">
                           · {{ a.quantity }} ×
                           {{ a.unitPrice !== null ? (a.unitPrice | money: t.currency) : '—' }}</span
                         >
                       }
-                    }
-                    @if (t.nature) {
-                      · {{ 'nature.' + t.nature | translate }}
                     }
                     @if (t.source !== 'Manual') {
                       ·
@@ -287,91 +255,57 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                       }}</span>
                     }
                   </div>
-                </td>
-                <td hlmTd class="align-top">
-                  @if (t.splits.length) {
-                    <ng-container *ngTemplateOutlet="splitToggle; context: { $implicit: t }" />
-                    @if (expanded().has(t.id)) {
-                      <ng-container *ngTemplateOutlet="splitList; context: { $implicit: t }" />
-                    }
-                  } @else {
-                    {{ t.categoryKey ? (t | categoryLabel) : (t.bucketName ?? '—') }}
+                  @if (expanded().has(t.id)) {
+                    <ng-container *ngTemplateOutlet="splitList; context: { $implicit: t }" />
                   }
-                </td>
-                <td hlmTd class="text-muted-foreground">
-                  {{ t.accountName }}
-                  @if (t.counterAccountName) {
-                    → {{ t.counterAccountName }}
-                  }
-                </td>
-                <td
-                  hlmTd
-                  class="num text-right font-semibold whitespace-nowrap"
-                  [class]="tone(t.type)"
-                >
-                  @if (t.source === 'InterestEstimate') {
-                    <span aria-hidden="true" [attr.title]="'interest.estimatedHint' | translate"
-                      >≈</span
-                    >
-                  }
-                  {{ sign(t.type) }}{{ shownAmount(t) | money: t.currency }}
-                  @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
-                    <div class="text-xs font-normal text-muted-foreground">
-                      {{ 'split.ofTotal' | translate: { amount: (t.amount | money: t.currency) } }}
-                    </div>
-                  }
-                  @if (t.currency !== 'EUR') {
-                    <div class="text-xs font-normal text-muted-foreground">
-                      {{ t.baseAmount | money }}
-                    </div>
-                  }
-                </td>
-                <td hlmTd class="text-right whitespace-nowrap">
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="icon-sm"
-                    (click)="showHistory(t)"
-                    [attr.aria-label]="'tx.history' | translate"
-                    [hlmTooltip]="'tx.history' | translate"
+                </div>
+                <div class="flex shrink-0 items-center gap-1">
+                  <!-- Desktop: actions appear on hover or keyboard focus; phones use the row (tap). -->
+                  <div
+                    class="hidden items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 md:flex"
                   >
-                    <ng-icon name="lucideHistory" />
-                  </button>
-                  @if (t.editable) {
-                    <button
-                      hlmBtn
-                      variant="ghost"
-                      size="icon-sm"
-                      (click)="quick.edit(t)"
-                      [attr.aria-label]="'common.edit' | translate"
-                      [hlmTooltip]="'common.edit' | translate"
-                    >
-                      <ng-icon name="lucidePencil" />
-                    </button>
-                    <button
-                      hlmBtn
-                      variant="ghost"
-                      size="icon-sm"
-                      class="text-destructive hover:text-destructive"
-                      (click)="remove(t)"
-                      [attr.aria-label]="'common.delete' | translate"
-                      [hlmTooltip]="'common.delete' | translate"
-                    >
-                      <ng-icon name="lucideTrash2" />
-                    </button>
-                  }
-                </td>
-              </tr>
-            } @empty {
-              <tr hlmTr class="hover:bg-transparent">
-                <td hlmTd colspan="6" class="whitespace-normal">
-                  <ng-container *ngTemplateOutlet="empty" />
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+                    <ng-container *ngTemplateOutlet="actions; context: { $implicit: t }" />
+                  </div>
+                  <div class="text-right">
+                    <div class="num font-semibold whitespace-nowrap" [class]="tone(t.type)">
+                      @if (t.source === 'InterestEstimate') {
+                        <span aria-hidden="true" [attr.title]="'interest.estimatedHint' | translate"
+                          >≈</span
+                        >
+                      }
+                      {{ sign(t.type) }}{{ shownAmount(t) | money: t.currency }}
+                    </div>
+                    @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
+                      <div class="text-muted-foreground num text-[11px]">
+                        {{
+                          'split.ofTotal' | translate: { amount: (t.amount | money: t.currency) }
+                        }}
+                      </div>
+                    } @else if (t.currency !== 'EUR') {
+                      <div class="text-muted-foreground num text-[11px]">
+                        {{ t.baseAmount | money }}
+                      </div>
+                    }
+                    @if (t.source === 'InterestEstimate') {
+                      <span class="badge bg-muted !px-1.5 !py-0 text-[10px]">{{
+                        'source.InterestEstimate' | translate
+                      }}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+              @if (actionsFor() === t.id) {
+                <!-- Phones: tapping a row shows its actions. -->
+                <div class="flex justify-end gap-1 px-4 pb-3 md:hidden">
+                  <ng-container *ngTemplateOutlet="actions; context: { $implicit: t }" />
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      } @empty {
+        <ng-container *ngTemplateOutlet="empty" />
+      }
       @if ((page.value()?.total ?? 0) > pageSize) {
         <div class="flex items-center justify-end gap-2 p-3">
           <button
@@ -408,7 +342,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
         class="hover:text-foreground inline-flex items-center gap-1 underline-offset-2 hover:underline"
         data-testid="split-toggle"
         [attr.aria-expanded]="expanded().has(t.id)"
-        (click)="toggleSplit(t.id)"
+        (click)="$event.stopPropagation(); toggleSplit(t.id)"
       >
         <ng-icon name="lucideChartPie" aria-hidden="true" />{{
           'split.count' | translate: { count: t.splits.length }
@@ -437,6 +371,42 @@ const SIGN: Partial<Record<TransactionType, string>> = {
           </li>
         }
       </ul>
+    </ng-template>
+
+    <ng-template #actions let-t>
+      <button
+        hlmBtn
+        variant="ghost"
+        size="icon-sm"
+        (click)="$event.stopPropagation(); showHistory(t)"
+        [attr.aria-label]="'tx.history' | translate"
+        [hlmTooltip]="'tx.history' | translate"
+      >
+        <ng-icon name="lucideHistory" />
+      </button>
+      @if (t.editable) {
+        <button
+          hlmBtn
+          variant="ghost"
+          size="icon-sm"
+          (click)="$event.stopPropagation(); quick.edit(t)"
+          [attr.aria-label]="'common.edit' | translate"
+          [hlmTooltip]="'common.edit' | translate"
+        >
+          <ng-icon name="lucidePencil" />
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="icon-sm"
+          class="text-muted-foreground hover:text-destructive"
+          (click)="$event.stopPropagation(); remove(t)"
+          [attr.aria-label]="'common.delete' | translate"
+          [hlmTooltip]="'common.delete' | translate"
+        >
+          <ng-icon name="lucideTrash2" />
+        </button>
+      }
     </ng-template>
 
     <ng-template #empty>
@@ -572,6 +542,15 @@ export class TransactionsComponent {
   protected readonly pages = computed(() =>
     Math.max(1, Math.ceil((this.page.value()?.total ?? 0) / this.pageSize)),
   );
+  /** Phones: whether the filters under the search box are shown. */
+  protected readonly filtersOpen = signal(false);
+  /** How many filters besides the search are set (shown on the phone's Filters button). */
+  protected readonly activeFilters = computed(
+    () =>
+      [this.from(), this.to(), this.accountId(), this.categoryId()].filter(Boolean).length +
+      this.typeFilter().length,
+  );
+
   protected readonly hasFilters = computed(
     () =>
       !!(
@@ -585,6 +564,47 @@ export class TransactionsComponent {
   );
 
   protected tone = (type: TransactionType) => TYPE_TONE[type];
+
+  /** The page's rows by day, newest first, each with its net in EUR (money in minus money out). */
+  protected readonly days = computed(() => {
+    const groups: { date: string; total: number; items: Transaction[] }[] = [];
+    for (const t of this.page.value()?.items ?? []) {
+      let g = groups.at(-1);
+      if (!g || g.date !== t.occurredOn) {
+        g = { date: t.occurredOn, total: 0, items: [] };
+        groups.push(g);
+      }
+      g.items.push(t);
+      const share = t.categoryAmount != null && t.amount ? t.categoryAmount / t.amount : 1;
+      const direction = SIGN[t.type] === '+' ? 1 : SIGN[t.type] === '−' ? -1 : 0;
+      g.total = Math.round((g.total + direction * t.baseAmount * share) * 100) / 100;
+    }
+    return groups;
+  });
+
+  /** Category colour (or a neutral one), for the row's badge. */
+  private readonly categoryColors = computed(
+    () => new Map((this.categories.value() ?? []).map((c) => [c.id, c.color ?? null])),
+  );
+
+  protected dotColor(t: Transaction): string {
+    return (t.categoryId && this.categoryColors().get(t.categoryId)) || TYPE_COLOR[t.type];
+  }
+
+  protected initial(t: Transaction): string {
+    return (this.title(t).trim()[0] ?? '·').toUpperCase();
+  }
+
+  /** Phones: the row whose actions are shown (tap a row to show or hide them). */
+  protected readonly actionsFor = signal<string | null>(null);
+
+  protected open(t: Transaction) {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      if (t.editable) this.quick.edit(t);
+    } else {
+      this.actionsFor.update((id) => (id === t.id ? null : t.id));
+    }
+  }
 
   /** Filtered by category, a split row shows only its part in that category. */
   protected shownAmount = (t: Transaction) => t.categoryAmount ?? t.amount;

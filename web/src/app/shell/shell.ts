@@ -102,16 +102,22 @@ interface NavItem {
             hlmBtn
             variant="ghost"
             size="icon"
-            class="lg:hidden"
+            class="hidden md:inline-flex lg:hidden"
             (click)="menuOpen.set(true)"
             aria-label="Menu"
             hlmTooltip="Menu"
           >
             <ng-icon name="lucideMenu" />
           </button>
+          <app-logo [size]="28" class="md:hidden" />
           <div class="flex-1"></div>
-          <!-- Phones: icon-only actions so the header never overflows at 320–400px. -->
-          <button hlmBtn (click)="quick.add()" [attr.aria-label]="'tx.add' | translate">
+          <!-- Phones add from the bottom bar; the header keeps only icon actions there. -->
+          <button
+            hlmBtn
+            class="hidden md:inline-flex"
+            (click)="quick.add()"
+            [attr.aria-label]="'tx.add' | translate"
+          >
             <ng-icon name="lucidePlus" /><span class="hidden sm:inline">{{
               'tx.add' | translate
             }}</span>
@@ -167,11 +173,53 @@ interface NavItem {
             <ng-icon name="lucideLogOut" />
           </button>
         </header>
-        <main class="mx-auto w-full max-w-7xl min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <main
+          class="mx-auto w-full max-w-7xl min-w-0 flex-1 px-4 pt-5 pb-24 sm:px-6 sm:pt-6 md:pb-6 lg:px-8"
+        >
           <router-outlet />
         </main>
       </div>
     </div>
+
+    <!-- Phones: the places used every day within thumb reach; everything else is under More. -->
+    <nav
+      class="bg-background/95 fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      [attr.aria-label]="'nav.main' | translate"
+    >
+      @for (tab of tabs; track tab.path; let i = $index) {
+        @if (i === 2) {
+          <div class="flex items-center justify-center">
+            <button
+              hlmBtn
+              class="size-12 -translate-y-3 rounded-full shadow-lg"
+              (click)="quick.add()"
+              [attr.aria-label]="'tx.add' | translate"
+            >
+              <ng-icon name="lucidePlus" class="text-xl" />
+            </button>
+          </div>
+        }
+        <a
+          [routerLink]="tab.path"
+          routerLinkActive="!text-primary"
+          class="text-muted-foreground flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium"
+          (click)="menuOpen.set(false)"
+        >
+          <ng-icon [name]="tab.icon" class="text-xl" aria-hidden="true" />{{
+            tab.label | translate
+          }}
+        </a>
+      }
+      <button
+        type="button"
+        class="text-muted-foreground flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium"
+        [class.!text-primary]="menuOpen()"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.set(!menuOpen())"
+      >
+        <ng-icon name="lucideMenu" class="text-xl" aria-hidden="true" />{{ 'nav.more' | translate }}
+      </button>
+    </nav>
     <app-quick-add />
     @if (session.secondsLeft(); as left) {
       <div
@@ -213,6 +261,13 @@ export class ShellComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   protected readonly menuOpen = signal(false);
+
+  /** Bottom bar on phones (the add button sits between the second and third). */
+  protected readonly tabs: NavItem[] = [
+    { path: '/dashboard', label: 'nav.dashboard', icon: PAGE_ICONS.dashboard },
+    { path: '/transactions', label: 'nav.transactions', icon: PAGE_ICONS.transactions },
+    { path: '/portfolio', label: 'nav.portfolio', icon: PAGE_ICONS.portfolio },
+  ];
 
   protected readonly nav: { title: string; items: NavItem[] }[] = [
     {

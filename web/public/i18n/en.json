@@ -20,7 +20,9 @@
   "connections": "Connections",
   "export": "Export",
   "ai": "AI access",
-  "assistant": "Assistant"
+  "assistant": "Assistant",
+  "more": "More",
+  "main": "Main navigation"
  },
  "common": {
   "save": "Save",
@@ -315,7 +317,8 @@
   "brokerAccount": "Broker / wallet (optional)",
   "investmentHint": "Investments are reported separately from everyday income and expenses.",
   "emptyFiltered": "Try another search, date range or type, or clear the filters.",
-  "emptyHint": "Add your first transaction, or import a spreadsheet or bank export."
+  "emptyHint": "Add your first transaction, or import a spreadsheet or bank export.",
+  "filters": "Filters"
  },
  "recurring": {
   "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.",

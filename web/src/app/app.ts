@@ -12,7 +12,7 @@ import { ConfirmDialogComponent } from './shared/confirm-dialog';
     <router-outlet />
     <app-confirm-dialog />
     <hlm-toaster
-      position="bottom-right"
+      [position]="toasterPosition"
       [theme]="toasterTheme()"
       [richColors]="true"
       [closeButton]="true"
@@ -22,6 +22,11 @@ import { ConfirmDialogComponent } from './shared/confirm-dialog';
 export class App {
   // Instantiated at startup so theme and language apply before the first screen renders.
   private readonly prefs = inject(Prefs);
+  /** Phones have the navigation bar at the bottom: messages appear at the top there. */
+  protected readonly toasterPosition =
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767.98px)').matches
+      ? ('top-center' as const)
+      : ('bottom-right' as const);
   protected readonly toasterTheme = computed(() =>
     this.prefs.theme() === 'system' ? 'system' : this.prefs.theme(),
   );

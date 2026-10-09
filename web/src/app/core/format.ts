@@ -48,7 +48,10 @@ export class MonthNamePipe implements PipeTransform {
 export class DayPipe implements PipeTransform {
   private readonly prefs = inject(Prefs);
 
-  transform(isoDate: string | null | undefined, style: 'short' | 'medium' = 'medium'): string {
+  transform(
+    isoDate: string | null | undefined,
+    style: 'short' | 'medium' | 'full' = 'medium',
+  ): string {
     if (!isoDate) return '—';
     const [y, m, d] = isoDate.slice(0, 10).split('-').map(Number);
     return new Intl.DateTimeFormat(this.prefs.locale(), { dateStyle: style }).format(
