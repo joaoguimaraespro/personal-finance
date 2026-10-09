@@ -12,10 +12,14 @@ describe('categoryLabel', () => {
   });
 
   it("shows the owner's name for a renamed built-in category", () => {
-    expect(categoryLabel(i18n, { key: 'gym', name: 'Ginásio & Padel', renamed: true })).toBe('Ginásio & Padel');
+    expect(categoryLabel(i18n, { key: 'gym', name: 'Ginásio & Padel', renamed: true })).toBe(
+      'Ginásio & Padel',
+    );
   });
 
   it('shows custom categories by name', () => {
-    expect(categoryLabel(i18n, { key: 'custom-side-project', name: 'Side project' })).toBe('Side project');
+    expect(categoryLabel(i18n, { key: 'custom-side-project', name: 'Side project' })).toBe(
+      'Side project',
+    );
   });
 });

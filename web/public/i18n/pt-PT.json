@@ -21,6 +21,8 @@
   "export": "Exportar",
   "ai": "Acesso de IA",
   "assistant": "Assistente",
+  "more": "Mais",
+  "main": "Navegação principal",
   "general": "Geral"
  },
  "common": {
@@ -316,7 +318,8 @@
   "brokerAccount": "Corretora / carteira (opcional)",
   "investmentHint": "Os investimentos são apresentados separadamente das receitas e despesas do dia a dia.",
   "emptyFiltered": "Experimenta outra pesquisa, intervalo de datas ou tipo, ou limpa os filtros.",
-  "emptyHint": "Adiciona o primeiro movimento, ou importa uma folha de cálculo ou extrato bancário."
+  "emptyHint": "Adiciona o primeiro movimento, ou importa uma folha de cálculo ou extrato bancário.",
+  "filters": "Filtros"
  },
  "recurring": {
   "subtitle": "Os modelos propõem movimentos; nada é registado sem a tua confirmação.",

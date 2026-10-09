@@ -253,7 +253,7 @@ export class AnnualComponent {
         ),
         bar(
           t('kpi.variableExpenses'),
-          '#fb7185',
+          SERIES_COLORS.expensesLight,
           m.map((r) => active(r, r.month.variableExpenses)),
         ),
         bar(

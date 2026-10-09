@@ -28,6 +28,7 @@ import { Toasts } from '../../core/toast';
 import { ChartComponent } from '../../shared/chart';
 import {
   SERIES_COLORS,
+  ASSET_CLASS_COLORS,
   baseChart,
   categoryAxis,
   moneyAxis,
@@ -64,15 +65,7 @@ import {
 
 type SortKey = 'value' | 'gain' | 'today' | 'weight';
 
-const CLASS_COLORS: Record<AssetClass, string> = {
-  Stock: '#8b5cf6',
-  Etf: '#10b981',
-  Bond: '#0891b2',
-  Fund: '#84cc16',
-  Crypto: '#f59e0b',
-  Cash: '#a1a1aa',
-  Other: '#a855f7',
-};
+const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
 
 /**
  * Read-only view of broker data: nothing on this page can change a broker account. Coins held elsewhere (an
@@ -863,7 +856,7 @@ export class PortfolioComponent {
           showSymbol: false,
           areaStyle: { opacity: 0.1 },
           data: series.map((p) => [p.date, p.value]),
-          itemStyle: { color: SERIES_COLORS.net },
+          itemStyle: { color: SERIES_COLORS.value },
         },
         {
           name: this.i18n.instant('portfolio.contributions'),
@@ -871,7 +864,7 @@ export class PortfolioComponent {
           showSymbol: false,
           step: 'end',
           data: series.map((p) => [p.date, p.netContributions]),
-          itemStyle: { color: '#a1a1aa' },
+          itemStyle: { color: SERIES_COLORS.muted },
           lineStyle: { type: 'dashed' },
         },
       ],
