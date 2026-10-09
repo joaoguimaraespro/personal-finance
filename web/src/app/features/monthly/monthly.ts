@@ -189,7 +189,14 @@ type Reference = 'previous' | 'average' | 'budget';
                     >{{ b.name }}
                   </td>
                   <td hlmTd class="num text-right text-muted-foreground">{{ b.target | money }}</td>
-                  <td hlmTd class="num text-right font-medium">{{ b.actual | money }}</td>
+                  <td hlmTd class="num text-right font-medium">
+                    {{ b.actual | money }}
+                    @if (b.fromBrokers) {
+                      <div class="text-[11px] font-normal text-muted-foreground">
+                        {{ 'monthly.fromBrokers' | translate: { amount: (b.fromBrokers | money) } }}
+                      </div>
+                    }
+                  </td>
                   <td
                     hlmTd
                     class="num text-right"

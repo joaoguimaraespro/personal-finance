@@ -38,3 +38,13 @@ internal sealed record BinanceTicker(string Symbol, decimal Price);
 internal sealed record BinanceFill(long Id, decimal Price, decimal Qty, decimal QuoteQty, long Time, bool IsBuyer);
 
 internal sealed record BinanceError(int Code, string? Msg);
+
+internal sealed record BinanceFiatPage<T>(List<T>? Data, int Total);
+
+/// <summary>A fiat deposit (transactionType 0) or withdrawal (1): <c>indicatedAmount</c> is what was sent.</summary>
+internal sealed record BinanceFiatOrder(string OrderNo, string FiatCurrency, decimal IndicatedAmount, decimal Amount,
+    string? Status, string? Method, long CreateTime);
+
+/// <summary>Crypto bought directly with fiat (card, bank): <c>sourceAmount</c> of <c>fiatCurrency</c> paid in.</summary>
+internal sealed record BinanceFiatPayment(string OrderNo, string FiatCurrency, decimal SourceAmount,
+    string? CryptoCurrency, string? Status, long CreateTime);

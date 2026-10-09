@@ -150,6 +150,25 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
               {{ 'accounts.brokerValue' | translate }}
               <ng-icon name="lucideArrowRight" aria-hidden="true" />
             </a>
+            @if (brokerOf(a) !== 'Manual' && !a.archived) {
+              <!-- Deposits made at this broker count towards a bucket's monthly allocation. -->
+              <div class="mt-4 border-t pt-3">
+                <label class="label" [for]="'alloc-' + a.id">{{
+                  'accounts.countsTowards' | translate
+                }}</label>
+                <app-select
+                  size="sm"
+                  triggerClass="text-xs"
+                  [inputId]="'alloc-' + a.id"
+                  [options]="bucketOptions()"
+                  [value]="a.allocationBucketId ?? ''"
+                  (valueChange)="setAllocationBucket(a, $event)"
+                />
+                <p class="mt-1 text-[11px] text-muted-foreground">
+                  {{ 'accounts.countsTowardsHint' | translate }}
+                </p>
+              </div>
+            }
           } @else {
             <p
               class="num mt-5 text-2xl font-semibold tracking-tight"
@@ -461,6 +480,19 @@ export class AccountsComponent {
     params: () => this.events.version(),
     stream: () => this.api.accounts(true),
   });
+  private readonly buckets = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.buckets(),
+  });
+  protected readonly bucketOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('accounts.noBucket') },
+      ...(this.buckets.value() ?? [])
+        .filter((b) => !b.archived)
+        .map((b) => ({ value: b.id, label: b.name })),
+    ];
+  });
   private readonly portfolio = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.portfolioSummary(),
@@ -559,6 +591,16 @@ export class AccountsComponent {
     try {
       await firstValueFrom(this.api.deleteInterestRate(id, r.id));
       this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async setAllocationBucket(a: Account, bucketId: string) {
+    try {
+      await firstValueFrom(this.api.setAccountAllocationBucket(a.id, bucketId || null));
+      this.toasts.show(this.i18n.instant('accounts.countsTowardsSaved'));
+      this.events.bump(); // monthly figures and the notification centre follow
     } catch (err) {
       this.toasts.error(err);
     }

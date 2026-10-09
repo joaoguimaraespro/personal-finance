@@ -10,8 +10,11 @@ using SharedKernel;
 
 namespace Reporting.Application.Queries;
 
-/// <summary>Single grouped query over the ledger; every report is computed in memory from its result.</summary>
-public sealed class LedgerAggregates(IFinanceDb db)
+/// <summary>
+/// Single grouped query over the ledger; every report is computed in memory from its result. Buckets also count the
+/// deposits broker syncs report into accounts linked to them (<see cref="BrokerTopUp"/>).
+/// </summary>
+public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDeposits = null)
 {
     public async Task<IReadOnlyList<MonthTotals>> MonthTotalsAsync(YearMonth from, YearMonth to, CancellationToken ct)
     {
@@ -30,9 +33,11 @@ public sealed class LedgerAggregates(IFinanceDb db)
                 t.Nature,
                 t.CategoryId,
                 t.BucketId,
+                // The broker an investment entry went to: the same money as that broker's synced deposit.
+                CounterAccountId = t.BucketId != null ? t.CounterAccountId : null,
             })
             .Select(g => new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, g.Key.Nature, g.Key.CategoryId,
-                g.Key.BucketId, g.Sum(t => t.BaseAmount), g.Count()))
+                g.Key.BucketId, g.Sum(t => t.BaseAmount), g.Count(), g.Key.CounterAccountId))
             .ToListAsync(ct);
 
         // A split transaction counts by its lines: each line's category, nature and EUR amount (the lines add up
@@ -59,32 +64,62 @@ public sealed class LedgerAggregates(IFinanceDb db)
             .ToListAsync(ct);
 
         var rows = whole.Concat(lines).Concat(splitCounts).ToList();
+        var linked = await db.Accounts.AsNoTracking()
+            .Where(a => a.AllocationBucketId != null)
+            .Select(a => new { a.Id, BucketId = a.AllocationBucketId!.Value })
+            .ToListAsync(ct);
+        var deposits = linked.Count > 0 && brokerDeposits is not null
+            ? await brokerDeposits.MonthlyAsync(from, to, ct)
+            : [];
 
         var result = new List<MonthTotals>();
         for (var p = from; p <= to; p = p.Next())
         {
             var month = rows.Where(r => r.Year == p.Year && r.Month == p.Month).ToList();
             var expenses = month.Where(r => r.Type == TransactionType.Expense).ToList();
+            var byBucket = month.Where(r => r.BucketId != null).GroupBy(r => r.BucketId!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(Signed));
+            var fromBrokers = new Dictionary<Guid, decimal>();
+            foreach (var account in linked)
+            {
+                var deposited = deposits.Where(d => d.AccountId == account.Id && d.Period == p).Sum(d => d.NetDeposits);
+                var recorded = month.Where(r => r.BucketId == account.BucketId && r.CounterAccountId == account.Id)
+                    .Sum(Signed);
+                if (BrokerTopUp(deposited, recorded) is var topUp and > 0)
+                {
+                    fromBrokers[account.BucketId] = fromBrokers.GetValueOrDefault(account.BucketId) + topUp;
+                    byBucket[account.BucketId] = byBucket.GetValueOrDefault(account.BucketId) + topUp;
+                }
+            }
+
             result.Add(new MonthTotals(
                 p,
                 month.Where(r => r.Type == TransactionType.Income).Sum(r => r.Amount),
                 expenses.Where(r => r.Nature == ExpenseNature.Fixed).Sum(r => r.Amount),
                 expenses.Where(r => r.Nature != ExpenseNature.Fixed).Sum(r => r.Amount),
                 // Sales give money back to the bucket: "invested" is net of them and never counted as income.
-                month.Where(r => r.BucketId != null).GroupBy(r => r.BucketId!.Value)
-                    .ToDictionary(g => g.Key,
-                        g => g.Sum(r => r.Type == TransactionType.InvestmentSale ? -r.Amount : r.Amount)),
+                byBucket,
                 expenses.Where(r => r.CategoryId != null).GroupBy(r => r.CategoryId!.Value)
                     .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount)),
                 month.Where(r => r.Type == TransactionType.Income && r.CategoryId != null)
                     .GroupBy(r => r.CategoryId!.Value).ToDictionary(g => g.Key, g => g.Sum(r => r.Amount)),
                 month.Sum(r => r.Count),
                 month.Where(r => r.Type == TransactionType.InvestmentContribution).Sum(r => r.Amount),
-                month.Where(r => r.Type == TransactionType.InvestmentSale).Sum(r => r.Amount)));
+                month.Where(r => r.Type == TransactionType.InvestmentSale).Sum(r => r.Amount),
+                fromBrokers));
         }
 
         return result;
     }
+
+    private static decimal Signed(LedgerRow r) => r.Type == TransactionType.InvestmentSale ? -r.Amount : r.Amount;
+
+    /// <summary>
+    /// What a broker's synced deposits add to its bucket in a month: the part not already recorded in the ledger as
+    /// going to that broker. Recording the same money in both places counts it once (the larger of the two).
+    /// </summary>
+    public static decimal BrokerTopUp(decimal deposited, decimal recordedToBroker) =>
+        Math.Max(deposited - Math.Max(recordedToBroker, 0), 0);
 
     public async Task<IReadOnlyList<BucketInfo>> BucketsAsync(CancellationToken ct) =>
         await db.Buckets.AsNoTracking().OrderBy(b => b.Group).ThenBy(b => b.SortOrder)
@@ -117,4 +152,4 @@ public sealed class LedgerAggregates(IFinanceDb db)
 
 /// <summary>One grouped slice of the ledger: a group of whole transactions, of split lines, or only a count.</summary>
 internal sealed record LedgerRow(int Year, int Month, TransactionType Type, ExpenseNature? Nature, Guid? CategoryId,
-    Guid? BucketId, decimal Amount, int Count);
+    Guid? BucketId, decimal Amount, int Count, Guid? CounterAccountId = null);

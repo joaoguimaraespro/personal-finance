@@ -46,7 +46,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 accounts = await finance.Accounts.AsNoTracking().Select(a => new
                 {
                     a.Id, a.Name, a.Kind, a.Currency, a.OpeningBalance, a.OpeningBalanceOn, a.Institution,
-                    a.Identifier, archived = a.ArchivedAtUtc != null, a.InterestPayout,
+                    a.Identifier, archived = a.ArchivedAtUtc != null, a.InterestPayout, a.AllocationBucketId,
                 }).ToListAsync(ct),
                 interestRates = await finance.InterestRates.AsNoTracking().OrderBy(r => r.EffectiveFrom)
                     .Select(r => new { r.AccountId, r.EffectiveFrom, r.AnnualRatePercent, r.WithholdingPercent })
@@ -143,6 +143,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
 
             // Accounts: keep ids that already exist, otherwise create and remember the mapping.
             var existingAccounts = await finance.Accounts.Select(a => a.Id).ToListAsync(ct);
+            var accountBuckets = new List<(Account Account, Guid BucketId)>();
             foreach (var a in Items(f, "accounts"))
             {
                 var id = a.GetProperty("id").GetGuid();
@@ -160,6 +161,11 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     account.SupportsInterest)
                 {
                     account.SetInterestPayout(p);
+                }
+
+                if (a.TryGetProperty("allocationBucketId", out var bucketId) && bucketId.ValueKind == JsonValueKind.String)
+                {
+                    accountBuckets.Add((account, bucketId.GetGuid()));
                 }
 
                 finance.Accounts.Add(account);
@@ -201,6 +207,12 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 finance.Buckets.Add(bucket);
                 map[id] = bucket.Id;
                 buckets++;
+            }
+
+            // Broker accounts keep counting their deposits towards the same (re-mapped) bucket.
+            foreach (var (account, bucketId) in accountBuckets.Where(x => map.ContainsKey(x.BucketId)))
+            {
+                account.SetAllocationBucket(map[bucketId]);
             }
 
             var goalNames = await finance.Goals.ToDictionaryAsync(g => g.Name, g => g.Id, ct);

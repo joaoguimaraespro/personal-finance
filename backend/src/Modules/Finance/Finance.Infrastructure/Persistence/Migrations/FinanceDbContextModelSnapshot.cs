@@ -30,6 +30,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AllocationBucketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("allocation_bucket_id");
+
                     b.Property<DateTimeOffset?>("ArchivedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("archived_at_utc");

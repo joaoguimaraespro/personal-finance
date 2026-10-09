@@ -27,7 +27,8 @@ public sealed class AllocationBucket : Entity
 
     public static AllocationBucket CreateCustom(string name, BucketGroup group) => new()
     {
-        Key = "custom-" + Guid.CreateVersion7().ToString("N")[..12],
+        // Random, not v7: a v7 GUID starts with the timestamp, so two created in the same millisecond collided.
+        Key = "custom-" + Guid.NewGuid().ToString("N")[..12],
         Name = name.Trim(),
         Group = group,
         SortOrder = 1000,

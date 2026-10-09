@@ -9,8 +9,9 @@ public enum BalanceStatus
     Negative = 1,
 }
 
+/// <param name="FromBrokers">Part of <paramref name="Actual"/> that comes from deposits synced at linked brokers.</param>
 public sealed record BucketLine(Guid BucketId, string Name, bool IsInvestment, decimal? Target, decimal Actual,
-    decimal? Difference);
+    decimal? Difference, decimal FromBrokers = 0);
 
 public sealed record MonthlySummary(
     YearMonth Period,
@@ -56,7 +57,8 @@ public static class MonthlyCalculator
             {
                 var actual = t.ByBucket.GetValueOrDefault(b.Id);
                 decimal? target = targets.Buckets.TryGetValue(b.Id, out var v) ? v : null;
-                return new BucketLine(b.Id, b.Name, b.IsInvestment, target, actual, actual - target); // E = D − C
+                return new BucketLine(b.Id, b.Name, b.IsInvestment, target, actual, actual - target, // E = D − C
+                    t.FromBrokers?.GetValueOrDefault(b.Id) ?? 0);
             })
             .ToList();
 

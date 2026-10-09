@@ -268,7 +268,8 @@
    "previous": "vs mês anterior",
    "average": "vs média",
    "budget": "vs orçamento"
-  }
+  },
+  "fromBrokers": "{{amount}} das corretoras"
  },
  "annual": {
   "title": "Resumo anual",
@@ -383,7 +384,11 @@
   "identifierNote": "Cifrado em repouso e nunca partilhado com clientes de IA por omissão.",
   "readOnly": "Só leitura",
   "empty": "Ainda sem contas. Cria primeiro a tua conta bancária principal.",
-  "brokerValue": "Valor na carteira · sincronizado"
+  "brokerValue": "Valor na carteira · sincronizado",
+  "countsTowards": "Os depósitos contam para",
+  "countsTowardsHint": "O dinheiro que depositas aqui conta na alocação mensal desse balde, sem o registares à mão.",
+  "noBucket": "Nenhum balde",
+  "countsTowardsSaved": "Guardado. A alocação mensal passa a incluir os depósitos desta corretora."
  },
  "categories": {
   "new": "Nova categoria",

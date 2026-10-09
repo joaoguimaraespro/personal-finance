@@ -268,7 +268,8 @@
    "previous": "vs last month",
    "average": "vs average",
    "budget": "vs budget"
-  }
+  },
+  "fromBrokers": "{{amount}} from brokers"
  },
  "annual": {
   "title": "Annual summary",
@@ -383,7 +384,11 @@
   "identifierNote": "Encrypted at rest and never shared with AI clients by default.",
   "readOnly": "Read-only",
   "empty": "No accounts yet. Create your main bank account first.",
-  "brokerValue": "Portfolio value · synced"
+  "brokerValue": "Portfolio value · synced",
+  "countsTowards": "Deposits count towards",
+  "countsTowardsHint": "Money you deposit here counts in that bucket’s monthly allocation, without recording it by hand.",
+  "noBucket": "No bucket",
+  "countsTowardsSaved": "Saved. The monthly allocation now includes this broker’s deposits."
  },
  "categories": {
   "new": "New category",

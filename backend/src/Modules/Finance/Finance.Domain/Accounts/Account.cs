@@ -45,6 +45,12 @@ public sealed class Account : Entity, IAuditable
     public bool SupportsInterest => Kind is AccountKind.Savings or AccountKind.Bank;
 
     public InterestPayout InterestPayout { get; private set; } = InterestPayout.Monthly;
+
+    /// <summary>
+    /// Broker accounts only: the allocation bucket their synced deposits count towards each month (e.g. Trading 212
+    /// → Stocks / ETFs), so a deposit made at the broker shows the month's allocation as done without a manual entry.
+    /// </summary>
+    public Guid? AllocationBucketId { get; private set; }
     public DateTimeOffset? ArchivedAtUtc { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -72,6 +78,8 @@ public sealed class Account : Entity, IAuditable
     }
 
     public void SetInterestPayout(InterestPayout payout) => InterestPayout = payout;
+
+    public void SetAllocationBucket(Guid? bucketId) => AllocationBucketId = bucketId;
 
     public void Archive(DateTimeOffset now) => ArchivedAtUtc = now;
 

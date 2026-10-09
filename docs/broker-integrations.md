@@ -185,8 +185,19 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
   reward, valued at the coin's EUR close of that day, under *Dividends & rewards*. The first sync reads the last
   180 days; later syncs read from the previous one, and the external id
   (`binance:earn:<product>:<coin>:<time>:<amount>`) keeps re-syncs from counting a reward twice.
-- **Not imported.** Individual trades and deposits/withdrawals (dollar-quoted pairs do not map to the ledger's
-  currencies) and other Earn products (dual investment, launchpool). Sync every 4 hours, like Trading 212.
+- **Money in and out.** Fiat deposits (bank, card), crypto bought directly with fiat and fiat withdrawals are the
+  account's cash flows (returns, and the monthly allocation below). Crypto deposits from a wallet are not money in.
+- **Not imported.** Individual trades (dollar-quoted pairs do not map to the ledger's currencies) and other Earn
+  products (dual investment, launchpool). Sync every 4 hours, like Trading 212.
+
+## Deposits and the monthly allocation
+
+A synced broker account can be linked to an allocation bucket (*Accounts → the broker's card → Deposits count
+towards*, e.g. Trading 212 → Stocks / ETFs, Binance → Crypto). Its deposits minus withdrawals in a month then count
+towards that bucket, so the month's allocation shows as done without recording anything by hand. Money also recorded
+in the ledger as an investment contribution *to that broker* is the same money: the bucket counts the larger of the
+two, never both. Hand-entered crypto (a cold wallet, another exchange) has no deposits to sync: record its
+contribution with *Record* on the Monthly page as before.
 
 ## Crypto entered by hand
 
