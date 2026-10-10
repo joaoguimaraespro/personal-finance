@@ -45,6 +45,9 @@ import {
   Transaction,
   TransactionRequest,
   TrendPoint,
+  LoanDetail,
+  LoanSummary,
+  PrepaymentSimulation,
 } from './models';
 
 export interface TransactionFilter {
@@ -162,6 +165,21 @@ export class Api {
     this.http.put<void>(`/api/budgets/${period}`, body);
   deleteBudget = (period: string) => this.http.delete<void>(`/api/budgets/${period}`);
   goals = () => this.http.get<Goal[]>('/api/goals');
+  loans = () => this.http.get<LoanSummary[]>('/api/loans');
+  loan = (accountId: string) => this.http.get<LoanDetail>(`/api/loans/${accountId}`);
+  saveLoan = (accountId: string, body: unknown) =>
+    this.http.put<void>(`/api/loans/${accountId}`, body);
+  deleteLoan = (accountId: string) => this.http.delete<void>(`/api/loans/${accountId}`);
+  addLoanRate = (accountId: string, body: unknown) =>
+    this.http.post<void>(`/api/loans/${accountId}/rates`, body);
+  deleteLoanRate = (accountId: string, rateId: string) =>
+    this.http.delete<void>(`/api/loans/${accountId}/rates/${rateId}`);
+  addPrepayment = (accountId: string, body: unknown) =>
+    this.http.post<void>(`/api/loans/${accountId}/prepayments`, body);
+  deletePrepayment = (accountId: string, id: string) =>
+    this.http.delete<void>(`/api/loans/${accountId}/prepayments/${id}`);
+  simulatePrepayment = (accountId: string, body: unknown) =>
+    this.http.post<PrepaymentSimulation>(`/api/loans/${accountId}/simulate`, body);
   createGoal = (body: unknown) => this.http.post<{ id: string }>('/api/goals', body);
   updateGoal = (id: string, body: unknown) => this.http.put<void>(`/api/goals/${id}`, body);
   archiveGoal = (id: string) => this.http.post<void>(`/api/goals/${id}/archive`, {});

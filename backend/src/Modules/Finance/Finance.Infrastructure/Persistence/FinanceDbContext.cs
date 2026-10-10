@@ -6,6 +6,7 @@ using Finance.Domain.Categories;
 using Finance.Domain.Goals;
 using Finance.Domain.Imports;
 using Finance.Domain.Interest;
+using Finance.Domain.Loans;
 using Finance.Domain.Recurring;
 using Finance.Domain.Transactions;
 using Microsoft.AspNetCore.DataProtection;
@@ -32,6 +33,7 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
     public DbSet<ImportBatch> Imports => Set<ImportBatch>();
     public DbSet<AccountInterestRate> InterestRates => Set<AccountInterestRate>();
     public DbSet<InterestMonth> InterestMonths => Set<InterestMonth>();
+    public DbSet<Loan> Loans => Set<Loan>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -61,6 +63,35 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.Ignore(x => x.IsManual);
             e.Ignore(x => x.IsLiability);
             e.Ignore(x => x.SupportsInterest);
+        });
+
+        b.Entity<Loan>(e =>
+        {
+            e.ToTable("loans");
+            e.HasIndex(x => x.AccountId).IsUnique();
+            e.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.SpreadPercent).HasPrecision(9, 4);
+            e.Property(x => x.IndexName).HasMaxLength(40);
+            e.HasMany(x => x.Rates).WithOne().HasForeignKey(x => x.LoanId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Prepayments).WithOne().HasForeignKey(x => x.LoanId).OnDelete(DeleteBehavior.Cascade);
+            e.Navigation(x => x.Rates).UsePropertyAccessMode(PropertyAccessMode.Field);
+            e.Navigation(x => x.Prepayments).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        // Children get their id in the domain: new ones added to a tracked loan must be inserted, not updated.
+        b.Entity<LoanRate>(e =>
+        {
+            e.ToTable("loan_rates");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.AnnualRatePercent).HasPrecision(9, 4);
+            e.Property(x => x.IndexRatePercent).HasPrecision(9, 4);
+            e.HasIndex(x => new { x.LoanId, x.EffectiveFrom }).IsUnique();
+        });
+
+        b.Entity<LoanPrepayment>(e =>
+        {
+            e.ToTable("loan_prepayments");
+            e.Property(x => x.Id).ValueGeneratedNever();
         });
 
         b.Entity<AccountInterestRate>(e =>

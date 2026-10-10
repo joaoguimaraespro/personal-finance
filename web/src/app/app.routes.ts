@@ -68,6 +68,10 @@ export const routes: Routes = [
           import('./features/connections/connections').then((m) => m.ConnectionsComponent),
       },
       {
+        path: 'loans/:accountId',
+        loadComponent: () => import('./features/loans/loan').then((m) => m.LoanComponent),
+      },
+      {
         path: 'accounts',
         loadComponent: () =>
           import('./features/accounts/accounts').then((m) => m.AccountsComponent),

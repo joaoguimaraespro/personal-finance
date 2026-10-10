@@ -2,6 +2,7 @@ using Finance.Application.Abstractions;
 using Finance.Domain.Accounts;
 using Finance.Domain.Transactions;
 using Microsoft.EntityFrameworkCore;
+using Finance.Domain.Loans;
 using SharedKernel;
 
 namespace Finance.Application.Accounts;
@@ -57,6 +58,19 @@ public static class AccountBalances
             }
 
             balances[account.Id] = balance;
+        }
+
+        // A loan with terms owes what its amortisation plan says on that day (instalments need not be booked).
+        var loanIds = accounts.Where(a => a.Kind == AccountKind.Loan).Select(a => a.Id).ToList();
+        if (loanIds.Count > 0)
+        {
+            var day = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var loans = await db.Loans.AsNoTracking().Include(l => l.Rates).Include(l => l.Prepayments)
+                .Where(l => loanIds.Contains(l.AccountId)).ToListAsync(ct);
+            foreach (var loan in loans.Where(l => l.Rates.Count > 0))
+            {
+                balances[loan.AccountId] = -LoanSchedule.StatusOn(loan.Plan(), loan.Principal, day).Outstanding;
+            }
         }
 
         return balances;
