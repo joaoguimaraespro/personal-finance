@@ -100,159 +100,207 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
 
     <app-interest-pending />
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      @for (a of visible(); track a.id) {
-        <div class="card card-hover flex flex-col" [class.opacity-60]="a.archived">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-3">
-              @if (brokerOf(a); as broker) {
-                <app-broker-logo [broker]="broker" [name]="a.name" [size]="40" aria-hidden="true" />
-              } @else {
-                <span
-                  class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
-                  aria-hidden="true"
-                >
-                  <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
-                </span>
-              }
-              <div class="min-w-0">
-                <p class="truncate font-semibold">{{ a.name }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ 'accountKind.' + a.kind | translate }}
-                  @if (a.institution) {
-                    · {{ a.institution }}
-                  }
-                  @if (a.identifierMasked) {
-                    · <span class="font-mono">{{ a.identifierMasked }}</span>
-                  }
-                </p>
+    <!-- Grouped: money you have, savings, investments, then what you owe. -->
+    @for (g of groups(); track g.key; let first = $first) {
+      <h2
+        class="text-muted-foreground mb-3 flex items-baseline gap-2 text-xs font-semibold tracking-wider uppercase"
+        [class.mt-8]="!first"
+      >
+        {{ 'accounts.group.' + g.key | translate }}
+        <span class="num font-normal normal-case">· {{ g.accounts.length }}</span>
+      </h2>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        @for (a of g.accounts; track a.id) {
+          <div class="card card-hover flex flex-col" [class.opacity-60]="a.archived">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                @if (brokerOf(a); as broker) {
+                  <app-broker-logo
+                    [broker]="broker"
+                    [name]="a.name"
+                    [size]="40"
+                    aria-hidden="true"
+                  />
+                } @else {
+                  <span
+                    class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
+                    aria-hidden="true"
+                  >
+                    <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
+                  </span>
+                }
+                <div class="min-w-0">
+                  <p class="truncate font-semibold">{{ a.name }}</p>
+                  <p class="text-xs text-muted-foreground">
+                    {{ 'accountKind.' + a.kind | translate }}
+                    @if (a.institution) {
+                      · {{ a.institution }}
+                    }
+                    @if (a.identifierMasked) {
+                      · <span class="font-mono">{{ a.identifierMasked }}</span>
+                    }
+                  </p>
+                </div>
               </div>
+              @if (!a.isManual) {
+                <app-status-badge tone="info" icon="lucideLock">{{
+                  'accounts.readOnly' | translate
+                }}</app-status-badge>
+              } @else if (a.archived) {
+                <app-status-badge icon="lucideArchive">{{
+                  'common.archive' | translate
+                }}</app-status-badge>
+              }
             </div>
-            @if (!a.isManual) {
-              <app-status-badge tone="info" icon="lucideLock">{{
-                'accounts.readOnly' | translate
-              }}</app-status-badge>
-            } @else if (a.archived) {
-              <app-status-badge icon="lucideArchive">{{
-                'common.archive' | translate
-              }}</app-status-badge>
+            @if (a.kind === 'Broker') {
+              <!-- A broker account's worth is its synced portfolio (positions + cash), not a ledger balance. -->
+              <p class="num mt-5 text-2xl font-semibold tracking-tight">
+                {{ brokerValue(a.id) | money }}
+              </p>
+              <a
+                routerLink="/portfolio"
+                class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {{ 'accounts.brokerValue' | translate }}
+                <ng-icon name="lucideArrowRight" aria-hidden="true" />
+              </a>
+              @if (brokerOf(a) !== 'Manual' && !a.archived) {
+                <!-- Deposits made at this broker count towards a bucket's monthly allocation. -->
+                <div class="mt-4 border-t pt-3">
+                  <label class="label" [for]="'alloc-' + a.id">{{
+                    'accounts.countsTowards' | translate
+                  }}</label>
+                  <app-select
+                    size="sm"
+                    triggerClass="text-xs"
+                    [inputId]="'alloc-' + a.id"
+                    [options]="bucketOptions()"
+                    [value]="a.allocationBucketId ?? ''"
+                    (valueChange)="setAllocationBucket(a, $event)"
+                  />
+                  <p class="mt-1 text-[11px] text-muted-foreground">
+                    {{ 'accounts.countsTowardsHint' | translate }}
+                  </p>
+                </div>
+              }
+            } @else {
+              <p
+                class="num mt-5 text-2xl font-semibold tracking-tight"
+                [class.tone-neg]="a.balance < 0"
+                [attr.title]="
+                  a.interest?.estimatedInBalance
+                    ? ('interest.balanceIncludes'
+                      | translate: { amount: (a.interest!.estimatedInBalance | money: a.currency) })
+                    : null
+                "
+              >
+                @if (a.interest?.estimatedInBalance) {
+                  <span class="text-muted-foreground" aria-hidden="true">≈</span>
+                }
+                {{ a.balance | money: a.currency }}
+              </p>
+              @if (a.kind === 'Loan') {
+                <!-- Loans: where the credit stands, from its plan; the terms live on the loan page. -->
+                @if (loanFor(a.id); as l) {
+                  <p class="text-muted-foreground num mt-1 text-xs">
+                    {{ 'loans.ends' | translate }} {{ l.endDate | day }} ·
+                    {{ 'loans.nextPayment' | translate }}
+                    {{ l.next ? (l.next.payment | money) : '—' }}
+                  </p>
+                }
+                <a
+                  [routerLink]="['/loans', a.id]"
+                  class="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                >
+                  <ng-icon name="lucideHandCoins" aria-hidden="true" />{{
+                    (loanFor(a.id) ? 'loans.details' : 'loans.setupShort') | translate
+                  }}
+                </a>
+              }
+              @if (a.interest; as i) {
+                @if (i.annualRatePercent !== null || i.yearToDate) {
+                  <!-- As the bank shows it: per day gross; the app books net of withholding. -->
+                  <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                    @if (i.annualRatePercent !== null) {
+                      <span class="num"
+                        >{{ 'interest.tanb' | translate }}
+                        {{ i.annualRatePercent / 100 | pct: 2 }}</span
+                      >
+                      @if (dailyGross(a); as d) {
+                        ·
+                        <span
+                          class="num cursor-help"
+                          [attr.title]="
+                            'interest.perDayHint'
+                              | translate: { withholding: i.withholdingPercent ?? 28 }
+                          "
+                          >{{
+                            'interest.perDay'
+                              | translate
+                                : {
+                                    gross: (d | money: a.currency),
+                                    net:
+                                      (d * (1 - (i.withholdingPercent ?? 28) / 100)
+                                      | money: a.currency),
+                                  }
+                          }}</span
+                        >
+                      }
+                    }
+                  </p>
+                  <p
+                    class="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground"
+                  >
+                    <span
+                      class="num tone-pos cursor-help"
+                      [attr.title]="'interest.thisYearHint' | translate"
+                      >{{
+                        'interest.thisYearNet'
+                          | translate: { amount: (i.yearToDate | money: a.currency : true) }
+                      }}</span
+                    >
+                    @if (sinceThisYear(i.accruingSince); as since) {
+                      <span>{{
+                        'interest.since' | translate: { date: (since | day: 'short') }
+                      }}</span>
+                    }
+                    @if (i.yearToDateEstimated) {
+                      <span
+                        class="badge bg-muted !px-1.5 !py-0"
+                        [attr.title]="'interest.estimatedHint' | translate"
+                      >
+                        ≈ {{ 'interest.estimated' | translate }}
+                      </span>
+                    }
+                  </p>
+                }
+              }
+            }
+            <div class="flex-1"></div>
+            @if (a.isManual) {
+              <div class="mt-4 flex gap-2 border-t pt-4">
+                <button hlmBtn variant="outline" size="sm" (click)="openEdit(a)">
+                  <ng-icon name="lucidePencil" />{{ 'common.edit' | translate }}
+                </button>
+                <button hlmBtn variant="ghost" size="sm" (click)="toggleArchive(a)">
+                  <ng-icon [name]="a.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />{{
+                    (a.archived ? 'common.restore' : 'common.archive') | translate
+                  }}
+                </button>
+              </div>
             }
           </div>
-          @if (a.kind === 'Broker') {
-            <!-- A broker account's worth is its synced portfolio (positions + cash), not a ledger balance. -->
-            <p class="num mt-5 text-2xl font-semibold tracking-tight">
-              {{ brokerValue(a.id) | money }}
-            </p>
-            <a
-              routerLink="/portfolio"
-              class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {{ 'accounts.brokerValue' | translate }}
-              <ng-icon name="lucideArrowRight" aria-hidden="true" />
-            </a>
-            @if (brokerOf(a) !== 'Manual' && !a.archived) {
-              <!-- Deposits made at this broker count towards a bucket's monthly allocation. -->
-              <div class="mt-4 border-t pt-3">
-                <label class="label" [for]="'alloc-' + a.id">{{
-                  'accounts.countsTowards' | translate
-                }}</label>
-                <app-select
-                  size="sm"
-                  triggerClass="text-xs"
-                  [inputId]="'alloc-' + a.id"
-                  [options]="bucketOptions()"
-                  [value]="a.allocationBucketId ?? ''"
-                  (valueChange)="setAllocationBucket(a, $event)"
-                />
-                <p class="mt-1 text-[11px] text-muted-foreground">
-                  {{ 'accounts.countsTowardsHint' | translate }}
-                </p>
-              </div>
-            }
-          } @else {
-            <p
-              class="num mt-5 text-2xl font-semibold tracking-tight"
-              [class.tone-neg]="a.balance < 0"
-              [attr.title]="
-                a.interest?.estimatedInBalance
-                  ? ('interest.balanceIncludes'
-                    | translate: { amount: (a.interest!.estimatedInBalance | money: a.currency) })
-                  : null
-              "
-            >
-              @if (a.interest?.estimatedInBalance) {
-                <span class="text-muted-foreground" aria-hidden="true">≈</span>
-              }
-              {{ a.balance | money: a.currency }}
-            </p>
-            @if (a.kind === 'Loan') {
-              <!-- Loans: where the credit stands, from its plan; the terms live on the loan page. -->
-              @if (loanFor(a.id); as l) {
-                <p class="text-muted-foreground num mt-1 text-xs">
-                  {{ 'loans.ends' | translate }} {{ l.endDate | day }} ·
-                  {{ 'loans.nextPayment' | translate }}
-                  {{ l.next ? (l.next.payment | money) : '—' }}
-                </p>
-              }
-              <a
-                [routerLink]="['/loans', a.id]"
-                class="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
-              >
-                <ng-icon name="lucideHandCoins" aria-hidden="true" />{{
-                  (loanFor(a.id) ? 'loans.details' : 'loans.setupShort') | translate
-                }}
-              </a>
-            }
-            @if (a.interest; as i) {
-              @if (i.annualRatePercent !== null || i.yearToDate) {
-                <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
-                  @if (i.annualRatePercent !== null) {
-                    <span class="num"
-                      >{{ 'interest.tanb' | translate }}
-                      {{ i.annualRatePercent / 100 | pct: 2 }}</span
-                    >
-                    ·
-                  }
-                  <span class="num tone-pos">{{
-                    'interest.thisYear'
-                      | translate: { amount: (i.yearToDate | money: a.currency : true) }
-                  }}</span>
-                  @if (i.yearToDateEstimated) {
-                    <span
-                      class="badge bg-muted !px-1.5 !py-0"
-                      [attr.title]="'interest.estimatedHint' | translate"
-                    >
-                      ≈ {{ 'interest.estimated' | translate }}
-                    </span>
-                  }
-                </p>
-              }
-            }
-          }
-          <div class="flex-1"></div>
-          @if (a.isManual) {
-            <div class="mt-4 flex gap-2 border-t pt-4">
-              <button hlmBtn variant="outline" size="sm" (click)="openEdit(a)">
-                <ng-icon name="lucidePencil" />{{ 'common.edit' | translate }}
-              </button>
-              <button hlmBtn variant="ghost" size="sm" (click)="toggleArchive(a)">
-                <ng-icon [name]="a.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />{{
-                  (a.archived ? 'common.restore' : 'common.archive') | translate
-                }}
-              </button>
-            </div>
-          }
-        </div>
-      } @empty {
-        <div class="card col-span-full !p-0">
-          <app-empty-state [icon]="icons.accounts" [text]="'accounts.empty' | translate">
-            <button hlmBtn size="sm" (click)="openNew()">
-              <ng-icon name="lucidePlus" />{{ 'accounts.new' | translate }}
-            </button>
-          </app-empty-state>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    } @empty {
+      <div class="card !p-0">
+        <app-empty-state [icon]="icons.accounts" [text]="'accounts.empty' | translate">
+          <button hlmBtn size="sm" (click)="openNew()">
+            <ng-icon name="lucidePlus" />{{ 'accounts.new' | translate }}
+          </button>
+        </app-empty-state>
+      </div>
+    }
 
     <app-modal
       [open]="formOpen()"
@@ -508,6 +556,18 @@ export class AccountsComponent {
     params: () => this.events.version(),
     stream: () => this.api.buckets(),
   });
+  /** Today's gross interest: balance × TANB / 365 (the app's and the banks' day count). */
+  protected dailyGross(a: Account): number | null {
+    const rate = a.interest?.annualRatePercent;
+    if (rate == null || a.balance <= 0) return null;
+    return Math.round(((a.balance * rate) / 100 / 365) * 100) / 100;
+  }
+
+  /** When this year's interest only starts later than 1 January (the account or its rate is newer). */
+  protected sinceThisYear(since: string | null | undefined): string | null {
+    return since && !since.endsWith('-01-01') ? since : null;
+  }
+
   protected readonly bucketOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
     return [
@@ -541,6 +601,21 @@ export class AccountsComponent {
   protected readonly visible = computed(() =>
     (this.accounts.value() ?? []).filter((a) => this.showArchived() || !a.archived),
   );
+
+  /** Accounts by what they are: everyday money, savings, investments, debts (cards and loans). */
+  protected readonly groups = computed(() => {
+    const groupOf = (a: Account) =>
+      a.kind === 'Savings'
+        ? 'savings'
+        : a.kind === 'Broker'
+          ? 'investments'
+          : a.kind === 'CreditCard' || a.kind === 'Loan'
+            ? 'debts'
+            : 'money';
+    return ['money', 'savings', 'investments', 'debts']
+      .map((key) => ({ key, accounts: this.visible().filter((a) => groupOf(a) === key) }))
+      .filter((g) => g.accounts.length > 0);
+  });
 
   protected patch(p: Partial<AccountForm>) {
     this.form.update((f) => ({ ...f, ...p }));

@@ -23,7 +23,8 @@
   "assistant": "Assistente",
   "more": "Mais",
   "main": "Navegação principal",
-  "general": "Geral"
+  "general": "Geral",
+  "loans": "Empréstimos"
  },
  "common": {
   "save": "Guardar",
@@ -404,7 +405,13 @@
   "countsTowards": "Os depósitos contam para",
   "countsTowardsHint": "O dinheiro que depositas aqui conta na alocação mensal desse balde, sem o registares à mão.",
   "noBucket": "Nenhum balde",
-  "countsTowardsSaved": "Guardado. A alocação mensal passa a incluir os depósitos desta corretora."
+  "countsTowardsSaved": "Guardado. A alocação mensal passa a incluir os depósitos desta corretora.",
+  "group": {
+   "money": "Dinheiro do dia a dia",
+   "savings": "Poupança",
+   "investments": "Investimentos",
+   "debts": "Dívidas"
+  }
  },
  "categories": {
   "new": "Nova categoria",
@@ -1022,7 +1029,12 @@
   },
   "history": "Histórico de taxas",
   "withheld": "{{pct}} retidos",
-  "removeLatest": "Remover a taxa mais recente"
+  "removeLatest": "Remover a taxa mais recente",
+  "perDay": "≈ {{gross}}/dia brutos ({{net}} líquidos)",
+  "perDayHint": "Saldo × TANB / 365, antes da retenção de {{withholding}} %.",
+  "thisYearNet": "{{amount}} líquidos este ano",
+  "since": "(desde {{date}})",
+  "thisYearHint": "Juros depois da retenção na fonte, nos dias em que a app conhece esta conta e a taxa. Para incluir juros que o banco pagou antes, regista-os como receita na categoria Juros."
  },
  "crypto": {
   "addButton": "Adicionar cripto",
@@ -1245,6 +1257,15 @@
   "skip": "Saltar",
   "dashboardTitle": "Empréstimos",
   "owed": "Em dívida",
-  "endsOn": "termina {{date}}"
+  "endsOn": "termina {{date}}",
+  "listSubtitle": "Crédito habitação, automóvel e pessoal: quanto deves e quando acaba cada um.",
+  "new": "Novo empréstimo",
+  "monthly": "Prestações por mês",
+  "interestLeftAll": "Juros por pagar",
+  "emptyTitle": "Sem empréstimos",
+  "emptyText": "Adiciona um crédito habitação, automóvel ou pessoal para veres quanto deves, a prestação, quando acaba e quanto pouparias a amortizar.",
+  "namePlaceholder": "Crédito habitação, Carro…",
+  "newHint": "A seguir indicas o montante, a taxa e o prazo.",
+  "next": "Continuar"
  }
 }

@@ -3,12 +3,15 @@ import {
   Component,
   DestroyRef,
   HostListener,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { filter, map } from 'rxjs';
+import { catchError, filter, map, of } from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { BACKGROUND } from '../core/activity';
 import { SETTINGS_ROUTES } from '../shared/settings-tabs';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -69,7 +72,7 @@ interface NavItem {
           </div>
         </div>
         <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-3">
-          @for (section of nav; track section.title) {
+          @for (section of nav(); track section.title) {
             <div>
               <p
                 class="text-muted-foreground px-3 pb-1.5 text-[11px] font-semibold tracking-wider uppercase"
@@ -287,13 +290,33 @@ export class ShellComponent {
     { path: '/portfolio', label: 'nav.portfolio', icon: PAGE_ICONS.portfolio },
   ];
 
-  protected readonly nav: { title: string; items: NavItem[] }[] = [
+  /** The assistant appears only when it is configured (an Anthropic API key on the server). */
+  private readonly assistantEnabled = toSignal(
+    inject(HttpClient)
+      .get<{ enabled: boolean }>('/api/assistant/status', {
+        context: new HttpContext().set(BACKGROUND, true),
+      })
+      .pipe(
+        map((s) => s.enabled),
+        catchError(() => of(false)),
+      ),
+    { initialValue: false },
+  );
+
+  /**
+   * Overview (read), Money (what flows), Wealth (what you have and owe: accounts, portfolio, loans, net worth),
+   * Setup (rarely touched). Import, export and AI access are tabs inside Settings.
+   */
+  protected readonly nav = computed<{ title: string; items: NavItem[] }[]>(() => [
     {
       title: 'nav.overview',
       items: [
         { path: '/dashboard', label: 'nav.dashboard', icon: PAGE_ICONS.dashboard },
         { path: '/monthly', label: 'nav.monthly', icon: PAGE_ICONS.monthly },
         { path: '/annual', label: 'nav.annual', icon: PAGE_ICONS.annual },
+        ...(this.assistantEnabled()
+          ? [{ path: '/assistant', label: 'nav.assistant', icon: PAGE_ICONS.assistant }]
+          : []),
       ],
     },
     {
@@ -308,18 +331,17 @@ export class ShellComponent {
     {
       title: 'nav.wealth',
       items: [
+        { path: '/accounts', label: 'nav.accounts', icon: PAGE_ICONS.accounts },
         { path: '/portfolio', label: 'nav.portfolio', icon: PAGE_ICONS.portfolio },
+        { path: '/loans', label: 'nav.loans', icon: PAGE_ICONS.loans },
         { path: '/net-worth', label: 'nav.netWorth', icon: PAGE_ICONS.netWorth },
-        { path: '/assistant', label: 'nav.assistant', icon: PAGE_ICONS.assistant },
       ],
     },
     {
       title: 'nav.setup',
       items: [
         { path: '/connections', label: 'nav.connections', icon: PAGE_ICONS.connections },
-        { path: '/accounts', label: 'nav.accounts', icon: PAGE_ICONS.accounts },
         { path: '/categories', label: 'nav.categories', icon: PAGE_ICONS.categories },
-        // Import, export and AI access are tabs inside Settings (SettingsTabsComponent).
         {
           path: '/settings',
           label: 'nav.settings',
@@ -328,7 +350,7 @@ export class ShellComponent {
         },
       ],
     },
-  ];
+  ]);
 
   /** "N" opens quick-add from anywhere, unless the user is typing in a field. */
   @HostListener('document:keydown', ['$event'])
