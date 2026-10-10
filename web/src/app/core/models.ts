@@ -759,3 +759,64 @@ export interface Connection {
   credentialsExpireOn: string | null;
   lastJob: SyncJob | null;
 }
+
+// ---- Loans
+
+export type LoanRateType = 'Fixed' | 'Variable';
+export type PrepaymentMode = 'ReduceTerm' | 'ReducePayment';
+
+export interface Instalment {
+  number: number;
+  date: string;
+  annualRatePercent: number;
+  payment: number;
+  interest: number;
+  principal: number;
+  prepaid: number;
+  balance: number;
+}
+
+export interface LoanSummary {
+  accountId: string;
+  accountName: string;
+  principal: number;
+  firstPaymentOn: string;
+  termMonths: number;
+  rateType: LoanRateType;
+  revisionMonths: number | null;
+  indexName: string | null;
+  spreadPercent: number | null;
+  outstanding: number;
+  paidOffShare: number;
+  instalmentsPaid: number;
+  instalmentsLeft: number;
+  next: Instalment | null;
+  endDate: string | null;
+  interestPaid: number;
+  interestLeft: number;
+  currentRatePercent: number;
+  nextRevision: string | null;
+}
+
+export interface LoanDetail {
+  summary: LoanSummary;
+  rates: {
+    id: string;
+    effectiveFrom: string;
+    annualRatePercent: number;
+    indexRatePercent: number | null;
+  }[];
+  prepayments: { id: string; on: string; amount: number; mode: PrepaymentMode }[];
+  plan: Instalment[];
+}
+
+export interface PrepaymentSimulation {
+  endDateBefore: string | null;
+  endDateAfter: string | null;
+  monthsSaved: number;
+  paymentBefore: number;
+  paymentAfter: number;
+  interestBefore: number;
+  interestAfter: number;
+  interestSaved: number;
+}
