@@ -185,6 +185,24 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
               }
               {{ a.balance | money: a.currency }}
             </p>
+            @if (a.kind === 'Loan') {
+              <!-- Loans: where the credit stands, from its plan; the terms live on the loan page. -->
+              @if (loanFor(a.id); as l) {
+                <p class="text-muted-foreground num mt-1 text-xs">
+                  {{ 'loans.ends' | translate }} {{ l.endDate | day }} ·
+                  {{ 'loans.nextPayment' | translate }}
+                  {{ l.next ? (l.next.payment | money) : '—' }}
+                </p>
+              }
+              <a
+                [routerLink]="['/loans', a.id]"
+                class="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+              >
+                <ng-icon name="lucideHandCoins" aria-hidden="true" />{{
+                  (loanFor(a.id) ? 'loans.details' : 'loans.setupShort') | translate
+                }}
+              </a>
+            }
             @if (a.interest; as i) {
               @if (i.annualRatePercent !== null || i.yearToDate) {
                 <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
@@ -480,6 +498,12 @@ export class AccountsComponent {
     params: () => this.events.version(),
     stream: () => this.api.accounts(true),
   });
+  private readonly loans = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.loans(),
+  });
+  protected loanFor = (accountId: string) =>
+    (this.loans.value() ?? []).find((l) => l.accountId === accountId) ?? null;
   private readonly buckets = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.buckets(),

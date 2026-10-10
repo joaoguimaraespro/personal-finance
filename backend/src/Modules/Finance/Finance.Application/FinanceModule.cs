@@ -5,6 +5,7 @@ using Finance.Application.Buckets;
 using Finance.Application.Categories;
 using Finance.Application.Goals;
 using Finance.Application.Interest;
+using Finance.Application.Loans;
 using Finance.Application.Notifications;
 using Finance.Application.Recurring;
 using Finance.Application.Transactions;
@@ -35,6 +36,7 @@ public static class FinanceModule
         api.MapBudgets();
         api.MapGoals();
         api.MapInterest();
+        api.MapLoans();
         return api;
     }
 }
