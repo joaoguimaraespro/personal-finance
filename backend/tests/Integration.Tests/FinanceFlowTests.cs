@@ -220,4 +220,36 @@ public sealed class FinanceFlowTests(ApiFactory factory)
         emergency.GetProperty("currentAmount").GetDecimal().ShouldBe(6_500m);
         emergency.GetProperty("progress").GetDecimal().ShouldBe(0.65m);
     }
+
+    [Fact]
+    public async Task A_goal_can_follow_a_savings_account_balance_but_not_a_broker_or_card()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = "Goal follow bank", kind = "Bank", currency = "EUR", openingBalance = 2_000m });
+        var savings = await api.CreateAsync("/api/accounts",
+            new { name = "Trip savings", kind = "Savings", currency = "EUR", openingBalance = 3_000m });
+        var card = await api.CreateAsync("/api/accounts",
+            new { name = "Goal card", kind = "CreditCard", currency = "EUR", openingBalance = 0 });
+        var goal = await api.CreateAsync("/api/goals",
+            new { name = "Japan trip (account)", targetAmount = 4_000m, startingAmount = 999m, accountId = savings });
+        JsonElement Goal(JsonElement[] all) => all.Single(g => g.GetProperty("id").GetGuid() == goal);
+
+        // The account's balance is the progress (the starting amount no longer applies).
+        var g = Goal(await api.GetAsync<JsonElement[]>("/api/goals"));
+        g.GetProperty("currentAmount").GetDecimal().ShouldBe(3_000m);
+        g.GetProperty("accountName").GetString().ShouldBe("Trip savings");
+
+        // Money moved into the account counts, without linking anything by hand.
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Transfer", occurredOn = "2026-09-02", amount = 500m, accountId = bank, counterAccountId = savings,
+        });
+        Goal(await api.GetAsync<JsonElement[]>("/api/goals")).GetProperty("currentAmount").GetDecimal().ShouldBe(3_500m);
+
+        // Only cash accounts: not a card (nor a broker: investments never count towards goals).
+        (await api.PutAsync($"/api/goals/{goal}",
+                new { name = "Japan trip (account)", targetAmount = 4_000m, accountId = card }))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
 }

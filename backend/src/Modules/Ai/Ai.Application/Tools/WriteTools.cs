@@ -457,7 +457,8 @@ public sealed class WriteTools(
         var request = new GoalRequest(
             name ?? existing?.Name ?? throw new ToolArgumentException("name is required to create a goal."),
             target ?? existing?.TargetAmount ?? throw new ToolArgumentException("target_amount is required to create a goal."),
-            targetDate ?? existing?.TargetDate, existing?.StartingAmount, existing?.ManualCurrentAmount, existing?.Icon);
+            targetDate ?? existing?.TargetDate, existing?.StartingAmount, existing?.ManualCurrentAmount, existing?.Icon,
+            existing?.AccountId);
         await CheckAsync(goalValidator, request, ct);
 
         var saved = existing is null
@@ -479,6 +480,12 @@ public sealed class WriteTools(
         await ActiveGoalAsync(id, ct);
 
         var goal = await finance.Goals.FirstAsync(g => g.Id == id, ct);
+        if (goal.AccountId is not null)
+        {
+            throw new ToolArgumentException(
+                "This goal follows an account's balance; record a savings transaction into that account instead.");
+        }
+
         var before = new { startingAmount = goal.StartingAmount, manualCurrentAmount = goal.ManualCurrentAmount };
         goal.AddToCurrent(amount);
         await finance.SaveChangesAsync(ct);
@@ -610,11 +617,11 @@ public sealed class WriteTools(
         return goal.ArchivedAtUtc is not null
             ? throw new ToolRefusedException(403, "This goal is archived; restore it in the app before changing it.")
             : new FinancialGoalView(goal.Id, goal.Name, goal.TargetAmount, goal.TargetDate, goal.StartingAmount,
-                goal.ManualCurrentAmount, goal.Icon);
+                goal.ManualCurrentAmount, goal.Icon, goal.AccountId);
     }
 
     private sealed record FinancialGoalView(Guid Id, string Name, decimal TargetAmount, DateOnly? TargetDate,
-        decimal StartingAmount, decimal? ManualCurrentAmount, string? Icon);
+        decimal StartingAmount, decimal? ManualCurrentAmount, string? Icon, Guid? AccountId);
 
     private async Task<(ManualHolding Holding, Account Location)> HoldingAsync(Guid id, CancellationToken ct)
     {

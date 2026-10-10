@@ -229,6 +229,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 var goal = FinancialGoal.Create(name, Dec(g, "targetAmount") ?? 0,
                     Str(g, "targetDate") is { } td ? DateOnly.Parse(td, System.Globalization.CultureInfo.InvariantCulture) : null,
                     Dec(g, "startingAmount") ?? 0, Dec(g, "manualCurrentAmount"), Str(g, "icon"));
+                // Accounts are imported above, so the account a goal follows is already mapped.
+                goal.LinkAccount(Mapped(g, "accountId", map));
                 finance.Goals.Add(goal);
                 map[id] = goal.Id;
                 goals++;
