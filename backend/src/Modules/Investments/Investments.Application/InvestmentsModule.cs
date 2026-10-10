@@ -23,6 +23,7 @@ public static class InvestmentsModule
         services.AddSingleton<HistoryRebuildQueue>();
         services.AddScoped<NetWorthService>();
         services.AddScoped<ManualHoldingService>();
+        services.AddScoped<Logos.SecurityLogoService>();
         services.AddScoped<Finance.Application.Abstractions.IBrokerDeposits, BrokerDeposits>();
         return services;
     }

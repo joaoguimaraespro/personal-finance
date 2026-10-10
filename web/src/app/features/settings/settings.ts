@@ -70,6 +70,22 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
               }
             </div>
           </div>
+          <div>
+            <span class="label">{{ 'settings.currency' | translate }}</span>
+            <div class="segmented">
+              @for (c of currencies; track c) {
+                <button
+                  [class.active]="prefs.displayCurrency() === c"
+                  (click)="prefs.displayCurrency.set(c)"
+                >
+                  {{ c === 'EUR' ? '€ EUR' : '$ USD' }}
+                </button>
+              }
+            </div>
+            <p class="text-muted-foreground mt-1 max-w-xs text-[11px]">
+              {{ 'settings.currencyHint' | translate }}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -171,6 +187,7 @@ export class SettingsComponent {
   protected readonly auth = inject(AuthService);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  protected readonly currencies = ['EUR', 'USD'] as const;
   protected readonly themes = ['system', 'light', 'dark'] as const;
   protected readonly icons = PAGE_ICONS;
   protected readonly themeIcon = {

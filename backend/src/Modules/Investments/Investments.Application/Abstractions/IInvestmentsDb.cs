@@ -24,6 +24,7 @@ public interface IInvestmentsDb
     DbSet<ManualAsset> ManualAssets { get; }
     DbSet<NetWorthSnapshot> NetWorthSnapshots { get; }
     DbSet<ManualHolding> ManualHoldings { get; }
+    DbSet<SecurityLogo> SecurityLogos { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

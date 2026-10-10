@@ -41,6 +41,8 @@ describe('walletLogo', () => {
     expect(walletLogo('Coinbase')).toBe('wallets/coinbase.png');
     expect(walletLogo('Kraken')).toBe('wallets/kraken.png');
     expect(walletLogo('Trezor')).toBe('wallets/trezor.png');
+    expect(walletLogo('SafePal S1')).toBe('wallets/safepal.png');
+    expect(walletLogo('Safe Pal')).toBe('wallets/safepal.png');
   });
 
   it('has no logo for other names', () => {

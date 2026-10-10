@@ -156,6 +156,19 @@ public static class InvestmentEndpoints
                 : Results.Ok(new { currency, date = on, eurPerUnit = factor });
         }).WithTags("FX");
 
+        // Served from the database (fetched once by the server): the browser never contacts the logo source.
+        app.MapGet("/securities/{id:guid}/logo", async (Guid id, Logos.SecurityLogoService logos, HttpContext http,
+            CancellationToken ct) =>
+        {
+            if (await logos.GetAsync(id, ct) is not { } logo)
+            {
+                return Results.NotFound();
+            }
+
+            http.Response.Headers.CacheControl = "private, max-age=604800";
+            return Results.File(logo.Content, logo.ContentType);
+        }).WithTags("Portfolio");
+
         app.MapManualHoldings();
         return app;
     }

@@ -145,6 +145,18 @@ interface NavItem {
             <button hlmToggleGroupItem value="en">EN</button>
             <button hlmToggleGroupItem value="pt-PT">PT</button>
           </hlm-toggle-group>
+          <hlm-toggle-group
+            class="hidden sm:flex"
+            type="single"
+            variant="outline"
+            size="sm"
+            [value]="prefs.displayCurrency()"
+            (valueChange)="$event && prefs.displayCurrency.set($any($event))"
+            [attr.aria-label]="'settings.currency' | translate"
+          >
+            <button hlmToggleGroupItem value="EUR" [attr.aria-label]="'EUR'">€</button>
+            <button hlmToggleGroupItem value="USD" [attr.aria-label]="'USD'">$</button>
+          </hlm-toggle-group>
           <button
             hlmBtn
             variant="ghost"
