@@ -42,7 +42,8 @@ public sealed record AccountInterestDto(
     InterestPayout Payout,
     decimal YearToDate,
     decimal YearToDateEstimated,
-    decimal EstimatedInBalance);
+    decimal EstimatedInBalance,
+    DateOnly? AccruingSince = null);
 
 public sealed record CreateAccountRequest(
     string Name,
@@ -285,11 +286,17 @@ public static class AccountEndpoints
                     Amount = account.Currency == Currency.Base ? s.Base : s.Original,
                 })
                 .ToList();
+            // This year's figure only covers the days the app knows the account and its rate: say from when.
+            var firstRate = rates.Where(r => r.AccountId == account.Id).MinBy(r => r.EffectiveFrom)?.EffectiveFrom;
+            DateOnly? since = firstRate is { } f
+                ? new[] { yearStart, account.OpeningBalanceOn, f }.Max()
+                : null;
             result[account.Id] = new AccountInterestDto(current?.AnnualRatePercent, current?.WithholdingPercent,
                 current?.EffectiveFrom, account.InterestPayout,
                 mine.Where(s => s.ThisYear).Sum(s => s.Amount),
                 mine.Where(s => s.ThisYear && s.Estimated).Sum(s => s.Amount),
-                mine.Where(s => s.Estimated).Sum(s => s.Amount));
+                mine.Where(s => s.Estimated).Sum(s => s.Amount),
+                since);
         }
 
         return result;

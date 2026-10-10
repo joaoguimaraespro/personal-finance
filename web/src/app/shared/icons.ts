@@ -221,6 +221,7 @@ export const APP_ICONS = provideIcons({
 
 /** Sidebar icon per route; page headers reuse it so a page and its nav entry always match. */
 export const PAGE_ICONS = {
+  loans: 'lucideHandCoins',
   dashboard: 'lucideLayoutDashboard',
   monthly: 'lucideCalendarDays',
   annual: 'lucideChartColumn',
