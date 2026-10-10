@@ -39,6 +39,8 @@ const KIND_ICONS: Record<NotificationKind, string> = {
   GoalReached: 'lucideTrophy',
   AiWrites: 'lucideBot',
   AllocationDue: 'lucideLayers',
+  LoanInstalmentDue: 'lucideHandCoins',
+  LoanRateRevision: 'lucidePercent',
 };
 
 const ACTION_ICONS: Record<NotificationAction, string> = {
@@ -279,6 +281,31 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                         {{
                           'notifications.goalDetail'
                             | translate: { amount: ($any(item.args['amount']) | money) }
+                        }}
+                      }
+                      @case ('LoanInstalmentDue') {
+                        <span class="text-foreground num font-medium">{{
+                          $any(item.args['amount']) | money
+                        }}</span>
+                        ·
+                        {{
+                          'notifications.loanSplit'
+                            | translate
+                              : {
+                                  interest: ($any(item.args['interest']) | money),
+                                  capital: ($any(item.args['capital']) | money),
+                                }
+                        }}
+                        ·
+                        <span
+                          [class]="item.args['overdue'] ? 'text-amber-700 dark:text-amber-300' : ''"
+                          >{{ item.date | day }}</span
+                        >
+                      }
+                      @case ('LoanRateRevision') {
+                        {{
+                          'notifications.loanRevisionDetail'
+                            | translate: { date: (item.date | day) }
                         }}
                       }
                       @case ('AllocationDue') {

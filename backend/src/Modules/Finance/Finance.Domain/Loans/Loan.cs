@@ -47,6 +47,12 @@ public sealed class Loan : Entity, IAuditable
     /// <summary>Variable rate: the bank's spread over the index, in percent.</summary>
     public decimal? SpreadPercent { get; private set; }
 
+    /// <summary>The bank account the instalments are paid from: set, each instalment is proposed for booking.</summary>
+    public Guid? PaymentAccountId { get; private set; }
+
+    /// <summary>Instalments up to this number are booked or skipped; later ones due by today are pending.</summary>
+    public int LastHandledInstalment { get; private set; }
+
     public IReadOnlyList<LoanRate> Rates => _rates;
     public IReadOnlyList<LoanPrepayment> Prepayments => _prepayments;
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -99,6 +105,53 @@ public sealed class Loan : Entity, IAuditable
     }
 
     public bool RemoveRate(Guid rateId) => _rates.RemoveAll(r => r.Id == rateId) > 0;
+
+    /// <summary>
+    /// Instalments are paid from <paramref name="accountId"/> from now on: those already due before
+    /// <paramref name="today"/> are not proposed (they were paid before the app knew), later ones are. Null stops it.
+    /// </summary>
+    public void PayFrom(Guid? accountId, DateOnly today)
+    {
+        if (accountId is not null && PaymentAccountId is null)
+        {
+            LastHandledInstalment = Plan().Where(i => i.Date < today && i.Payment > 0).Select(i => i.Number)
+                .DefaultIfEmpty(0).Max();
+        }
+
+        PaymentAccountId = accountId;
+    }
+
+    /// <summary>Instalments due by <paramref name="today"/> and not yet booked or skipped, oldest first.</summary>
+    public IReadOnlyList<Instalment> PendingInstalments(DateOnly today) => PaymentAccountId is null
+        ? []
+        : Plan().Where(i => i.Number > LastHandledInstalment && i.Date <= today && i.Payment > 0).ToList();
+
+    /// <summary>Booked or skipped: only the oldest pending instalment can be handled, so none is left behind.</summary>
+    public Error? Handle(int number, DateOnly today)
+    {
+        var pending = PendingInstalments(today);
+        if (pending.Count == 0 || pending[0].Number != number)
+        {
+            return LoanErrors.NotNextInstalment;
+        }
+
+        LastHandledInstalment = number;
+        return null;
+    }
+
+    /// <summary>Variable rate: the revision dates up to <paramref name="until"/> (the first instalment's rate excluded).</summary>
+    public IEnumerable<DateOnly> RevisionDatesUntil(DateOnly until)
+    {
+        if (RateType != LoanRateType.Variable || RevisionMonths is not { } every)
+        {
+            yield break;
+        }
+
+        for (var d = FirstPaymentOn.AddMonths(every); d <= until; d = d.AddMonths(every))
+        {
+            yield return d;
+        }
+    }
 
     public Error? AddPrepayment(DateOnly on, decimal amount, PrepaymentMode mode)
     {
@@ -188,4 +241,10 @@ public static class LoanErrors
         Error.Validation("Loan.Prepayment", "An early repayment must be a positive amount.");
 
     public static readonly Error NoRate = Error.Validation("Loan.NoRate", "Add the loan's rate first.");
+
+    public static readonly Error NotNextInstalment =
+        Error.Conflict("Loan.Instalment", "Only the oldest pending instalment can be booked or skipped.");
+
+    public static readonly Error InvalidPaymentAccount =
+        Error.Validation("Loan.PaymentAccount", "Instalments are paid from a bank, savings or cash account.");
 }
