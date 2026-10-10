@@ -591,6 +591,14 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("index_name");
 
+                    b.Property<int>("LastHandledInstalment")
+                        .HasColumnType("integer")
+                        .HasColumnName("last_handled_instalment");
+
+                    b.Property<Guid?>("PaymentAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_account_id");
+
                     b.Property<decimal>("Principal")
                         .HasPrecision(19, 4)
                         .HasColumnType("numeric(19,4)")

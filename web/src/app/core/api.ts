@@ -178,6 +178,12 @@ export class Api {
     this.http.post<void>(`/api/loans/${accountId}/prepayments`, body);
   deletePrepayment = (accountId: string, id: string) =>
     this.http.delete<void>(`/api/loans/${accountId}/prepayments/${id}`);
+  setLoanPaymentAccount = (accountId: string, payFrom: string | null) =>
+    this.http.put<void>(`/api/loans/${accountId}/payment-account`, { accountId: payFrom });
+  bookInstalment = (accountId: string, number: number) =>
+    this.http.post<void>(`/api/loans/${accountId}/instalments/${number}/book`, {});
+  skipInstalment = (accountId: string, number: number) =>
+    this.http.post<void>(`/api/loans/${accountId}/instalments/${number}/skip`, {});
   simulatePrepayment = (accountId: string, body: unknown) =>
     this.http.post<PrepaymentSimulation>(`/api/loans/${accountId}/simulate`, body);
   createGoal = (body: unknown) => this.http.post<{ id: string }>('/api/goals', body);

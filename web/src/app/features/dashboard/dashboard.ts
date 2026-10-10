@@ -758,6 +758,45 @@ import { PageHeaderComponent } from '../../shared/page-header';
       </div>
     </section>
 
+    <!-- Loans: what is owed and the next instalment of each. -->
+    @if (loans.value()?.length) {
+      @let ls = loans.value()!;
+      <section class="card mt-6">
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 class="card-title !mb-0">
+            <ng-icon name="lucideHandCoins" />{{ 'loans.dashboardTitle' | translate }}
+          </h2>
+          <span class="text-muted-foreground num text-xs"
+            >{{ 'loans.owed' | translate }}
+            <b class="text-foreground">{{ loansOwed() | money }}</b></span
+          >
+        </div>
+        <ul class="grid gap-3 md:grid-cols-2">
+          @for (l of ls; track l.accountId) {
+            <li>
+              <a
+                [routerLink]="['/loans', l.accountId]"
+                class="hover:bg-muted/50 block rounded-lg border p-3 transition-colors"
+              >
+                <div class="flex items-baseline justify-between gap-2">
+                  <span class="truncate font-medium">{{ l.accountName }}</span>
+                  <span class="num font-semibold">{{ l.outstanding | money }}</span>
+                </div>
+                <app-progress class="mt-2 block" [value]="l.paidOffShare" />
+                <p class="text-muted-foreground num mt-1.5 text-xs">
+                  @if (l.next; as n) {
+                    {{ 'loans.nextPayment' | translate }} {{ n.payment | money }} ·
+                    {{ n.date | day }} ·
+                  }
+                  {{ 'loans.endsOn' | translate: { date: (l.endDate | day) } }}
+                </p>
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     @if (hasTransactions()) {
       <section class="mt-6 grid gap-4 xl:grid-cols-5">
         <div class="card xl:col-span-3">
@@ -894,6 +933,13 @@ export class DashboardComponent {
     params: () => this.events.version(),
     stream: () => this.api.expected(),
   });
+  protected readonly loans = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.loans(),
+  });
+  protected readonly loansOwed = computed(() =>
+    (this.loans.value() ?? []).reduce((sum, l) => sum + l.outstanding, 0),
+  );
   protected readonly goals = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.goals(),

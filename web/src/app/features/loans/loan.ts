@@ -236,6 +236,57 @@ interface YearGroup {
         </div>
       </section>
 
+      <!-- Booking instalments: optional, the debt follows the plan either way. -->
+      <section class="card mt-4">
+        <div class="grid gap-3 sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center">
+          <div>
+            <label class="label" for="ln-payfrom">{{ 'loans.paidFrom' | translate }}</label>
+            <app-select
+              inputId="ln-payfrom"
+              [options]="payFromOptions()"
+              [value]="s.paymentAccountId ?? ''"
+              (valueChange)="setPayFrom($event)"
+            />
+          </div>
+          <p class="text-muted-foreground text-xs">{{ 'loans.paidFromHint' | translate }}</p>
+        </div>
+        @if (pendingRows().length) {
+          <h3
+            class="text-muted-foreground mt-4 mb-2 text-xs font-semibold tracking-wider uppercase"
+          >
+            {{ 'loans.pending' | translate }}
+          </h3>
+          <ul class="divide-y text-sm">
+            @for (i of pendingRows(); track i.number; let first = $first) {
+              <li class="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>
+                  {{ i.date | day }}
+                  <span class="text-muted-foreground num ml-2 text-xs"
+                    >{{ 'loans.interest' | translate }} {{ i.interest | money }} ·
+                    {{ 'loans.capital' | translate }} {{ i.principal | money }}</span
+                  >
+                </span>
+                <span class="flex items-center gap-2">
+                  <b class="num">{{ i.payment | money }}</b>
+                  <button hlmBtn size="sm" [disabled]="!first" (click)="book(i.number)">
+                    {{ 'loans.book' | translate }}
+                  </button>
+                  <button
+                    hlmBtn
+                    size="sm"
+                    variant="ghost"
+                    [disabled]="!first"
+                    (click)="skip(i.number)"
+                  >
+                    {{ 'loans.skip' | translate }}
+                  </button>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
       <section class="mt-4 grid gap-4 md:grid-cols-2">
         <div class="card">
           <div class="mb-3 flex items-center justify-between gap-2">
@@ -622,6 +673,39 @@ export class LoanComponent {
       ],
     };
   });
+
+  /** Bank, savings or cash accounts the instalments can come out of. */
+  protected readonly payFromOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('loans.notTracked') },
+      ...(this.accounts.value() ?? [])
+        .filter((a) => ['Bank', 'Savings', 'Cash'].includes(a.kind) && !a.archived)
+        .map((a) => ({ value: a.id, label: a.name })),
+    ];
+  });
+
+  /** The instalments due and not booked yet (the oldest ones the server counts as pending). */
+  protected readonly pendingRows = computed(() => {
+    const d = this.detail.value();
+    const count = d?.summary.pendingInstalments ?? 0;
+    if (!d || !count) return [];
+    const today = new Date().toISOString().slice(0, 10);
+    const due = d.plan.filter((i) => i.date <= today && i.payment > 0);
+    return due.slice(Math.max(due.length - count, 0));
+  });
+
+  protected async setPayFrom(id: string) {
+    await this.run(this.api.setLoanPaymentAccount(this.accountId(), id || null));
+  }
+
+  protected async book(number: number) {
+    await this.run(this.api.bookInstalment(this.accountId(), number));
+  }
+
+  protected async skip(number: number) {
+    await this.run(this.api.skipInstalment(this.accountId(), number));
+  }
 
   // Simulator
   protected readonly simAmount = signal('');

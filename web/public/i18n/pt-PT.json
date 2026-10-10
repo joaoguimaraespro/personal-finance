@@ -446,7 +446,8 @@
   "other-income": "Outros rendimentos",
   "rename": "Mudar nome",
   "resetName": "Repor o nome original",
-  "newName": "Novo nome"
+  "newName": "Novo nome",
+  "loan-interest": "Juros de empréstimos"
  },
  "import": {
   "title": "Importar do Excel",
@@ -1139,7 +1140,11 @@
   "allocationDue": "Alocar para {{bucket}}",
   "allocationPartial": "Completar a alocação de {{bucket}}",
   "allocationDetail": "A alocação deste mês ainda não está feita.",
-  "allocationLeft": "Faltam {{remaining}} de {{target}}"
+  "allocationLeft": "Faltam {{remaining}} de {{target}}",
+  "loanDue": "{{name}}: prestação a pagar",
+  "loanSplit": "juros {{interest}} · capital {{capital}}",
+  "loanRevision": "{{name}}: revisão de taxa",
+  "loanRevisionDetail": "Indica a nova taxa a partir de {{date}} (a carta do banco)."
  },
  "split": {
   "action": "Dividir por categorias",
@@ -1231,6 +1236,15 @@
   "details": "Ver empréstimo",
   "setupShort": "Adicionar condições",
   "indexStart": "Indexante no início (%)",
-  "tanStart": "TAN no início (%)"
+  "tanStart": "TAN no início (%)",
+  "paidFrom": "Prestações pagas de",
+  "notTracked": "Não registar — a dívida segue na mesma o plano",
+  "paidFromHint": "A partir de agora cada prestação é proposta quando vence: juros como despesa, capital como transferência para este empréstimo.",
+  "pending": "Prestações por registar",
+  "book": "Registar",
+  "skip": "Saltar",
+  "dashboardTitle": "Empréstimos",
+  "owed": "Em dívida",
+  "endsOn": "termina {{date}}"
  }
 }

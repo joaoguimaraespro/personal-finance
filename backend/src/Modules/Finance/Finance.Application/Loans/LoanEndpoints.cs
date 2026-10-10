@@ -2,7 +2,10 @@ using FluentValidation;
 using Finance.Application.Abstractions;
 using Finance.Application.Http;
 using Finance.Domain.Accounts;
+using Finance.Application.Transactions;
+using Finance.Domain.Categories;
 using Finance.Domain.Loans;
+using Finance.Domain.Transactions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -19,6 +22,11 @@ public sealed record LoanTermsRequest(decimal Principal, DateOnly FirstPaymentOn
 public sealed record LoanRateRequest(DateOnly EffectiveFrom, decimal? AnnualRatePercent, decimal? IndexRatePercent);
 
 public sealed record PrepaymentRequest(DateOnly On, decimal Amount, PrepaymentMode Mode);
+
+public sealed record PaymentAccountRequest(Guid? AccountId);
+
+/// <summary>Booking an instalment: the day it left the bank, when not its due date.</summary>
+public sealed record BookInstalmentRequest(DateOnly? PaidOn);
 
 public sealed record LoanRateDto(Guid Id, DateOnly EffectiveFrom, decimal AnnualRatePercent, decimal? IndexRatePercent);
 
@@ -43,7 +51,9 @@ public sealed record LoanSummaryDto(
     decimal InterestPaid,
     decimal InterestLeft,
     decimal CurrentRatePercent,
-    DateOnly? NextRevision);
+    DateOnly? NextRevision,
+    Guid? PaymentAccountId = null,
+    int PendingInstalments = 0);
 
 public sealed record LoanDetailDto(
     LoanSummaryDto Summary,
@@ -227,6 +237,50 @@ public static class LoanEndpoints
             return Results.NoContent();
         });
 
+        // Instalments paid from this account are proposed for booking from now on (null: stop).
+        group.MapPut("/{accountId:guid}/payment-account", async (Guid accountId, PaymentAccountRequest req,
+            IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
+        {
+            var (loan, _) = await FindAsync(db, accountId, ct, tracked: true);
+            if (loan is null)
+            {
+                return ResultHttp.Problem(LoanErrors.NotFound);
+            }
+
+            if (req.AccountId is { } payFrom && !await db.Accounts.AnyAsync(a => a.Id == payFrom &&
+                    (a.Kind == AccountKind.Bank || a.Kind == AccountKind.Savings || a.Kind == AccountKind.Cash) &&
+                    a.ArchivedAtUtc == null, ct))
+            {
+                return ResultHttp.Problem(LoanErrors.InvalidPaymentAccount);
+            }
+
+            loan.PayFrom(req.AccountId, Today(clock));
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
+        group.MapPost("/{accountId:guid}/instalments/{number:int}/book", async (Guid accountId, int number,
+            BookInstalmentRequest? req, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
+            (await BookAsync(db, accountId, number, req?.PaidOn, Today(clock), ct)).ToHttp(_ => Results.NoContent()));
+
+        group.MapPost("/{accountId:guid}/instalments/{number:int}/skip", async (Guid accountId, int number,
+            IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
+        {
+            var (loan, _) = await FindAsync(db, accountId, ct, tracked: true);
+            if (loan is null)
+            {
+                return ResultHttp.Problem(LoanErrors.NotFound);
+            }
+
+            if (loan.Handle(number, Today(clock)) is { } error)
+            {
+                return ResultHttp.Problem(error);
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         // "What if I repay X on date Y?": nothing is saved.
         group.MapPost("/{accountId:guid}/simulate", async (Guid accountId, PrepaymentRequest req, IFinanceDb db,
             TimeProvider clock, CancellationToken ct) =>
@@ -244,6 +298,61 @@ public static class LoanEndpoints
 
             return Results.Ok(Simulate(loan, req, Today(clock)));
         });
+    }
+
+    /// <summary>
+    /// Books the oldest pending instalment as it leaves the bank: the interest as an expense (category Loan interest)
+    /// and the capital as a transfer to the loan account. The loan's debt follows its plan either way.
+    /// </summary>
+    public static async Task<Result<bool>> BookAsync(IFinanceDb db, Guid accountId, int number, DateOnly? paidOn,
+        DateOnly today, CancellationToken ct)
+    {
+        var (loan, account) = await FindAsync(db, accountId, ct, tracked: true);
+        if (loan is null || account is null)
+        {
+            return LoanErrors.NotFound;
+        }
+
+        var instalment = loan.PendingInstalments(today).FirstOrDefault(i => i.Number == number);
+        if (instalment is null || loan.Handle(number, today) is not null || loan.PaymentAccountId is not { } bank)
+        {
+            return LoanErrors.NotNextInstalment;
+        }
+
+        var on = paidOn ?? instalment.Date;
+        var lines = new List<TransactionDraft>();
+        if (instalment.Interest > 0)
+        {
+            lines.Add(new TransactionDraft(TransactionType.Expense, on, instalment.Interest, Currency.Base, bank,
+                CategoryId: Finance.Domain.SystemCatalog.CategoryId("loan-interest"), Nature: ExpenseNature.Fixed,
+                Description: $"{account.Name} — interest ({number})"));
+        }
+
+        if (instalment.Principal > 0)
+        {
+            lines.Add(new TransactionDraft(TransactionType.Transfer, on, instalment.Principal, Currency.Base, bank,
+                CounterAccountId: accountId, Description: $"{account.Name} — capital ({number})"));
+        }
+
+        foreach (var (draft, part) in lines.Zip(instalment.Interest > 0 ? new[] { "interest", "capital" } : ["capital"]))
+        {
+            var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
+            if (resolved.IsFailure)
+            {
+                return resolved.Error;
+            }
+
+            var created = Transaction.Create(resolved.Value, DataSource.Manual, externalId: $"loan:{loan.Id}:{number}:{part}");
+            if (created.IsFailure)
+            {
+                return created.Error;
+            }
+
+            db.Transactions.Add(created.Value);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 
     public static PrepaymentSimulationDto Simulate(Loan loan, PrepaymentRequest req, DateOnly today)
@@ -294,7 +403,8 @@ public static class LoanEndpoints
             loan.RateType, loan.RevisionMonths, loan.IndexName, loan.SpreadPercent, status.Outstanding,
             loan.Principal == 0 ? 0 : decimal.Round(1 - status.Outstanding / loan.Principal, 4),
             status.InstalmentsPaid, status.InstalmentsLeft, status.Next, status.EndDate, status.InterestPaid,
-            status.InterestLeft, status.CurrentRatePercent, loan.NextRevisionAfter(today));
+            status.InterestLeft, status.CurrentRatePercent, loan.NextRevisionAfter(today), loan.PaymentAccountId,
+            loan.PendingInstalments(today).Count);
     }
 
     private static LoanDetailDto Detail(Loan loan, string name, DateOnly today) => new(

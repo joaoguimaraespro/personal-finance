@@ -15,7 +15,9 @@ export type NotificationKind =
   | 'BudgetNear'
   | 'GoalReached'
   | 'AiWrites'
-  | 'AllocationDue';
+  | 'AllocationDue'
+  | 'LoanInstalmentDue'
+  | 'LoanRateRevision';
 
 export type NotificationSeverity = 'Info' | 'Warning' | 'Error';
 
@@ -221,16 +223,21 @@ export class Notifications {
       );
       return;
     }
+    const number = Number(item.args['number']);
     const request: Observable<unknown> | null =
-      item.kind === 'AllocationDue' && action === 'skip'
-        ? this.api.setAllocationCheck(String(item.args['month']), item.targetId, 'NotApplicable')
-        : item.kind === 'RecurringDue'
-          ? action === 'confirm'
-            ? this.api.confirmExpected(item.targetId)
-            : this.api.skipExpected(item.targetId)
-          : item.kind === 'InterestToReconcile' && action === 'confirm'
-            ? this.api.reconcileInterest(item.targetId)
-            : null;
+      item.kind === 'LoanInstalmentDue'
+        ? action === 'confirm'
+          ? this.api.bookInstalment(item.targetId, number)
+          : this.api.skipInstalment(item.targetId, number)
+        : item.kind === 'AllocationDue' && action === 'skip'
+          ? this.api.setAllocationCheck(String(item.args['month']), item.targetId, 'NotApplicable')
+          : item.kind === 'RecurringDue'
+            ? action === 'confirm'
+              ? this.api.confirmExpected(item.targetId)
+              : this.api.skipExpected(item.targetId)
+            : item.kind === 'InterestToReconcile' && action === 'confirm'
+              ? this.api.reconcileInterest(item.targetId)
+              : null;
     if (!request) return;
 
     const before = this.items();
@@ -305,6 +312,16 @@ export class Notifications {
         return [
           format('notifications.aiWrites', { client: a['client'], count: a['count'] }),
           format('notifications.aiDetail'),
+        ];
+      case 'LoanInstalmentDue':
+        return [
+          format('notifications.loanDue', { name: a['name'] }),
+          format(a['overdue'] ? 'notifications.overdue' : 'notifications.dueToday'),
+        ];
+      case 'LoanRateRevision':
+        return [
+          format('notifications.loanRevision', { name: a['name'] }),
+          format('notifications.loanRevisionDetail'),
         ];
       case 'AllocationDue':
         return [

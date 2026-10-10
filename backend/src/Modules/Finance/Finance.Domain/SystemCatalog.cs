@@ -40,6 +40,7 @@ public static class SystemCatalog
         ("health-insurance", "Health Insurance", CategoryType.Expense, ExpenseNature.Fixed, "insurance", "#64748b", "shield"),
         ("car-insurance", "Car Insurance", CategoryType.Expense, ExpenseNature.Fixed, "insurance", "#64748b", "car"),
         ("taxes", "Taxes", CategoryType.Expense, ExpenseNature.Variable, null, "#78716c", "landmark"),
+        ("loan-interest", "Loan interest", CategoryType.Expense, ExpenseNature.Fixed, null, "#b45309", "percent"),
         ("gifts", "Gifts", CategoryType.Expense, ExpenseNature.Variable, null, "#d946ef", "gift"),
         ("other", "Other", CategoryType.Expense, ExpenseNature.Variable, null, "#94a3b8", "dots"),
         ("salary", "Salary", CategoryType.Income, null, null, "#16a34a", "briefcase"),
