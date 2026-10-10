@@ -319,7 +319,8 @@
   "investmentHint": "Os investimentos são apresentados separadamente das receitas e despesas do dia a dia.",
   "emptyFiltered": "Experimenta outra pesquisa, intervalo de datas ou tipo, ou limpa os filtros.",
   "emptyHint": "Adiciona o primeiro movimento, ou importa uma folha de cálculo ou extrato bancário.",
-  "filters": "Filtros"
+  "filters": "Filtros",
+  "goalQuestion": "É para algum objetivo?"
  },
  "recurring": {
   "subtitle": "Os modelos propõem movimentos; nada é registado sem a tua confirmação.",
@@ -369,7 +370,7 @@
   }
  },
  "goals": {
-  "subtitle": "Poupanças associadas a um objetivo contam automaticamente.",
+  "subtitle": "O progresso vem da conta poupança que o objetivo segue, ou das poupanças associadas a ele. Os investimentos nunca contam.",
   "new": "Novo objetivo",
   "edit": "Editar objetivo",
   "achieved": "Atingido",
@@ -381,7 +382,11 @@
   "manual": "Substituir valor atual",
   "howProgress": "Progresso = já poupado + poupanças associadas a este objetivo, salvo se o substituíres.",
   "empty": "Ainda sem objetivos.",
-  "inProgress": "Em curso"
+  "inProgress": "Em curso",
+  "account": "Segue uma conta (opcional)",
+  "noAccount": "Não — contar as poupanças associadas a este objetivo",
+  "followsAccount": "Segue {{account}}",
+  "howProgressAccount": "O progresso é o saldo desta conta — transferências, poupanças e juros incluídos. Os investimentos nunca contam para os objetivos."
  },
  "accounts": {
   "new": "Nova conta",

@@ -24,10 +24,13 @@ public sealed record GoalDto(
     decimal? MonthlyNeeded,
     string? Icon,
     bool Achieved,
-    bool Archived);
+    bool Archived,
+    Guid? AccountId = null,
+    string? AccountName = null);
 
+/// <param name="AccountId">Optional cash account whose balance becomes the goal's progress.</param>
 public sealed record GoalRequest(string Name, decimal TargetAmount, DateOnly? TargetDate, decimal? StartingAmount,
-    decimal? ManualCurrentAmount, string? Icon);
+    decimal? ManualCurrentAmount, string? Icon, Guid? AccountId = null);
 
 public sealed class GoalRequestValidator : AbstractValidator<GoalRequest>
 {
@@ -45,6 +48,15 @@ public static class GoalEndpoints
 {
     public static readonly Error NotFound = Error.NotFound("Goal.NotFound", "Goal not found.");
 
+    public static readonly Error AccountNotLinkable = Error.Validation("Goal.Account",
+        "A goal can follow a savings, bank or cash account in EUR — not a broker, card or loan.");
+
+    /// <summary>Accounts whose balance can be a goal's progress: money set aside, in EUR (goals are in EUR).</summary>
+    public static bool CanFollow(Finance.Domain.Accounts.Account a) =>
+        a.Kind is Finance.Domain.Accounts.AccountKind.Savings or Finance.Domain.Accounts.AccountKind.Bank
+            or Finance.Domain.Accounts.AccountKind.Cash or Finance.Domain.Accounts.AccountKind.Other &&
+        a.Currency == Currency.Base && a.ArchivedAtUtc is null;
+
     public static void MapGoals(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/goals").WithTags("Goals");
@@ -55,12 +67,19 @@ public static class GoalEndpoints
 
         group.MapPost("/", async (GoalRequest req, IFinanceDb db, CancellationToken ct) =>
         {
+            if (await CheckAccountAsync(db, req.AccountId, ct) is { } error)
+            {
+                return ResultHttp.Problem(error);
+            }
+
             var goal = await CreateAsync(db, req, ct);
             return Results.Created($"/api/goals/{goal.Id}", new { goal.Id });
         }).Validate<GoalRequest>();
 
         group.MapPut("/{id:guid}", async (Guid id, GoalRequest req, IFinanceDb db, CancellationToken ct) =>
-            (await UpdateAsync(db, id, req, ct)).ToHttp(_ => Results.NoContent())).Validate<GoalRequest>();
+            await CheckAccountAsync(db, req.AccountId, ct) is { } error
+                ? ResultHttp.Problem(error)
+                : (await UpdateAsync(db, id, req, ct)).ToHttp(_ => Results.NoContent())).Validate<GoalRequest>();
 
         group.MapPost("/{id:guid}/archive", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
         {
@@ -76,10 +95,22 @@ public static class GoalEndpoints
         });
     }
 
+    public static async Task<Error?> CheckAccountAsync(IFinanceDb db, Guid? accountId, CancellationToken ct)
+    {
+        if (accountId is not { } id)
+        {
+            return null;
+        }
+
+        var account = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
+        return account is not null && CanFollow(account) ? null : AccountNotLinkable;
+    }
+
     public static async Task<FinancialGoal> CreateAsync(IFinanceDb db, GoalRequest req, CancellationToken ct)
     {
         var goal = FinancialGoal.Create(req.Name, req.TargetAmount, req.TargetDate, req.StartingAmount ?? 0,
             req.ManualCurrentAmount, req.Icon);
+        goal.LinkAccount(req.AccountId);
         db.Goals.Add(goal);
         await db.SaveChangesAsync(ct);
         return goal;
@@ -96,6 +127,7 @@ public static class GoalEndpoints
 
         goal.Update(req.Name, req.TargetAmount, req.TargetDate, req.StartingAmount ?? 0, req.ManualCurrentAmount,
             req.Icon);
+        goal.LinkAccount(req.AccountId);
         await db.SaveChangesAsync(ct);
         return goal;
     }
@@ -112,10 +144,17 @@ public static class GoalEndpoints
             .GroupBy(t => t.GoalId!.Value)
             .Select(g => new { GoalId = g.Key, Total = g.Sum(t => t.BaseAmount) })
             .ToDictionaryAsync(x => x.GoalId, x => x.Total, ct);
+        var accountIds = goals.Where(g => g.AccountId is not null).Select(g => g.AccountId!.Value).ToHashSet();
+        var accounts = await db.Accounts.AsNoTracking().Where(a => accountIds.Contains(a.Id)).ToListAsync(ct);
+        var balances = accounts.Count > 0
+            ? await Accounts.AccountBalances.ComputeAsync(db, accounts, null, ct)
+            : new Dictionary<Guid, decimal>();
+        var names = accounts.ToDictionary(a => a.Id, a => a.Name);
 
         return goals.Select(g =>
         {
-            var current = g.CurrentAmount(contributions.GetValueOrDefault(g.Id));
+            decimal? balance = g.AccountId is { } aid && balances.TryGetValue(aid, out var b) ? b : null;
+            var current = g.CurrentAmount(contributions.GetValueOrDefault(g.Id), balance);
             var remaining = Math.Max(0, g.TargetAmount - current);
             decimal? monthly = null;
             if (g.TargetDate is { } target && remaining > 0)
@@ -126,7 +165,8 @@ public static class GoalEndpoints
 
             return new GoalDto(g.Id, g.Name, g.TargetAmount, g.TargetDate, g.StartingAmount, g.ManualCurrentAmount,
                 current, g.TargetAmount == 0 ? 0 : decimal.Round(current / g.TargetAmount, 4), remaining, monthly,
-                g.Icon, current >= g.TargetAmount, g.ArchivedAtUtc is not null);
+                g.Icon, current >= g.TargetAmount, g.ArchivedAtUtc is not null, g.AccountId,
+                g.AccountId is { } id ? names.GetValueOrDefault(id) : null);
         }).ToList();
     }
 }
