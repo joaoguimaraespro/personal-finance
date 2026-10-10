@@ -16,6 +16,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Prefs } from '../core/prefs';
 import { APP_ICONS } from './icons';
 import { CHART_FONT } from './chart-options';
+import { displayFx } from '../core/display-currency';
 
 /** True when no series has a single non-zero value: nothing worth drawing (e.g. a year without movements). */
 export function chartIsEmpty(option: EChartsOption): boolean {
@@ -87,6 +88,7 @@ export class ChartComponent implements OnDestroy {
     effect(() => {
       this.option();
       this.prefs.theme();
+      displayFx(); // money labels follow the display currency
       this.render();
     });
   }

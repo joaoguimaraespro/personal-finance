@@ -228,7 +228,7 @@ PostgreSQL 17 · Caddy · Docker Compose · Tailscale · xUnit v3 · Testcontain
 
 [MIT](LICENSE)
 
-Trading 212, Interactive Brokers, Binance, Coinbase, Kraken, Ledger and Trezor names and logos are trademarks
+Trading 212, Interactive Brokers, Binance, Coinbase, Kraken, Ledger, Trezor and SafePal names and logos, and the company logos shown next to holdings, are trademarks
 of their respective owners. They are used only to identify the broker a connection belongs to, or the exchange
 or wallet a hand-entered crypto wallet is named after; this project is not affiliated with or endorsed by any of
 them. The MIT license does not cover them (`web/public/brokers/`, `web/public/wallets/`).

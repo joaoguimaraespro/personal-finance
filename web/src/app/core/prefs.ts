@@ -43,6 +43,8 @@ export class Prefs {
   readonly lastAccountId = signal<string | null>(read('pf.lastAccount'));
   /** Period of the returns on the portfolio page (1M, YTD, 1Y or ALL). */
   readonly portfolioPeriod = signal<ReturnPeriod>(readPeriod());
+  /** Currency figures are shown in (all data stays in EUR). */
+  readonly displayCurrency = signal<'EUR' | 'USD'>(read('pf.currency') === 'USD' ? 'USD' : 'EUR');
   /** Bumps when a translation file finishes loading, so computed labels (charts) re-evaluate. */
   readonly translations = signal(0);
 
@@ -69,6 +71,7 @@ export class Prefs {
       if (id) write('pf.lastAccount', id);
     });
     effect(() => write('pf.portfolioPeriod', this.portfolioPeriod()));
+    effect(() => write('pf.currency', this.displayCurrency()));
   }
 
   /** Calendar vocabulary from Intl, so pickers match the rest of the app's date formatting. Weeks start on Monday. */

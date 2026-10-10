@@ -523,7 +523,9 @@
   "browserAlertsHint": "Show a system notification when something new needs attention while this tab is open in the background. Nothing is sent from the server.",
   "browserBlocked": "The browser blocked notifications for this site. Allow them in the site settings and try again.",
   "on": "On",
-  "off": "Off"
+  "off": "Off",
+  "currency": "Currency",
+  "currencyHint": "Everything is kept in EUR; USD shows EUR amounts at today's ECB rate."
  },
  "assetClass": {
   "Stock": "Stocks",
@@ -570,14 +572,14 @@
   "quantity": "Quantity",
   "avgPrice": "Avg. price",
   "price": "Price",
-  "marketValue": "Value (EUR)",
+  "marketValue": "Value ({{currency}})",
   "weight": "Weight",
   "noPositions": "No positions.",
   "dividendsByMonth": "Dividends by month",
   "recentDividends": "Recent dividends",
   "gross": "Gross",
   "withholding": "Withholding",
-  "net": "Net (EUR)",
+  "net": "Net ({{currency}})",
   "derived": "Inferred from the API; import the broker CSV for the reported value",
   "targetsTitle": "Target allocation",
   "targetsHint": "Percentages of the portfolio (including cash). Leave blank for no target. Total at most 100%.",
