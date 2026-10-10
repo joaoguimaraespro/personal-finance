@@ -23,7 +23,8 @@
   "assistant": "Assistant",
   "more": "More",
   "main": "Main navigation",
-  "general": "General"
+  "general": "General",
+  "loans": "Loans"
  },
  "common": {
   "save": "Save",
@@ -404,7 +405,13 @@
   "countsTowards": "Deposits count towards",
   "countsTowardsHint": "Money you deposit here counts in that bucket’s monthly allocation, without recording it by hand.",
   "noBucket": "No bucket",
-  "countsTowardsSaved": "Saved. The monthly allocation now includes this broker’s deposits."
+  "countsTowardsSaved": "Saved. The monthly allocation now includes this broker’s deposits.",
+  "group": {
+   "money": "Everyday money",
+   "savings": "Savings",
+   "investments": "Investments",
+   "debts": "Debts"
+  }
  },
  "categories": {
   "new": "New category",
@@ -1022,7 +1029,12 @@
   },
   "history": "Rate history",
   "withheld": "{{pct}} withheld",
-  "removeLatest": "Remove latest rate"
+  "removeLatest": "Remove latest rate",
+  "perDay": "≈ {{gross}}/day gross ({{net}} net)",
+  "perDayHint": "Balance × TANB / 365, before the {{withholding}} % withholding tax.",
+  "thisYearNet": "{{amount}} net this year",
+  "since": "(since {{date}})",
+  "thisYearHint": "Interest after withholding tax, from the days the app knows this account and its rate. Record interest the bank paid earlier as income in the Interest category to include it."
  },
  "crypto": {
   "addButton": "Add crypto",
@@ -1245,6 +1257,15 @@
   "skip": "Skip",
   "dashboardTitle": "Loans",
   "owed": "Owed",
-  "endsOn": "ends {{date}}"
+  "endsOn": "ends {{date}}",
+  "listSubtitle": "Mortgages, car and personal loans: what you owe and when each ends.",
+  "new": "New loan",
+  "monthly": "Instalments per month",
+  "interestLeftAll": "Interest still to pay",
+  "emptyTitle": "No loans",
+  "emptyText": "Add a mortgage, car or personal loan to see what you owe, the instalment, when it ends and what early repayments would save.",
+  "namePlaceholder": "Mortgage, Car loan…",
+  "newHint": "Next you enter the amount, rate and term.",
+  "next": "Continue"
  }
 }

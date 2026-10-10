@@ -110,6 +110,8 @@ export interface AccountInterest {
   yearToDateEstimated: number;
   /** Part of the balance that is still an estimate. */
   estimatedInBalance: number;
+  /** This year's interest counts from this day (the account or its rate is newer than 1 January). */
+  accruingSince?: string | null;
 }
 
 export interface InterestRate {
