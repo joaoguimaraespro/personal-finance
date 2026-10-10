@@ -1,3 +1,4 @@
+import { formatMoney } from '../../core/display-currency';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -440,12 +441,7 @@ export class MonthlyComponent {
       tooltip: {
         trigger: 'item',
         valueFormatter: (v: unknown) =>
-          typeof v === 'number'
-            ? new Intl.NumberFormat(this.prefs.locale(), {
-                style: 'currency',
-                currency: 'EUR',
-              }).format(v)
-            : '',
+          typeof v === 'number' ? formatMoney(this.prefs.locale(), v) : '',
       },
       legend: {
         type: 'scroll',

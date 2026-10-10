@@ -523,7 +523,9 @@
   "browserAlertsHint": "Mostra uma notificação do sistema quando surge algo novo que precisa de atenção, com este separador aberto em segundo plano. O servidor não envia nada.",
   "browserBlocked": "O browser bloqueou as notificações deste site. Permite-as nas definições do site e tenta de novo.",
   "on": "Ligadas",
-  "off": "Desligadas"
+  "off": "Desligadas",
+  "currency": "Moeda",
+  "currencyHint": "Tudo é guardado em EUR; USD mostra os valores em EUR à taxa do BCE de hoje."
  },
  "assetClass": {
   "Stock": "Ações",
@@ -570,14 +572,14 @@
   "quantity": "Quantidade",
   "avgPrice": "Preço médio",
   "price": "Preço",
-  "marketValue": "Valor (EUR)",
+  "marketValue": "Valor ({{currency}})",
   "weight": "Peso",
   "noPositions": "Sem posições.",
   "dividendsByMonth": "Dividendos por mês",
   "recentDividends": "Dividendos recentes",
   "gross": "Bruto",
   "withholding": "Retenção",
-  "net": "Líquido (EUR)",
+  "net": "Líquido ({{currency}})",
   "derived": "Inferido pela API; importa o CSV da corretora para o valor reportado",
   "targetsTitle": "Alocação objetivo",
   "targetsHint": "Percentagens da carteira (incluindo liquidez). Deixa vazio para sem objetivo. Total até 100%.",

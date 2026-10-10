@@ -1,3 +1,4 @@
+import { displayFx, formatMoney } from '../../core/display-currency';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -43,6 +44,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { APP_ICONS } from '../../shared/icons';
 import { BrokerLogoComponent } from '../../shared/broker-logo';
 import { CoinIconComponent } from '../../shared/coin-icon';
+import { SecurityIconComponent } from '../../shared/security-icon';
 import { CryptoDialogComponent } from './crypto-dialog';
 import { WalletStripComponent } from './wallet-strip';
 import {
@@ -76,6 +78,7 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
   imports: [
     BrokerLogoComponent,
     CoinIconComponent,
+    SecurityIconComponent,
     CryptoDialogComponent,
     WalletStripComponent,
     PricePipe,
@@ -393,7 +396,7 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
                       [class.text-foreground]="sortKey() === col.key"
                       (click)="sortBy(col.key)"
                     >
-                      {{ col.label | translate }}
+                      {{ col.label | translate: { currency: displayCurrency() } }}
                       <ng-icon
                         [name]="
                           sortKey() !== col.key
@@ -429,6 +432,13 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
                       />
                       @if (p.assetClass === 'Crypto') {
                         <app-coin-icon [symbol]="p.symbol" [size]="18" />
+                      } @else {
+                        <app-security-icon
+                          [securityId]="p.securityId"
+                          [symbol]="p.symbol"
+                          [assetClass]="p.assetClass"
+                          [size]="18"
+                        />
                       }
                       {{ p.symbol }}
                       @if (p.assetClass !== 'Crypto') {
@@ -601,7 +611,9 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
                   <th hlmTh></th>
                   <th hlmTh class="text-right">{{ 'portfolio.gross' | translate }}</th>
                   <th hlmTh class="text-right">{{ 'portfolio.withholding' | translate }}</th>
-                  <th hlmTh class="text-right">{{ 'portfolio.net' | translate }}</th>
+                  <th hlmTh class="text-right">
+                    {{ 'portfolio.net' | translate: { currency: displayCurrency() } }}
+                  </th>
                 </tr>
               </thead>
               <tbody hlmTBody>
@@ -680,6 +692,8 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
   `,
 })
 export class PortfolioComponent {
+  /** Column headers name the currency figures are shown in. */
+  protected readonly displayCurrency = () => displayFx().currency;
   private readonly api = inject(Api);
   protected readonly events = inject(DataEvents);
   protected readonly prefs = inject(Prefs);
@@ -877,10 +891,7 @@ export class PortfolioComponent {
     return {
       tooltip: {
         trigger: 'item',
-        valueFormatter: (v: unknown) =>
-          new Intl.NumberFormat(this.prefs.locale(), { style: 'currency', currency: 'EUR' }).format(
-            v as number,
-          ),
+        valueFormatter: (v: unknown) => formatMoney(this.prefs.locale(), v as number),
       },
       series: [
         {

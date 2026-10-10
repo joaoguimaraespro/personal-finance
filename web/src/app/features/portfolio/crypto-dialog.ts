@@ -30,7 +30,7 @@ import { CoinSearchComponent } from './coin-search';
 type Field = 'coin' | 'quantity' | 'price' | 'location' | 'heldSince' | 'notes';
 
 /** Offered in the wallet picker until used; any other name can be typed with "+ New wallet…". */
-const SUGGESTED_WALLETS = ['Binance', 'Coinbase', 'Kraken', 'Ledger', 'Trezor', 'Cold wallet'];
+const SUGGESTED_WALLETS = ['Binance', 'Coinbase', 'Kraken', 'Ledger', 'Trezor', 'SafePal', 'Cold wallet'];
 type RewardField = 'quantity' | 'date';
 
 /** Server error codes with a translated, friendlier message. */

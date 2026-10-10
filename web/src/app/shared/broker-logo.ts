@@ -20,6 +20,7 @@ const WALLET_LOGOS: [RegExp, string][] = [
   [/\bkraken\b/i, 'wallets/kraken.png'],
   [/\bledger\b/i, 'wallets/ledger.png'],
   [/\btrezor\b/i, 'wallets/trezor.png'],
+  [/\bsafe ?pal\b/i, 'wallets/safepal.png'],
 ];
 
 /** Logo of a hand-entered wallet whose name mentions a known exchange or hardware wallet ("Binance Earn"). */
