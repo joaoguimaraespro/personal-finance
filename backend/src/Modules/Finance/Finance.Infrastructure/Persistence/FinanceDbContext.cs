@@ -215,6 +215,7 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
         {
             e.Property(x => x.Name).HasMaxLength(80);
             e.Property(x => x.Icon).HasMaxLength(40);
+            e.HasOne<Account>().WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

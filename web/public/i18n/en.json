@@ -319,7 +319,8 @@
   "investmentHint": "Investments are reported separately from everyday income and expenses.",
   "emptyFiltered": "Try another search, date range or type, or clear the filters.",
   "emptyHint": "Add your first transaction, or import a spreadsheet or bank export.",
-  "filters": "Filters"
+  "filters": "Filters",
+  "goalQuestion": "Is this for a goal?"
  },
  "recurring": {
   "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.",
@@ -369,7 +370,7 @@
   }
  },
  "goals": {
-  "subtitle": "Savings linked to a goal count towards it automatically.",
+  "subtitle": "Progress comes from the savings account a goal follows, or from savings linked to it. Investments never count.",
   "new": "New goal",
   "edit": "Edit goal",
   "achieved": "Achieved",
@@ -381,7 +382,11 @@
   "manual": "Override current amount",
   "howProgress": "Progress = already saved + savings transactions linked to this goal, unless you override it.",
   "empty": "No goals yet.",
-  "inProgress": "In progress"
+  "inProgress": "In progress",
+  "account": "Follows an account (optional)",
+  "noAccount": "No — count savings linked to this goal",
+  "followsAccount": "Follows {{account}}",
+  "howProgressAccount": "Progress is this account's balance — transfers, savings and interest included. Investments never count towards goals."
  },
  "accounts": {
   "new": "New account",

@@ -406,6 +406,9 @@ export interface Goal {
   icon: string | null;
   achieved: boolean;
   archived: boolean;
+  /** The cash account whose balance is the progress, when the goal follows one. */
+  accountId?: string | null;
+  accountName?: string | null;
 }
 
 export interface Recurring {

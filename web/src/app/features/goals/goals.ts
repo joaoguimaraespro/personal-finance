@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Prefs } from '../../core/prefs';
+import { SelectComponent, SelectOption } from '../../shared/select';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -22,6 +24,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
 @Component({
   selector: 'app-goals',
   imports: [
+    SelectComponent,
     PageHeaderComponent,
     EmptyStateComponent,
     StatusBadgeComponent,
@@ -80,6 +83,13 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             </div>
           </div>
           <p class="num mt-4 text-2xl font-semibold tracking-tight">{{ g.progress | pct: 0 }}</p>
+          @if (g.accountName) {
+            <p class="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
+              <ng-icon name="lucidePiggyBank" aria-hidden="true" />{{
+                'goals.followsAccount' | translate: { account: g.accountName }
+              }}
+            </p>
+          }
           <app-progress class="mt-2 block" [value]="g.progress" />
           <dl class="num mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
             <div>
@@ -165,30 +175,41 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             clearable
           />
         </div>
-        <div>
-          <label class="label" for="g-start">{{ 'goals.starting' | translate }}</label>
-          <input
-            id="g-start"
-            hlmInput
-            class="num"
-            inputmode="decimal"
-            [value]="starting()"
-            (input)="starting.set($any($event.target).value)"
+        <div class="col-span-2">
+          <label class="label" for="g-account">{{ 'goals.account' | translate }}</label>
+          <app-select
+            inputId="g-account"
+            [options]="accountOptions()"
+            [value]="accountId()"
+            (valueChange)="accountId.set($event)"
           />
         </div>
-        <div>
-          <label class="label" for="g-manual">{{ 'goals.manual' | translate }}</label>
-          <input
-            id="g-manual"
-            hlmInput
-            class="num"
-            inputmode="decimal"
-            [value]="manual()"
-            (input)="manual.set($any($event.target).value)"
-          />
-        </div>
+        @if (!accountId()) {
+          <div>
+            <label class="label" for="g-start">{{ 'goals.starting' | translate }}</label>
+            <input
+              id="g-start"
+              hlmInput
+              class="num"
+              inputmode="decimal"
+              [value]="starting()"
+              (input)="starting.set($any($event.target).value)"
+            />
+          </div>
+          <div>
+            <label class="label" for="g-manual">{{ 'goals.manual' | translate }}</label>
+            <input
+              id="g-manual"
+              hlmInput
+              class="num"
+              inputmode="decimal"
+              [value]="manual()"
+              (input)="manual.set($any($event.target).value)"
+            />
+          </div>
+        }
         <p class="col-span-2 text-xs text-muted-foreground">
-          {{ 'goals.howProgress' | translate }}
+          {{ (accountId() ? 'goals.howProgressAccount' : 'goals.howProgress') | translate }}
         </p>
         <div class="col-span-2 flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
@@ -206,6 +227,7 @@ export class GoalsComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly prefs = inject(Prefs);
   protected readonly goals = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.goals(),
@@ -217,6 +239,23 @@ export class GoalsComponent {
   protected readonly date = signal('');
   protected readonly starting = signal('');
   protected readonly manual = signal('');
+  protected readonly accountId = signal('');
+  private readonly accounts = liveResource({ stream: () => this.api.accounts() });
+  /** Only money set aside can be followed: savings, bank and cash accounts in EUR — never a broker or a card. */
+  protected readonly accountOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: this.i18n.instant('goals.noAccount') },
+      ...(this.accounts.value() ?? [])
+        .filter(
+          (a) =>
+            ['Savings', 'Bank', 'Cash', 'Other'].includes(a.kind) &&
+            a.currency === 'EUR' &&
+            !a.archived,
+        )
+        .map((a) => ({ value: a.id, label: a.name })),
+    ];
+  });
 
   protected open(g: Goal | null) {
     this.editing.set(g);
@@ -225,6 +264,7 @@ export class GoalsComponent {
     this.date.set(g?.targetDate ?? '');
     this.starting.set(g ? String(g.startingAmount) : '');
     this.manual.set(g?.manualCurrentAmount != null ? String(g.manualCurrentAmount) : '');
+    this.accountId.set(g?.accountId ?? '');
     this.formOpen.set(true);
   }
 
@@ -236,6 +276,7 @@ export class GoalsComponent {
       startingAmount: parseAmount(this.starting()) ?? 0,
       manualCurrentAmount: parseAmount(this.manual()),
       icon: null,
+      accountId: this.accountId() || null,
     };
     try {
       const g = this.editing();

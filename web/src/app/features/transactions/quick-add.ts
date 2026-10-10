@@ -373,13 +373,17 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
         }
 
         @if (type() === 'Savings' && (goals.value() ?? []).length) {
-          <div>
-            <label class="label" for="qa-goal">{{ 'tx.goal' | translate }}</label>
+          <!-- Recording a month's savings allocation asks which goal it is for (the goal's account, if any, becomes
+               the destination, so the goal that follows it moves). -->
+          <div [class]="askGoal() ? 'rounded-xl bg-primary/5 p-3 ring-1 ring-primary/30' : ''">
+            <label class="label" for="qa-goal">{{
+              (askGoal() ? 'tx.goalQuestion' : 'tx.goal') | translate
+            }}</label>
             <app-select
               inputId="qa-goal"
               [options]="goalOptions()"
               [value]="goalId() ?? ''"
-              (valueChange)="goalId.set($event || null)"
+              (valueChange)="pickGoal($event || null)"
             />
           </div>
         }
@@ -498,6 +502,15 @@ export class QuickAddComponent {
   protected readonly parsedAmount = computed(() => parseAmount(this.amount()));
   protected readonly bucketId = signal<string | null>(null);
   protected readonly goalId = signal<string | null>(null);
+  /** Opened to record a savings allocation: the goal question is highlighted. */
+  protected readonly askGoal = signal(false);
+
+  /** A goal that follows an account sends the money there: its balance is the goal's progress. */
+  protected pickGoal(id: string | null) {
+    this.goalId.set(id);
+    const account = (this.goals.value() ?? []).find((g) => g.id === id)?.accountId;
+    if (account && account !== this.accountId()) this.counterAccountId.set(account);
+  }
   protected readonly date = signal(today());
   protected readonly description = signal('');
   protected readonly notes = signal('');
@@ -650,6 +663,7 @@ export class QuickAddComponent {
       } else {
         this.reset(true);
         const p = untracked(this.quick.prefill);
+        this.askGoal.set(p?.type === 'Savings');
         if (p) {
           this.type.set(p.type);
           if (p.amount) this.amount.set(formatInput(Math.round(p.amount * 100) / 100));

@@ -332,6 +332,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
                     b.Property<DateTimeOffset?>("AchievedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("achieved_at_utc");
@@ -380,6 +384,9 @@ namespace Finance.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_goals");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_goals_account_id");
 
                     b.ToTable("goals", "finance");
                 });
@@ -1000,6 +1007,15 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_categories_categories_parent_id");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Goals.FinancialGoal", b =>
+                {
+                    b.HasOne("Finance.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_goals_accounts_account_id");
                 });
 
             modelBuilder.Entity("Finance.Domain.Interest.AccountInterestRate", b =>
