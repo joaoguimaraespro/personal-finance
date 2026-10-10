@@ -29,6 +29,12 @@ public enum NotificationKind
 
     /// <summary>This month's income is in but a bucket's allocation (investments, savings) is not done yet.</summary>
     AllocationDue = 7,
+
+    /// <summary>A loan instalment is due and waits to be booked (interest as an expense, capital to the loan).</summary>
+    LoanInstalmentDue = 8,
+
+    /// <summary>A variable-rate loan has a revision date with no rate entered for it.</summary>
+    LoanRateRevision = 9,
 }
 
 public enum NotificationSeverity

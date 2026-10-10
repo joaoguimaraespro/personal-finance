@@ -796,6 +796,9 @@ export interface LoanSummary {
   interestLeft: number;
   currentRatePercent: number;
   nextRevision: string | null;
+  /** Bank account the instalments are paid from (each one is then proposed for booking). */
+  paymentAccountId?: string | null;
+  pendingInstalments?: number;
 }
 
 export interface LoanDetail {

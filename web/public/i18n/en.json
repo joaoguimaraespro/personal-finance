@@ -446,7 +446,8 @@
   "other-income": "Other income",
   "rename": "Rename",
   "resetName": "Back to the default name",
-  "newName": "New name"
+  "newName": "New name",
+  "loan-interest": "Loan interest"
  },
  "import": {
   "title": "Import from Excel",
@@ -1139,7 +1140,11 @@
   "allocationDue": "Set aside for {{bucket}}",
   "allocationPartial": "Finish setting aside for {{bucket}}",
   "allocationDetail": "This month's allocation is not done yet.",
-  "allocationLeft": "{{remaining}} left of {{target}}"
+  "allocationLeft": "{{remaining}} left of {{target}}",
+  "loanDue": "{{name}}: instalment due",
+  "loanSplit": "interest {{interest}} · capital {{capital}}",
+  "loanRevision": "{{name}}: rate revision",
+  "loanRevisionDetail": "Enter the new rate from {{date}} (the bank's letter)."
  },
  "split": {
   "action": "Split by category",
@@ -1231,6 +1236,15 @@
   "details": "Loan details",
   "setupShort": "Add loan terms",
   "indexStart": "Index at the start (%)",
-  "tanStart": "TAN at the start (%)"
+  "tanStart": "TAN at the start (%)",
+  "paidFrom": "Instalments paid from",
+  "notTracked": "Not booked — the debt still follows the plan",
+  "paidFromHint": "From now on each instalment is proposed when due: interest as an expense, capital as a transfer to this loan.",
+  "pending": "Instalments to book",
+  "book": "Book",
+  "skip": "Skip",
+  "dashboardTitle": "Loans",
+  "owed": "Owed",
+  "endsOn": "ends {{date}}"
  }
 }

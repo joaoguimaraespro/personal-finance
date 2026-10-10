@@ -99,4 +99,63 @@ public sealed class LoanTests(ApiFactory factory)
             initialRatePercent = 5m,
         })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task Instalments_are_proposed_once_a_payment_account_is_set_and_book_interest_and_capital()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = "Loan payer bank", kind = "Bank", currency = "EUR", openingBalance = 5_000m });
+        var loan = await api.CreateAsync("/api/accounts",
+            new { name = "Car loan test", kind = "Loan", currency = "EUR", openingBalance = 0 });
+        await ApiClient.EnsureAsync(await api.PutAsync($"/api/loans/{loan}", new
+        {
+            principal = 12_000m, firstPaymentOn = Today.ToString("yyyy-MM-dd"), termMonths = 48, rateType = "Fixed",
+            initialRatePercent = 6m,
+        }));
+        async Task<JsonElement[]> Notifications() =>
+            (await api.GetJsonAsync("/api/notifications")).GetProperty("items").EnumerateArray().ToArray();
+        (await Notifications()).ShouldNotContain(i => i.GetProperty("id").GetString()!.StartsWith("loan:"));
+
+        await ApiClient.EnsureAsync(await api.PutAsync($"/api/loans/{loan}/payment-account", new { accountId = bank }));
+        var item = (await Notifications()).Single(i => i.GetProperty("kind").GetString() == "LoanInstalmentDue" &&
+                                                        i.GetProperty("targetId").GetGuid() == loan);
+        item.GetProperty("args").GetProperty("number").GetInt32().ShouldBe(1);
+        item.GetProperty("args").GetProperty("interest").GetDecimal().ShouldBe(60m); // 12,000 × 6 % / 12
+        var payment = item.GetProperty("args").GetProperty("amount").GetDecimal();
+
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/loans/{loan}/instalments/1/book", new { }));
+        (await Notifications()).ShouldNotContain(i => i.GetProperty("kind").GetString() == "LoanInstalmentDue" &&
+                                                      i.GetProperty("targetId").GetGuid() == loan);
+        var accounts = await api.GetAsync<JsonElement[]>("/api/accounts");
+        accounts.Single(a => a.GetProperty("id").GetGuid() == bank).GetProperty("balance").GetDecimal()
+            .ShouldBe(5_000m - payment);
+        // Booking twice is refused.
+        (await api.PostAsync($"/api/loans/{loan}/instalments/1/book", new { })).StatusCode
+            .ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task A_revision_date_without_a_rate_is_announced_until_the_rate_is_entered()
+    {
+        var api = await factory.OwnerAsync();
+        var loan = await api.CreateAsync("/api/accounts",
+            new { name = "Revision reminder loan", kind = "Loan", currency = "EUR", openingBalance = 0 });
+        var first = Today.AddMonths(-6).AddDays(5); // revision in 5 days
+        await ApiClient.EnsureAsync(await api.PutAsync($"/api/loans/{loan}", new
+        {
+            principal = 50_000m, firstPaymentOn = first.ToString("yyyy-MM-dd"), termMonths = 120,
+            rateType = "Variable", revisionMonths = 6, indexName = "Euribor 6M", spreadPercent = 1m,
+            initialIndexPercent = 2m,
+        }));
+        var revision = first.AddMonths(6).ToString("yyyy-MM-dd");
+        async Task<bool> Announced() => (await api.GetJsonAsync("/api/notifications")).GetProperty("items")
+            .EnumerateArray().Any(i => i.GetProperty("kind").GetString() == "LoanRateRevision" &&
+                                       i.GetProperty("targetId").GetGuid() == loan);
+        (await Announced()).ShouldBeTrue();
+
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/loans/{loan}/rates",
+            new { effectiveFrom = revision, indexRatePercent = 2.4m }));
+        (await Announced()).ShouldBeFalse();
+    }
 }
