@@ -9,6 +9,7 @@ import { Expected, Frequency, Recurring, TransactionType } from '../../core/mode
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { bucketLabel } from '../../shared/bucket-label';
 import { ModalComponent } from '../../shared/modal';
 import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -467,10 +468,13 @@ export class RecurringComponent {
   });
   protected readonly parsedAmount = computed(() => parseAmount(this.form().amount));
   protected readonly startSplit = startSplit;
-  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
-    { value: '', label: '—' },
-    ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
-  ]);
+  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: '—' },
+      ...this.bucketOptions().map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
+    ];
+  });
   protected readonly accountOptions = computed<SelectOption[]>(() =>
     this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
   );

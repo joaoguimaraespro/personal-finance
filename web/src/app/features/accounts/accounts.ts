@@ -4,6 +4,7 @@ import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
 import { BrokerLogoComponent } from '../../shared/broker-logo';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { bucketLabel } from '../../shared/bucket-label';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
@@ -574,7 +575,7 @@ export class AccountsComponent {
       { value: '', label: this.i18n.instant('accounts.noBucket') },
       ...(this.buckets.value() ?? [])
         .filter((b) => !b.archived)
-        .map((b) => ({ value: b.id, label: b.name })),
+        .map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
     ];
   });
   private readonly portfolio = liveResource({
