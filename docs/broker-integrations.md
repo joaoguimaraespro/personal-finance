@@ -171,16 +171,20 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
 - **Read-only by construction** ([ADR-0009](adr/0009-binance-read-only-key.md)). Before reading anything, each sync
   asks Binance what the key may do (`GET /sapi/v1/account/apiRestrictions`) and refuses a key that can trade,
   transfer or withdraw. The HTTP client is allow-listed to `GET` requests on the account, Simple Earn positions and
-  rewards, fill history, prices and daily candles; an order, convert, redeem, transfer or withdrawal request is
-  blocked before it leaves the process. Requests are signed (HMAC-SHA256) and the secret is stored encrypted like
+  rewards, fill, fiat, Convert and coin deposit/withdrawal *history*, prices and daily candles; an order, convert,
+  redeem, transfer or withdrawal request is blocked before it leaves the process. Requests are signed (HMAC-SHA256) and the secret is stored encrypted like
   the other brokers' credentials.
 - **Positions.** One position per coin: spot balance + flexible Earn + locked Earn, valued in EUR at Binance's
   price (the EUR pair, else the USDT/USDC/FDUSD pair converted with EURUSDT). EUR balances are the account's cash.
   Coins Binance cannot price in EUR or dollars are skipped. A coin held both on Binance and by hand is one position
   line (coins have no ISIN, so the symbol identifies them).
-- **Cost.** The average buy price comes from the account's fills on EUR and dollar-stablecoin pairs (moving average;
-  dollar fills converted at that day's EURUSDT close). Coins that were never bought there (deposited, converted or
-  earned) have no known cost: they are valued from the first sync on, without a gain.
+- **Cost.** A moving average in EUR over the last 712 days of everything that brought a coin in or took it out:
+  fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), card/bank purchases (what
+  was paid), Convert orders (the EUR value of what was given), Earn rewards and coins received from another wallet
+  (worth that day's close), and coins converted away, sold or sent out (they leave at the average, which does not
+  move). A coin with no such history keeps the price of its first sync as its cost, so its gain or loss shows from
+  then on. Each sync rebuilds the cost from history; the window is 8 × 89 days because the withdrawal history
+  weighs 18,000 of Binance's 180,000 per minute and accepts less than 90 days per request.
 - **Earn rewards** (flexible real-time APR, bonus tiers, locked rewards) are income, like dividends: one entry per
   reward, valued at the coin's EUR close of that day, under *Dividends & rewards*. The first sync reads the last
   180 days; later syncs read from the previous one, and the external id
