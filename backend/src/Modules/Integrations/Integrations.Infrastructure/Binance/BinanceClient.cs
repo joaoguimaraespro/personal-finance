@@ -11,7 +11,8 @@ using SharedKernel.Http;
 namespace Integrations.Infrastructure.Binance;
 
 /// <summary>
-/// Minimal Binance Spot API client: signed GET requests to account, Simple Earn and fill history, plus public prices.
+/// Minimal Binance Spot API client: signed GET requests to account, Simple Earn, fill, fiat, Convert and coin
+/// deposit/withdrawal history, plus public prices.
 /// Nothing else can be sent: the HttpClient is wrapped in an allow-list of these GET paths (no order, convert,
 /// transfer, subscription or withdrawal endpoint), and <see cref="EnsureReadOnlyKeyAsync"/> refuses any key that
 /// Binance reports as able to trade or move funds.
@@ -34,6 +35,9 @@ internal sealed class BinanceClient(HttpClient http, RateGate gate, TimeProvider
         AllowedRequest.Get(Host, "/sapi/v1/fiat/(orders|payments)"),
         AllowedRequest.Get(Host, "/sapi/v1/simple-earn/(flexible|locked)/position"),
         AllowedRequest.Get(Host, "/sapi/v1/simple-earn/(flexible|locked)/history/rewardsRecord"),
+        AllowedRequest.Get(Host, "/sapi/v1/convert/tradeFlow"),
+        AllowedRequest.Get(Host, "/sapi/v1/capital/deposit/hisrec"),
+        AllowedRequest.Get(Host, "/sapi/v1/capital/withdraw/history"),
         AllowedRequest.Get(Host, "/api/v3/ticker/price"),
         AllowedRequest.Get(Host, "/api/v3/klines"),
     ];
@@ -108,6 +112,23 @@ internal sealed class BinanceClient(HttpClient http, RateGate gate, TimeProvider
     public Task<List<BinanceFiatPayment>> FiatPurchasesAsync(DateTimeOffset from, DateTimeOffset to,
         CancellationToken ct) =>
         FiatPagedAsync<BinanceFiatPayment>("/sapi/v1/fiat/payments", 0, from, to, ct);
+
+    /// <summary>Convert orders between two instants at most 30 days apart.</summary>
+    public async Task<List<BinanceConversion>> ConversionsAsync(DateTimeOffset from, DateTimeOffset to,
+        CancellationToken ct) =>
+        (await SignedAsync<BinanceConversionPage>("/sapi/v1/convert/tradeFlow",
+            $"startTime={from.ToUnixTimeMilliseconds()}&endTime={to.ToUnixTimeMilliseconds()}&limit=1000", ct)).List ?? [];
+
+    /// <summary>Coins received from other wallets between two instants less than 90 days apart.</summary>
+    public Task<List<BinanceCoinReceived>> CoinsReceivedAsync(DateTimeOffset from, DateTimeOffset to,
+        CancellationToken ct) =>
+        SignedAsync<List<BinanceCoinReceived>>("/sapi/v1/capital/deposit/hisrec",
+            $"startTime={from.ToUnixTimeMilliseconds()}&endTime={to.ToUnixTimeMilliseconds()}&limit=1000", ct);
+
+    /// <summary>Coins sent to other wallets between two instants less than 90 days apart (history only).</summary>
+    public Task<List<BinanceCoinSent>> CoinsSentAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct) =>
+        SignedAsync<List<BinanceCoinSent>>("/sapi/v1/capital/withdraw/history",
+            $"startTime={from.ToUnixTimeMilliseconds()}&endTime={to.ToUnixTimeMilliseconds()}&limit=1000", ct);
 
     private async Task<List<T>> FiatPagedAsync<T>(string path, int transactionType, DateTimeOffset from,
         DateTimeOffset to, CancellationToken ct)

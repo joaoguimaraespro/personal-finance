@@ -7,8 +7,13 @@ namespace Investments.Application.Sync;
 public sealed record SecurityReport(string BrokerSymbol, string? Isin, string Symbol, string? Exchange, string Name,
     string Currency, AssetClass AssetClass);
 
+/// <summary>
+/// A holding as the broker reports it. <paramref name="CostKnown"/> false: the broker cannot tell what it cost (a coin
+/// deposited or received with no history), so <paramref name="AveragePrice"/> is only today's price and the cost first
+/// recorded for the position is kept, so its gain counts from then on.
+/// </summary>
 public sealed record PositionReport(SecurityReport Security, decimal Quantity, decimal AveragePrice, decimal LastPrice,
-    DateTimeOffset PriceAsOf);
+    DateTimeOffset PriceAsOf, bool CostKnown = true);
 
 public sealed record TradeReport(string ExternalId, SecurityReport Security, TradeSide Side, decimal Quantity,
     decimal Price, string Currency, decimal Fees, decimal Taxes, string FeesCurrency, decimal? NetAmountInAccountCurrency,
