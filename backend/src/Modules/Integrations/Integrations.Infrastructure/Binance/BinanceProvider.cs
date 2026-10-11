@@ -12,7 +12,7 @@ namespace Integrations.Infrastructure.Binance;
 /// or took it out: fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins
 /// received or sent (valued at the day's close). A coin with no such history keeps the price of its first sync as cost.
 /// </summary>
-internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) : IInvestmentProvider
+internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) : IInvestmentProvider, ICostBreakdownProvider
 {
     /// <summary>How far back the first sync reads Earn rewards.</summary>
     public const int FirstSyncDays = 180;
@@ -49,12 +49,41 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
 
     public async Task<IReadOnlyList<PositionReport>> GetPositionsAsync(CancellationToken ct)
     {
+        var (coins, events) = await CostEventsAsync(ct);
+        var now = clock.GetUtcNow();
+        return coins.Select(c => BinanceValuation.AverageCost(events[c.Asset]) is { } average
+                ? new PositionReport(Security(c.Asset), c.Quantity, average, c.EurPrice, now)
+                : new PositionReport(Security(c.Asset), c.Quantity, c.EurPrice, c.EurPrice, now, CostKnown: false))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<CostBreakdown>> GetCostBreakdownAsync(CancellationToken ct)
+    {
+        var (coins, events) = await CostEventsAsync(ct);
+        return coins.Select(c =>
+        {
+            var list = events[c.Asset];
+            var (tracked, _) = BinanceValuation.Replay(list);
+            var sources = list.GroupBy(e => (e.Kind, In: e.Quantity > 0))
+                .Select(g => new CostSourceLine(g.Key.Kind, g.Count(), g.Sum(e => e.Quantity),
+                    decimal.Round(g.Sum(e => e.EurValue), 2)))
+                .OrderBy(l => l.Kind, StringComparer.Ordinal).ThenByDescending(l => l.Quantity)
+                .ToList();
+            return new CostBreakdown(c.Asset, c.Quantity, tracked, BinanceValuation.AverageCost(list), c.EurPrice,
+                sources);
+        }).ToList();
+    }
+
+    /// <summary>Every coin held and, per coin, the movements its cost is rebuilt from (see the class summary).</summary>
+    private async Task<(List<(string Asset, decimal Quantity, decimal EurPrice)> Coins,
+        Dictionary<string, List<CostEvent>> Events)> CostEventsAsync(CancellationToken ct)
+    {
         var h = await HoldingsAsync(ct);
         var now = clock.GetUtcNow();
         var coins = Coins(h).ToList();
         if (coins.Count == 0)
         {
-            return [];
+            return (coins, []);
         }
 
         var events = coins.ToDictionary(c => c.Asset, _ => new List<CostEvent>(), StringComparer.Ordinal);
@@ -76,7 +105,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
             if (IsDone(p.Status) && p.ObtainAmount > 0 && p.CryptoCurrency is { } coin && events.TryGetValue(coin, out var list) &&
                 await EurValueAsync(p.FiatCurrency, p.SourceAmount, p.CreateTime, h, ct) is { } paid)
             {
-                list.Add(CostEvent.In(p.CreateTime, p.ObtainAmount, paid));
+                list.Add(CostEvent.In(p.CreateTime, p.ObtainAmount, paid, "card"));
             }
         }
 
@@ -93,7 +122,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
 
                 if (events.TryGetValue(x.FromAsset, out var given))
                 {
-                    given.Add(CostEvent.Out(x.CreateTime, x.FromAmount));
+                    given.Add(CostEvent.Out(x.CreateTime, x.FromAmount, "convert"));
                 }
 
                 // What was given is the price paid; a coin Binance cannot value is priced by what was received.
@@ -101,7 +130,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
                     (await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct) ??
                      await EurValueAsync(x.ToAsset, x.ToAmount, x.CreateTime, h, ct)) is { } value)
                 {
-                    got.Add(CostEvent.In(x.CreateTime, x.ToAmount, value));
+                    got.Add(CostEvent.In(x.CreateTime, x.ToAmount, value, "convert"));
                 }
             }
         }
@@ -111,7 +140,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
             if (r.Amount > 0 && events.TryGetValue(r.Asset, out var list) &&
                 await EurValueAsync(r.Asset, r.Amount, r.Time, h, ct) is { } value)
             {
-                list.Add(CostEvent.In(r.Time, r.Amount, value)); // the same value is booked as income
+                list.Add(CostEvent.In(r.Time, r.Amount, value, "reward")); // the same value is booked as income
             }
         }
 
@@ -124,7 +153,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
                 if (d.Status is 1 or 6 && d.Amount > 0 && events.TryGetValue(d.Coin, out var list) &&
                     await EurValueAsync(d.Coin, d.Amount, d.InsertTime, h, ct) is { } value)
                 {
-                    list.Add(CostEvent.In(d.InsertTime, d.Amount, value));
+                    list.Add(CostEvent.In(d.InsertTime, d.Amount, value, "received"));
                 }
             }
 
@@ -135,15 +164,12 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
                         DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var at))
                 {
                     list.Add(CostEvent.Out(new DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds(),
-                        w.Amount + w.TransactionFee));
+                        w.Amount + w.TransactionFee, "sent"));
                 }
             }
         }
 
-        return coins.Select(c => BinanceValuation.AverageCost(events[c.Asset]) is { } average
-                ? new PositionReport(Security(c.Asset), c.Quantity, average, c.EurPrice, now)
-                : new PositionReport(Security(c.Asset), c.Quantity, c.EurPrice, c.EurPrice, now, CostKnown: false))
-            .ToList();
+        return (coins, events);
     }
 
     /// <summary>EUR value of an amount of any asset on the day of <paramref name="unixMs"/>; null if Binance has no price.</summary>

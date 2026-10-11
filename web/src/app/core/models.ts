@@ -825,3 +825,15 @@ export interface PrepaymentSimulation {
   interestAfter: number;
   interestSaved: number;
 }
+
+/** How a coin's average cost was rebuilt from the broker's history (Binance). */
+export interface CostBreakdown {
+  asset: string;
+  held: number;
+  /** Coins the history accounts for (in minus out). */
+  tracked: number;
+  /** Null: no history, the cost of the first sync is kept. */
+  averageCost: number | null;
+  eurPrice: number;
+  sources: { kind: string; count: number; quantity: number; eurValue: number }[];
+}
