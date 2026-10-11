@@ -33,6 +33,7 @@ import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { bucketLabel } from '../../shared/bucket-label';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
@@ -592,10 +593,13 @@ export class QuickAddComponent {
       })),
     ];
   });
-  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
-    { value: '', label: '—' },
-    ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
-  ]);
+  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: '—' },
+      ...this.bucketOptions().map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
+    ];
+  });
   protected readonly accountOptions = computed<SelectOption[]>(() =>
     this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
   );
