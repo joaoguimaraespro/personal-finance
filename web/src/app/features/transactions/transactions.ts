@@ -18,6 +18,7 @@ import {
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { BucketLabelPipe } from '../../shared/bucket-label';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
@@ -74,6 +75,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
     MoneyPipe,
     DayPipe,
     CategoryLabelPipe,
+    BucketLabelPipe,
     ModalComponent,
   ],
   providers: [APP_ICONS],
@@ -227,7 +229,9 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                       {{
                         t.categoryKey
                           ? (t | categoryLabel)
-                          : (t.bucketName ?? ('type.' + t.type | translate))
+                          : t.bucketName
+                            ? (t.bucketName | bucketLabel)
+                            : ('type.' + t.type | translate)
                       }}
                     }
                     <span class="hidden sm:inline">

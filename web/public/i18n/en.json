@@ -1269,5 +1269,13 @@
   "namePlaceholder": "Mortgage, Car loan…",
   "newHint": "Next you enter the amount, rate and term.",
   "next": "Continue"
+ },
+ "buckets": {
+  "stocks-etfs": "Stocks / ETFs",
+  "crypto": "Crypto",
+  "bonds": "Bonds",
+  "travel-fund": "Travel fund",
+  "emergency-fund": "Emergency fund",
+  "other-savings": "Other savings"
  }
 }

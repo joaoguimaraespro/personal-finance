@@ -15,6 +15,7 @@ import { MoneyPipe, MonthNamePipe, currentPeriod } from '../../core/format';
 import { Budget, BudgetItem, BudgetMode } from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { bucketLabel } from '../../shared/bucket-label';
 import { MonthPickerComponent } from '../../shared/month-picker';
 import { parseAmount } from '../transactions/quick-add';
 import { allocationSplit } from './allocation-split';
@@ -379,7 +380,7 @@ export class BudgetsComponent {
 
   protected monthOf = (period: string) => Number(period.slice(5, 7));
   protected bucketName = (id: string | null) =>
-    this.buckets.value()?.find((b) => b.id === id)?.name ?? '';
+    bucketLabel(this.i18n, this.buckets.value()?.find((b) => b.id === id)?.name);
   protected categoryFor = (id: string | null) =>
     this.categories.value()?.find((c) => c.id === id) ?? null;
 

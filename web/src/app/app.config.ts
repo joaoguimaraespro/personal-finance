@@ -54,7 +54,8 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([trackActivity, requestTimeout, sessionExpired]),
     ),
     provideTranslateService({
-      loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json' }),
+      // Translation files keep a stable name: fetched fresh on every load, so a release never shows stale labels.
+      loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json', enforceLoading: true }),
       fallbackLang: 'en',
     }),
   ],

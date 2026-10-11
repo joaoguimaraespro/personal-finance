@@ -23,6 +23,7 @@ import { autoStatus, canRecord, remaining } from './allocation';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { bucketLabel, BucketLabelPipe } from '../../shared/bucket-label';
 import { ChartComponent } from '../../shared/chart';
 import { SERIES_COLORS } from '../../shared/chart-options';
 import { KpiComponent } from '../../shared/kpi';
@@ -53,6 +54,7 @@ type Reference = 'previous' | 'average' | 'budget';
     TranslatePipe,
     MoneyPipe,
     CategoryLabelPipe,
+    BucketLabelPipe,
     RouterLink,
   ],
   providers: [APP_ICONS],
@@ -187,7 +189,7 @@ type Reference = 'previous' | 'average' | 'budget';
                       class="mr-2 inline-block h-2 w-2 rounded-full"
                       [style.background]="b.isInvestment ? colors.invested : colors.saved"
                     ></span
-                    >{{ b.name }}
+                    >{{ b.name | bucketLabel }}
                   </td>
                   <td hlmTd class="num text-right text-muted-foreground">{{ b.target | money }}</td>
                   <td hlmTd class="num text-right font-medium">
@@ -215,7 +217,7 @@ type Reference = 'previous' | 'average' | 'budget';
                         triggerClass="text-xs"
                         [options]="optionsFor(b)"
                         [value]="manualFor(b.bucketId) ?? 'Auto'"
-                        [ariaLabel]="b.name"
+                        [ariaLabel]="b.name | bucketLabel"
                         (valueChange)="setCheck(b.bucketId, $any($event))"
                       />
                       @if (recordable(b)) {
@@ -223,7 +225,9 @@ type Reference = 'previous' | 'average' | 'budget';
                           hlmBtn
                           size="sm"
                           variant="outline"
-                          [attr.aria-label]="('allocation.record' | translate) + ' · ' + b.name"
+                          [attr.aria-label]="
+                            ('allocation.record' | translate) + ' · ' + (b.name | bucketLabel)
+                          "
                           (click)="record(b)"
                         >
                           <ng-icon name="lucidePlus" aria-hidden="true" />{{
@@ -339,7 +343,7 @@ type Reference = 'previous' | 'average' | 'budget';
                   }
                 </td>
                 <td hlmTd class="num text-right text-muted-foreground">
-                  {{ c.previousMonth | money }}
+                  {{ r.previous.transactionCount > 0 ? (c.previousMonth | money) : '—' }}
                 </td>
                 <td hlmTd class="num text-right text-muted-foreground">
                   {{ c.trailingAverage | money }}
@@ -419,7 +423,10 @@ export class MonthlyComponent {
     if (!r) return null;
     switch (this.reference()) {
       case 'previous':
-        return (r.previous[field] as number | null) ?? null;
+        // A month with nothing recorded is not a reference: comparing with it shows every figure as a change.
+        return r.previous.transactionCount > 0
+          ? ((r.previous[field] as number | null) ?? null)
+          : null;
       case 'average':
         return r.trailingAverage.months
           ? ((r.trailingAverage as unknown as Record<string, number | null>)[field] ?? null)
@@ -498,7 +505,9 @@ export class MonthlyComponent {
       amount: remaining(b),
       bucketId: b.bucketId,
       occurredOn: current ? undefined : this.monthEnd(),
-      description: this.i18n.instant('allocation.entryDescription', { bucket: b.name }),
+      description: this.i18n.instant('allocation.entryDescription', {
+        bucket: bucketLabel(this.i18n, b.name),
+      }),
     });
   }
 
