@@ -66,7 +66,9 @@ interface YearGroup {
       [subtitle]="'loans.subtitle' | translate"
     >
       <div class="flex flex-wrap gap-2">
-        <a hlmBtn variant="ghost" routerLink="/accounts">{{ 'nav.accounts' | translate }}</a>
+        <a hlmBtn variant="ghost" routerLink="/loans">
+          <ng-icon name="lucideChevronLeft" />{{ 'nav.loans' | translate }}
+        </a>
         @if (detail.value()) {
           <button hlmBtn variant="outline" (click)="openTerms()">
             <ng-icon name="lucidePencil" />{{ 'loans.editTerms' | translate }}
