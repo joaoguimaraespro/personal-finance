@@ -50,7 +50,8 @@ import { ProgressComponent } from '../../shared/progress';
     </app-page-header>
 
     @let ls = loans.value() ?? [];
-    @if (ls.length) {
+    @let todo = withoutTerms();
+    @if (ls.length || todo.length) {
       <section class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <div class="card !p-4">
           <p class="text-muted-foreground text-xs">{{ 'loans.owed' | translate }}</p>
@@ -90,8 +91,22 @@ import { ProgressComponent } from '../../shared/progress';
             </dl>
           </a>
         }
+        <!-- Loan accounts whose terms were never saved: still loans, one step from being complete. -->
+        @for (a of todo; track a.id) {
+          <a
+            [routerLink]="['/loans', a.id]"
+            class="card card-hover flex flex-col border-dashed"
+            data-testid="loan-without-terms"
+          >
+            <h2 class="truncate font-semibold">{{ a.name }}</h2>
+            <p class="text-muted-foreground mt-1 text-xs">{{ 'loans.setupTitle' | translate }}</p>
+            <span class="text-primary mt-auto flex items-center gap-1 pt-4 text-sm font-medium">
+              <ng-icon name="lucidePlus" aria-hidden="true" />{{ 'loans.setupShort' | translate }}
+            </span>
+          </a>
+        }
       </section>
-    } @else if (loans.hasValue()) {
+    } @else if (loans.hasValue() && accounts.hasValue()) {
       <section class="card !p-0">
         <app-empty-state
           [icon]="icons.loans"
@@ -142,6 +157,17 @@ export class LoansComponent {
   protected readonly loans = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.loans(),
+  });
+  private readonly accounts = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.accounts(),
+  });
+  /** Loan accounts without terms (created and left before saving them, or added under Accounts). */
+  protected readonly withoutTerms = computed(() => {
+    const withTerms = new Set((this.loans.value() ?? []).map((l) => l.accountId));
+    return (this.accounts.value() ?? []).filter(
+      (a) => a.kind === 'Loan' && !a.archived && !withTerms.has(a.id),
+    );
   });
   protected readonly owed = computed(() =>
     (this.loans.value() ?? []).reduce((s, l) => s + l.outstanding, 0),

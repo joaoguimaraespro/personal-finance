@@ -260,11 +260,12 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         var totals = accounts.Values.Select(a => AccountTotalOf(a, holdings.Where(h => h.AccountId == a.Id).ToList(),
             cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value), contributionsByAccount.GetValueOrDefault(a.Id),
             since.TryGetValue(a.Id, out var first) ? first : null)).ToList();
-        var totalReturnPercent =
-            contributions > 0 ? decimal.Round((totalValue - contributions) / contributions, 6) : (decimal?)null;
+        // Each account's gain over what went into it (see AccountTotalOf); the sum is the portfolio's.
+        var totalReturn = totals.Sum(t => t.TotalReturn);
+        var invested = totals.Sum(Invested);
+        var totalReturnPercent = invested > 0 ? decimal.Round(totalReturn / invested, 6) : (decimal?)null;
         DateOnly? firstDay = since.Count == 0 ? null : since.Values.Min();
-        var periodReturn = new PeriodReturn("ALL", totalValue - contributions, totalReturnPercent, firstDay, false,
-            false);
+        var periodReturn = new PeriodReturn("ALL", totalReturn, totalReturnPercent, firstDay, false, false);
 
         if (period != ReturnPeriod.All)
         {
@@ -282,7 +283,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         }
 
         return new PortfolioSummary(
-            totalValue, marketValue, cashTotal, contributions, totalValue - contributions, totalReturnPercent,
+            totalValue, marketValue, cashTotal, contributions, totalReturn, totalReturnPercent,
             realized, holdings.Sum(h => h.MarketValueBase - h.CostBase), dividends, fees, holdings.Count, lastSync,
             totals, dayChange, DayChange.Percent(dayChange, marketValue), firstDay, periodReturn,
             DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
@@ -292,19 +293,31 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         new(PeriodReturns.Code(period), result?.Gain, result?.TimeWeightedReturn, result?.From,
             result?.Partial ?? false, true);
 
-    /// <summary>The summary's figures for one account.</summary>
+    /// <summary>
+    /// The summary's figures for one account. Its return is value minus net contributions where the broker reports
+    /// every deposit and withdrawal. A crypto wallet does not: coins are sent in from other wallets and Binance's fiat
+    /// history is read from the first sync's window only, so value minus deposits would count coins sent in as gain.
+    /// Its return is the holdings' gain over their cost instead (cash counted at par), as it is for an account with
+    /// no money movements at all.
+    /// </summary>
     private static AccountTotal AccountTotalOf(BrokerAccount account, List<Holding> holdings, decimal cash,
         decimal contributions, DateOnly? since)
     {
         var marketValue = holdings.Sum(h => h.MarketValueBase);
         var total = marketValue + cash;
         var day = SumKnown(holdings.Select(h => h.DayChangeBase));
-        var percent = contributions > 0 ? decimal.Round((total - contributions) / contributions, 6) : (decimal?)null;
+        var cost = holdings.Sum(h => h.CostBase);
+        var byCost = contributions == 0 || account.Broker is DataSource.Binance or DataSource.Manual;
+        var (gain, invested) = byCost ? (marketValue - cost, cost + cash) : (total - contributions, contributions);
+        var percent = invested > 0 ? decimal.Round(gain / invested, 6) : (decimal?)null;
         return new AccountTotal(account.Id, account.Name, account.Broker, marketValue, cash, contributions,
-            total - contributions, percent, day, DayChange.Percent(day, marketValue), holdings.Count, since,
-            new PeriodReturn("ALL", total - contributions, percent, since, false, false),
+            gain, percent, day, DayChange.Percent(day, marketValue), holdings.Count, since,
+            new PeriodReturn("ALL", gain, percent, since, false, false),
             DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
     }
+
+    /// <summary>What the account's return is measured against (see <see cref="AccountTotalOf"/>).</summary>
+    private static decimal Invested(AccountTotal t) => t.MarketValue + t.Cash - t.TotalReturn;
 
     /// <summary>First known day of each account: its first cash movement, trade or valuation.</summary>
     private async Task<Dictionary<Guid, DateOnly>> InceptionAsync(List<Guid> ids, CancellationToken ct)
