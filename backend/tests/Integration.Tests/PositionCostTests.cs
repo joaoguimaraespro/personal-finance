@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Finance.Application.Abstractions;
+using Finance.Domain.Accounts;
 using Integration.Tests.Infrastructure;
 using Investments.Application.Abstractions;
 using Investments.Application.Sync;
@@ -50,5 +53,46 @@ public sealed class PositionCostTests(ApiFactory factory)
             return await scope.ServiceProvider.GetRequiredService<IInvestmentsDb>().Positions.AsNoTracking()
                 .SingleAsync(p => p.AccountId == accountId);
         }
+    }
+
+    [Fact]
+    public async Task A_crypto_wallets_return_is_its_coins_gain_over_their_cost()
+    {
+        var api = await factory.OwnerAsync();
+        Guid accountId;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var finance = scope.ServiceProvider.GetRequiredService<IFinanceDb>();
+            var account = Account.Create("Binance", AccountKind.Broker, "EUR", 0, DateOnly.FromDateTime(DateTime.UtcNow),
+                "Binance");
+            finance.Accounts.Add(account);
+            await finance.SaveChangesAsync(CancellationToken.None);
+            accountId = account.Id;
+        }
+
+        var coin = new SecurityReport("YYCOIN", null, "YYCOIN", null, "YYCOIN", "EUR", AssetClass.Crypto);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var writer = scope.ServiceProvider.GetRequiredService<PortfolioSyncWriter>();
+            await writer.ReplacePositionsAsync(accountId, DataSource.Binance,
+                [new PositionReport(coin, 2, 100m, 150m, DateTimeOffset.UtcNow)], CancellationToken.None);
+            // Only a small, recent fiat deposit is known: most coins were sent in, so it is not what they cost.
+            await writer.AddCashMovementsAsync(accountId, DataSource.Binance,
+                [new CashMovementReport("binance:fiat:deposit:T1", CashMovementType.Deposit, 50m, "EUR",
+                    DateTimeOffset.UtcNow.AddDays(-3), "Deposit")], CancellationToken.None);
+        }
+
+        var summary = await api.GetJsonAsync("/api/portfolio/summary");
+        var wallet = summary.GetProperty("accounts").EnumerateArray()
+            .Single(a => a.GetProperty("accountId").GetGuid() == accountId);
+
+        wallet.GetProperty("totalReturn").GetDecimal().ShouldBe(100m); // 2 × (150 − 100), not 300 − 50
+        wallet.GetProperty("totalReturnPercent").GetDecimal().ShouldBe(0.5m);
+        wallet.GetProperty("periodReturn").GetProperty("percent").GetDecimal().ShouldBe(0.5m);
+        summary.GetProperty("totalReturn").GetDecimal().ShouldBe(
+            summary.GetProperty("accounts").EnumerateArray().Sum(a => a.GetProperty("totalReturn").GetDecimal()));
+        var scoped = await api.GetJsonAsync($"/api/portfolio/summary?accountId={accountId}");
+        scoped.GetProperty("totalReturnPercent").GetDecimal().ShouldBe(0.5m);
+        scoped.GetProperty("periodReturn").ValueKind.ShouldBe(JsonValueKind.Object);
     }
 }
