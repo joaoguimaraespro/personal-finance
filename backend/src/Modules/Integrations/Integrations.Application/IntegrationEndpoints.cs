@@ -152,6 +152,29 @@ public static class IntegrationEndpoints
                 : ResultHttp.Problem(Error.Conflict("Sync.Busy", "Too many syncs queued; try again shortly."));
         });
 
+        // How each coin's cost was rebuilt, read live from the broker (read-only) so the owner can check it.
+        group.MapGet("/connections/{id:guid}/cost-breakdown", async (Guid id, IIntegrationsDb db,
+            IInvestmentProviderFactory providers, ICredentialProtector credentials, CancellationToken ct) =>
+        {
+            var connection = await db.Connections.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+            if (connection is null)
+            {
+                return Results.NotFound();
+            }
+
+            try
+            {
+                return providers.Create(connection.Kind, credentials.Unprotect(connection.ProtectedCredentials))
+                    is ICostBreakdownProvider provider
+                    ? Results.Ok(await provider.GetCostBreakdownAsync(ct))
+                    : Results.NotFound();
+            }
+            catch (Exception e) when (e is ProviderConfigurationException or ProviderUnavailableException)
+            {
+                return Results.Problem(e.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        });
+
         group.MapPost("/connections/{id:guid}/enable", (Guid id, IIntegrationsDb db, CancellationToken ct) => SetEnabled(id, true, db, ct));
         group.MapPost("/connections/{id:guid}/disable", (Guid id, IIntegrationsDb db, CancellationToken ct) => SetEnabled(id, false, db, ct));
 

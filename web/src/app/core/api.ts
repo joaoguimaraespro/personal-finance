@@ -8,6 +8,7 @@ import {
   AssetClass,
   Broker,
   Connection,
+  CostBreakdown,
   DividendSummary,
   CoinMatch,
   ManualAsset,
@@ -290,6 +291,8 @@ export class Api {
     this.http.post<{ id: string }>('/api/integrations/connections', body);
   updateCredentials = (id: string, body: unknown) =>
     this.http.put<void>(`/api/integrations/connections/${id}/credentials`, body);
+  costBreakdown = (id: string) =>
+    this.http.get<CostBreakdown[]>(`/api/integrations/connections/${id}/cost-breakdown`);
   syncConnection = (id: string) =>
     this.http.post<void>(`/api/integrations/connections/${id}/sync`, {});
   setConnectionEnabled = (id: string, enabled: boolean) =>

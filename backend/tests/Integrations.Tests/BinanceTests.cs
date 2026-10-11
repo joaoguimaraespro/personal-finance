@@ -201,11 +201,10 @@ public sealed class BinanceTests
             http.SendAsync(new HttpRequestMessage(new HttpMethod(method), $"https://{BinanceClient.Host}{path}")));
     }
 
-    [Fact]
-    public async Task Converted_received_and_sent_coins_count_towards_the_cost()
+    /// <summary>SOL: converted from BTC, partly converted away, one received and some sent; ADA: no history.</summary>
+    private static ScriptedHandler SolHistory(ScriptedHandler http)
     {
-        var (provider, http) = Provider();
-        http.Replace("/api/v3/account", """
+        return http.Replace("/api/v3/account", """
                 {"balances":[{"asset":"SOL","free":"2","locked":"0"},{"asset":"ADA","free":"100","locked":"0"}]}
                 """)
             .Replace("/sapi/v1/simple-earn/flexible/position", Empty)
@@ -241,6 +240,14 @@ public sealed class BinanceTests
                 """)
             .On("/sapi/v1/capital/withdraw/history", "[]");
 
+    }
+
+    [Fact]
+    public async Task Converted_received_and_sent_coins_count_towards_the_cost()
+    {
+        var (provider, http) = Provider();
+        SolHistory(http);
+
         var positions = await provider.GetPositionsAsync(CancellationToken.None);
 
         var sol = positions.Single(p => p.Security.Symbol == "SOL");
@@ -251,6 +258,30 @@ public sealed class BinanceTests
         ada.AveragePrice.ShouldBe(0.5m);
         http.Requests.Count(r => r.RequestUri!.AbsolutePath == "/sapi/v1/capital/withdraw/history")
             .ShouldBe(BinanceProvider.CostHistoryDays / 89);
+    }
+
+    [Fact]
+    public async Task The_cost_breakdown_shows_each_kind_of_movement()
+    {
+        var (provider, http) = Provider();
+        SolHistory(http);
+
+        var breakdown = await provider.GetCostBreakdownAsync(CancellationToken.None);
+
+        var sol = breakdown.Single(b => b.Asset == "SOL");
+        sol.Held.ShouldBe(2m);
+        sol.Tracked.ShouldBe(2m);
+        sol.AverageCost.ShouldBe(104m);
+        sol.Sources.Select(l => (l.Kind, l.Count, l.Quantity, l.EurValue)).ShouldBe(
+        [
+            ("convert", 1, 5m, 500m),
+            ("convert", 1, -1m, 0m),
+            ("received", 1, 1m, 120m),
+            ("sent", 1, -3m, 0m),
+        ], ignoreOrder: true);
+        var ada = breakdown.Single(b => b.Asset == "ADA");
+        ada.AverageCost.ShouldBeNull();
+        ada.Sources.ShouldBeEmpty();
     }
 
     [Fact]
