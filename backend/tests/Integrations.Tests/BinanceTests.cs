@@ -39,6 +39,8 @@ public sealed class BinanceTests
 
     private static string FiatEmpty => """{"code":"000000","data":[],"total":0}""";
 
+    private static string ConvertEmpty => """{"list":[],"moreData":false}""";
+
     private static (BinanceProvider Provider, ScriptedHandler Http) Provider(string restrictions = ReadOnlyKey)
     {
         var http = new ScriptedHandler()
@@ -84,7 +86,10 @@ public sealed class BinanceTests
                  {"orderNo":"P1","sourceAmount":"100.00","fiatCurrency":"EUR","obtainAmount":"0.0016","cryptoCurrency":"BTC","status":"Completed","createTime":{{Ms(9, 10)}}},
                  {"orderNo":"P2","sourceAmount":"80.00","fiatCurrency":"EUR","obtainAmount":"0.0012","cryptoCurrency":"BTC","status":"Failed","createTime":{{Ms(9, 11)}}}],"total":2}
                 """)
-            .On("/sapi/v1/fiat/payments", FiatEmpty);
+            .On("/sapi/v1/fiat/payments", FiatEmpty)
+            .On("/sapi/v1/convert/tradeFlow", ConvertEmpty)
+            .On("/sapi/v1/capital/deposit/hisrec", "[]")
+            .On("/sapi/v1/capital/withdraw/history", "[]");
         var guard = new AllowListHttpHandler(BinanceClient.AllowList()) { InnerHandler = http };
         var clock = new InstantTimeProvider();
         var client = new BinanceClient(new HttpClient(guard), new RateGate(clock), clock).Configure("key", "secret");
@@ -106,14 +111,17 @@ public sealed class BinanceTests
         var btc = positions[0];
         btc.Quantity.ShouldBe(0.15m); // spot 0.1 + flexible 0.05; the LDBTC shadow row is not counted again
         btc.LastPrice.ShouldBe(60_000m);
-        btc.AveragePrice.ShouldBe(55_000m); // (2,500 left of the EUR buy + 3,000) / 0.1
+        // Moving average: 0.1 bought for 5,000 EUR and half sold (2,500 left), 0.0016 by card for 100 EUR, an Earn
+        // reward of 0.0001 worth 5.80 EUR that day, then 0.05 for 3,300 USDT (3,000 EUR).
+        btc.AveragePrice.ShouldBe(decimal.Round((2_500m + 100m + 5.8m + 3_000m) / 0.1017m, 8));
+        btc.CostKnown.ShouldBeTrue();
         btc.Security.AssetClass.ShouldBe(AssetClass.Crypto);
         btc.Security.Currency.ShouldBe("EUR");
         btc.Security.Isin.ShouldBeNull();
         var eth = positions[1];
         eth.Quantity.ShouldBe(1.5m); // spot 1 + locked 0.5
         eth.LastPrice.ShouldBe(3_000m); // 3,300 USDT / 1.10
-        eth.AveragePrice.ShouldBe(3_000m); // no fills: valued from now on, without a gain
+        eth.AveragePrice.ShouldBe(3_000m); // no fills: only the locked reward, worth 30 EUR for 0.01
 
         http.Requests.ShouldAllBe(r => r.Method == HttpMethod.Get);
         var signed = http.Requests.Where(r => r.RequestUri!.AbsolutePath != "/api/v3/ticker/price" &&
@@ -191,6 +199,67 @@ public sealed class BinanceTests
 
         await Should.ThrowAsync<BlockedRequestException>(() =>
             http.SendAsync(new HttpRequestMessage(new HttpMethod(method), $"https://{BinanceClient.Host}{path}")));
+    }
+
+    [Fact]
+    public async Task Converted_received_and_sent_coins_count_towards_the_cost()
+    {
+        var (provider, http) = Provider();
+        http.Replace("/api/v3/account", """
+                {"balances":[{"asset":"SOL","free":"2","locked":"0"},{"asset":"ADA","free":"100","locked":"0"}]}
+                """)
+            .Replace("/sapi/v1/simple-earn/flexible/position", Empty)
+            .Replace("/sapi/v1/simple-earn/locked/position", Empty)
+            .Replace("/api/v3/ticker/price", """
+                [{"symbol":"SOLEUR","price":"150"},{"symbol":"ADAEUR","price":"0.5"},{"symbol":"BTCEUR","price":"60000"},
+                 {"symbol":"EURUSDT","price":"1.10"}]
+                """)
+            .Replace("/api/v3/klines?symbol=BTCEUR", $"[{Kline(Ms(3, 1), "50000")}]")
+            .Replace("/api/v3/klines?symbol=SOLEUR", $"[{Kline(Ms(5, 1), "120")}]")
+            .Replace("/api/v3/myTrades?symbol=SOLEUR", "[]")
+            .Replace("/api/v3/myTrades?symbol=ADAEUR", "[]")
+            .Replace("/sapi/v1/simple-earn/flexible/history/rewardsRecord?type=REALTIME", Empty)
+            .Replace("/sapi/v1/simple-earn/locked/history/rewardsRecord", Empty)
+            .Replace("/sapi/v1/fiat/payments", FiatEmpty)
+            // 0.01 BTC (500 EUR that day) converted to 5 SOL, then 1 SOL converted to dollars; a failed order is ignored.
+            .Replace("/sapi/v1/convert/tradeFlow", $$"""
+                {"list":[
+                 {"orderStatus":"SUCCESS","fromAsset":"BTC","fromAmount":"0.01","toAsset":"SOL","toAmount":"5","createTime":{{Ms(3, 1)}}},
+                 {"orderStatus":"SUCCESS","fromAsset":"SOL","fromAmount":"1","toAsset":"USDT","toAmount":"160","createTime":{{Ms(4, 1)}}},
+                 {"orderStatus":"FAIL","fromAsset":"EUR","fromAmount":"1","toAsset":"SOL","toAmount":"9","createTime":{{Ms(4, 2)}}}],
+                 "moreData":false}
+                """)
+            .On("/sapi/v1/convert/tradeFlow", ConvertEmpty)
+            // 1 SOL received from another wallet (120 EUR that day), 2.9 SOL sent out plus a 0.1 fee.
+            .Replace("/sapi/v1/capital/deposit/hisrec", $$"""
+                [{"coin":"SOL","amount":"1","status":1,"insertTime":{{Ms(5, 1)}}}]
+                """)
+            .On("/sapi/v1/capital/deposit/hisrec", "[]")
+            .Replace("/sapi/v1/capital/withdraw/history", """
+                [{"coin":"SOL","amount":"2.9","transactionFee":"0.1","status":6,"applyTime":"2026-06-01 10:00:00"},
+                 {"coin":"SOL","amount":"50","transactionFee":"0.1","status":3,"applyTime":"2026-06-02 10:00:00"}]
+                """)
+            .On("/sapi/v1/capital/withdraw/history", "[]");
+
+        var positions = await provider.GetPositionsAsync(CancellationToken.None);
+
+        var sol = positions.Single(p => p.Security.Symbol == "SOL");
+        sol.AveragePrice.ShouldBe(104m); // 500 for 5, 1 out (400 for 4), +120 for 1 (520 for 5), 3 out → 208 for 2
+        sol.CostKnown.ShouldBeTrue();
+        var ada = positions.Single(p => p.Security.Symbol == "ADA");
+        ada.CostKnown.ShouldBeFalse(); // no history at all: the first synced price is kept as its cost
+        ada.AveragePrice.ShouldBe(0.5m);
+        http.Requests.Count(r => r.RequestUri!.AbsolutePath == "/sapi/v1/capital/withdraw/history")
+            .ShouldBe(BinanceProvider.CostHistoryDays / 89);
+    }
+
+    [Fact]
+    public void Coins_going_out_leave_at_the_average_and_the_average_is_unknown_without_coins_in()
+    {
+        BinanceValuation.AverageCost([CostEvent.In(1, 2, 200), CostEvent.Out(2, 1), CostEvent.In(3, 1, 300)])
+            .ShouldBe(200m); // (100 left + 300) / 2
+        BinanceValuation.AverageCost([CostEvent.In(1, 1, 100), CostEvent.Out(2, 1)]).ShouldBeNull();
+        BinanceValuation.AverageCost([CostEvent.Out(1, 1)]).ShouldBeNull();
     }
 
     [Fact]

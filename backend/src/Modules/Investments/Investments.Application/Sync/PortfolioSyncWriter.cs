@@ -69,7 +69,8 @@ public sealed class PortfolioSyncWriter(IInvestmentsDb db, FxRates fx, TimeProvi
             }
             else
             {
-                position.Update(r.Quantity, r.AveragePrice, r.LastPrice, r.PriceAsOf, now);
+                var average = r.CostKnown || position.AveragePrice <= 0 ? r.AveragePrice : position.AveragePrice;
+                position.Update(r.Quantity, average, r.LastPrice, r.PriceAsOf, now);
                 updated++;
             }
 
