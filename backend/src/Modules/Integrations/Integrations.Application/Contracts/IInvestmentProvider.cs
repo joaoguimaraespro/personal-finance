@@ -44,3 +44,22 @@ public sealed class ProviderConfigurationException(string message) : Exception(m
 
 /// <summary>A temporary failure (rate limit, statement still generating, network).</summary>
 public sealed class ProviderUnavailableException(string message, Exception? inner = null) : Exception(message, inner);
+
+/// <summary>A provider that rebuilds each position's cost from history and can show how (read-only, on demand).</summary>
+public interface ICostBreakdownProvider
+{
+    Task<IReadOnlyList<CostBreakdown>> GetCostBreakdownAsync(CancellationToken ct);
+}
+
+/// <summary>
+/// How one coin's average cost was reached: what is held, what the history accounts for (<paramref name="Tracked"/>,
+/// in minus out) and each kind of movement. A null <paramref name="AverageCost"/> means no history: the cost of the
+/// first sync is kept.
+/// </summary>
+public sealed record CostBreakdown(string Asset, decimal Held, decimal Tracked, decimal? AverageCost, decimal EurPrice,
+    IReadOnlyList<CostSourceLine> Sources);
+
+/// <param name="Kind">trade, card, convert, reward, received, sent.</param>
+/// <param name="Quantity">Coins in (positive) or out (negative).</param>
+/// <param name="EurValue">What the coins in were counted at; 0 for coins out (they leave at the average).</param>
+public sealed record CostSourceLine(string Kind, int Count, decimal Quantity, decimal EurValue);

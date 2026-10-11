@@ -67,12 +67,12 @@ internal static class BinanceValuation
             var (quote, f) = x;
             if (!f.IsBuyer)
             {
-                return CostEvent.Out(f.Time, f.Qty);
+                return CostEvent.Out(f.Time, f.Qty, "trade");
             }
 
             var day = DayOf(f.Time);
             var toEur = quote == "EUR" ? 1m : 1m / UsdPerEurOn(day, usdPerEurCloses, latestUsdPerEur);
-            return CostEvent.In(f.Time, f.Qty, f.QuoteQty * toEur);
+            return CostEvent.In(f.Time, f.Qty, f.QuoteQty * toEur, "trade");
         });
 
     /// <summary>
@@ -81,6 +81,13 @@ internal static class BinanceValuation
     /// nothing came in — the cost of the coins held is unknown.
     /// </summary>
     public static decimal? AverageCost(IEnumerable<CostEvent> events)
+    {
+        var (quantity, cost) = Replay(events);
+        return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
+    }
+
+    /// <summary>Quantity and EUR cost left after the moving average has run over every event.</summary>
+    public static (decimal Quantity, decimal Cost) Replay(IEnumerable<CostEvent> events)
     {
         decimal quantity = 0, cost = 0;
         foreach (var e in events.OrderBy(e => e.Time).ThenByDescending(e => e.Quantity))
@@ -98,7 +105,7 @@ internal static class BinanceValuation
             }
         }
 
-        return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
+        return (quantity, cost);
     }
 
     /// <summary>
@@ -149,9 +156,10 @@ internal static class BinanceValuation
 }
 
 /// <summary>Coins of one asset coming in (positive quantity, worth <c>EurValue</c>) or going out (negative).</summary>
-internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue)
+internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue, string Kind = "")
 {
-    public static CostEvent In(long time, decimal quantity, decimal eurValue) => new(time, quantity, eurValue);
+    public static CostEvent In(long time, decimal quantity, decimal eurValue, string kind = "") =>
+        new(time, quantity, eurValue, kind);
 
-    public static CostEvent Out(long time, decimal quantity) => new(time, -quantity, 0);
+    public static CostEvent Out(long time, decimal quantity, string kind = "") => new(time, -quantity, 0, kind);
 }
