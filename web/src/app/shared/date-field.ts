@@ -15,7 +15,10 @@ import { Prefs } from '../core/prefs';
 
 let nextId = 0;
 
-/** Calendar popover for an ISO date string ("YYYY-MM-DD", "" = none). Displayed in the user's locale. */
+/**
+ * Calendar popover for an ISO date string ("YYYY-MM-DD", "" = none). Displayed in the user's locale. Month and year
+ * are dropdowns, so a date years away (a loan's start, a purchase) is two clicks, not dozens of arrows.
+ */
 @Component({
   selector: 'app-date-field',
   imports: [HlmDatePickerImports, HlmButtonImports, NgIcon],
@@ -30,6 +33,7 @@ let nextId = 0;
         (dateChange)="pick($event)"
         [formatDate]="format()"
         [autoCloseOnSelect]="true"
+        captionLayout="dropdown"
       >
         <hlm-date-picker-trigger
           class="w-full [&_button]:w-full [&_button]:justify-between [&_button]:font-normal"
