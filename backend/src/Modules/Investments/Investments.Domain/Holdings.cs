@@ -37,6 +37,13 @@ public sealed class Position
         SyncedAtUtc = syncedAt,
     };
 
+    /// <summary>A newer public price between syncs (end-of-day brokers): quantity, cost and sync time stay.</summary>
+    public void Reprice(decimal lastPrice, DateTimeOffset priceAsOf)
+    {
+        LastPrice = lastPrice;
+        PriceAsOfUtc = priceAsOf;
+    }
+
     public void Update(decimal quantity, decimal averagePrice, decimal lastPrice, DateTimeOffset priceAsOf,
         DateTimeOffset syncedAt)
     {

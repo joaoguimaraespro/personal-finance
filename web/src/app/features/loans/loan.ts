@@ -106,12 +106,15 @@ interface YearGroup {
         <div class="card !p-4">
           <p class="text-muted-foreground text-xs">{{ 'loans.nextPayment' | translate }}</p>
           <p class="num mt-1 text-2xl font-semibold">
-            {{ s.next ? (s.next.payment | money) : '—' }}
+            {{ s.next ? (s.next.total ?? s.next.payment | money) : '—' }}
           </p>
           @if (s.next; as n) {
             <p class="text-muted-foreground num mt-2 text-[11px]">
               {{ n.date | day }} · {{ 'loans.interest' | translate }} {{ n.interest | money }} ·
               {{ 'loans.capital' | translate }} {{ n.principal | money }}
+              @if (charges(n); as c) {
+                · {{ 'loans.charges' | translate }} {{ c | money }}
+              }
             </p>
           }
         </div>
@@ -269,7 +272,7 @@ interface YearGroup {
                   >
                 </span>
                 <span class="flex items-center gap-2">
-                  <b class="num">{{ i.payment | money }}</b>
+                  <b class="num">{{ i.total ?? i.payment | money }}</b>
                   <button hlmBtn size="sm" [disabled]="!first" (click)="book(i.number)">
                     {{ 'loans.book' | translate }}
                   </button>
@@ -420,7 +423,7 @@ interface YearGroup {
                         >
                       }
                     </td>
-                    <td hlmTd class="num text-right">{{ i.payment | money }}</td>
+                    <td hlmTd class="num text-right">{{ i.total ?? i.payment | money }}</td>
                     <td hlmTd class="num text-right">{{ i.interest | money }}</td>
                     <td hlmTd class="num text-right">{{ i.principal | money }}</td>
                     <td hlmTd class="num text-right">{{ i.balance | money }}</td>
@@ -542,6 +545,45 @@ interface YearGroup {
             />
           </div>
         }
+        <p class="col-span-2 mt-2 text-sm font-medium">{{ 'loans.chargesTitle' | translate }}</p>
+        <div>
+          <label class="label" for="ln-fee">{{ 'loans.monthlyFee' | translate }}</label>
+          <input
+            id="ln-fee"
+            hlmInput
+            class="num w-full"
+            inputmode="decimal"
+            placeholder="0,00"
+            [value]="fFee()"
+            (input)="fFee.set($any($event.target).value)"
+          />
+        </div>
+        <div>
+          <label class="label" for="ln-insurance">{{ 'loans.monthlyInsurance' | translate }}</label>
+          <input
+            id="ln-insurance"
+            hlmInput
+            class="num w-full"
+            inputmode="decimal"
+            placeholder="0,00"
+            [value]="fInsurance()"
+            (input)="fInsurance.set($any($event.target).value)"
+          />
+        </div>
+        <label class="col-span-2 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            class="mt-0.5"
+            [checked]="fStampDuty()"
+            (change)="fStampDuty.set($any($event.target).checked)"
+          />
+          <span
+            >{{ 'loans.stampDuty' | translate }}
+            <span class="text-muted-foreground block text-xs">{{
+              'loans.stampDutyHint' | translate
+            }}</span></span
+          >
+        </label>
         <p class="text-muted-foreground col-span-2 flex gap-1.5 text-xs">
           <ng-icon name="lucideInfo" class="mt-px shrink-0" aria-hidden="true" />{{
             'loans.termsHint' | translate
@@ -634,7 +676,7 @@ export class LoanComponent {
         balance: 0,
       };
       g.rows.push(i);
-      g.payment += i.payment + i.prepaid;
+      g.payment += (i.total ?? i.payment) + i.prepaid;
       g.interest += i.interest;
       g.principal += i.principal + i.prepaid;
       g.balance = i.balance;
@@ -727,6 +769,12 @@ export class LoanComponent {
   protected readonly fRevision = signal('12');
   protected readonly fSpread = signal('');
   protected readonly fIndexValue = signal('');
+  protected readonly fFee = signal('');
+  protected readonly fInsurance = signal('');
+  protected readonly fStampDuty = signal(true);
+
+  /** Commission + stamp duty + insurance of an instalment; 0 (hidden) when the bank charges nothing else. */
+  protected charges = (i: Instalment) => (i.fee ?? 0) + (i.stampDuty ?? 0) + (i.insurance ?? 0);
   protected readonly variableTan = computed(
     () => (parseAmount(this.fIndexValue()) ?? 0) + (parseAmount(this.fSpread()) ?? 0),
   );
@@ -778,6 +826,11 @@ export class LoanComponent {
         ? String(firstRate.indexRatePercent).replace('.', ',')
         : '',
     );
+    const money = (n: number | undefined) => (n ? String(n).replace('.', ',') : '');
+    this.fFee.set(money(s?.monthlyFee));
+    this.fInsurance.set(money(s?.monthlyInsurance));
+    // New loans: Portuguese credit pays Imposto do Selo on interest, so it starts ticked.
+    this.fStampDuty.set(s ? (s.stampDuty ?? false) : true);
     this.termsOpen.set(true);
   }
 
@@ -793,6 +846,9 @@ export class LoanComponent {
       spreadPercent: variable ? parseAmount(this.fSpread()) : null,
       initialRatePercent: variable ? null : parseAmount(this.fRate()),
       initialIndexPercent: variable ? parseAmount(this.fIndexValue()) : null,
+      monthlyFee: parseAmount(this.fFee()) ?? 0,
+      stampDuty: this.fStampDuty(),
+      monthlyInsurance: parseAmount(this.fInsurance()) ?? 0,
     };
     await this.run(this.api.saveLoan(this.accountId(), body), () => this.termsOpen.set(false));
   }

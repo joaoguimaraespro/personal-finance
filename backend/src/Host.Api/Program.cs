@@ -167,6 +167,7 @@ builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "postgres",
 builder.Services.AddHostedService<RecurringProposalJob>();
 builder.Services.AddHostedService<InterestAccrualJob>();
 builder.Services.AddHostedService<DailySnapshotJob>();
+builder.Services.AddHostedService<IntradayPriceJob>();
 builder.Services.AddHostedService<HistoryRebuildJob>();
 builder.Services.AddHostedService<BrokerSyncService>();
 builder.Services.AddHostedService<AiRecycleBinPurgeJob>();

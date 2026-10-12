@@ -595,6 +595,16 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("last_handled_instalment");
 
+                    b.Property<decimal>("MonthlyFee")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("monthly_fee");
+
+                    b.Property<decimal>("MonthlyInsurance")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("monthly_insurance");
+
                     b.Property<Guid?>("PaymentAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("payment_account_id");
@@ -618,6 +628,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasPrecision(9, 4)
                         .HasColumnType("numeric(9,4)")
                         .HasColumnName("spread_percent");
+
+                    b.Property<bool>("StampDuty")
+                        .HasColumnType("boolean")
+                        .HasColumnName("stamp_duty");
 
                     b.Property<int>("TermMonths")
                         .HasColumnType("integer")

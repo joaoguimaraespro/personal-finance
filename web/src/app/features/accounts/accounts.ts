@@ -206,7 +206,7 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
                   <p class="text-muted-foreground num mt-1 text-xs">
                     {{ 'loans.ends' | translate }} {{ l.endDate | day }} ·
                     {{ 'loans.nextPayment' | translate }}
-                    {{ l.next ? (l.next.payment | money) : '—' }}
+                    {{ l.next ? (l.next.total ?? l.next.payment | money) : '—' }}
                   </p>
                 }
                 <a

@@ -3,6 +3,7 @@ using Finance.Application.Abstractions;
 using Finance.Domain.Accounts;
 using Integration.Tests.Infrastructure;
 using Investments.Application.Abstractions;
+using Investments.Application.Prices;
 using Investments.Application.Sync;
 using Investments.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -94,5 +95,40 @@ public sealed class PositionCostTests(ApiFactory factory)
         var scoped = await api.GetJsonAsync($"/api/portfolio/summary?accountId={accountId}");
         scoped.GetProperty("totalReturnPercent").GetDecimal().ShouldBe(0.5m);
         scoped.GetProperty("periodReturn").ValueKind.ShouldBe(JsonValueKind.Object);
+    }
+
+    [Fact]
+    public async Task An_end_of_day_brokers_positions_follow_the_public_price_between_syncs()
+    {
+        factory.Prices.ClosesByIsin["IE00REPRICE1"] = 123m;
+        var accountId = Guid.NewGuid();
+        var fund = new SecurityReport("RPX", "IE00REPRICE1", "RPX", "XETRA", "Reprice fund", "EUR", AssetClass.Etf);
+        var lastClose = DateTimeOffset.UtcNow.AddDays(-7);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<PortfolioSyncWriter>().ReplacePositionsAsync(accountId,
+                DataSource.InteractiveBrokers, [new PositionReport(fund, 10, 90m, 100m, lastClose)],
+                CancellationToken.None);
+        }
+
+        Position before;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            before = await scope.ServiceProvider.GetRequiredService<IInvestmentsDb>().Positions.AsNoTracking()
+                .SingleAsync(p => p.AccountId == accountId);
+            (await scope.ServiceProvider.GetRequiredService<IntradayRepricer>()
+                .RepriceAsync(TimeSpan.FromMinutes(15), CancellationToken.None)).ShouldBeGreaterThan(0);
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var after = await scope.ServiceProvider.GetRequiredService<IInvestmentsDb>().Positions.AsNoTracking()
+                .SingleAsync(p => p.AccountId == accountId);
+            after.LastPrice.ShouldBe(123m);
+            after.PriceAsOfUtc.ShouldBeGreaterThan(lastClose);
+            after.Quantity.ShouldBe(10m); // quantity, cost and the sync time still come from IBKR
+            after.AveragePrice.ShouldBe(90m);
+            after.SyncedAtUtc.ShouldBe(before.SyncedAtUtc);
+        }
     }
 }

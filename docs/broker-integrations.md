@@ -122,6 +122,9 @@ Later syncs request the query's own period (no `fd`/`td`): IBKR answers error 10
 a day it hasn't closed yet, and re-reading the year is harmless because records are keyed by IBKR ids.
 The first sync backfills history in 365-day windows (5 years by default,
 `Integrations:Ibkr:BackfillYears`); daily syncs run after 06:00 UTC because Flex data is end-of-day.
+Between syncs, IBKR positions follow the public market price (the configured market-data provider, every 30 minutes
+and when the portfolio opens; only the listing symbol is sent). Quantity, cost and the sync time still come from IBKR,
+and a public price older than IBKR's own is never used.
 
 ## Reconstructed history
 

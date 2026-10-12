@@ -18,6 +18,7 @@ public static class InvestmentsModule
         services.AddScoped<PortfolioQueries>();
         services.AddScoped<PortfolioSyncWriter>();
         services.AddScoped<PortfolioSnapshotter>();
+        services.AddScoped<Prices.IntradayRepricer>();
         services.AddScoped<PriceHistoryService>();
         services.AddScoped<HistoryReconstructor>();
         services.AddSingleton<HistoryRebuildQueue>();
