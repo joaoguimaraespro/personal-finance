@@ -1,7 +1,17 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  Injector,
+  signal,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
+import { lucideChevronDown, lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
 import { BrnCalendar, BrnCalendarImports, injectBrnCalendarI18n } from '@spartan-ng/brain/calendar';
 import { injectDateAdapter } from '@spartan-ng/brain/date-time';
 import { buttonVariants, HlmButtonImports } from '@spartan-ng/helm/button';
@@ -11,7 +21,7 @@ import { classes, hlm } from '@spartan-ng/helm/utils';
 @Component({
   selector: 'hlm-calendar',
   imports: [BrnCalendarImports, NgIcon, HlmSelectImports, NgTemplateOutlet, HlmButtonImports],
-  viewProviders: [provideIcons({ lucideChevronLeft, lucideChevronRight })],
+  viewProviders: [provideIcons({ lucideChevronDown, lucideChevronLeft, lucideChevronRight })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   hostDirectives: [
     {
@@ -69,6 +79,7 @@ import { classes, hlm } from '@spartan-ng/helm/utils';
           variant="ghost"
           hlmBtn
           class="order-first size-(--cell-size) p-0 select-none aria-disabled:opacity-50"
+          [class.invisible]="_view() !== 'day'"
         >
           <ng-icon name="lucideChevronLeft" class="rtl:rotate-180" />
         </button>
@@ -86,6 +97,25 @@ import { classes, hlm } from '@spartan-ng/helm/utils';
             <div brnCalendarHeader class="order-2 text-sm font-medium">{{ heading.month }}</div>
             <ng-container [ngTemplateOutlet]="year" />
           }
+          @case ('drill') {
+            <!-- Modern pickers: the heading opens the years, a year opens its months, a month its days. -->
+            <button
+              type="button"
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="order-2 gap-1 font-medium"
+              [attr.aria-expanded]="_view() !== 'day'"
+              (click)="_toggleYears()"
+            >
+              {{ _view() === 'month' ? heading.year : heading.header }}
+              <ng-icon
+                name="lucideChevronDown"
+                class="transition-transform"
+                [class.rotate-180]="_view() !== 'day'"
+              />
+            </button>
+          }
           @case ('label') {
             <div brnCalendarHeader class="order-5 text-sm font-medium">{{ heading.header }}</div>
           }
@@ -96,12 +126,51 @@ import { classes, hlm } from '@spartan-ng/helm/utils';
           hlmBtn
           variant="ghost"
           class="order-last size-(--cell-size) p-0 select-none aria-disabled:opacity-50"
+          [class.invisible]="_view() !== 'day'"
         >
           <ng-icon name="lucideChevronRight" class="rtl:rotate-180" />
         </button>
       </div>
 
-      <table class="w-full border-collapse space-y-1" brnCalendarGrid>
+      @if (_view() === 'year') {
+        <div
+          class="grid h-[17rem] w-[17rem] grid-cols-4 content-start gap-1 overflow-y-auto"
+          role="listbox"
+          data-slot="calendar-years"
+        >
+          @for (year of _i18n.config().years(); track year) {
+            <button
+              type="button"
+              role="option"
+              [attr.aria-selected]="year === _focusedYear()"
+              [attr.data-current]="year === _focusedYear() ? '' : null"
+              [class]="_pickClass(year === _focusedYear())"
+              (click)="_pickYear(year)"
+            >
+              {{ year }}
+            </button>
+          }
+        </div>
+      } @else if (_view() === 'month') {
+        <div class="grid w-[17rem] grid-cols-3 gap-2" role="listbox" data-slot="calendar-months">
+          @for (m of _monthIndexes; track m) {
+            <button
+              type="button"
+              role="option"
+              [attr.aria-selected]="m === _focusedMonth()"
+              [class]="_pickClass(m === _focusedMonth())"
+              (click)="_pickMonth(m)"
+            >
+              {{ _i18n.config().formatMonth(m) }}
+            </button>
+          }
+        </div>
+      }
+      <table
+        class="w-full border-collapse space-y-1"
+        brnCalendarGrid
+        [class.hidden]="_view() !== 'day'"
+      >
         <thead aria-hidden="true">
           <tr class="flex">
             <th
@@ -142,11 +211,66 @@ export class HlmCalendar<T> {
 
   /** Show dropdowns to navigate between months or years. */
   public readonly captionLayout = input<
-    'dropdown' | 'label' | 'dropdown-months' | 'dropdown-years'
+    'dropdown' | 'label' | 'dropdown-months' | 'dropdown-years' | 'drill'
   >('label');
 
   /** Access the calendar directive */
   private readonly _calendar = inject(BrnCalendar);
+
+  private readonly _host = inject(ElementRef<HTMLElement>);
+  private readonly _injector = inject(Injector);
+
+  /** 'drill' layout: days, or the year / month grid opened from the heading. */
+  protected readonly _view = signal<'day' | 'year' | 'month'>('day');
+  protected readonly _monthIndexes = Array.from({ length: 12 }, (_, i) => i);
+  protected readonly _focusedYear = computed(() =>
+    this._dateAdapter.getYear(this._calendar.focusedDate()),
+  );
+  protected readonly _focusedMonth = computed(() =>
+    this._dateAdapter.getMonth(this._calendar.focusedDate()),
+  );
+
+  protected _pickClass(selected: boolean): string {
+    return hlm(
+      buttonVariants({ variant: selected ? 'default' : 'ghost', size: 'sm' }),
+      'h-9 w-full font-normal',
+    );
+  }
+
+  protected _toggleYears() {
+    if (this._view() !== 'day') {
+      this._view.set('day');
+      return;
+    }
+    this._view.set('year');
+    // Open on the focused year, as native and Material pickers do.
+    afterNextRender(
+      () =>
+        this._host.nativeElement
+          .querySelector('[data-slot=calendar-years] [data-current]')
+          ?.scrollIntoView({ block: 'center' }),
+      { injector: this._injector },
+    );
+  }
+
+  protected _pickYear(year: number) {
+    this._focus({ year });
+    this._view.set('month');
+  }
+
+  protected _pickMonth(month: number) {
+    this._focus({ month });
+    this._view.set('day');
+  }
+
+  /** Moves the focused date, keeping the day inside the target month (31 Jan → Feb gives the 28th/29th). */
+  private _focus(change: { year?: number; month?: number }) {
+    const a = this._dateAdapter;
+    const focused = this._calendar.focusedDate();
+    const target = a.set(a.startOfMonth(focused), change);
+    const lastDay = a.getDate(a.endOfMonth(target));
+    this._calendar.setFocusedDate(a.set(target, { day: Math.min(a.getDate(focused), lastDay) }));
+  }
 
   /** Get the heading for the current month and year */
   protected readonly _heading = computed(() => {
