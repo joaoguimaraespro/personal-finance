@@ -785,7 +785,7 @@ import { PageHeaderComponent } from '../../shared/page-header';
                 <app-progress class="mt-2 block" [value]="l.paidOffShare" />
                 <p class="text-muted-foreground num mt-1.5 text-xs">
                   @if (l.next; as n) {
-                    {{ 'loans.nextPayment' | translate }} {{ n.payment | money }} ·
+                    {{ 'loans.nextPayment' | translate }} {{ n.total ?? n.payment | money }} ·
                     {{ n.date | day }} ·
                   }
                   {{ 'loans.endsOn' | translate: { date: (l.endDate | day) } }}

@@ -1205,6 +1205,12 @@
   }
  },
  "loans": {
+  "charges": "charges",
+  "chargesTitle": "Charged with each instalment",
+  "monthlyFee": "Processing commission (€/month)",
+  "monthlyInsurance": "Insurance collected with it (€/month)",
+  "stampDuty": "Imposto do Selo (4 % of interest and commission)",
+  "stampDutyHint": "Portuguese banks add it to every instalment. Your statement shows the commission and the stamp duty separately.",
   "title": "Loan",
   "subtitle": "What you owe, when it ends and what early repayments would save.",
   "editTerms": "Loan terms",

@@ -81,7 +81,7 @@ import { ProgressComponent } from '../../shared/progress';
               <div>
                 <dt>{{ 'loans.nextPayment' | translate }}</dt>
                 <dd class="text-foreground font-medium">
-                  {{ l.next ? (l.next.payment | money) : '—' }}
+                  {{ l.next ? (l.next.total ?? l.next.payment | money) : '—' }}
                 </dd>
               </div>
               <div>
@@ -173,7 +173,7 @@ export class LoansComponent {
     (this.loans.value() ?? []).reduce((s, l) => s + l.outstanding, 0),
   );
   protected readonly monthly = computed(() =>
-    (this.loans.value() ?? []).reduce((s, l) => s + (l.next?.payment ?? 0), 0),
+    (this.loans.value() ?? []).reduce((s, l) => s + (l.next?.total ?? l.next?.payment ?? 0), 0),
   );
   protected readonly interestLeft = computed(() =>
     (this.loans.value() ?? []).reduce((s, l) => s + l.interestLeft, 0),

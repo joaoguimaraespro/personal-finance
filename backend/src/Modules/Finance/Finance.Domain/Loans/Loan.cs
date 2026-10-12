@@ -47,6 +47,15 @@ public sealed class Loan : Entity, IAuditable
     /// <summary>Variable rate: the bank's spread over the index, in percent.</summary>
     public decimal? SpreadPercent { get; private set; }
 
+    /// <summary>Processing commission charged with each instalment (e.g. 2.50 EUR).</summary>
+    public decimal MonthlyFee { get; private set; }
+
+    /// <summary>Imposto do Selo: 4 % of each instalment's interest and commission (Portuguese credit).</summary>
+    public bool StampDuty { get; private set; }
+
+    /// <summary>Insurance collected together with the instalment (life, home), if the bank does.</summary>
+    public decimal MonthlyInsurance { get; private set; }
+
     /// <summary>The bank account the instalments are paid from: set, each instalment is proposed for booking.</summary>
     public Guid? PaymentAccountId { get; private set; }
 
@@ -81,6 +90,11 @@ public sealed class Loan : Entity, IAuditable
             return LoanErrors.InvalidRevision;
         }
 
+        if (d.MonthlyFee is < 0 or > 1000 || d.MonthlyInsurance is < 0 or > 10_000)
+        {
+            return LoanErrors.InvalidCharges;
+        }
+
         Principal = d.Principal;
         FirstPaymentOn = d.FirstPaymentOn;
         TermMonths = d.TermMonths;
@@ -88,6 +102,9 @@ public sealed class Loan : Entity, IAuditable
         RevisionMonths = d.RateType == LoanRateType.Variable ? d.RevisionMonths : null;
         IndexName = d.RateType == LoanRateType.Variable ? d.IndexName?.Trim() : null;
         SpreadPercent = d.RateType == LoanRateType.Variable ? d.SpreadPercent : null;
+        MonthlyFee = d.MonthlyFee;
+        StampDuty = d.StampDuty;
+        MonthlyInsurance = d.MonthlyInsurance;
         return null;
     }
 
@@ -166,10 +183,24 @@ public sealed class Loan : Entity, IAuditable
 
     public bool RemovePrepayment(Guid id) => _prepayments.RemoveAll(p => p.Id == id) > 0;
 
+    /// <summary>Imposto do Selo on credit interest and commissions (verbas 17.3.1 and 17.3.4).</summary>
+    public const decimal StampDutyRate = 0.04m;
+
     public IReadOnlyList<Instalment> Plan(IEnumerable<Prepayment>? extra = null) =>
         LoanSchedule.Build(Principal, FirstPaymentOn, TermMonths,
-            _rates.Select(r => new RatePeriod(r.EffectiveFrom, r.AnnualRatePercent)).ToList(),
-            _prepayments.Select(p => new Prepayment(p.On, p.Amount, p.Mode)).Concat(extra ?? []).ToList());
+                _rates.Select(r => new RatePeriod(r.EffectiveFrom, r.AnnualRatePercent)).ToList(),
+                _prepayments.Select(p => new Prepayment(p.On, p.Amount, p.Mode)).Concat(extra ?? []).ToList())
+            .Select(i => i.Payment > 0
+                ? i with
+                {
+                    Fee = MonthlyFee,
+                    StampDuty = StampDuty
+                        ? decimal.Round((i.Interest + MonthlyFee) * StampDutyRate, 2, MidpointRounding.AwayFromZero)
+                        : 0,
+                    Insurance = MonthlyInsurance,
+                }
+                : i)
+            .ToList();
 
     /// <summary>Variable rate: the next revision after <paramref name="today"/>, counted from the first instalment.</summary>
     public DateOnly? NextRevisionAfter(DateOnly today)
@@ -190,7 +221,8 @@ public sealed class Loan : Entity, IAuditable
 }
 
 public sealed record LoanTermsDraft(decimal Principal, DateOnly FirstPaymentOn, int TermMonths, LoanRateType RateType,
-    int? RevisionMonths, string? IndexName, decimal? SpreadPercent);
+    int? RevisionMonths, string? IndexName, decimal? SpreadPercent, decimal MonthlyFee = 0, bool StampDuty = false,
+    decimal MonthlyInsurance = 0);
 
 public sealed class LoanRate : Entity
 {
@@ -234,6 +266,9 @@ public static class LoanErrors
 
     public static readonly Error InvalidRevision =
         Error.Validation("Loan.Revision", "A variable rate is revised every 1, 3, 6 or 12 months.");
+
+    public static readonly Error InvalidCharges =
+        Error.Validation("Loan.Charges", "The monthly commission and insurance must be zero or positive.");
 
     public static readonly Error InvalidRate = Error.Validation("Loan.Rate", "The rate must be between 0 and 50 %.");
 
