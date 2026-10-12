@@ -164,10 +164,27 @@ public static class IntegrationEndpoints
 
             try
             {
-                return providers.Create(connection.Kind, credentials.Unprotect(connection.ProtectedCredentials))
-                    is ICostBreakdownProvider provider
-                    ? Results.Ok(await provider.GetCostBreakdownAsync(ct))
-                    : Results.NotFound();
+                var provider = providers.Create(connection.Kind,
+                    credentials.Unprotect(connection.ProtectedCredentials));
+                if (provider is not ICostBreakdownProvider breakdown)
+                {
+                    return Results.NotFound();
+                }
+
+                // The whole history is read once, by a sync (minutes, rate-limited); this only reads what is new.
+                if (provider is IHistoryStateProvider kept)
+                {
+                    if (connection.HistoryState is null)
+                    {
+                        return Results.Problem(
+                            "The full history has not been read yet. Synchronise this connection first.",
+                            statusCode: StatusCodes.Status409Conflict);
+                    }
+
+                    kept.HistoryState = connection.HistoryState;
+                }
+
+                return Results.Ok(await breakdown.GetCostBreakdownAsync(ct));
             }
             catch (Exception e) when (e is ProviderConfigurationException or ProviderUnavailableException)
             {

@@ -63,3 +63,12 @@ public sealed record CostBreakdown(string Asset, decimal Held, decimal Tracked, 
 /// <param name="Quantity">Coins in (positive) or out (negative).</param>
 /// <param name="EurValue">What the coins in were counted at; 0 for coins out (they leave at the average).</param>
 public sealed record CostSourceLine(string Kind, int Count, decimal Quantity, decimal EurValue);
+
+/// <summary>
+/// A provider that keeps what it has read between syncs (e.g. a long history it reads only once). The sync sets
+/// <see cref="HistoryState"/> from the connection before reading and stores it back after a successful sync.
+/// </summary>
+public interface IHistoryStateProvider
+{
+    string? HistoryState { get; set; }
+}

@@ -43,6 +43,10 @@ public sealed class SyncPipeline(
         {
             var provider = providers.Create(connection.Kind, credentials.Unprotect(connection.ProtectedCredentials));
             var since = connection.LastSuccessfulSyncUtc - Overlap;
+            if (provider is IHistoryStateProvider kept)
+            {
+                kept.HistoryState = connection.HistoryState;
+            }
 
             // Fetch
             var snapshot = await provider.GetAccountSnapshotAsync(ct);
@@ -72,6 +76,11 @@ public sealed class SyncPipeline(
 
             // Update snapshots
             await snapshotter.SnapshotTodayAsync(ct);
+            if (provider is IHistoryStateProvider read)
+            {
+                connection.KeepHistory(read.HistoryState);
+            }
+
             connection.Succeeded(clock.GetUtcNow());
 
             // Brokers without valuation history get it rebuilt in the background (prices may need downloading).

@@ -256,8 +256,74 @@ public sealed class BinanceTests
         var ada = positions.Single(p => p.Security.Symbol == "ADA");
         ada.CostKnown.ShouldBeFalse(); // no history at all: the first synced price is kept as its cost
         ada.AveragePrice.ShouldBe(0.5m);
-        http.Requests.Count(r => r.RequestUri!.AbsolutePath == "/sapi/v1/capital/withdraw/history")
-            .ShouldBe(BinanceProvider.CostHistoryDays / 89);
+        // The whole history from the account's start, in windows Binance accepts (less than 90 days each).
+        var sent = http.Requests.Where(r => r.RequestUri!.AbsolutePath == "/sapi/v1/capital/withdraw/history")
+            .Select(r => HttpUtility.ParseQueryString(r.RequestUri!.Query))
+            .Select(q => (From: long.Parse(q["startTime"]!), To: long.Parse(q["endTime"]!))).ToList();
+        sent[0].From.ShouldBe(BinanceProvider.HistoryStart.ToUnixTimeMilliseconds());
+        sent.ShouldAllBe(w => w.To - w.From <= TimeSpan.FromDays(BinanceProvider.CoinWindowDays).TotalMilliseconds);
+        sent.Zip(sent.Skip(1)).ShouldAllBe(p => p.First.To == p.Second.From);
+    }
+
+    [Fact]
+    public async Task The_history_is_read_once_and_kept_between_syncs()
+    {
+        var (first, http) = Provider();
+        SolHistory(http);
+        await first.GetPositionsAsync(CancellationToken.None);
+        var kept = first.HistoryState;
+        kept.ShouldNotBeNull();
+
+        // Next sync: Binance would no longer return those movements (the scripted ones were consumed), yet the cost
+        // is the same, and only the days since the last sync are read.
+        var (second, again) = Provider();
+        second.HistoryState = kept;
+        var positions = await second.GetPositionsAsync(CancellationToken.None);
+
+        positions.ShouldContain(p => p.Security.Symbol == "BTC");
+        var windows = again.Requests.Where(r => r.RequestUri!.AbsolutePath == "/sapi/v1/capital/withdraw/history")
+            .ToList();
+        windows.Count.ShouldBe(1);
+        long.Parse(HttpUtility.ParseQueryString(windows[0].RequestUri!.Query)["startTime"]!)
+            .ShouldBeGreaterThan(new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds());
+
+        var (third, http3) = Provider();
+        SolHistory(http3).Replace("/sapi/v1/convert/tradeFlow", ConvertEmpty)
+            .Replace("/sapi/v1/capital/deposit/hisrec", "[]")
+            .Replace("/sapi/v1/capital/withdraw/history", "[]");
+        third.HistoryState = kept;
+        (await third.GetPositionsAsync(CancellationToken.None)).Single(p => p.Security.Symbol == "SOL")
+            .AveragePrice.ShouldBe(104m);
+    }
+
+    [Fact]
+    public async Task Old_coins_sent_away_and_bought_again_keep_a_blended_cost()
+    {
+        // 0.1 BTC bought by card in 2019 for 3,000 EUR, 0.08 sent to a cold wallet in 2021, 0.01 bought by card in
+        // 2026 for 600 EUR: the 0.03 left cost (0.02 × 30,000 + 600) / 0.03 = 40,000 EUR each.
+        var (provider, http) = Provider();
+        static long At(int y, int m) => new DateTimeOffset(y, m, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        http.Replace("/api/v3/account", """{"balances":[{"asset":"BTC","free":"0.03","locked":"0"}]}""")
+            .Replace("/sapi/v1/simple-earn/flexible/position", Empty)
+            .Replace("/sapi/v1/simple-earn/locked/position", Empty)
+            .Replace("/api/v3/myTrades?symbol=BTCEUR", "[]")
+            .Replace("/api/v3/myTrades?symbol=BTCUSDT", "[]")
+            .Replace("/sapi/v1/simple-earn/flexible/history/rewardsRecord?type=REALTIME", Empty)
+            .Replace("/sapi/v1/simple-earn/locked/history/rewardsRecord", Empty)
+            .Replace("/sapi/v1/fiat/payments", $$"""
+                {"code":"000000","data":[
+                 {"orderNo":"O1","sourceAmount":"3000","fiatCurrency":"EUR","obtainAmount":"0.1","cryptoCurrency":"BTC","status":"Completed","createTime":{{At(2019, 3)}}},
+                 {"orderNo":"O2","sourceAmount":"600","fiatCurrency":"EUR","obtainAmount":"0.01","cryptoCurrency":"BTC","status":"Completed","createTime":{{At(2026, 3)}}}],
+                 "total":2}
+                """)
+            .Replace("/sapi/v1/capital/withdraw/history", """
+                [{"coin":"BTC","amount":"0.0799","transactionFee":"0.0001","status":6,"applyTime":"2021-05-01 10:00:00"}]
+                """)
+            .On("/sapi/v1/capital/withdraw/history", "[]");
+
+        var btc = (await provider.GetPositionsAsync(CancellationToken.None)).Single();
+
+        btc.AveragePrice.ShouldBe(40_000m);
     }
 
     [Fact]

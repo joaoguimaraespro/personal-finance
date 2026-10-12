@@ -636,6 +636,7 @@
    "held": "Held {{held}} · history explains {{tracked}}",
    "unknown": "No history found: the price of the first sync is kept as the cost.",
    "mismatch": "The history does not explain all the coins held: the average comes from the part it explains.",
+   "notReady": "The full history is read on the next sync (the first one takes a few minutes). Sync, then open this again.",
    "atAverage": "at average",
    "kind": {
     "trade": "Spot trades",
