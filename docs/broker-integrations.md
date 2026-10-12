@@ -178,13 +178,15 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
   price (the EUR pair, else the USDT/USDC/FDUSD pair converted with EURUSDT). EUR balances are the account's cash.
   Coins Binance cannot price in EUR or dollars are skipped. A coin held both on Binance and by hand is one position
   line (coins have no ISIN, so the symbol identifies them).
-- **Cost.** A moving average in EUR over the last 712 days of everything that brought a coin in or took it out:
-  fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), card/bank purchases (what
-  was paid), Convert orders (the EUR value of what was given), Earn rewards and coins received from another wallet
-  (worth that day's close), and coins converted away, sold or sent out (they leave at the average, which does not
-  move). A coin with no such history keeps the price of its first sync as its cost, so its gain or loss shows from
-  then on. Each sync rebuilds the cost from history; the window is 8 × 89 days because the withdrawal history
-  weighs 18,000 of Binance's 180,000 per minute and accepts less than 90 days per request.
+- **Cost.** A moving average in EUR over the account's whole history of everything that brought a coin in or took
+  it out: fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), card/bank
+  purchases (what was paid), Convert orders (the EUR value of what was given), Earn rewards and coins received from
+  another wallet (worth that day's close), and coins converted away, sold or sent out (they leave at the average,
+  which does not move). The first sync reads the windowed histories from July 2017 once — a few minutes, because the
+  Convert and withdrawal histories weigh 3,000 and 18,000 of Binance's 180,000 per minute and are spaced out — and
+  keeps the settled movements with the connection (rewards merged per coin and month); later syncs read only the days
+  since. A coin with no history keeps the price of its first sync as its cost. *Connections → Binance → Cost details*
+  shows, per coin, each kind of movement and how much of the balance the history explains.
 - **Earn rewards** (flexible real-time APR, bonus tiers, locked rewards) are income, like dividends: one entry per
   reward, valued at the coin's EUR close of that day, under *Dividends & rewards*. The first sync reads the last
   180 days; later syncs read from the previous one, and the external id

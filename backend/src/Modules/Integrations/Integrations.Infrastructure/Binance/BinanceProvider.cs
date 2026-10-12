@@ -8,23 +8,32 @@ namespace Integrations.Infrastructure.Binance;
 /// <summary>
 /// Binance (Spot + Simple Earn), read-only. Each coin is one position: spot balance plus flexible and locked Earn.
 /// Earn rewards are income, like dividends, valued in EUR at the day's close. Positions and prices are in EUR; the
-/// cost of a coin is a moving average over the last <see cref="CostHistoryDays"/> days of everything that brought it in
-/// or took it out: fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins
-/// received or sent (valued at the day's close). A coin with no such history keeps the price of its first sync as cost.
+/// cost of a coin is a moving average over the account's whole history of everything that brought it in or took it
+/// out: fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins received or
+/// sent (valued at the day's close). The windowed histories are read once from <see cref="HistoryStart"/> and kept in
+/// <see cref="HistoryState"/>; later syncs read only what is new. A coin with no history keeps its first sync's price.
 /// </summary>
-internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) : IInvestmentProvider, ICostBreakdownProvider
+internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
+    : IInvestmentProvider, ICostBreakdownProvider, IHistoryStateProvider
 {
     /// <summary>How far back the first sync reads Earn rewards.</summary>
     public const int FirstSyncDays = 180;
 
-    /// <summary>
-    /// How far back a coin's cost is rebuilt: 8 windows of 89 days, the longest the coin deposit/withdrawal history
-    /// accepts (the withdrawal history weighs 18,000 of Binance's 180,000 per minute).
-    /// </summary>
-    public const int CostHistoryDays = 8 * CoinWindowDays;
+    /// <summary>Binance opened in July 2017: the first sync reads the windowed histories from there.</summary>
+    public static readonly DateTimeOffset HistoryStart = new(2017, 7, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Convert and Simple Earn did not exist before these dates; their windows start there.</summary>
+    private static readonly DateTimeOffset ConvertStart = new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    private static readonly DateTimeOffset EarnStart = new(2022, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Movements this recent are read again on every sync instead of being kept (late credits).</summary>
+    private static readonly TimeSpan Unsettled = TimeSpan.FromDays(2);
 
     private const int WindowDays = 30;
-    private const int CoinWindowDays = 89;
+
+    /// <summary>The coin deposit/withdrawal history accepts less than 90 days per request.</summary>
+    public const int CoinWindowDays = 89;
     private static readonly string[] FlexibleRewardTypes = ["REALTIME", "BONUS", "REWARDS"];
 
     private sealed record Holdings(Dictionary<string, decimal> Spot, Dictionary<string, decimal> Earn,
@@ -32,11 +41,13 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
 
     private Holdings? _holdings;
     private List<BinanceFiatPayment>? _payments;
-    private List<(string Kind, string Asset, decimal Amount, long Time)>? _rewards;
     private Dictionary<DateOnly, decimal>? _usdPerEur;
     private readonly Dictionary<string, Dictionary<DateOnly, decimal>> _closes = new(StringComparer.Ordinal);
 
     public BrokerKind Kind => BrokerKind.Binance;
+
+    /// <summary>The kept history (JSON, see <see cref="CostHistory"/>); null before the first sync reads it.</summary>
+    public string? HistoryState { get; set; }
 
     public async Task<AccountSnapshot> GetAccountSnapshotAsync(CancellationToken ct)
     {
@@ -86,7 +97,26 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
             return (coins, []);
         }
 
+        // Settled movements are kept; the last days are read again each time, so a late credit is never missed.
+        var history = CostHistory.Parse(HistoryState);
+        var settled = now - Unsettled;
+        if (history.Through < settled.ToUnixTimeMilliseconds())
+        {
+            var from = DateTimeOffset.FromUnixTimeMilliseconds(history.Through);
+            history = history.Append(await MovementsAsync(from, settled, h, ct), settled.ToUnixTimeMilliseconds());
+            HistoryState = history.ToJson();
+        }
+
+        var recent = await MovementsAsync(DateTimeOffset.FromUnixTimeMilliseconds(history.Through), now, h, ct);
         var events = coins.ToDictionary(c => c.Asset, _ => new List<CostEvent>(), StringComparer.Ordinal);
+        foreach (var (asset, e) in history.Events.Concat(recent))
+        {
+            if (events.TryGetValue(asset, out var list))
+            {
+                list.Add(e);
+            }
+        }
+
         var latestUsdPerEur = h.Prices.GetValueOrDefault("EURUSDT");
         var usdCloses = await UsdPerEurClosesAsync(h, ct);
         foreach (var c in coins)
@@ -100,19 +130,30 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
             events[c.Asset].AddRange(BinanceValuation.FillEvents(fills, usdCloses, latestUsdPerEur));
         }
 
+        return (coins, events);
+    }
+
+    /// <summary>
+    /// Card purchases, Convert orders, Earn rewards and coins received or sent between two instants, for every coin
+    /// (one sold out may be bought again). Fills are not here: they are read whole, per coin held, on every sync.
+    /// </summary>
+    private async Task<List<(string Asset, CostEvent Event)>> MovementsAsync(DateTimeOffset from, DateTimeOffset to,
+        Holdings h, CancellationToken ct)
+    {
+        var events = new List<(string, CostEvent)>();
+        var (fromMs, toMs) = (from.ToUnixTimeMilliseconds(), to.ToUnixTimeMilliseconds());
         foreach (var p in await PaymentsAsync(ct))
         {
-            if (IsDone(p.Status) && p.ObtainAmount > 0 && p.CryptoCurrency is { } coin && events.TryGetValue(coin, out var list) &&
+            if (p.CreateTime >= fromMs && p.CreateTime < toMs && IsDone(p.Status) && p.ObtainAmount > 0 &&
+                p.CryptoCurrency is { } coin &&
                 await EurValueAsync(p.FiatCurrency, p.SourceAmount, p.CreateTime, h, ct) is { } paid)
             {
-                list.Add(CostEvent.In(p.CreateTime, p.ObtainAmount, paid, "card"));
+                events.Add((coin, CostEvent.In(p.CreateTime, p.ObtainAmount, paid, "card")));
             }
         }
 
-        var from = now.AddDays(-CostHistoryDays);
-        for (var start = from; start < now; start = start.AddDays(WindowDays))
+        foreach (var (start, end) in Windows(Later(from, ConvertStart), to, WindowDays))
         {
-            var end = start.AddDays(WindowDays) < now ? start.AddDays(WindowDays) : now;
             foreach (var x in await client.ConversionsAsync(start, end, ct))
             {
                 if (x.OrderStatus is not "SUCCESS")
@@ -120,56 +161,60 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
                     continue;
                 }
 
-                if (events.TryGetValue(x.FromAsset, out var given))
-                {
-                    given.Add(CostEvent.Out(x.CreateTime, x.FromAmount, "convert"));
-                }
-
+                events.Add((x.FromAsset, CostEvent.Out(x.CreateTime, x.FromAmount, "convert")));
                 // What was given is the price paid; a coin Binance cannot value is priced by what was received.
-                if (events.TryGetValue(x.ToAsset, out var got) &&
-                    (await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct) ??
+                if ((await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct) ??
                      await EurValueAsync(x.ToAsset, x.ToAmount, x.CreateTime, h, ct)) is { } value)
                 {
-                    got.Add(CostEvent.In(x.CreateTime, x.ToAmount, value, "convert"));
+                    events.Add((x.ToAsset, CostEvent.In(x.CreateTime, x.ToAmount, value, "convert")));
                 }
             }
         }
 
-        foreach (var r in await RewardsAsync(ct))
+        foreach (var r in await RewardsAsync(Later(from, EarnStart), to, ct))
         {
-            if (r.Amount > 0 && events.TryGetValue(r.Asset, out var list) &&
-                await EurValueAsync(r.Asset, r.Amount, r.Time, h, ct) is { } value)
+            if (r.Amount > 0 && await EurValueAsync(r.Asset, r.Amount, r.Time, h, ct) is { } value)
             {
-                list.Add(CostEvent.In(r.Time, r.Amount, value, "reward")); // the same value is booked as income
+                events.Add((r.Asset, CostEvent.In(r.Time, r.Amount, value, "reward"))); // also booked as income
             }
         }
 
-        for (var start = from; start < now; start = start.AddDays(CoinWindowDays))
+        foreach (var (start, end) in Windows(from, to, CoinWindowDays))
         {
-            var end = start.AddDays(CoinWindowDays) < now ? start.AddDays(CoinWindowDays) : now;
             foreach (var d in await client.CoinsReceivedAsync(start, end, ct))
             {
                 // Received from another wallet: what it cost there is unknown, so it costs what it was worth that day.
-                if (d.Status is 1 or 6 && d.Amount > 0 && events.TryGetValue(d.Coin, out var list) &&
+                if (d.Status is 1 or 6 && d.Amount > 0 &&
                     await EurValueAsync(d.Coin, d.Amount, d.InsertTime, h, ct) is { } value)
                 {
-                    list.Add(CostEvent.In(d.InsertTime, d.Amount, value, "received"));
+                    events.Add((d.Coin, CostEvent.In(d.InsertTime, d.Amount, value, "received")));
                 }
             }
 
             foreach (var w in await client.CoinsSentAsync(start, end, ct))
             {
-                if (w.Status == 6 && events.TryGetValue(w.Coin, out var list) &&
-                    DateTime.TryParse(w.ApplyTime, CultureInfo.InvariantCulture,
+                if (w.Status == 6 && DateTime.TryParse(w.ApplyTime, CultureInfo.InvariantCulture,
                         DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var at))
                 {
-                    list.Add(CostEvent.Out(new DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds(),
-                        w.Amount + w.TransactionFee, "sent"));
+                    events.Add((w.Coin, CostEvent.Out(new DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds(),
+                        w.Amount + w.TransactionFee, "sent")));
                 }
             }
         }
 
-        return (coins, events);
+        return events.Where(e => e.Item1 != "EUR").ToList();
+    }
+
+    private static DateTimeOffset Later(DateTimeOffset a, DateTimeOffset b) => a > b ? a : b;
+
+    /// <summary>Consecutive windows of at most <paramref name="days"/> days covering [from, to).</summary>
+    private static IEnumerable<(DateTimeOffset Start, DateTimeOffset End)> Windows(DateTimeOffset from,
+        DateTimeOffset to, int days)
+    {
+        for (var start = from; start < to; start = start.AddDays(days))
+        {
+            yield return (start, start.AddDays(days) < to ? start.AddDays(days) : to);
+        }
     }
 
     /// <summary>EUR value of an amount of any asset on the day of <paramref name="unixMs"/>; null if Binance has no price.</summary>
@@ -187,7 +232,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
         {
             closes = BinanceValuation.EurPrice(asset, h.Prices) is null
                 ? []
-                : await EurClosesAsync(asset, From(CostHistoryDays + 7), h.Prices, ct);
+                : await EurClosesAsync(asset, DateOnly.FromDateTime(HistoryStart.UtcDateTime), h.Prices, ct);
             _closes[asset] = closes;
         }
 
@@ -196,28 +241,20 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
 
     private async Task<Dictionary<DateOnly, decimal>> UsdPerEurClosesAsync(Holdings h, CancellationToken ct) =>
         _usdPerEur ??= h.Prices.GetValueOrDefault("EURUSDT") > 0
-            ? await client.DailyClosesAsync("EURUSDT", DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime).AddYears(-3), ct)
+            ? await client.DailyClosesAsync("EURUSDT", DateOnly.FromDateTime(HistoryStart.UtcDateTime), ct)
             : [];
 
-    private DateOnly From(int daysAgo) => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime).AddDays(-daysAgo);
-
-    /// <summary>Crypto bought with fiat over the cost history (one read per sync, shared with the cash flows).</summary>
+    /// <summary>Crypto bought with fiat since the account opened (one read per sync, shared with the cash flows).</summary>
     private async Task<List<BinanceFiatPayment>> PaymentsAsync(CancellationToken ct) =>
-        _payments ??= await client.FiatPurchasesAsync(clock.GetUtcNow().AddDays(-CostHistoryDays), clock.GetUtcNow(), ct);
+        _payments ??= await client.FiatPurchasesAsync(HistoryStart, clock.GetUtcNow(), ct);
 
-    /// <summary>Earn rewards over the cost history (one read per sync, shared with the income).</summary>
-    private async Task<List<(string Kind, string Asset, decimal Amount, long Time)>> RewardsAsync(CancellationToken ct)
+    /// <summary>Earn rewards between two instants.</summary>
+    private async Task<List<(string Kind, string Asset, decimal Amount, long Time)>> RewardsAsync(DateTimeOffset from,
+        DateTimeOffset to, CancellationToken ct)
     {
-        if (_rewards is not null)
-        {
-            return _rewards;
-        }
-
-        var now = clock.GetUtcNow();
         var rewards = new List<(string Kind, string Asset, decimal Amount, long Time)>();
-        for (var start = now.AddDays(-CostHistoryDays); start < now; start = start.AddDays(WindowDays))
+        foreach (var (start, end) in Windows(from, to, WindowDays))
         {
-            var end = start.AddDays(WindowDays) < now ? start.AddDays(WindowDays) : now;
             foreach (var type in FlexibleRewardTypes)
             {
                 rewards.AddRange((await client.FlexibleRewardsAsync(type, start, end, ct))
@@ -228,7 +265,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
                 .Select(r => ("locked", r.Asset, r.Amount, r.Time)));
         }
 
-        return _rewards = rewards;
+        return rewards;
     }
 
     /// <summary>
@@ -286,7 +323,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock) 
         var h = await HoldingsAsync(ct);
         var now = clock.GetUtcNow();
         var from = since ?? now.AddDays(-FirstSyncDays);
-        var rewards = (await RewardsAsync(ct)).Where(r => r.Time >= from.ToUnixTimeMilliseconds()).ToList();
+        var rewards = await RewardsAsync(from, now, ct);
 
         var dividends = new List<DividendReport>();
         foreach (var group in rewards.Where(r => r.Amount > 0).GroupBy(r => r.Asset))
