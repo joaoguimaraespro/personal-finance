@@ -6,9 +6,16 @@ public sealed record RatePeriod(DateOnly EffectiveFrom, decimal AnnualRatePercen
 /// <summary>An early repayment: shorten the term (same instalment) or lower the instalment (same term).</summary>
 public sealed record Prepayment(DateOnly On, decimal Amount, PrepaymentMode Mode);
 
-/// <summary>One instalment of the plan.</summary>
+/// <summary>
+/// One instalment of the plan. <see cref="Payment"/> is interest + capital (the French annuity); the bank also
+/// charges <see cref="Fee"/> (processing commission), <see cref="StampDuty"/> (Imposto do Selo) and, when collected
+/// with it, <see cref="Insurance"/>: <see cref="Total"/> is what leaves the account.
+/// </summary>
 public sealed record Instalment(int Number, DateOnly Date, decimal AnnualRatePercent, decimal Payment, decimal Interest,
-    decimal Principal, decimal Prepaid, decimal Balance);
+    decimal Principal, decimal Prepaid, decimal Balance, decimal Fee = 0, decimal StampDuty = 0, decimal Insurance = 0)
+{
+    public decimal Total => Payment + Fee + StampDuty + Insurance;
+}
 
 /// <summary>Where a loan stands on a day, from its plan.</summary>
 public sealed record LoanStatus(

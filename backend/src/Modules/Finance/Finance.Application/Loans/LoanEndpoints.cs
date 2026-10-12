@@ -16,7 +16,7 @@ namespace Finance.Application.Loans;
 
 public sealed record LoanTermsRequest(decimal Principal, DateOnly FirstPaymentOn, int TermMonths, LoanRateType RateType,
     int? RevisionMonths, string? IndexName, decimal? SpreadPercent, decimal? InitialRatePercent,
-    decimal? InitialIndexPercent);
+    decimal? InitialIndexPercent, decimal? MonthlyFee = null, bool? StampDuty = null, decimal? MonthlyInsurance = null);
 
 /// <summary>A rate from a date: the TAN, or for a variable loan the index (the loan's spread is added).</summary>
 public sealed record LoanRateRequest(DateOnly EffectiveFrom, decimal? AnnualRatePercent, decimal? IndexRatePercent);
@@ -53,7 +53,10 @@ public sealed record LoanSummaryDto(
     decimal CurrentRatePercent,
     DateOnly? NextRevision,
     Guid? PaymentAccountId = null,
-    int PendingInstalments = 0);
+    int PendingInstalments = 0,
+    decimal MonthlyFee = 0,
+    bool StampDuty = false,
+    decimal MonthlyInsurance = 0);
 
 public sealed record LoanDetailDto(
     LoanSummaryDto Summary,
@@ -123,7 +126,8 @@ public static class LoanEndpoints
             }
 
             var draft = new LoanTermsDraft(req.Principal, req.FirstPaymentOn, req.TermMonths, req.RateType,
-                req.RevisionMonths, req.IndexName, req.SpreadPercent);
+                req.RevisionMonths, req.IndexName, req.SpreadPercent, req.MonthlyFee ?? 0, req.StampDuty ?? false,
+                req.MonthlyInsurance ?? 0);
             var loan = await db.Loans.Include(l => l.Rates).Include(l => l.Prepayments)
                 .FirstOrDefaultAsync(l => l.AccountId == accountId, ct);
             if (loan is null)
@@ -334,7 +338,27 @@ public static class LoanEndpoints
                 CounterAccountId: accountId, Description: $"{account.Name} — capital ({number})"));
         }
 
-        foreach (var (draft, part) in lines.Zip(instalment.Interest > 0 ? new[] { "interest", "capital" } : ["capital"]))
+        // Commission and stamp duty are a cost of the credit, like its interest; insurance is insurance.
+        if (instalment.Fee + instalment.StampDuty > 0)
+        {
+            lines.Add(new TransactionDraft(TransactionType.Expense, on, instalment.Fee + instalment.StampDuty,
+                Currency.Base, bank, CategoryId: Finance.Domain.SystemCatalog.CategoryId("loan-interest"),
+                Nature: ExpenseNature.Fixed, Description: $"{account.Name} — commission and stamp duty ({number})"));
+        }
+
+        if (instalment.Insurance > 0)
+        {
+            lines.Add(new TransactionDraft(TransactionType.Expense, on, instalment.Insurance, Currency.Base, bank,
+                CategoryId: Finance.Domain.SystemCatalog.CategoryId("insurance"), Nature: ExpenseNature.Fixed,
+                Description: $"{account.Name} — insurance ({number})"));
+        }
+
+        var parts = new[]
+        {
+            (instalment.Interest > 0, "interest"), (instalment.Principal > 0, "capital"),
+            (instalment.Fee + instalment.StampDuty > 0, "charges"), (instalment.Insurance > 0, "insurance"),
+        }.Where(p => p.Item1).Select(p => p.Item2);
+        foreach (var (draft, part) in lines.Zip(parts))
         {
             var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
             if (resolved.IsFailure)
@@ -404,7 +428,7 @@ public static class LoanEndpoints
             loan.Principal == 0 ? 0 : decimal.Round(1 - status.Outstanding / loan.Principal, 4),
             status.InstalmentsPaid, status.InstalmentsLeft, status.Next, status.EndDate, status.InterestPaid,
             status.InterestLeft, status.CurrentRatePercent, loan.NextRevisionAfter(today), loan.PaymentAccountId,
-            loan.PendingInstalments(today).Count);
+            loan.PendingInstalments(today).Count, loan.MonthlyFee, loan.StampDuty, loan.MonthlyInsurance);
     }
 
     private static LoanDetailDto Detail(Loan loan, string name, DateOnly today) => new(

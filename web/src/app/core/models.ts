@@ -776,6 +776,12 @@ export interface Instalment {
   principal: number;
   prepaid: number;
   balance: number;
+  /** Bank charges on top of interest + capital: commission, Imposto do Selo, insurance. */
+  fee?: number;
+  stampDuty?: number;
+  insurance?: number;
+  /** What leaves the account: payment + charges. */
+  total?: number;
 }
 
 export interface LoanSummary {
@@ -801,6 +807,9 @@ export interface LoanSummary {
   /** Bank account the instalments are paid from (each one is then proposed for booking). */
   paymentAccountId?: string | null;
   pendingInstalments?: number;
+  monthlyFee?: number;
+  stampDuty?: boolean;
+  monthlyInsurance?: number;
 }
 
 export interface LoanDetail {

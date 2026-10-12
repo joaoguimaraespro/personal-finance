@@ -1,3 +1,4 @@
+using Finance.Domain.Accounts;
 using Finance.Domain.Loans;
 
 namespace Finance.Tests;
@@ -89,5 +90,30 @@ public sealed class LoanScheduleTests
         (status.InterestPaid + status.InterestLeft).ShouldBe(plan.Sum(i => i.Interest));
 
         LoanSchedule.StatusOn(plan, 10_000m, First.AddDays(-1)).Outstanding.ShouldBe(10_000m);
+    }
+
+    [Fact]
+    public void The_bank_adds_commission_stamp_duty_and_insurance_to_each_instalment()
+    {
+        var account = Account.Create("Mortgage", AccountKind.Loan, "EUR", 0m, First);
+        var loan = Loan.Create(account, new LoanTermsDraft(100_000m, First, 360, LoanRateType.Fixed, null, null, null,
+            MonthlyFee: 2.50m, StampDuty: true, MonthlyInsurance: 12m)).Value;
+        loan.SetRate(First, 3m, null).ShouldBeNull();
+
+        var first = loan.Plan()[0];
+
+        first.Payment.ShouldBe(421.60m); // interest + capital, unchanged
+        first.Fee.ShouldBe(2.50m);
+        first.StampDuty.ShouldBe(10.10m); // 4 % × (250.00 interest + 2.50 commission)
+        first.Insurance.ShouldBe(12m);
+        first.Total.ShouldBe(421.60m + 2.50m + 10.10m + 12m);
+    }
+
+    [Fact]
+    public void Negative_charges_are_refused()
+    {
+        var account = Account.Create("Car", AccountKind.Loan, "EUR", 0m, First);
+        Loan.Create(account, new LoanTermsDraft(10_000m, First, 60, LoanRateType.Fixed, null, null, null,
+            MonthlyFee: -1m)).Error.ShouldBe(LoanErrors.InvalidCharges);
     }
 }

@@ -1205,6 +1205,12 @@
   }
  },
  "loans": {
+  "charges": "encargos",
+  "chargesTitle": "Cobrado com cada prestação",
+  "monthlyFee": "Comissão de processamento (€/mês)",
+  "monthlyInsurance": "Seguro cobrado com a prestação (€/mês)",
+  "stampDuty": "Imposto do Selo (4 % dos juros e da comissão)",
+  "stampDutyHint": "Os bancos portugueses somam-no a cada prestação. O extrato mostra a comissão e o imposto em separado.",
   "title": "Empréstimo",
   "subtitle": "Quanto deves, quando acaba e quanto poupavas a amortizar antes.",
   "editTerms": "Condições",
