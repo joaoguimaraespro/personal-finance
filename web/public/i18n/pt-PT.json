@@ -18,7 +18,7 @@
   "portfolio": "Carteira",
   "netWorth": "Património líquido",
   "connections": "Ligações",
-  "export": "Exportar",
+  "export": "Importar / Exportar",
   "ai": "Acesso de IA",
   "assistant": "Assistente",
   "more": "Mais",
@@ -502,6 +502,17 @@
   "noHistory": "Ainda não há importações."
  },
  "settings": {
+  "reset": {
+   "title": "Começar do zero",
+   "text": "Apaga tudo o que inseriste ou importaste, para recomeçar do início. As ligações às corretoras e as categorias ficam.",
+   "open": "Apagar os meus dados…",
+   "deletes": "Apagado: contas, movimentos, recorrentes, orçamentos, objetivos, empréstimos, juros das poupanças, moedas e ativos inseridos à mão e o histórico do património.",
+   "keeps": "Fica: as ligações às corretoras (Trading 212, IBKR, Binance) com os dados sincronizados, as categorias, as alocações, o acesso de IA e o teu login.",
+   "backup": "Descarregar primeiro uma cópia completa",
+   "type": "Escreve {{word}} para confirmar",
+   "confirm": "Apagar tudo",
+   "done": "Feito: estás a começar do zero."
+  },
   "appearance": "Aspeto",
   "language": "Idioma",
   "theme": "Tema",

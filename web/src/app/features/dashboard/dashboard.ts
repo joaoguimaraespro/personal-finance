@@ -222,9 +222,6 @@ import { PageHeaderComponent } from '../../shared/page-header';
                       >
                         <ng-icon name="lucidePlus" />{{ 'tx.add' | translate }}
                       </button>
-                      <a hlmBtn size="sm" variant="ghost" routerLink="/import">
-                        <ng-icon name="lucideUpload" />{{ 'nav.import' | translate }}
-                      </a>
                     }
                     @default {
                       <a hlmBtn size="sm" variant="outline" routerLink="/connections">
