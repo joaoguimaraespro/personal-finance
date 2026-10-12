@@ -18,7 +18,7 @@
   "portfolio": "Portfolio",
   "netWorth": "Net worth",
   "connections": "Connections",
-  "export": "Export",
+  "export": "Import / Export",
   "ai": "AI access",
   "assistant": "Assistant",
   "more": "More",
@@ -502,6 +502,17 @@
   "noHistory": "No imports yet."
  },
  "settings": {
+  "reset": {
+   "title": "Start fresh",
+   "text": "Deletes everything you entered or imported, to start again from scratch. Broker connections and categories stay.",
+   "open": "Delete my data…",
+   "deletes": "Deleted: accounts, transactions, recurring items, budgets, goals, loans, savings interest, coins and assets entered by hand, and the net worth history.",
+   "keeps": "Kept: broker connections (Trading 212, IBKR, Binance) with their synced data, categories, allocation buckets, AI access and your login.",
+   "backup": "Download a full backup first",
+   "type": "Type {{word}} to confirm",
+   "confirm": "Delete everything",
+   "done": "Done: you are starting fresh."
+  },
   "appearance": "Appearance",
   "language": "Language",
   "theme": "Theme",

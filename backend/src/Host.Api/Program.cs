@@ -1,3 +1,4 @@
+using Host.Api.Data;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Finance.Application;
@@ -218,6 +219,7 @@ owner.MapIntegrations();
 owner.MapExports();
 owner.MapAiManagement();
 owner.MapNotifications();
+owner.MapDataReset();
 
 await app.RunAsync();
 return 0;

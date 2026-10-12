@@ -5,6 +5,10 @@ import { AuthService } from '../../core/auth';
 import { Notifications } from '../../core/notifications';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { DataEvents } from '../../core/data-events';
+import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
@@ -24,6 +28,7 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
     HlmInputImports,
     HlmButtonImports,
     TranslatePipe,
+    ModalComponent,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -179,7 +184,56 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
         </h2>
         <p class="leading-relaxed">{{ 'settings.privacyText' | translate }}</p>
       </section>
+
+      <!-- Start fresh: everything entered or imported goes; broker connections and categories stay. -->
+      <section class="card border-destructive/40 space-y-3">
+        <h2 class="card-title text-destructive">
+          <ng-icon name="lucideTriangleAlert" />{{ 'settings.reset.title' | translate }}
+        </h2>
+        <p class="text-sm text-muted-foreground">{{ 'settings.reset.text' | translate }}</p>
+        <button hlmBtn variant="destructive" (click)="resetOpen.set(true)">
+          <ng-icon name="lucideTrash2" />{{ 'settings.reset.open' | translate }}
+        </button>
+      </section>
     </div>
+
+    <app-modal
+      [open]="resetOpen()"
+      [title]="'settings.reset.title' | translate"
+      (closed)="resetOpen.set(false); resetWord.set('')"
+    >
+      <div class="space-y-3 text-sm">
+        <p>{{ 'settings.reset.deletes' | translate }}</p>
+        <p>{{ 'settings.reset.keeps' | translate }}</p>
+        <a hlmBtn variant="outline" size="sm" href="/api/exports/json" download>
+          <ng-icon name="lucideCloudDownload" />{{ 'settings.reset.backup' | translate }}
+        </a>
+        <label class="label block" for="reset-word">{{
+          'settings.reset.type' | translate: { word: confirmWord() }
+        }}</label>
+        <input
+          id="reset-word"
+          hlmInput
+          class="w-full"
+          autocomplete="off"
+          [value]="resetWord()"
+          (input)="resetWord.set($any($event.target).value)"
+        />
+        <div class="flex justify-end gap-2">
+          <button hlmBtn variant="outline" (click)="resetOpen.set(false)">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button
+            hlmBtn
+            variant="destructive"
+            [disabled]="resetWord().trim().toUpperCase() !== confirmWord() || resetting()"
+            (click)="reset()"
+          >
+            <ng-icon name="lucideTrash2" />{{ 'settings.reset.confirm' | translate }}
+          </button>
+        </div>
+      </div>
+    </app-modal>
   `,
 })
 export class SettingsComponent {
@@ -203,6 +257,28 @@ export class SettingsComponent {
 
   protected async setBrowserAlerts(on: boolean) {
     this.blocked.set(!(await this.notifications.setBrowserAlerts(on)));
+  }
+
+  private readonly http = inject(HttpClient);
+  private readonly events = inject(DataEvents);
+  protected readonly resetOpen = signal(false);
+  protected readonly resetWord = signal('');
+  protected readonly resetting = signal(false);
+  protected readonly confirmWord = () => (this.prefs.lang() === 'pt-PT' ? 'APAGAR' : 'DELETE');
+
+  protected async reset() {
+    this.resetting.set(true);
+    try {
+      await firstValueFrom(this.http.post('/api/data/reset', { confirm: 'reset-all-data' }));
+      this.resetOpen.set(false);
+      this.resetWord.set('');
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('settings.reset.done'));
+    } catch (err) {
+      this.toasts.error(err);
+    } finally {
+      this.resetting.set(false);
+    }
   }
 
   protected async changePassword() {

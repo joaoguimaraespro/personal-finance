@@ -85,10 +85,8 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/categories/categories').then((m) => m.CategoriesComponent),
       },
-      {
-        path: 'import',
-        loadComponent: () => import('./features/import/import').then((m) => m.ImportComponent),
-      },
+      // The old spreadsheet importer is gone: imports are the app's own JSON archive, on the export page.
+      { path: 'import', redirectTo: 'export' },
       {
         path: 'export',
         loadComponent: () => import('./features/export/export').then((m) => m.ExportComponent),
