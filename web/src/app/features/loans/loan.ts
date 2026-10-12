@@ -30,6 +30,7 @@ interface YearGroup {
   rows: Instalment[];
   payment: number;
   interest: number;
+  charges: number;
   principal: number;
   balance: number;
 }
@@ -378,6 +379,11 @@ interface YearGroup {
               <th hlmTh>{{ 'loans.year' | translate }}</th>
               <th hlmTh class="text-right">{{ 'loans.payments' | translate }}</th>
               <th hlmTh class="text-right">{{ 'loans.interest' | translate }}</th>
+              @if (hasCharges()) {
+                <th hlmTh class="text-right" [title]="'loans.chargesHint' | translate">
+                  {{ 'loans.chargesColumn' | translate }}
+                </th>
+              }
               <th hlmTh class="text-right">{{ 'loans.capital' | translate }}</th>
               <th hlmTh class="text-right">{{ 'loans.balanceEnd' | translate }}</th>
             </tr>
@@ -405,6 +411,9 @@ interface YearGroup {
                 </td>
                 <td hlmTd class="num text-right">{{ y.payment | money }}</td>
                 <td hlmTd class="num text-right">{{ y.interest | money }}</td>
+                @if (hasCharges()) {
+                  <td hlmTd class="num text-right">{{ y.charges | money }}</td>
+                }
                 <td hlmTd class="num text-right">{{ y.principal | money }}</td>
                 <td hlmTd class="num text-right font-medium">{{ y.balance | money }}</td>
               </tr>
@@ -425,6 +434,9 @@ interface YearGroup {
                     </td>
                     <td hlmTd class="num text-right">{{ i.total ?? i.payment | money }}</td>
                     <td hlmTd class="num text-right">{{ i.interest | money }}</td>
+                    @if (hasCharges()) {
+                      <td hlmTd class="num text-right">{{ charges(i) | money }}</td>
+                    }
                     <td hlmTd class="num text-right">{{ i.principal | money }}</td>
                     <td hlmTd class="num text-right">{{ i.balance | money }}</td>
                   </tr>
@@ -672,18 +684,24 @@ export class LoanComponent {
         rows: [],
         payment: 0,
         interest: 0,
+        charges: 0,
         principal: 0,
         balance: 0,
       };
       g.rows.push(i);
       g.payment += (i.total ?? i.payment) + i.prepaid;
       g.interest += i.interest;
+      g.charges += this.charges(i);
       g.principal += i.principal + i.prepaid;
       g.balance = i.balance;
       groups.set(year, g);
     }
     return [...groups.values()];
   });
+  /** The charges column only when the bank adds commission, stamp duty or insurance. */
+  protected readonly hasCharges = computed(() =>
+    (this.detail.value()?.plan ?? []).some((i) => this.charges(i) > 0),
+  );
   protected readonly openYears = signal<ReadonlySet<number>>(new Set([new Date().getFullYear()]));
 
   protected readonly chart = computed<EChartsOption>(() => {

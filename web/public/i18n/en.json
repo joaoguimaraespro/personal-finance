@@ -1205,6 +1205,8 @@
   }
  },
  "loans": {
+  "chargesColumn": "Charges",
+  "chargesHint": "Commission, stamp duty and insurance collected with the instalment",
   "charges": "charges",
   "chargesTitle": "Charged with each instalment",
   "monthlyFee": "Processing commission (€/month)",

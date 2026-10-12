@@ -1205,6 +1205,8 @@
   }
  },
  "loans": {
+  "chargesColumn": "Encargos",
+  "chargesHint": "Comissão, Imposto do Selo e seguro cobrados com a prestação",
   "charges": "encargos",
   "chargesTitle": "Cobrado com cada prestação",
   "monthlyFee": "Comissão de processamento (€/mês)",
