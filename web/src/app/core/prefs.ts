@@ -96,6 +96,11 @@ export class Prefs {
         ),
       formatMonth: (m) => month(m, 'short'),
       months: () => months as never,
+      // Year dropdown: far enough back for old purchases and loans, forward for a loan's last instalment.
+      years: () => {
+        const now = new Date().getFullYear();
+        return Array.from({ length: 81 }, (_, i) => now - 50 + i);
+      },
       firstDayOfWeek: () => 1,
       labelPrevious: () => (pt ? 'Mês anterior' : 'Previous month'),
       labelNext: () => (pt ? 'Mês seguinte' : 'Next month'),
