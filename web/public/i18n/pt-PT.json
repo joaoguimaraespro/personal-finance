@@ -636,6 +636,7 @@
    "held": "Na conta {{held}} · o histórico explica {{tracked}}",
    "unknown": "Sem histórico: o preço da primeira sincronização fica como custo.",
    "mismatch": "O histórico não explica todas as moedas que tens: o preço médio vem da parte que explica.",
+   "notReady": "O histórico completo é lido na próxima sincronização (a primeira demora alguns minutos). Sincroniza e volta a abrir.",
    "atAverage": "ao preço médio",
    "kind": {
     "trade": "Trades spot",

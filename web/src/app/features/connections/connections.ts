@@ -6,6 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -822,7 +823,12 @@ export class ConnectionsComponent implements OnDestroy {
     try {
       this.cost.set(await firstValueFrom(this.api.costBreakdown(c.id)));
     } catch (err) {
-      this.toasts.error(err);
+      // 409: the whole history is read once by a sync first.
+      if (err instanceof HttpErrorResponse && err.status === 409) {
+        this.toasts.show(this.i18n.instant('connections.cost.notReady'), 'info', undefined, 8000);
+      } else {
+        this.toasts.error(err);
+      }
     } finally {
       this.costLoading.set(false);
     }
