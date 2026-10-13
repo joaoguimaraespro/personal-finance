@@ -47,10 +47,10 @@ internal sealed record BinanceFiatOrder(string OrderNo, string FiatCurrency, dec
 
 /// <summary>
 /// Crypto bought directly with fiat (card, bank): <c>sourceAmount</c> of <c>fiatCurrency</c> paid in for
-/// <c>obtainAmount</c> of <c>cryptoCurrency</c>.
+/// <c>obtainAmount</c> of <c>cryptoCurrency</c>; <c>totalFee</c> (in the fiat currency) is part of what was paid.
 /// </summary>
 internal sealed record BinanceFiatPayment(string OrderNo, string FiatCurrency, decimal SourceAmount,
-    string? CryptoCurrency, string? Status, long CreateTime, decimal ObtainAmount = 0);
+    string? CryptoCurrency, string? Status, long CreateTime, decimal ObtainAmount = 0, decimal TotalFee = 0);
 
 /// <summary>A Convert order: <c>fromAmount</c> of <c>fromAsset</c> swapped for <c>toAmount</c> of <c>toAsset</c>.</summary>
 internal sealed record BinanceConversion(string? OrderStatus, string FromAsset, decimal FromAmount, string ToAsset,

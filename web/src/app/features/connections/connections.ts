@@ -12,7 +12,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { DateTimePipe, DayPipe, MoneyPipe } from '../../core/format';
+import { DateTimePipe, DayPipe, MoneyPipe, PricePipe } from '../../core/format';
 import { Broker, Connection, CostBreakdown, ProviderInfo, SyncJob } from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
@@ -53,6 +53,7 @@ type CredentialField = ProviderInfo['fields'][number];
     BrokerLogoComponent,
     HlmSkeletonImports,
     MoneyPipe,
+    PricePipe,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -506,8 +507,8 @@ type CredentialField = ProviderInfo['fields'][number];
               <span class="font-semibold">{{ b.asset }}</span>
               <span class="num text-xs">
                 {{ 'connections.cost.average' | translate }}
-                <strong>{{ b.averageCost === null ? '—' : (b.averageCost | money) }}</strong>
-                · {{ 'connections.cost.price' | translate }} {{ b.eurPrice | money }}
+                <strong>{{ b.averageCost === null ? '—' : (b.averageCost | price: 'EUR') }}</strong>
+                · {{ 'connections.cost.price' | translate }} {{ b.eurPrice | price: 'EUR' }}
               </span>
             </div>
             <p class="num text-muted-foreground mt-1 text-xs">
@@ -518,7 +519,7 @@ type CredentialField = ProviderInfo['fields'][number];
             @if (b.gain !== null && b.gain !== undefined) {
               <p class="num mt-1 text-xs">
                 {{ 'connections.cost.used' | translate }}
-                <strong>{{ b.storedAverage ?? 0 | money }}</strong> ·
+                <strong>{{ b.storedAverage ?? 0 | price: 'EUR' }}</strong> ·
                 {{ 'connections.cost.gain' | translate }}
                 <strong [class]="b.gain < 0 ? 'tone-neg' : b.gain > 0 ? 'tone-pos' : ''">{{
                   b.gain | money: 'EUR' : true

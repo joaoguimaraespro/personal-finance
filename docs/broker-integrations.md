@@ -190,7 +190,7 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
   line (coins have no ISIN, so the symbol identifies them).
 - **Cost.** As Binance's own *cost price*: the EUR average of everything that brought a coin in over the account's
   whole history — fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), card/bank
-  purchases (what was paid), Convert orders (the EUR value of what was given), Earn rewards and coins received from
+  purchases (the coins' price; the card fee is not part of it), Convert orders (the EUR value of what was given), Earn rewards and coins received from
   another wallet (worth that day's close). Coins converted away, sold or sent out do not change it. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
   Convert and withdrawal histories weigh 3,000 and 18,000 of Binance's 180,000 per minute and are spaced out — and
   keeps the settled movements with the connection (rewards merged per coin and month); later syncs read only the days

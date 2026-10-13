@@ -144,9 +144,11 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
         var (fromMs, toMs) = (from.ToUnixTimeMilliseconds(), to.ToUnixTimeMilliseconds());
         foreach (var p in await PaymentsAsync(ct))
         {
+            // Like Binance's cost price, a card purchase costs the coins' price: the card fee is not part of it.
+            var price = p.TotalFee > 0 && p.TotalFee < p.SourceAmount ? p.SourceAmount - p.TotalFee : p.SourceAmount;
             if (p.CreateTime >= fromMs && p.CreateTime < toMs && IsDone(p.Status) && p.ObtainAmount > 0 &&
                 p.CryptoCurrency is { } coin &&
-                await EurValueAsync(p.FiatCurrency, p.SourceAmount, p.CreateTime, h, ct) is { } paid)
+                await EurValueAsync(p.FiatCurrency, price, p.CreateTime, h, ct) is { } paid)
             {
                 events.Add((coin, CostEvent.In(p.CreateTime, p.ObtainAmount, paid, "card")));
             }
