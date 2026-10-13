@@ -104,6 +104,22 @@ public sealed class Trading212Tests
     }
 
     [Fact]
+    public async Task Money_moved_to_another_pot_is_a_withdrawal_not_a_loss()
+    {
+        var (provider, _) = Provider(h => h.Replace($"{Api}/history/transactions", """
+            {"items":[{"amount":-80,"currency":"EUR","dateTime":"2026-09-02T09:00:00Z","reference":"x1","type":"TRANSFER"},
+                      {"amount":15,"currency":"EUR","dateTime":"2026-09-20T09:00:00Z","reference":"x2","type":"TRANSFER"}],
+             "nextPagePath":null}
+            """));
+
+        var cash = (await provider.GetTransactionsAsync(null, CancellationToken.None))
+            .Where(t => t.Cash is not null).Select(t => t.Cash!).ToList();
+
+        cash.Select(c => (c.Type, c.Amount)).ShouldBe(
+            [(CashMovementType.Withdrawal, -80m), (CashMovementType.Deposit, 15m)], ignoreOrder: true);
+    }
+
+    [Fact]
     public async Task Follows_pagination_and_keeps_only_executed_trades()
     {
         var (provider, _) = Provider();

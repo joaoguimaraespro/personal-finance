@@ -19,7 +19,10 @@ public static class TransactionReferences
             return Error.Validation("Transaction.Account", "Account does not exist or is archived.");
         }
 
-        if (!account.IsManual)
+        // A broker account's own records come from its sync. The one entry it may take by hand is money moved out of
+        // it into an account of yours (a broker's spending pot or card, the bank): the broker's value already shows
+        // it left, and broker accounts are valued from the portfolio, never from the ledger.
+        if (!account.IsManual && draft.Type != TransactionType.Transfer)
         {
             return Error.Validation("Transaction.Account", "Broker accounts are read-only.");
         }

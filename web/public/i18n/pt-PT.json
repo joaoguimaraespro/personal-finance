@@ -414,6 +414,8 @@
   }
  },
  "categories": {
+  "cashback": "Cashback",
+  "benefits": "Benefícios (cartão refeição, Coverflex)",
   "new": "Nova categoria",
   "custom": "Personalizada",
   "expenses": "Categorias de despesa",
