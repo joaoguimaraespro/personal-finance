@@ -44,6 +44,10 @@ public sealed class CreateConnectionValidator : AbstractValidator<CreateConnecti
     }
 }
 
+/// <summary>A coin's cost as rebuilt from history, with the cost its position carries and its gain.</summary>
+public sealed record CostBreakdownDto(string Asset, decimal Held, decimal Tracked, decimal? AverageCost,
+    decimal EurPrice, IReadOnlyList<CostSourceLine> Sources, decimal? StoredAverage, decimal? Gain);
+
 public static class IntegrationEndpoints
 {
     public static readonly IReadOnlyList<ProviderInfo> Providers =
@@ -154,7 +158,8 @@ public static class IntegrationEndpoints
 
         // How each coin's cost was rebuilt, read live from the broker (read-only) so the owner can check it.
         group.MapGet("/connections/{id:guid}/cost-breakdown", async (Guid id, IIntegrationsDb db,
-            IInvestmentProviderFactory providers, ICredentialProtector credentials, CancellationToken ct) =>
+            IInvestmentProviderFactory providers, ICredentialProtector credentials,
+            Investments.Application.Abstractions.IInvestmentsDb investments, CancellationToken ct) =>
         {
             var connection = await db.Connections.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
             if (connection is null)
@@ -184,7 +189,23 @@ public static class IntegrationEndpoints
                     kept.HistoryState = connection.HistoryState;
                 }
 
-                return Results.Ok(await breakdown.GetCostBreakdownAsync(ct));
+                // Next to what the history explains: the cost the position really carries (a coin without history
+                // keeps its first sync's price) and the resulting gain, so the account's return can be checked coin by
+                // coin.
+                var stored = await (
+                        from p in investments.Positions.AsNoTracking()
+                        join s in investments.Securities.AsNoTracking() on p.SecurityId equals s.Id
+                        where p.AccountId == connection.AccountId
+                        select new { s.Symbol, p.Quantity, p.AveragePrice, p.LastPrice })
+                    .ToListAsync(ct);
+                return Results.Ok((await breakdown.GetCostBreakdownAsync(ct)).Select(b =>
+                {
+                    var position = stored.FirstOrDefault(p =>
+                        string.Equals(p.Symbol, b.Asset, StringComparison.OrdinalIgnoreCase));
+                    return new CostBreakdownDto(b.Asset, b.Held, b.Tracked, b.AverageCost, b.EurPrice, b.Sources,
+                        position?.AveragePrice,
+                        position is null ? null : decimal.Round(position.Quantity * (position.LastPrice - position.AveragePrice), 2));
+                }).OrderBy(b => b.Gain ?? 0).ToList());
             }
             catch (Exception e) when (e is ProviderConfigurationException or ProviderUnavailableException)
             {

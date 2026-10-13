@@ -560,6 +560,8 @@
   "OtherDebt": "Other debt"
  },
  "portfolio": {
+  "gainOnCost": "Gain over cost",
+  "gainOnCostHint": "What the coins are worth now minus what they cost (moving average cost from the exchange's history), as a percentage of that cost. Coins sent to other wallets leave at their cost.",
   "readOnly": "Read-only data from your brokers",
   "lastSync": "last sync",
   "empty": "No investments yet. Connect a broker or add crypto you hold elsewhere.",
@@ -650,6 +652,9 @@
    "unknown": "No history found: the price of the first sync is kept as the cost.",
    "mismatch": "The history does not explain all the coins held: the average comes from the part it explains.",
    "notReady": "The full history is read on the next sync (the first one takes a few minutes). Sync, then open this again.",
+   "used": "Cost used",
+   "gain": "gain",
+   "total": "Gain of all coins over their cost:",
    "atAverage": "at average",
    "kind": {
     "trade": "Spot trades",
