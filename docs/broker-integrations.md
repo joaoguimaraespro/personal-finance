@@ -188,10 +188,12 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
   price (the EUR pair, else the USDT/USDC/FDUSD pair converted with EURUSDT). EUR balances are the account's cash.
   Coins Binance cannot price in EUR or dollars are skipped. A coin held both on Binance and by hand is one position
   line (coins have no ISIN, so the symbol identifies them).
-- **Cost.** As Binance's own *cost price*: the EUR average of everything that brought a coin in over the account's
-  whole history — fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), card/bank
-  purchases (the coins' price; the card fee is not part of it), Convert orders (the EUR value of what was given), Earn rewards and coins received from
-  another wallet (worth that day's close). Coins converted away, sold or sent out do not change it. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
+- **Cost.** As Binance's wallet *average cost*: the average **market price** of a coin when it came in, weighted by
+  how much came in, over the account's whole history. Spot fills count at their own price (dollars converted at that
+  day's EURUSDT close); purchases with the Buy button, Convert orders, Earn rewards and coins received from another
+  wallet count at that day's close — not at what was paid, which adds a purchase fee and a spread (*Cost details*
+  shows what was paid next to it). Coins converted away, sold or sent out do not change it. Binance itself only
+  counts movements since August 2021 and lets the owner edit the figure, so small differences remain possible. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
   Convert and withdrawal histories weigh 3,000 and 18,000 of Binance's 180,000 per minute and are spaced out — and
   keeps the settled movements with the connection (rewards merged per coin and month); later syncs read only the days
   since. A coin with no history keeps the price of its first sync as its cost. *Connections → Binance → Cost details*

@@ -62,7 +62,8 @@ public sealed record CostBreakdown(string Asset, decimal Held, decimal Tracked, 
 /// <param name="Kind">trade, card, convert, reward, received, sent.</param>
 /// <param name="Quantity">Coins in (positive) or out (negative).</param>
 /// <param name="EurValue">What the coins in were counted at; 0 for coins out (they leave at the average).</param>
-public sealed record CostSourceLine(string Kind, int Count, decimal Quantity, decimal EurValue);
+/// <param name="Paid">What was actually paid for these coins (card purchases, Convert), when known.</param>
+public sealed record CostSourceLine(string Kind, int Count, decimal Quantity, decimal EurValue, decimal? Paid = null);
 
 /// <summary>
 /// A provider that keeps what it has read between syncs (e.g. a long history it reads only once). The sync sets

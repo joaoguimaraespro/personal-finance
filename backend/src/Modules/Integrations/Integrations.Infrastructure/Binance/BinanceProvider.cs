@@ -77,7 +77,8 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
             var (tracked, _) = BinanceValuation.Replay(list);
             var sources = list.GroupBy(e => (e.Kind, In: e.Quantity > 0))
                 .Select(g => new CostSourceLine(g.Key.Kind, g.Count(), g.Sum(e => e.Quantity),
-                    decimal.Round(g.Sum(e => e.EurValue), 2)))
+                    decimal.Round(g.Sum(e => e.EurValue), 2),
+                    g.Any(e => e.Paid is not null) ? decimal.Round(g.Sum(e => e.Paid ?? e.EurValue), 2) : null))
                 .OrderBy(l => l.Kind, StringComparer.Ordinal).ThenByDescending(l => l.Quantity)
                 .ToList();
             return new CostBreakdown(c.Asset, c.Quantity, tracked, BinanceValuation.AverageCost(list), c.EurPrice,
@@ -142,15 +143,23 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
     {
         var events = new List<(string, CostEvent)>();
         var (fromMs, toMs) = (from.ToUnixTimeMilliseconds(), to.ToUnixTimeMilliseconds());
+        // Like Binance's average cost, coins coming in cost their market price that day (the day's close), not what
+        // was paid: a purchase with the Buy button pays a fee and a spread on top, which Binance leaves out. Without
+        // a close, the amount paid less the purchase fee stands in.
         foreach (var p in await PaymentsAsync(ct))
         {
-            // Like Binance's cost price, a card purchase costs the coins' price: the card fee is not part of it.
-            var price = p.TotalFee > 0 && p.TotalFee < p.SourceAmount ? p.SourceAmount - p.TotalFee : p.SourceAmount;
-            if (p.CreateTime >= fromMs && p.CreateTime < toMs && IsDone(p.Status) && p.ObtainAmount > 0 &&
-                p.CryptoCurrency is { } coin &&
-                await EurValueAsync(p.FiatCurrency, price, p.CreateTime, h, ct) is { } paid)
+            if (p.CreateTime < fromMs || p.CreateTime >= toMs || !IsDone(p.Status) || p.ObtainAmount <= 0 ||
+                p.CryptoCurrency is not { } coin)
             {
-                events.Add((coin, CostEvent.In(p.CreateTime, p.ObtainAmount, paid, "card")));
+                continue;
+            }
+
+            var paid = await EurValueAsync(p.FiatCurrency, p.SourceAmount, p.CreateTime, h, ct);
+            var net = p.TotalFee > 0 && p.TotalFee < p.SourceAmount ? p.SourceAmount - p.TotalFee : p.SourceAmount;
+            if ((await EurValueAsync(coin, p.ObtainAmount, p.CreateTime, h, ct) ??
+                 await EurValueAsync(p.FiatCurrency, net, p.CreateTime, h, ct)) is { } market)
+            {
+                events.Add((coin, CostEvent.In(p.CreateTime, p.ObtainAmount, market, "card", paid)));
             }
         }
 
@@ -164,11 +173,12 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
                 }
 
                 events.Add((x.FromAsset, CostEvent.Out(x.CreateTime, x.FromAmount, "convert")));
-                // What was given is the price paid; a coin Binance cannot value is priced by what was received.
-                if ((await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct) ??
-                     await EurValueAsync(x.ToAsset, x.ToAmount, x.CreateTime, h, ct)) is { } value)
+                // The coins received at their market price that day; what was given is what was paid (and stands in
+                // for a coin without a price).
+                var given = await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct);
+                if ((await EurValueAsync(x.ToAsset, x.ToAmount, x.CreateTime, h, ct) ?? given) is { } value)
                 {
-                    events.Add((x.ToAsset, CostEvent.In(x.CreateTime, x.ToAmount, value, "convert")));
+                    events.Add((x.ToAsset, CostEvent.In(x.CreateTime, x.ToAmount, value, "convert", given)));
                 }
             }
         }
