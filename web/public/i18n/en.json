@@ -651,7 +651,7 @@
   "cost": {
    "open": "Cost details",
    "title": "How each coin's cost is calculated",
-   "intro": "Read live from Binance (read-only). Coins coming in add what they cost (or were worth that day); coins going out do not change the average (as Binance's cost price).",
+   "intro": "Read live from Binance (read-only). Like Binance's average cost, coins coming in cost their market price that day — not what was paid (the Buy button adds a fee and a spread) — and coins going out do not change it.",
    "average": "Average cost",
    "price": "price",
    "held": "Held {{held}} · history explains {{tracked}}",
@@ -661,6 +661,7 @@
    "used": "Cost used",
    "gain": "gain",
    "total": "Gain of all coins over their cost:",
+   "paid": "paid {{amount}}",
    "atAverage": "at average",
    "kind": {
     "trade": "Spot trades",

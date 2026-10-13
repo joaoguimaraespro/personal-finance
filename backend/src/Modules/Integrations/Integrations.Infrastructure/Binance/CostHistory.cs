@@ -9,12 +9,12 @@ namespace Integrations.Infrastructure.Binance;
 /// </summary>
 internal sealed class CostHistory
 {
-    private sealed record Row(string A, string K, long T, decimal Q, decimal V);
+    private sealed record Row(string A, string K, long T, decimal Q, decimal V, decimal? P = null);
 
     private sealed record Stored(int V, long Through, List<Row> Events);
 
-    /// <summary>Raised when what is kept changes meaning (2: card purchases without the card fee): read again.</summary>
-    private const int Version = 2;
+    /// <summary>Raised when what is kept changes meaning (3: coins in at their market price): read again.</summary>
+    private const int Version = 3;
 
     private CostHistory(long through, List<(string Asset, CostEvent Event)> events)
     {
@@ -39,7 +39,7 @@ internal sealed class CostHistory
             var stored = JsonSerializer.Deserialize<Stored>(json);
             return stored is { V: Version }
                 ? new CostHistory(stored.Through,
-                    stored.Events.Select(r => (r.A, new CostEvent(r.T, r.Q, r.V, r.K))).ToList())
+                    stored.Events.Select(r => (r.A, new CostEvent(r.T, r.Q, r.V, r.K, r.P))).ToList())
                 : empty;
         }
         catch (JsonException)
@@ -60,5 +60,6 @@ internal sealed class CostHistory
     }
 
     public string ToJson() => JsonSerializer.Serialize(new Stored(Version, Through,
-        Events.Select(e => new Row(e.Asset, e.Event.Kind, e.Event.Time, e.Event.Quantity, e.Event.EurValue)).ToList()));
+        Events.Select(e => new Row(e.Asset, e.Event.Kind, e.Event.Time, e.Event.Quantity, e.Event.EurValue,
+            e.Event.Paid)).ToList()));
 }

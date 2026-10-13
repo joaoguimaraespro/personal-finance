@@ -328,6 +328,32 @@ public sealed class BinanceTests
     }
 
     [Fact]
+    public async Task A_purchase_costs_the_market_price_that_day_and_the_amount_paid_is_shown_beside_it()
+    {
+        // 0.001 BTC bought with the Buy button on 20 September for 70 EUR (1.50 fee + spread); BTC closed at 58,000.
+        var (provider, http) = Provider();
+        http.Replace("/api/v3/account", """{"balances":[{"asset":"BTC","free":"0.001","locked":"0"}]}""")
+            .Replace("/sapi/v1/simple-earn/flexible/position", Empty)
+            .Replace("/sapi/v1/simple-earn/locked/position", Empty)
+            .Replace("/api/v3/myTrades?symbol=BTCEUR", "[]")
+            .Replace("/api/v3/myTrades?symbol=BTCUSDT", "[]")
+            .Replace("/sapi/v1/simple-earn/flexible/history/rewardsRecord?type=REALTIME", Empty)
+            .Replace("/sapi/v1/simple-earn/locked/history/rewardsRecord", Empty)
+            .Replace("/sapi/v1/fiat/payments", $$"""
+                {"code":"000000","data":[
+                 {"orderNo":"B1","sourceAmount":"70","totalFee":"1.50","fiatCurrency":"EUR","obtainAmount":"0.001","cryptoCurrency":"BTC","status":"Completed","paymentMethod":"Cash Balance","createTime":{{Ms(9, 20) + 3_600_000}}}],
+                 "total":1}
+                """);
+
+        var btc = (await provider.GetCostBreakdownAsync(CancellationToken.None)).Single();
+
+        btc.AverageCost.ShouldBe(58_000m); // the market price, as Binance's average cost
+        var card = btc.Sources.Single(l => l.Kind == "card");
+        card.EurValue.ShouldBe(58m);
+        card.Paid.ShouldBe(70m);
+    }
+
+    [Fact]
     public async Task The_cost_breakdown_shows_each_kind_of_movement()
     {
         var (provider, http) = Provider();
