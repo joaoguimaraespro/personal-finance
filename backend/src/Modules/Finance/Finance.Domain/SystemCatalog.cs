@@ -48,6 +48,8 @@ public static class SystemCatalog
         ("freelance", "Freelance", CategoryType.Income, null, null, "#16a34a", "laptop"),
         ("interest", "Interest", CategoryType.Income, null, null, "#16a34a", "percent"),
         ("dividends", "Dividends", CategoryType.Income, null, null, "#16a34a", "trending-up"),
+        ("cashback", "Cashback", CategoryType.Income, null, null, "#16a34a", "percent"),
+        ("benefits", "Benefits", CategoryType.Income, null, null, "#16a34a", "briefcase"),
         ("other-income", "Other Income", CategoryType.Income, null, null, "#16a34a", "plus"),
     ];
 

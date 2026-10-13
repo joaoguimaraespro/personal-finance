@@ -600,8 +600,12 @@ export class QuickAddComponent {
       ...this.bucketOptions().map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
     ];
   });
+  /** A transfer may also start at a broker account (money moved to its card's spending pot, or to the bank). */
   protected readonly accountOptions = computed<SelectOption[]>(() =>
-    this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
+    (this.type() === 'Transfer'
+      ? (this.accounts.value() ?? []).filter((a) => !a.archived)
+      : this.manualAccounts()
+    ).map((a) => ({ value: a.id, label: a.name })),
   );
   protected readonly counterAccountOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();

@@ -414,6 +414,8 @@
   }
  },
  "categories": {
+  "cashback": "Cashback",
+  "benefits": "Benefits (meal card, flexible benefits)",
   "new": "New category",
   "custom": "Custom",
   "expenses": "Expense categories",
