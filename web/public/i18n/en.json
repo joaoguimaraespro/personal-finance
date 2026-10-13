@@ -651,7 +651,7 @@
   "cost": {
    "open": "Cost details",
    "title": "How each coin's cost is calculated",
-   "intro": "Read live from Binance (read-only). Like Binance's average cost, coins coming in cost their market price that day — not what was paid (the Buy button adds a fee and a spread) — and coins going out do not change it.",
+   "intro": "Read live from Binance (read-only). Like Binance's average cost, coins coming in cost their market price that day — not what was paid (the Buy button adds a fee and a spread) — and coins going out do not change it. The cost is kept in dollars and shown in euros at today's rate, as Binance does; gains use the price right now.",
    "average": "Average cost",
    "price": "price",
    "held": "Held {{held}} · history explains {{tracked}}",

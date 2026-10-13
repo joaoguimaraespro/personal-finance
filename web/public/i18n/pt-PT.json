@@ -651,7 +651,7 @@
   "cost": {
    "open": "Ver custo",
    "title": "Como é calculado o custo de cada moeda",
-   "intro": "Lido agora da Binance (só leitura). Como o custo médio da Binance, as moedas que entram contam pelo preço de mercado desse dia — não pelo que pagaste (o botão Comprar soma uma taxa e um spread) — e as que saem não mudam o custo.",
+   "intro": "Lido agora da Binance (só leitura). Como o custo médio da Binance, as moedas que entram contam pelo preço de mercado desse dia — não pelo que pagaste (o botão Comprar soma uma taxa e um spread) — e as que saem não mudam o custo. O custo é guardado em dólares e mostrado em euros à taxa de hoje, como faz a Binance; o ganho usa o preço deste momento.",
    "average": "Custo médio",
    "price": "preço",
    "held": "Na conta {{held}} · o histórico explica {{tracked}}",

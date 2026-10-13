@@ -192,7 +192,8 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
   how much came in, over the account's whole history. Spot fills count at their own price (dollars converted at that
   day's EURUSDT close); purchases with the Buy button, Convert orders, Earn rewards and coins received from another
   wallet count at that day's close — not at what was paid, which adds a purchase fee and a spread (*Cost details*
-  shows what was paid next to it). Coins converted away, sold or sent out do not change it. Binance itself only
+  shows what was paid next to it). Coins converted away, sold or sent out do not change it. Like Binance, the cost is kept in
+  dollars (each day's EURUSDT close) and shown in euros at today's rate. Binance itself only
   counts movements since August 2021 and lets the owner edit the figure, so small differences remain possible. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
   Convert and withdrawal histories weigh 3,000 and 18,000 of Binance's 180,000 per minute and are spaced out — and
   keeps the settled movements with the connection (rewards merged per coin and month); later syncs read only the days
