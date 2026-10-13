@@ -493,6 +493,12 @@ type CredentialField = ProviderInfo['fields'][number];
       (closed)="cost.set(null)"
     >
       <p class="text-muted-foreground mb-3 text-sm">{{ 'connections.cost.intro' | translate }}</p>
+      @if (costGain(); as g) {
+        <p class="num mb-3 text-sm">
+          {{ 'connections.cost.total' | translate }}
+          <strong [class]="g < 0 ? 'tone-neg' : 'tone-pos'">{{ g | money: 'EUR' : true }}</strong>
+        </p>
+      }
       <ul class="space-y-3">
         @for (b of cost() ?? []; track b.asset) {
           <li class="rounded-xl border border-border p-3 text-sm" [attr.data-coin]="b.asset">
@@ -509,6 +515,16 @@ type CredentialField = ProviderInfo['fields'][number];
                 'connections.cost.held' | translate: { held: qty(b.held), tracked: qty(b.tracked) }
               }}
             </p>
+            @if (b.gain !== null && b.gain !== undefined) {
+              <p class="num mt-1 text-xs">
+                {{ 'connections.cost.used' | translate }}
+                <strong>{{ b.storedAverage ?? 0 | money }}</strong> ·
+                {{ 'connections.cost.gain' | translate }}
+                <strong [class]="b.gain < 0 ? 'tone-neg' : b.gain > 0 ? 'tone-pos' : ''">{{
+                  b.gain | money: 'EUR' : true
+                }}</strong>
+              </p>
+            }
             @if (b.averageCost === null) {
               <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
                 {{ 'connections.cost.unknown' | translate }}
@@ -816,6 +832,10 @@ export class ConnectionsComponent implements OnDestroy {
 
   protected readonly cost = signal<CostBreakdown[] | null>(null);
   protected readonly costLoading = signal(false);
+  /** Sum of every coin's gain over the cost its position carries: the wallet's "gain over cost". */
+  protected readonly costGain = computed(() =>
+    (this.cost() ?? []).reduce((sum, b) => sum + (b.gain ?? 0), 0),
+  );
 
   /** Reads the history live from Binance (read-only), so it can take a few seconds. */
   protected async showCost(c: Connection) {

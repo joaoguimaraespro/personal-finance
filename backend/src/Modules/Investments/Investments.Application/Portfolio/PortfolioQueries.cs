@@ -86,8 +86,10 @@ public sealed record PortfolioSummary(
 /// or the first value when history begins later (<see cref="Partial"/>).</param>
 /// <param name="Partial">History starts inside the period, so the return covers less than the period.</param>
 /// <param name="TimeWeighted">True when <see cref="Percent"/> is a time-weighted return.</param>
+/// <param name="CostBased">The holdings' gain over their cost (crypto wallets), not a return since a date: there is no
+/// <see cref="From"/>, since the money that went in is not known.</param>
 public sealed record PeriodReturn(string Period, decimal? Gain, decimal? Percent, DateOnly? From, bool Partial,
-    bool TimeWeighted);
+    bool TimeWeighted, bool CostBased = false);
 
 /// <summary>One account ("wallet") of the summary, with enough to draw its card without a scoped request.</summary>
 /// <param name="TotalReturn">Value minus net contributions of this account, as the summary computes it.</param>
@@ -265,7 +267,10 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         var invested = totals.Sum(Invested);
         var totalReturnPercent = invested > 0 ? decimal.Round(totalReturn / invested, 6) : (decimal?)null;
         DateOnly? firstDay = since.Count == 0 ? null : since.Values.Min();
-        var periodReturn = new PeriodReturn("ALL", totalReturn, totalReturnPercent, firstDay, false, false);
+        // Only crypto wallets (gain over cost): say so instead of a "since" date that is just the first sync's window.
+        var costBased = totals.Count > 0 && totals.All(t => t.PeriodReturn?.CostBased == true);
+        var periodReturn = new PeriodReturn("ALL", totalReturn, totalReturnPercent, costBased ? null : firstDay, false,
+            false, costBased);
 
         if (period != ReturnPeriod.All)
         {
@@ -312,7 +317,9 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         var percent = invested > 0 ? decimal.Round(gain / invested, 6) : (decimal?)null;
         return new AccountTotal(account.Id, account.Name, account.Broker, marketValue, cash, contributions,
             gain, percent, day, DayChange.Percent(day, marketValue), holdings.Count, since,
-            new PeriodReturn("ALL", gain, percent, since, false, false),
+            byCost
+                ? new PeriodReturn("ALL", gain, percent, null, false, false, CostBased: true)
+                : new PeriodReturn("ALL", gain, percent, since, false, false),
             DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
     }
 
