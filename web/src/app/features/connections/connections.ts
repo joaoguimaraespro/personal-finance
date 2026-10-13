@@ -554,6 +554,11 @@ type CredentialField = ProviderInfo['fields'][number];
                             : ('connections.cost.atAverage' | translate)
                         }}
                       </td>
+                      <td class="py-1 pl-2 text-right text-xs text-muted-foreground">
+                        @if (l.paid != null && l.quantity > 0 && differs(l.paid, l.eurValue)) {
+                          {{ 'connections.cost.paid' | translate: { amount: (l.paid | money) } }}
+                        }
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -854,6 +859,10 @@ export class ConnectionsComponent implements OnDestroy {
       this.costLoading.set(false);
     }
   }
+
+  /** Paid and market value apart by more than half a percent: worth showing both. */
+  protected differs = (paid: number, value: number) =>
+    Math.abs(paid - value) > Math.abs(value) * 0.005;
 
   protected qty = (n: number) =>
     new Intl.NumberFormat(this.i18n.currentLang() ?? undefined, {

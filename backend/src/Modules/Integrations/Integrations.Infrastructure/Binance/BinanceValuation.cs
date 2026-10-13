@@ -162,10 +162,13 @@ internal static class BinanceValuation
 }
 
 /// <summary>Coins of one asset coming in (positive quantity, worth <c>EurValue</c>) or going out (negative).</summary>
-internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue, string Kind = "")
+/// <remarks><c>Paid</c>: what was actually paid for coins in (card purchases, Convert), when it differs from their
+/// market value; shown next to the cost so the two can be compared.</remarks>
+internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue, string Kind = "",
+    decimal? Paid = null)
 {
-    public static CostEvent In(long time, decimal quantity, decimal eurValue, string kind = "") =>
-        new(time, quantity, eurValue, kind);
+    public static CostEvent In(long time, decimal quantity, decimal eurValue, string kind = "", decimal? paid = null) =>
+        new(time, quantity, eurValue, kind, paid);
 
     public static CostEvent Out(long time, decimal quantity, string kind = "") => new(time, -quantity, 0, kind);
 }
