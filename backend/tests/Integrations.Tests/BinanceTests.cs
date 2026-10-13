@@ -83,7 +83,7 @@ public sealed class BinanceTests
             .On("/sapi/v1/fiat/orders?transactionType=1", FiatEmpty)
             .On("/sapi/v1/fiat/payments", $$"""
                 {"code":"000000","data":[
-                 {"orderNo":"P1","sourceAmount":"100.00","fiatCurrency":"EUR","obtainAmount":"0.0016","cryptoCurrency":"BTC","status":"Completed","createTime":{{Ms(9, 10)}}},
+                 {"orderNo":"P1","sourceAmount":"100.00","totalFee":"2.00","fiatCurrency":"EUR","obtainAmount":"0.0016","cryptoCurrency":"BTC","status":"Completed","createTime":{{Ms(9, 10)}}},
                  {"orderNo":"P2","sourceAmount":"80.00","fiatCurrency":"EUR","obtainAmount":"0.0012","cryptoCurrency":"BTC","status":"Failed","createTime":{{Ms(9, 11)}}}],"total":2}
                 """)
             .On("/sapi/v1/fiat/payments", FiatEmpty)
@@ -112,9 +112,9 @@ public sealed class BinanceTests
         btc.Quantity.ShouldBe(0.15m); // spot 0.1 + flexible 0.05; the LDBTC shadow row is not counted again
         btc.LastPrice.ShouldBe(60_000m);
         // As Binance shows it, the average of everything that came in (the sale does not change it): 0.1 bought for
-        // 5,000 EUR, 0.0016 by card for 100 EUR, an Earn reward of 0.0001 worth 5.80 EUR that day, then 0.05 for
-        // 3,300 USDT (3,000 EUR).
-        btc.AveragePrice.ShouldBe(decimal.Round((5_000m + 100m + 5.8m + 3_000m) / 0.1517m, 8));
+        // 5,000 EUR, 0.0016 by card for 100 EUR of which 2 EUR card fee (not part of the cost), an Earn reward of
+        // 0.0001 worth 5.80 EUR that day, then 0.05 for 3,300 USDT (3,000 EUR).
+        btc.AveragePrice.ShouldBe(decimal.Round((5_000m + 98m + 5.8m + 3_000m) / 0.1517m, 8));
         btc.CostKnown.ShouldBeTrue();
         btc.Security.AssetClass.ShouldBe(AssetClass.Crypto);
         btc.Security.Currency.ShouldBe("EUR");
