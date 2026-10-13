@@ -23,6 +23,7 @@ import {
   PeriodReturn,
   PortfolioSummary,
   PositionLine,
+  DividendSummary,
 } from '../../core/models';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
@@ -73,6 +74,9 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
  * Read-only view of broker data: nothing on this page can change a broker account. Coins held elsewhere (an
  * exchange account, a cold wallet) are entered by hand here and priced from public quotes.
  */
+/** A row of the recent-income table: one dividend, or one coin's exchange rewards of a month. */
+type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: number };
+
 @Component({
   selector: 'app-portfolio',
   imports: [
@@ -617,18 +621,28 @@ const CLASS_COLORS: Record<AssetClass, string> = ASSET_CLASS_COLORS;
                 </tr>
               </thead>
               <tbody hlmTBody>
-                @for (d of (dividends.value()?.items ?? []).slice(0, 10); track $index) {
+                @for (d of recentIncome(); track $index) {
                   <tr hlmTr>
-                    <td hlmTd class="text-muted-foreground">{{ d.paidOn | day: 'short' }}</td>
+                    <td hlmTd class="text-muted-foreground">
+                      {{ d.month ? monthLabel(d.paidOn) : (d.paidOn | day: 'short') }}
+                    </td>
                     <td hlmTd class="font-medium">
                       @if (d.broker === 'Manual') {
                         <app-coin-icon class="mr-1 align-[-3px]" [symbol]="d.symbol" [size]="16" />
                       }
                       {{ d.symbol }}
-                      @if (d.broker === 'Manual') {
+                      @if (d.broker === 'Manual' || d.broker === 'Binance') {
                         <span
                           class="badge ml-1 bg-emerald-500/10 !px-1.5 !py-0 text-[10px] text-emerald-700 dark:text-emerald-400"
-                          >{{ 'crypto.rewardBadge' | translate }}</span
+                          [title]="
+                            d.month
+                              ? ('crypto.rewardsMonthHint' | translate: { count: d.count })
+                              : ''
+                          "
+                          >{{
+                            (d.broker === 'Binance' ? 'crypto.earnBadge' : 'crypto.rewardBadge')
+                              | translate
+                          }}</span
                         >
                       }
                     </td>
@@ -759,7 +773,41 @@ export class PortfolioComponent {
         (this.manual.value()?.holdings ?? []).map((h) => [`${h.accountId}:${h.securityId}`, h]),
       ),
   );
-  protected readonly hasCrypto = computed(() => (this.manual.value()?.holdings.length ?? 0) > 0);
+  /** Coins in view (entered by hand, or an exchange such as Binance): their income is rewards, not only dividends. */
+  protected readonly hasCrypto = computed(
+    () =>
+      (this.manual.value()?.holdings.length ?? 0) > 0 ||
+      (this.positions.value() ?? []).some((p) => p.assetClass === 'Crypto'),
+  );
+
+  /**
+   * The latest income, newest first. Exchange rewards (Binance Earn pays every day, often fractions of a cent) are
+   * summed per coin and month, so the list shows what was earned instead of rows of 0.00.
+   */
+  protected readonly recentIncome = computed(() => {
+    const rows: RecentIncome[] = [];
+    const months = new Map<string, RecentIncome>();
+    for (const d of this.dividends.value()?.items ?? []) {
+      if (d.broker !== 'Binance') {
+        rows.push({ ...d, month: false, count: 1 });
+        continue;
+      }
+      const key = `${d.symbol}:${d.paidOn.slice(0, 7)}`;
+      const row = months.get(key);
+      if (row) {
+        row.gross += d.gross;
+        row.withholdingTax += d.withholdingTax;
+        row.net += d.net;
+        row.netBase += d.netBase;
+        row.count++;
+      } else {
+        const first: RecentIncome = { ...d, paidOn: d.paidOn.slice(0, 7), month: true, count: 1 };
+        months.set(key, first);
+        rows.push(first);
+      }
+    }
+    return rows.slice(0, 10);
+  });
   /** The holding being edited, re-read after every change so new rewards show up in the dialog. */
   protected readonly editing = computed(() => {
     const id = this.editingId();
@@ -771,6 +819,14 @@ export class PortfolioComponent {
     params: () => ({ v: this.events.version(), period: this.period() }),
     stream: ({ params }) => this.api.portfolioSummary({}, params.period),
   });
+  /** "out 2026": a month of summed rewards. */
+  protected monthLabel(period: string): string {
+    const [y, m] = period.split('-').map(Number);
+    return new Intl.DateTimeFormat(this.prefs.locale(), { month: 'short', year: 'numeric' }).format(
+      new Date(y, m - 1, 1),
+    );
+  }
+
   protected readonly selectedWallet = computed(() => {
     const id = this.walletId();
     return id ? (this.allAccounts.value()?.accounts.find((a) => a.accountId === id) ?? null) : null;

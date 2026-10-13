@@ -1077,6 +1077,8 @@
   "thisYearHint": "Juros depois da retenção na fonte, nos dias em que a app conhece esta conta e a taxa. Para incluir juros que o banco pagou antes, regista-os como receita na categoria Juros."
  },
  "crypto": {
+  "earnBadge": "Earn",
+  "rewardsMonthHint": "{{count}} recompensas neste mês, somadas",
   "addButton": "Adicionar cripto",
   "editButton": "Editar",
   "addTitle": "Adicionar cripto",
