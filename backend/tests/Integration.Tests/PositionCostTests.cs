@@ -90,11 +90,14 @@ public sealed class PositionCostTests(ApiFactory factory)
         wallet.GetProperty("totalReturn").GetDecimal().ShouldBe(100m); // 2 × (150 − 100), not 300 − 50
         wallet.GetProperty("totalReturnPercent").GetDecimal().ShouldBe(0.5m);
         wallet.GetProperty("periodReturn").GetProperty("percent").GetDecimal().ShouldBe(0.5m);
+        wallet.GetProperty("periodReturn").GetProperty("costBased").GetBoolean().ShouldBeTrue();
+        wallet.GetProperty("periodReturn").GetProperty("from").ValueKind.ShouldBe(JsonValueKind.Null);
         summary.GetProperty("totalReturn").GetDecimal().ShouldBe(
             summary.GetProperty("accounts").EnumerateArray().Sum(a => a.GetProperty("totalReturn").GetDecimal()));
         var scoped = await api.GetJsonAsync($"/api/portfolio/summary?accountId={accountId}");
         scoped.GetProperty("totalReturnPercent").GetDecimal().ShouldBe(0.5m);
         scoped.GetProperty("periodReturn").ValueKind.ShouldBe(JsonValueKind.Object);
+        scoped.GetProperty("periodReturn").GetProperty("costBased").GetBoolean().ShouldBeTrue();
     }
 
     [Fact]

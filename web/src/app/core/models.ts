@@ -582,6 +582,8 @@ export interface PeriodReturn {
   from: string | null;
   partial: boolean;
   timeWeighted: boolean;
+  /** Crypto wallets: the coins' gain over their cost, not a return since a date. */
+  costBased?: boolean;
 }
 
 export interface PortfolioSummary {
@@ -845,4 +847,8 @@ export interface CostBreakdown {
   averageCost: number | null;
   eurPrice: number;
   sources: { kind: string; count: number; quantity: number; eurValue: number }[];
+  /** The average cost the position carries (without history: the first sync's price). */
+  storedAverage?: number | null;
+  /** Value minus cost of the position, in EUR. */
+  gain?: number | null;
 }

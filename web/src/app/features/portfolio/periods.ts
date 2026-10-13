@@ -38,6 +38,9 @@ export function returnLabel(
   locale: string,
   periodName: (period: ReturnPeriod) => string = (p) => p,
 ): Label {
+  if (r?.costBased && r.period === 'ALL') {
+    return { key: 'portfolio.gainOnCost' };
+  }
   if (!r || r.period === 'ALL') {
     return r?.from
       ? { key: 'portfolio.returnSince', params: { date: monthYear(r.from, locale) } }
@@ -51,6 +54,7 @@ export function returnLabel(
 
 /** Explains how the figure is measured (shown as a tooltip). */
 export function returnHint(r: PeriodReturn | null | undefined): string {
+  if (r?.costBased && r.period === 'ALL') return 'portfolio.gainOnCostHint';
   return !r || !r.timeWeighted ? 'portfolio.returnAllHint' : 'portfolio.returnTwrHint';
 }
 
