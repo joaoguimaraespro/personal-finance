@@ -561,7 +561,7 @@
  },
  "portfolio": {
   "gainOnCost": "Gain over cost",
-  "gainOnCostHint": "What the coins are worth now minus what they cost (moving average cost from the exchange's history), as a percentage of that cost. Coins sent to other wallets leave at their cost.",
+  "gainOnCostHint": "What the coins are worth now minus what they cost, as a percentage of that cost. The cost is the exchange's own cost price: the average of every purchase and coin received.",
   "readOnly": "Read-only data from your brokers",
   "lastSync": "last sync",
   "empty": "No investments yet. Connect a broker or add crypto you hold elsewhere.",
@@ -645,7 +645,7 @@
   "cost": {
    "open": "Cost details",
    "title": "How each coin's cost is calculated",
-   "intro": "Read live from Binance (read-only). Coins coming in add what they cost (or were worth that day); coins going out leave at the average, which does not change.",
+   "intro": "Read live from Binance (read-only). Coins coming in add what they cost (or were worth that day); coins going out do not change the average (as Binance's cost price).",
    "average": "Average cost",
    "price": "price",
    "held": "Held {{held}} · history explains {{tracked}}",
