@@ -13,7 +13,8 @@ internal sealed class CostHistory
 
     private sealed record Stored(int V, long Through, List<Row> Events);
 
-    private const int Version = 1;
+    /// <summary>Raised when what is kept changes meaning (2: card purchases without the card fee): read again.</summary>
+    private const int Version = 2;
 
     private CostHistory(long through, List<(string Asset, CostEvent Event)> events)
     {
