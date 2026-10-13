@@ -8,8 +8,8 @@ namespace Integrations.Infrastructure.Binance;
 /// <summary>
 /// Binance (Spot + Simple Earn), read-only. Each coin is one position: spot balance plus flexible and locked Earn.
 /// Earn rewards are income, like dividends, valued in EUR at the day's close. Positions and prices are in EUR; the
-/// cost of a coin is a moving average over the account's whole history of everything that brought it in or took it
-/// out: fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins received or
+/// cost of a coin is, as Binance shows it, the average of everything that brought it in over the account's whole
+/// history (coins going out do not change it): fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins received or
 /// sent (valued at the day's close). The windowed histories are read once from <see cref="HistoryStart"/> and kept in
 /// <see cref="HistoryState"/>; later syncs read only what is new. A coin with no history keeps its first sync's price.
 /// </summary>

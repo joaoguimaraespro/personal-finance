@@ -111,9 +111,10 @@ public sealed class BinanceTests
         var btc = positions[0];
         btc.Quantity.ShouldBe(0.15m); // spot 0.1 + flexible 0.05; the LDBTC shadow row is not counted again
         btc.LastPrice.ShouldBe(60_000m);
-        // Moving average: 0.1 bought for 5,000 EUR and half sold (2,500 left), 0.0016 by card for 100 EUR, an Earn
-        // reward of 0.0001 worth 5.80 EUR that day, then 0.05 for 3,300 USDT (3,000 EUR).
-        btc.AveragePrice.ShouldBe(decimal.Round((2_500m + 100m + 5.8m + 3_000m) / 0.1017m, 8));
+        // As Binance shows it, the average of everything that came in (the sale does not change it): 0.1 bought for
+        // 5,000 EUR, 0.0016 by card for 100 EUR, an Earn reward of 0.0001 worth 5.80 EUR that day, then 0.05 for
+        // 3,300 USDT (3,000 EUR).
+        btc.AveragePrice.ShouldBe(decimal.Round((5_000m + 100m + 5.8m + 3_000m) / 0.1517m, 8));
         btc.CostKnown.ShouldBeTrue();
         btc.Security.AssetClass.ShouldBe(AssetClass.Crypto);
         btc.Security.Currency.ShouldBe("EUR");
@@ -251,7 +252,7 @@ public sealed class BinanceTests
         var positions = await provider.GetPositionsAsync(CancellationToken.None);
 
         var sol = positions.Single(p => p.Security.Symbol == "SOL");
-        sol.AveragePrice.ShouldBe(104m); // 500 for 5, 1 out (400 for 4), +120 for 1 (520 for 5), 3 out → 208 for 2
+        sol.AveragePrice.ShouldBe(103.33333333m); // 5 in for 500 and 1 received worth 120: 620 / 6
         sol.CostKnown.ShouldBeTrue();
         var ada = positions.Single(p => p.Security.Symbol == "ADA");
         ada.CostKnown.ShouldBeFalse(); // no history at all: the first synced price is kept as its cost
@@ -293,14 +294,14 @@ public sealed class BinanceTests
             .Replace("/sapi/v1/capital/withdraw/history", "[]");
         third.HistoryState = kept;
         (await third.GetPositionsAsync(CancellationToken.None)).Single(p => p.Security.Symbol == "SOL")
-            .AveragePrice.ShouldBe(104m);
+            .AveragePrice.ShouldBe(103.33333333m);
     }
 
     [Fact]
-    public async Task Old_coins_sent_away_and_bought_again_keep_a_blended_cost()
+    public async Task Old_purchases_count_even_after_coins_were_sent_away()
     {
         // 0.1 BTC bought by card in 2019 for 3,000 EUR, 0.08 sent to a cold wallet in 2021, 0.01 bought by card in
-        // 2026 for 600 EUR: the 0.03 left cost (0.02 × 30,000 + 600) / 0.03 = 40,000 EUR each.
+        // 2026 for 600 EUR: like Binance, the average of every purchase, (3,000 + 600) / 0.11.
         var (provider, http) = Provider();
         static long At(int y, int m) => new DateTimeOffset(y, m, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
         http.Replace("/api/v3/account", """{"balances":[{"asset":"BTC","free":"0.03","locked":"0"}]}""")
@@ -323,7 +324,7 @@ public sealed class BinanceTests
 
         var btc = (await provider.GetPositionsAsync(CancellationToken.None)).Single();
 
-        btc.AveragePrice.ShouldBe(40_000m);
+        btc.AveragePrice.ShouldBe(32_727.27272727m); // (3,000 + 600) / 0.11, like Binance's cost price
     }
 
     [Fact]
@@ -337,7 +338,7 @@ public sealed class BinanceTests
         var sol = breakdown.Single(b => b.Asset == "SOL");
         sol.Held.ShouldBe(2m);
         sol.Tracked.ShouldBe(2m);
-        sol.AverageCost.ShouldBe(104m);
+        sol.AverageCost.ShouldBe(103.33333333m);
         sol.Sources.Select(l => (l.Kind, l.Count, l.Quantity, l.EurValue)).ShouldBe(
         [
             ("convert", 1, 5m, 500m),
@@ -351,11 +352,11 @@ public sealed class BinanceTests
     }
 
     [Fact]
-    public void Coins_going_out_leave_at_the_average_and_the_average_is_unknown_without_coins_in()
+    public void The_average_is_of_everything_that_came_in_and_unknown_without_coins_in()
     {
         BinanceValuation.AverageCost([CostEvent.In(1, 2, 200), CostEvent.Out(2, 1), CostEvent.In(3, 1, 300)])
-            .ShouldBe(200m); // (100 left + 300) / 2
-        BinanceValuation.AverageCost([CostEvent.In(1, 1, 100), CostEvent.Out(2, 1)]).ShouldBeNull();
+            .ShouldBe(166.66666667m); // (200 + 300) / 3: what went out does not change it
+        BinanceValuation.AverageCost([CostEvent.In(1, 1, 100), CostEvent.Out(2, 1)]).ShouldBe(100m);
         BinanceValuation.AverageCost([CostEvent.Out(1, 1)]).ShouldBeNull();
     }
 
