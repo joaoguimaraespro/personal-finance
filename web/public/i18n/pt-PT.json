@@ -561,7 +561,7 @@
  },
  "portfolio": {
   "gainOnCost": "Ganho face ao custo",
-  "gainOnCostHint": "Quanto valem agora as moedas menos o que custaram (custo médio a partir do histórico da corretora), em percentagem desse custo. As moedas enviadas para outras carteiras saem ao seu custo.",
+  "gainOnCostHint": "Quanto valem agora as moedas menos o que custaram, em percentagem desse custo. O custo é o preço de custo da própria corretora: a média de todas as compras e moedas recebidas.",
   "readOnly": "Dados só de leitura das tuas corretoras",
   "lastSync": "última sincronização",
   "empty": "Ainda sem investimentos. Ligue uma corretora ou adicione cripto que tenha noutro lado.",
@@ -645,7 +645,7 @@
   "cost": {
    "open": "Ver custo",
    "title": "Como é calculado o custo de cada moeda",
-   "intro": "Lido agora da Binance (só leitura). As moedas que entram somam o que custaram (ou valiam nesse dia); as que saem saem ao preço médio, que não muda.",
+   "intro": "Lido agora da Binance (só leitura). As moedas que entram somam o que custaram (ou valiam nesse dia); as que saem não mudam o preço médio (como o preço de custo da Binance).",
    "average": "Custo médio",
    "price": "preço",
    "held": "Na conta {{held}} · o histórico explica {{tracked}}",

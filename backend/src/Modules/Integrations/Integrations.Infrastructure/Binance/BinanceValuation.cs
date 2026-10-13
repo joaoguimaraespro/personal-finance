@@ -76,13 +76,19 @@ internal static class BinanceValuation
         });
 
     /// <summary>
-    /// Moving-average EUR cost per coin: every coin that comes in (bought, converted to, received, earned) adds its EUR
-    /// value; every coin that goes out (sold, converted from, sent) leaves at the average, which does not move. Null when
-    /// nothing came in — the cost of the coins held is unknown.
+    /// EUR cost per coin as Binance shows it ("cost price"): the average of everything that came in — bought, converted
+    /// to, received, earned — over the account's whole history. Coins going out (sold, converted from, sent to another
+    /// wallet) do not change it. Null when nothing came in: the cost of the coins held is unknown.
     /// </summary>
     public static decimal? AverageCost(IEnumerable<CostEvent> events)
     {
-        var (quantity, cost) = Replay(events);
+        decimal quantity = 0, cost = 0;
+        foreach (var e in events.Where(e => e.Quantity > 0))
+        {
+            quantity += e.Quantity;
+            cost += e.EurValue;
+        }
+
         return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
     }
 
