@@ -52,6 +52,13 @@ four permissions above. The connection card explains both and links back to the 
 
 **Revoke** anytime: Settings → API (Beta) → select the key → Delete (immediate and permanent).
 
+**Card and spending pot.** The public API has no card payments, cashback or spending pot: its cash movements are
+deposits, withdrawals, fees, transfers and interest. A `TRANSFER` (money moved to or from another Trading 212 account
+or pot, such as the card's spending pot) is booked as a withdrawal or deposit of this account, so it is not shown as
+an investment loss or gain. To follow card spending, create a bank-type account for the spending pot, record money
+moved into it as a *transfer from the Trading 212 account* (the one entry a broker account accepts by hand), and
+book subscriptions (also as recurring items) and cashback (category *Cashback*) on that account.
+
 **Endpoints used** (and nothing else):
 
 | Method | Path | Documented limit | Used for |

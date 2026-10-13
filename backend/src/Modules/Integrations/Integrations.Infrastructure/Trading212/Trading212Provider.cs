@@ -68,6 +68,10 @@ internal sealed class Trading212Provider(Trading212Client client) : IInvestmentP
             var (type, amount) = t.Type switch
             {
                 "DEPOSIT" => (CashMovementType.Deposit, Math.Abs(t.Amount)),
+                // Money moved between Trading 212 accounts or pots (e.g. to the card's spending pot) enters or leaves
+                // this account like a deposit or withdrawal: it is not a gain or a loss of the investments.
+                "TRANSFER" when t.Amount >= 0 => (CashMovementType.Deposit, t.Amount),
+                "TRANSFER" => (CashMovementType.Withdrawal, t.Amount),
                 "WITHDRAW" => (CashMovementType.Withdrawal, -Math.Abs(t.Amount)),
                 "FEE" => (CashMovementType.Fee, -Math.Abs(t.Amount)),
                 "INTEREST_ON_FREE_CASH" or "LENDING_INTEREST" => (CashMovementType.Interest, Math.Abs(t.Amount)),
