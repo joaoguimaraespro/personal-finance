@@ -202,9 +202,10 @@ public static class IntegrationEndpoints
                 {
                     var position = stored.FirstOrDefault(p =>
                         string.Equals(p.Symbol, b.Asset, StringComparison.OrdinalIgnoreCase));
+                    // Right now: today's price, and the cost from history (or, without it, the position's kept cost).
+                    var cost = b.AverageCost ?? position?.AveragePrice;
                     return new CostBreakdownDto(b.Asset, b.Held, b.Tracked, b.AverageCost, b.EurPrice, b.Sources,
-                        position?.AveragePrice,
-                        position is null ? null : decimal.Round(position.Quantity * (position.LastPrice - position.AveragePrice), 2));
+                        cost, cost is null ? null : decimal.Round(b.Held * (b.EurPrice - cost.Value), 2));
                 }).OrderBy(b => b.Gain ?? 0).ToList());
             }
             catch (Exception e) when (e is ProviderConfigurationException or ProviderUnavailableException)
