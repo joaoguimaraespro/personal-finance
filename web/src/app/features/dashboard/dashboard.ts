@@ -263,7 +263,28 @@ import { PageHeaderComponent } from '../../shared/page-header';
           </a>
         </div>
         @if (netWorth.value(); as nw) {
-          @if (nw.series.length || nw.current.netWorth) {
+          @if (pastYear()) {
+            <!-- A past year: the value on its last day, and how it changed during that year. -->
+            @if (netWorthAt(nw, yearEnd()); as end) {
+              <p class="hero-value">{{ end.netWorth | money }}</p>
+              <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                @if (netWorthAt(nw, previousYearEnd()); as start) {
+                  <span [class]="toneChip(end.netWorth - start.netWorth)">
+                    <ng-icon [name]="trendIcon(end.netWorth - start.netWorth)" aria-hidden="true" />
+                    {{ end.netWorth - start.netWorth | money: 'EUR' : true }}
+                  </span>
+                  <span class="text-muted-foreground">{{ 'dashboard.inYear' | translate }}</span>
+                }
+                <span class="text-muted-foreground">{{
+                  'dashboard.onDay' | translate: { date: (end.date | day) }
+                }}</span>
+              </p>
+            } @else {
+              <p class="mt-3 text-sm text-muted-foreground">
+                {{ 'dashboard.noHistoryYear' | translate }}
+              </p>
+            }
+          } @else if (nw.series.length || nw.current.netWorth) {
             <p class="hero-value">{{ nw.current.netWorth | money }}</p>
             @if (nw.changeSinceStart !== null) {
               <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -419,7 +440,42 @@ import { PageHeaderComponent } from '../../shared/page-header';
             <ng-icon name="lucideChevronRight" />
           </a>
         </div>
-        @if (portfolio.value(); as p) {
+        @if (pastYear()) {
+          @if (portfolioYear(); as y) {
+            <p class="hero-value">{{ y.value | money }}</p>
+            <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span class="text-muted-foreground">{{
+                'dashboard.onDay' | translate: { date: (y.date | day) }
+              }}</span>
+            </p>
+            <dl class="mt-auto grid gap-2 pt-4 text-xs">
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted-foreground" [title]="'dashboard.yearGainHint' | translate">
+                  {{ 'dashboard.yearGain' | translate }}
+                </dt>
+                <dd
+                  class="num font-medium"
+                  [class.tone-pos]="y.gain > 0"
+                  [class.tone-neg]="y.gain < 0"
+                >
+                  {{ y.gain | money: 'EUR' : true }}
+                </dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted-foreground">
+                  {{ 'dashboard.yearContributions' | translate }}
+                </dt>
+                <dd class="num font-medium">{{ y.contributions | money }}</dd>
+              </div>
+            </dl>
+          } @else if (performance.isLoading()) {
+            <div class="skeleton mt-4 h-8 w-36"></div>
+          } @else {
+            <p class="mt-3 text-sm text-muted-foreground">
+              {{ 'dashboard.noHistoryYear' | translate }}
+            </p>
+          }
+        } @else if (portfolio.value(); as p) {
           @if (p.positions || p.accounts.length) {
             <p class="hero-value">{{ p.totalValue | money }}</p>
             <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -973,6 +1029,38 @@ export class DashboardComponent {
   protected readonly accounts = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.accounts(),
+  });
+
+  /** A past year: the net worth and portfolio cards show its last day instead of today. */
+  protected readonly pastYear = computed(() => this.year() < this.thisYear);
+  protected readonly yearEnd = computed(() => `${this.year()}-12-31`);
+  protected readonly previousYearEnd = computed(() => `${this.year() - 1}-12-31`);
+
+  /** The last net worth point on or before a day. */
+  protected netWorthAt(nw: NetWorthHistory, day: string) {
+    return [...nw.series].reverse().find((p) => p.date <= day) ?? null;
+  }
+
+  /** The portfolio's daily history, loaded only when a past year is shown. */
+  protected readonly performance = liveResource({
+    params: () => (this.pastYear() ? { v: this.events.version() } : undefined),
+    stream: () => this.api.performance(),
+  });
+
+  /** The portfolio on the year's last day and what it gained that year (value change minus money put in). */
+  protected readonly portfolioYear = computed(() => {
+    const series = this.performance.value()?.series ?? [];
+    const at = (day: string) => [...series].reverse().find((p) => p.date <= day) ?? null;
+    const end = at(this.yearEnd());
+    if (!end) return null;
+    const start = at(this.previousYearEnd());
+    const contributions = end.netContributions - (start?.netContributions ?? 0);
+    return {
+      date: end.date,
+      value: end.value,
+      contributions,
+      gain: end.value - (start?.value ?? 0) - contributions,
+    };
   });
 
   protected readonly hasTransactions = computed(() =>

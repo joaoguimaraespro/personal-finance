@@ -219,6 +219,12 @@
   "cumulative": "Cumulative invested & saved"
  },
  "dashboard": {
+  "inYear": "in the year",
+  "onDay": "on {{date}}",
+  "noHistoryYear": "No history for this year.",
+  "yearGain": "Gain in the year",
+  "yearGainHint": "Value change during the year minus the money put in (deposits − withdrawals).",
+  "yearContributions": "Put in during the year",
   "title": "Dashboard",
   "subtitle": "Your year at a glance",
   "monthlyView": "Monthly view",

@@ -74,15 +74,110 @@ public sealed class NetWorthService(IInvestmentsDb db, IFinanceDb finance, Portf
     {
         var current = await ComputeAsync(ct);
         var snapshots = await db.NetWorthSnapshots.AsNoTracking().OrderBy(s => s.Date).ToListAsync(ct);
-        var series = snapshots.Where(s => s.Date != current.Date)
+        var recorded = snapshots.Where(s => s.Date != current.Date)
             .Select(s => new NetWorthPoint(s.Date, s.AssetsBase, s.LiabilitiesBase, s.NetWorthBase))
+            .ToList();
+        var firstRecorded = recorded.Count > 0 ? recorded[0].Date : current.Date;
+        var series = (await ReconstructedAsync(firstRecorded, ct)).Concat(recorded)
             .Append(new NetWorthPoint(current.Date, current.Assets, current.Liabilities, current.NetWorth))
             .ToList();
         var first = series[0];
         var change = series.Count > 1 ? current.NetWorth - first.NetWorth : (decimal?)null;
+        // A percentage from an almost empty start (the first deposit) says nothing: only the amount is shown then.
+        var meaningful = change is not null && first.NetWorth != 0 &&
+                         Math.Abs(first.NetWorth) >= Math.Abs(current.NetWorth) * 0.1m;
         return new NetWorthHistory(current, change,
-            change is not null && first.NetWorth != 0 ? decimal.Round(change.Value / Math.Abs(first.NetWorth), 6) : null,
+            meaningful ? decimal.Round(change!.Value / Math.Abs(first.NetWorth), 6) : null,
             series.Count > 1 ? first.Date : null, series);
+    }
+
+    /// <summary>At most this far back, one point per month end.</summary>
+    private const int MaxReconstructedMonths = 120;
+
+    /// <summary>
+    /// Net worth before daily snapshots began (a new install, or after starting fresh), one point per month end: ledger
+    /// balances on that day, each broker account at its last valuation on or before it (from its own history or the
+    /// reconstructed one) and hand-entered assets at their value then. Computed on the fly, so later edits show.
+    /// Foreign-currency balances use today's rate.
+    /// </summary>
+    private async Task<List<NetWorthPoint>> ReconstructedAsync(DateOnly before, CancellationToken ct)
+    {
+        var valuations = await db.PortfolioSnapshots.AsNoTracking()
+            .Where(s => s.Date < before)
+            .Select(s => new { s.AccountId, s.Date, Value = s.MarketValueBase + s.CashBase })
+            .ToListAsync(ct);
+        var accounts = await finance.Accounts.AsNoTracking()
+            .Where(a => a.ArchivedAtUtc == null && a.Kind != AccountKind.Broker).ToListAsync(ct);
+        var assets = await db.ManualAssets.AsNoTracking().Include(m => m.Valuations)
+            .Where(m => m.ArchivedAtUtc == null).ToListAsync(ct);
+        var starts = valuations.Select(v => v.Date)
+            .Concat(accounts.Select(a => a.OpeningBalanceOn))
+            .Where(d => d < before).ToList();
+        if (starts.Count == 0)
+        {
+            return [];
+        }
+
+        var monthEnds = new List<DateOnly>();
+        var first = starts.Min();
+        var end = new DateOnly(first.Year, first.Month, 1).AddMonths(1).AddDays(-1);
+        for (; end < before; end = end.AddDays(1).AddMonths(1).AddDays(-1))
+        {
+            monthEnds.Add(end);
+        }
+
+        monthEnds = monthEnds.TakeLast(MaxReconstructedMonths).ToList();
+        if (monthEnds.Count == 0)
+        {
+            return [];
+        }
+
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var factors = await fx.EurPerUnitAsync(accounts.Select(a => a.Currency).Concat(assets.Select(a => a.Currency)),
+            today, ct);
+        var balances = await AccountBalances.ComputeOnAsync(finance, accounts, monthEnds, ct);
+        var byAccount = valuations.GroupBy(v => v.AccountId)
+            .Select(g => g.OrderBy(v => v.Date).Select(v => (v.Date, v.Value)).ToList()).ToList();
+        var points = new List<NetWorthPoint>();
+        foreach (var day in monthEnds)
+        {
+            decimal assetsTotal = 0, liabilities = 0;
+            foreach (var a in accounts.Where(a => a.OpeningBalanceOn <= day))
+            {
+                var eur = balances[day][a.Id] * factors.GetValueOrDefault(a.Currency, 0);
+                if (a.IsLiability)
+                {
+                    liabilities += Math.Max(0, -eur);
+                }
+                else
+                {
+                    assetsTotal += eur;
+                }
+            }
+
+            assetsTotal += byAccount.Sum(list => list.LastOrDefault(v => v.Date <= day).Value);
+            foreach (var m in assets)
+            {
+                var value = (m.ValueOn(day) ?? 0) * factors.GetValueOrDefault(m.Currency, 0);
+                if (m.IsLiability)
+                {
+                    liabilities += value;
+                }
+                else
+                {
+                    assetsTotal += value;
+                }
+            }
+
+            assetsTotal = decimal.Round(assetsTotal, 2);
+            liabilities = decimal.Round(liabilities, 2);
+            if (assetsTotal != 0 || liabilities != 0)
+            {
+                points.Add(new NetWorthPoint(day, assetsTotal, liabilities, assetsTotal - liabilities));
+            }
+        }
+
+        return points;
     }
 
     /// <summary>Daily snapshot so net worth can be charted over time. Idempotent per day.</summary>
