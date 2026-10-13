@@ -75,4 +75,55 @@ public static class AccountBalances
 
         return balances;
     }
+
+    /// <summary>Balances at the end of each of <paramref name="days"/>, with one query for all of them.</summary>
+    public static async Task<Dictionary<DateOnly, Dictionary<Guid, decimal>>> ComputeOnAsync(IFinanceDb db,
+        IReadOnlyCollection<Account> accounts, IReadOnlyList<DateOnly> days, CancellationToken ct)
+    {
+        var last = days.Max();
+        var rows = await db.Transactions.AsNoTracking().Where(t => t.OccurredOn <= last)
+            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.OccurredOn })
+            .Select(g => new
+            {
+                g.Key.AccountId,
+                g.Key.CounterAccountId,
+                g.Key.Type,
+                g.Key.OccurredOn,
+                Base = g.Sum(t => t.BaseAmount),
+                Original = g.Sum(t => t.OriginalAmount),
+            })
+            .ToListAsync(ct);
+        var loans = await db.Loans.AsNoTracking().Include(l => l.Rates).Include(l => l.Prepayments)
+            .Where(l => l.Rates.Count > 0).ToListAsync(ct);
+
+        var result = new Dictionary<DateOnly, Dictionary<Guid, decimal>>();
+        foreach (var day in days)
+        {
+            var balances = new Dictionary<Guid, decimal>();
+            foreach (var account in accounts)
+            {
+                var balance = account.OpeningBalance;
+                foreach (var s in rows.Where(r => r.OccurredOn <= day &&
+                                                  (r.AccountId == account.Id || r.CounterAccountId == account.Id)))
+                {
+                    var amount = account.Currency == Currency.Base ? s.Base : s.Original;
+                    var inflow = s.Type is TransactionType.Income or TransactionType.InvestmentSale;
+                    balance += s.AccountId == account.Id
+                        ? inflow ? amount : -amount
+                        : s.Type == TransactionType.InvestmentSale ? -amount : amount;
+                }
+
+                balances[account.Id] = balance;
+            }
+
+            foreach (var loan in loans.Where(l => balances.ContainsKey(l.AccountId)))
+            {
+                balances[loan.AccountId] = -LoanSchedule.StatusOn(loan.Plan(), loan.Principal, day).Outstanding;
+            }
+
+            result[day] = balances;
+        }
+
+        return result;
+    }
 }

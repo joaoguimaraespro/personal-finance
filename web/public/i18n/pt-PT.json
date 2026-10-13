@@ -219,6 +219,12 @@
   "cumulative": "Investido e poupado acumulado"
  },
  "dashboard": {
+  "inYear": "no ano",
+  "onDay": "a {{date}}",
+  "noHistoryYear": "Sem histórico para este ano.",
+  "yearGain": "Ganho no ano",
+  "yearGainHint": "Variação do valor durante o ano menos o dinheiro investido (depósitos − levantamentos).",
+  "yearContributions": "Investido no ano",
   "title": "Dashboard",
   "subtitle": "O teu ano num relance",
   "monthlyView": "Visão mensal",
