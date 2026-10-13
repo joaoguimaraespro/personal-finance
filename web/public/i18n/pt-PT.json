@@ -566,8 +566,9 @@
   "OtherDebt": "Outra dívida"
  },
  "portfolio": {
+  "costNote": "Os ganhos usam o teu custo real em euros: o que pagaste em cada compra, com taxas e o câmbio desse dia. Por isso podem ser diferentes da app da corretora, que costuma usar o preço de mercado ou converter à taxa de hoje.",
   "gainOnCost": "Ganho face ao custo",
-  "gainOnCostHint": "Quanto valem agora as moedas menos o que custaram, em percentagem desse custo. O custo é o preço de custo da própria corretora: a média de todas as compras e moedas recebidas.",
+  "gainOnCostHint": "Quanto valem agora as moedas menos o que te custaram de facto em euros (o que pagaste, com taxas; as moedas enviadas para outro lado levam o seu custo), em percentagem desse custo.",
   "readOnly": "Dados só de leitura das tuas corretoras",
   "lastSync": "última sincronização",
   "empty": "Ainda sem investimentos. Ligue uma corretora ou adicione cripto que tenha noutro lado.",
@@ -648,30 +649,6 @@
   "liabilityHint": "Introduz dívidas como valores positivos; são subtraídas automaticamente."
  },
  "connections": {
-  "cost": {
-   "open": "Ver custo",
-   "title": "Como é calculado o custo de cada moeda",
-   "intro": "Lido agora da Binance (só leitura). Como o custo médio da Binance, as moedas que entram contam pelo preço de mercado desse dia — não pelo que pagaste (o botão Comprar soma uma taxa e um spread) — e as que saem não mudam o custo. O custo é guardado em dólares e mostrado em euros à taxa de hoje, como faz a Binance; o ganho usa o preço deste momento.",
-   "average": "Custo médio",
-   "price": "preço",
-   "held": "Na conta {{held}} · o histórico explica {{tracked}}",
-   "unknown": "Sem histórico: o preço da primeira sincronização fica como custo.",
-   "mismatch": "O histórico não explica todas as moedas que tens: o preço médio vem da parte que explica.",
-   "notReady": "O histórico completo é lido na próxima sincronização (a primeira demora alguns minutos). Sincroniza e volta a abrir.",
-   "used": "Custo usado",
-   "gain": "ganho",
-   "total": "Ganho de todas as moedas face ao custo:",
-   "paid": "pagaste {{amount}}",
-   "atAverage": "ao preço médio",
-   "kind": {
-    "trade": "Trades spot",
-    "card": "Compras com cartão / EUR",
-    "convert": "Convert",
-    "reward": "Recompensas Earn",
-    "received": "Recebidas de outras carteiras",
-    "sent": "Enviadas para outras carteiras"
-   }
-  },
   "subtitle": "Ligações só de leitura às tuas corretoras. Nunca podem negociar, transferir ou alterar definições.",
   "readOnly": "só leitura",
   "status": {

@@ -6,14 +6,13 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { DateTimePipe, DayPipe, MoneyPipe, PricePipe } from '../../core/format';
-import { Broker, Connection, CostBreakdown, ProviderInfo, SyncJob } from '../../core/models';
+import { DateTimePipe, DayPipe } from '../../core/format';
+import { Broker, Connection, ProviderInfo, SyncJob } from '../../core/models';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -52,8 +51,6 @@ type CredentialField = ProviderInfo['fields'][number];
     BrokerGuideComponent,
     BrokerLogoComponent,
     HlmSkeletonImports,
-    MoneyPipe,
-    PricePipe,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -225,21 +222,6 @@ type CredentialField = ProviderInfo['fields'][number];
                 }}
               }
             </button>
-            @if (c.kind === 'Binance') {
-              <button
-                hlmBtn
-                variant="outline"
-                size="sm"
-                [disabled]="costLoading()"
-                (click)="showCost(c)"
-              >
-                <ng-icon
-                  [name]="costLoading() ? 'lucideLoaderCircle' : 'lucideScale'"
-                  [class]="costLoading() ? 'motion-safe:animate-spin' : ''"
-                  aria-hidden="true"
-                />{{ 'connections.cost.open' | translate }}
-              </button>
-            }
             @if (c.kind === 'Trading212') {
               <button hlmBtn variant="outline" size="sm" (click)="csv.click()">
                 <ng-icon name="lucideFileUp" />{{ 'connections.importCsv' | translate }}
@@ -485,88 +467,6 @@ type CredentialField = ProviderInfo['fields'][number];
           </div>
         </form>
       }
-    </app-modal>
-
-    <app-modal
-      [open]="!!cost()"
-      [title]="'connections.cost.title' | translate"
-      width="44rem"
-      (closed)="cost.set(null)"
-    >
-      <p class="text-muted-foreground mb-3 text-sm">{{ 'connections.cost.intro' | translate }}</p>
-      @if (costGain(); as g) {
-        <p class="num mb-3 text-sm">
-          {{ 'connections.cost.total' | translate }}
-          <strong [class]="g < 0 ? 'tone-neg' : 'tone-pos'">{{ g | money: 'EUR' : true }}</strong>
-        </p>
-      }
-      <ul class="space-y-3">
-        @for (b of cost() ?? []; track b.asset) {
-          <li class="rounded-xl border border-border p-3 text-sm" [attr.data-coin]="b.asset">
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <span class="font-semibold">{{ b.asset }}</span>
-              <span class="num text-xs">
-                {{ 'connections.cost.average' | translate }}
-                <strong>{{ b.averageCost === null ? '—' : (b.averageCost | price: 'EUR') }}</strong>
-                · {{ 'connections.cost.price' | translate }} {{ b.eurPrice | price: 'EUR' }}
-              </span>
-            </div>
-            <p class="num text-muted-foreground mt-1 text-xs">
-              {{
-                'connections.cost.held' | translate: { held: qty(b.held), tracked: qty(b.tracked) }
-              }}
-            </p>
-            @if (b.gain !== null && b.gain !== undefined) {
-              <p class="num mt-1 text-xs">
-                {{ 'connections.cost.used' | translate }}
-                <strong>{{ b.storedAverage ?? 0 | price: 'EUR' }}</strong> ·
-                {{ 'connections.cost.gain' | translate }}
-                <strong [class]="b.gain < 0 ? 'tone-neg' : b.gain > 0 ? 'tone-pos' : ''">{{
-                  b.gain | money: 'EUR' : true
-                }}</strong>
-              </p>
-            }
-            @if (b.averageCost === null) {
-              <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                {{ 'connections.cost.unknown' | translate }}
-              </p>
-            } @else if (b.tracked < b.held * 0.98 || b.tracked > b.held * 1.02) {
-              <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                {{ 'connections.cost.mismatch' | translate }}
-              </p>
-            }
-            @if (b.sources.length) {
-              <table class="num mt-2 w-full text-xs">
-                <tbody>
-                  @for (l of b.sources; track $index) {
-                    <tr class="border-t border-border/60">
-                      <td class="py-1">
-                        {{ 'connections.cost.kind.' + l.kind | translate }}
-                        <span class="text-muted-foreground">× {{ l.count }}</span>
-                      </td>
-                      <td class="py-1 text-right" [class.tone-neg]="l.quantity < 0">
-                        {{ l.quantity > 0 ? '+' : '' }}{{ qty(l.quantity) }}
-                      </td>
-                      <td class="py-1 text-right text-muted-foreground">
-                        {{
-                          l.quantity > 0
-                            ? (l.eurValue | money)
-                            : ('connections.cost.atAverage' | translate)
-                        }}
-                      </td>
-                      <td class="py-1 pl-2 text-right text-xs text-muted-foreground">
-                        @if (l.paid != null && l.quantity > 0 && differs(l.paid, l.eurValue)) {
-                          {{ 'connections.cost.paid' | translate: { amount: (l.paid | money) } }}
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            }
-          </li>
-        }
-      </ul>
     </app-modal>
 
     <app-modal
@@ -835,39 +735,6 @@ export class ConnectionsComponent implements OnDestroy {
       this.toasts.error(err);
     }
   }
-
-  protected readonly cost = signal<CostBreakdown[] | null>(null);
-  protected readonly costLoading = signal(false);
-  /** Sum of every coin's gain over the cost its position carries: the wallet's "gain over cost". */
-  protected readonly costGain = computed(() =>
-    (this.cost() ?? []).reduce((sum, b) => sum + (b.gain ?? 0), 0),
-  );
-
-  /** Reads the history live from Binance (read-only), so it can take a few seconds. */
-  protected async showCost(c: Connection) {
-    this.costLoading.set(true);
-    try {
-      this.cost.set(await firstValueFrom(this.api.costBreakdown(c.id)));
-    } catch (err) {
-      // 409: the whole history is read once by a sync first.
-      if (err instanceof HttpErrorResponse && err.status === 409) {
-        this.toasts.show(this.i18n.instant('connections.cost.notReady'), 'info', undefined, 8000);
-      } else {
-        this.toasts.error(err);
-      }
-    } finally {
-      this.costLoading.set(false);
-    }
-  }
-
-  /** Paid and market value apart by more than half a percent: worth showing both. */
-  protected differs = (paid: number, value: number) =>
-    Math.abs(paid - value) > Math.abs(value) * 0.005;
-
-  protected qty = (n: number) =>
-    new Intl.NumberFormat(this.i18n.currentLang() ?? undefined, {
-      maximumFractionDigits: 8,
-    }).format(n);
 
   protected async showJobs(c: Connection) {
     this.jobs.set(await firstValueFrom(this.api.syncJobs(c.id)));

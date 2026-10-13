@@ -8,13 +8,13 @@ namespace Integrations.Infrastructure.Binance;
 /// <summary>
 /// Binance (Spot + Simple Earn), read-only. Each coin is one position: spot balance plus flexible and locked Earn.
 /// Earn rewards are income, like dividends, valued in EUR at the day's close. Positions and prices are in EUR; the
-/// cost of a coin is, as Binance shows it, the average of everything that brought it in over the account's whole
-/// history (coins going out do not change it): fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins received or
+/// cost of a coin is its real EUR cost: a weighted average over the account's whole history of what came in (what
+/// was paid, fees included), coins going out taking their cost with them: fills on EUR and dollar-stablecoin pairs, card purchases, Convert orders, Earn rewards and coins received or
 /// sent (valued at the day's close). The windowed histories are read once from <see cref="HistoryStart"/> and kept in
 /// <see cref="HistoryState"/>; later syncs read only what is new. A coin with no history keeps its first sync's price.
 /// </summary>
 internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
-    : IInvestmentProvider, ICostBreakdownProvider, IHistoryStateProvider
+    : IInvestmentProvider, IHistoryStateProvider
 {
     /// <summary>How far back the first sync reads Earn rewards.</summary>
     public const int FirstSyncDays = 180;
@@ -62,38 +62,10 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
     {
         var (coins, events) = await CostEventsAsync(ct);
         var now = clock.GetUtcNow();
-        var average = await AverageCostAsync(ct);
-        return coins.Select(c => average(events[c.Asset]) is { } cost
+        return coins.Select(c => BinanceValuation.AverageCost(events[c.Asset]) is { } cost
                 ? new PositionReport(Security(c.Asset), c.Quantity, cost, c.EurPrice, now)
                 : new PositionReport(Security(c.Asset), c.Quantity, c.EurPrice, c.EurPrice, now, CostKnown: false))
             .ToList();
-    }
-
-    public async Task<IReadOnlyList<CostBreakdown>> GetCostBreakdownAsync(CancellationToken ct)
-    {
-        var (coins, events) = await CostEventsAsync(ct);
-        var average = await AverageCostAsync(ct);
-        return coins.Select(c =>
-        {
-            var list = events[c.Asset];
-            var (tracked, _) = BinanceValuation.Replay(list);
-            var sources = list.GroupBy(e => (e.Kind, In: e.Quantity > 0))
-                .Select(g => new CostSourceLine(g.Key.Kind, g.Count(), g.Sum(e => e.Quantity),
-                    decimal.Round(g.Sum(e => e.EurValue), 2),
-                    g.Any(e => e.Paid is not null) ? decimal.Round(g.Sum(e => e.Paid ?? e.EurValue), 2) : null))
-                .OrderBy(l => l.Kind, StringComparer.Ordinal).ThenByDescending(l => l.Quantity)
-                .ToList();
-            return new CostBreakdown(c.Asset, c.Quantity, tracked, average(list), c.EurPrice, sources);
-        }).ToList();
-    }
-
-    /// <summary>The cost of a coin from its movements, in dollars and shown at today's rate as Binance does.</summary>
-    private async Task<Func<IEnumerable<CostEvent>, decimal?>> AverageCostAsync(CancellationToken ct)
-    {
-        var h = await HoldingsAsync(ct);
-        var closes = await UsdPerEurClosesAsync(h, ct);
-        var latest = h.Prices.GetValueOrDefault("EURUSDT");
-        return list => BinanceValuation.AverageCostInDollars(list, closes, latest);
     }
 
     /// <summary>Every coin held and, per coin, the movements its cost is rebuilt from (see the class summary).</summary>
@@ -153,23 +125,14 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
     {
         var events = new List<(string, CostEvent)>();
         var (fromMs, toMs) = (from.ToUnixTimeMilliseconds(), to.ToUnixTimeMilliseconds());
-        // Like Binance's average cost, coins coming in cost their market price that day (the day's close), not what
-        // was paid: a purchase with the Buy button pays a fee and a spread on top, which Binance leaves out. Without
-        // a close, the amount paid less the purchase fee stands in.
+        // A purchase costs what was paid, fees included: that is the money that left the account.
         foreach (var p in await PaymentsAsync(ct))
         {
-            if (p.CreateTime < fromMs || p.CreateTime >= toMs || !IsDone(p.Status) || p.ObtainAmount <= 0 ||
-                p.CryptoCurrency is not { } coin)
+            if (p.CreateTime >= fromMs && p.CreateTime < toMs && IsDone(p.Status) && p.ObtainAmount > 0 &&
+                p.CryptoCurrency is { } coin &&
+                await EurValueAsync(p.FiatCurrency, p.SourceAmount, p.CreateTime, h, ct) is { } paid)
             {
-                continue;
-            }
-
-            var paid = await EurValueAsync(p.FiatCurrency, p.SourceAmount, p.CreateTime, h, ct);
-            var net = p.TotalFee > 0 && p.TotalFee < p.SourceAmount ? p.SourceAmount - p.TotalFee : p.SourceAmount;
-            if ((await EurValueAsync(coin, p.ObtainAmount, p.CreateTime, h, ct) ??
-                 await EurValueAsync(p.FiatCurrency, net, p.CreateTime, h, ct)) is { } market)
-            {
-                events.Add((coin, CostEvent.In(p.CreateTime, p.ObtainAmount, market, "card", paid)));
+                events.Add((coin, CostEvent.In(p.CreateTime, p.ObtainAmount, paid, "card")));
             }
         }
 
@@ -183,12 +146,11 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
                 }
 
                 events.Add((x.FromAsset, CostEvent.Out(x.CreateTime, x.FromAmount, "convert")));
-                // The coins received at their market price that day; what was given is what was paid (and stands in
-                // for a coin without a price).
-                var given = await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct);
-                if ((await EurValueAsync(x.ToAsset, x.ToAmount, x.CreateTime, h, ct) ?? given) is { } value)
+                // What was given is the price paid; a coin without a price is valued by what was received.
+                if ((await EurValueAsync(x.FromAsset, x.FromAmount, x.CreateTime, h, ct) ??
+                     await EurValueAsync(x.ToAsset, x.ToAmount, x.CreateTime, h, ct)) is { } value)
                 {
-                    events.Add((x.ToAsset, CostEvent.In(x.CreateTime, x.ToAmount, value, "convert", given)));
+                    events.Add((x.ToAsset, CostEvent.In(x.CreateTime, x.ToAmount, value, "convert")));
                 }
             }
         }

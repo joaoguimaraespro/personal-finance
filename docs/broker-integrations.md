@@ -20,6 +20,15 @@ these?* in the add dialog), in English and Portuguese. Keep both in sync when th
   needs the Client Portal Gateway with daily 2FA ([Web API authentication](https://www.interactivebrokers.com/docs/web-api/authentication/introduction)).
   The Flex Web Service token is the only unattended, reporting-only option.
 
+## Cost of every holding
+
+Gains are measured against the **real cost in euros**. For each holding, the trades the broker reported are replayed
+as a weighted average of what left the account in euros on each purchase day: fees and currency conversion are
+included, and sales take their share of the cost. When the trades do not account for the quantity held (history
+shorter than the position, a stock split, an exchange without trades such as Binance), the broker's average price is
+used instead (Binance: the real cost described below). Figures can therefore differ from the brokers' own apps, which
+often show market-price costs or convert at today's exchange rate; the portfolio page says so.
+
 ## Trading 212 — official Public API v0
 
 **Create the key** (about 3 minutes, app or web):
@@ -188,17 +197,15 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
   price (the EUR pair, else the USDT/USDC/FDUSD pair converted with EURUSDT). EUR balances are the account's cash.
   Coins Binance cannot price in EUR or dollars are skipped. A coin held both on Binance and by hand is one position
   line (coins have no ISIN, so the symbol identifies them).
-- **Cost.** As Binance's wallet *average cost*: the average **market price** of a coin when it came in, weighted by
-  how much came in, over the account's whole history. Spot fills count at their own price (dollars converted at that
-  day's EURUSDT close); purchases with the Buy button, Convert orders, Earn rewards and coins received from another
-  wallet count at that day's close — not at what was paid, which adds a purchase fee and a spread (*Cost details*
-  shows what was paid next to it). Coins converted away, sold or sent out do not change it. Like Binance, the cost is kept in
-  dollars (each day's EURUSDT close) and shown in euros at today's rate. Binance itself only
-  counts movements since August 2021 and lets the owner edit the figure, so small differences remain possible. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
+- **Cost.** The real EUR cost, a weighted average over the account's whole history of what brought a coin in:
+  fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), purchases with the Buy
+  button (what was paid, fees included), Convert orders (the EUR value of what was given), Earn rewards and coins
+  received from another wallet (worth that day's close). Coins converted away, sold or sent out leave at the average
+  and take their cost with them. This differs from the Binance app on purpose: Binance shows the market price when
+  each coin came in, without fees, kept in dollars and converted at today's rate. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
   Convert and withdrawal histories weigh 3,000 and 18,000 of Binance's 180,000 per minute and are spaced out — and
   keeps the settled movements with the connection (rewards merged per coin and month); later syncs read only the days
-  since. A coin with no history keeps the price of its first sync as its cost. *Connections → Binance → Cost details*
-  shows, per coin, each kind of movement and how much of the balance the history explains.
+  since. A coin with no history keeps the price of its first sync as its cost.
 - **Earn rewards** (flexible real-time APR, bonus tiers, locked rewards) are income, like dividends: one entry per
   reward, valued at the coin's EUR close of that day, under *Dividends & rewards*. The first sync reads the last
   180 days; later syncs read from the previous one, and the external id
