@@ -378,6 +378,19 @@ public sealed class BinanceTests
     }
 
     [Fact]
+    public void The_cost_is_kept_in_dollars_and_shown_at_todays_rate_as_binance_does()
+    {
+        // 1 coin worth 100 EUR when 1 EUR bought 1.00 dollar: 100 dollars; today 1 EUR buys 1.25 dollars → 80 EUR.
+        var day = new DateTimeOffset(2025, 1, 10, 12, 0, 0, TimeSpan.Zero);
+        var closes = new Dictionary<DateOnly, decimal> { [DateOnly.FromDateTime(day.UtcDateTime)] = 1.00m };
+
+        BinanceValuation.AverageCostInDollars([CostEvent.In(day.ToUnixTimeMilliseconds(), 1, 100)], closes, 1.25m)
+            .ShouldBe(80m);
+        BinanceValuation.AverageCostInDollars([CostEvent.In(day.ToUnixTimeMilliseconds(), 1, 100)], closes, 0m)
+            .ShouldBe(100m); // no dollar rate: the EUR average
+    }
+
+    [Fact]
     public void The_average_is_of_everything_that_came_in_and_unknown_without_coins_in()
     {
         BinanceValuation.AverageCost([CostEvent.In(1, 2, 200), CostEvent.Out(2, 1), CostEvent.In(3, 1, 300)])

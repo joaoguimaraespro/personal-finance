@@ -62,8 +62,9 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
     {
         var (coins, events) = await CostEventsAsync(ct);
         var now = clock.GetUtcNow();
-        return coins.Select(c => BinanceValuation.AverageCost(events[c.Asset]) is { } average
-                ? new PositionReport(Security(c.Asset), c.Quantity, average, c.EurPrice, now)
+        var average = await AverageCostAsync(ct);
+        return coins.Select(c => average(events[c.Asset]) is { } cost
+                ? new PositionReport(Security(c.Asset), c.Quantity, cost, c.EurPrice, now)
                 : new PositionReport(Security(c.Asset), c.Quantity, c.EurPrice, c.EurPrice, now, CostKnown: false))
             .ToList();
     }
@@ -71,6 +72,7 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
     public async Task<IReadOnlyList<CostBreakdown>> GetCostBreakdownAsync(CancellationToken ct)
     {
         var (coins, events) = await CostEventsAsync(ct);
+        var average = await AverageCostAsync(ct);
         return coins.Select(c =>
         {
             var list = events[c.Asset];
@@ -81,9 +83,17 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
                     g.Any(e => e.Paid is not null) ? decimal.Round(g.Sum(e => e.Paid ?? e.EurValue), 2) : null))
                 .OrderBy(l => l.Kind, StringComparer.Ordinal).ThenByDescending(l => l.Quantity)
                 .ToList();
-            return new CostBreakdown(c.Asset, c.Quantity, tracked, BinanceValuation.AverageCost(list), c.EurPrice,
-                sources);
+            return new CostBreakdown(c.Asset, c.Quantity, tracked, average(list), c.EurPrice, sources);
         }).ToList();
+    }
+
+    /// <summary>The cost of a coin from its movements, in dollars and shown at today's rate as Binance does.</summary>
+    private async Task<Func<IEnumerable<CostEvent>, decimal?>> AverageCostAsync(CancellationToken ct)
+    {
+        var h = await HoldingsAsync(ct);
+        var closes = await UsdPerEurClosesAsync(h, ct);
+        var latest = h.Prices.GetValueOrDefault("EURUSDT");
+        return list => BinanceValuation.AverageCostInDollars(list, closes, latest);
     }
 
     /// <summary>Every coin held and, per coin, the movements its cost is rebuilt from (see the class summary).</summary>

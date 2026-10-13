@@ -92,6 +92,30 @@ internal static class BinanceValuation
         return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
     }
 
+    /// <summary>
+    /// <see cref="AverageCost(IEnumerable{CostEvent})"/> as Binance computes it: in dollars — each coin in at its
+    /// dollar value that day (its EUR value × that day's EURUSDT close) — then shown in euros at today's rate
+    /// (<paramref name="latestUsdPerEur"/>). When the euro has risen since the purchases, the cost in euros is lower
+    /// than with each day's rate.
+    /// </summary>
+    public static decimal? AverageCostInDollars(IEnumerable<CostEvent> events,
+        IReadOnlyDictionary<DateOnly, decimal> usdPerEurCloses, decimal latestUsdPerEur)
+    {
+        if (latestUsdPerEur <= 0)
+        {
+            return AverageCost(events);
+        }
+
+        decimal quantity = 0, dollars = 0;
+        foreach (var e in events.Where(e => e.Quantity > 0))
+        {
+            quantity += e.Quantity;
+            dollars += e.EurValue * UsdPerEurOn(DayOf(e.Time), usdPerEurCloses, latestUsdPerEur);
+        }
+
+        return quantity > 0 && dollars > 0 ? Round(dollars / quantity / latestUsdPerEur) : null;
+    }
+
     /// <summary>Quantity and EUR cost left after the moving average has run over every event.</summary>
     public static (decimal Quantity, decimal Cost) Replay(IEnumerable<CostEvent> events)
     {
