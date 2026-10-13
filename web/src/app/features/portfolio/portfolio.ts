@@ -237,6 +237,15 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
           </div>
         </section>
 
+        <!-- Gains differ from the brokers' own apps on purpose: say why once, where the figures are. -->
+        <p
+          class="text-muted-foreground -mt-2 mb-4 flex items-start gap-1.5 text-xs"
+          data-testid="cost-note"
+        >
+          <ng-icon name="lucideInfo" class="mt-px shrink-0" aria-hidden="true" />{{
+            'portfolio.costNote' | translate
+          }}
+        </p>
         <section class="grid grid-cols-2 gap-3 md:grid-cols-3">
           <app-kpi
             [label]="'portfolio.contributions' | translate"

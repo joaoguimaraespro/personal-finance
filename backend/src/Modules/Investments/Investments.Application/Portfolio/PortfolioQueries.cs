@@ -170,6 +170,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             .Where(l => securityIds.Contains(l.SecurityId) && l.Reference24hPrice != null)
             .Select(l => new { l.SecurityId, l.Reference24hPrice, l.Reference24hAtUtc })
             .ToDictionaryAsync(l => l.SecurityId, ct);
+        var bookCosts = await BookCostsAsync(ids, ct);
         return rows.Select(r =>
         {
             var factor = factors.GetValueOrDefault(r.s.Currency);
@@ -182,10 +183,63 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 DayChange.TradingDay(DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime), tradesEveryDay: crypto));
             return new Holding(r.p.AccountId, account.Name, r.p.Source, r.s.Id, r.s.Symbol, r.s.Isin, r.s.Name,
                 r.s.Currency, r.s.EffectiveAssetClass, r.p.Quantity, r.p.AveragePrice, r.p.LastPrice,
-                decimal.Round(r.p.MarketValue * factor, 2), decimal.Round(r.p.CostBasis * factor, 2),
+                decimal.Round(r.p.MarketValue * factor, 2),
+                decimal.Round(BookCost(bookCosts, r.p.AccountId, r.s.Id, r.p.Quantity) ?? r.p.CostBasis * factor, 2),
                 r.p.PriceAsOfUtc, DayChange.Amount(r.p.Quantity, r.p.LastPrice, previous, factor),
                 reference is null ? DayChangeBasis.PreviousClose : DayChangeBasis.Rolling24Hours);
         }).ToList();
+    }
+
+    /// <summary>
+    /// What each holding really cost in euros, from its trades: what left the account in euros on each purchase day
+    /// (fees and currency conversion included), as a weighted average — sales take their share of the cost. The
+    /// broker's average price converted at today's rate would move the cost with the exchange rate, as if a dollar
+    /// share bought last year had cost what it would cost in euros today.
+    /// </summary>
+    private async Task<Dictionary<(Guid Account, Guid Security), (decimal Quantity, decimal Cost)>> BookCostsAsync(
+        List<Guid> accountIds, CancellationToken ct)
+    {
+        var trades = await db.Trades.AsNoTracking().Where(t => accountIds.Contains(t.AccountId))
+            .OrderBy(t => t.ExecutedAtUtc)
+            .Select(t => new { t.AccountId, t.SecurityId, t.Side, t.Quantity, t.BaseAmount })
+            .ToListAsync(ct);
+        var books = new Dictionary<(Guid, Guid), (decimal Quantity, decimal Cost)>();
+        foreach (var t in trades)
+        {
+            var key = (t.AccountId, t.SecurityId);
+            var (quantity, cost) = books.GetValueOrDefault(key);
+            if (t.Side == TradeSide.Buy)
+            {
+                quantity += t.Quantity;
+                cost += Math.Abs(t.BaseAmount);
+            }
+            else if (quantity > 0)
+            {
+                var sold = Math.Min(t.Quantity, quantity);
+                cost -= cost / quantity * sold;
+                quantity -= sold;
+            }
+
+            books[key] = (quantity, cost);
+        }
+
+        return books;
+    }
+
+    /// <summary>
+    /// The holding's EUR cost from its trades when they account for what is held (within 0.5 %); otherwise null, and
+    /// the broker's average price is used (history too short, a stock split, coins from an exchange without trades).
+    /// </summary>
+    private static decimal? BookCost(Dictionary<(Guid Account, Guid Security), (decimal Quantity, decimal Cost)> books,
+        Guid accountId, Guid securityId, decimal quantity)
+    {
+        if (!books.TryGetValue((accountId, securityId), out var book) || book.Quantity <= 0 || book.Cost <= 0 ||
+            quantity <= 0 || Math.Abs(book.Quantity - quantity) > Math.Max(quantity * 0.005m, 0.000001m))
+        {
+            return null;
+        }
+
+        return book.Cost / book.Quantity * quantity;
     }
 
     /// <summary>Same security at several brokers is merged by ISIN; each broker holding stays visible.</summary>

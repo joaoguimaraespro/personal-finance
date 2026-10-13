@@ -566,8 +566,9 @@
   "OtherDebt": "Other debt"
  },
  "portfolio": {
+  "costNote": "Gains use your real cost in euros: what you paid for each purchase, fees and that day's exchange rate included. They can differ from the broker's app, which often uses the market price or converts at today's rate.",
   "gainOnCost": "Gain over cost",
-  "gainOnCostHint": "What the coins are worth now minus what they cost, as a percentage of that cost. The cost is the exchange's own cost price: the average of every purchase and coin received.",
+  "gainOnCostHint": "What the coins are worth now minus what they really cost in euros (what you paid, fees included; coins sent elsewhere take their cost with them), as a percentage of that cost.",
   "readOnly": "Read-only data from your brokers",
   "lastSync": "last sync",
   "empty": "No investments yet. Connect a broker or add crypto you hold elsewhere.",
@@ -648,30 +649,6 @@
   "liabilityHint": "Enter debts as positive amounts; they are subtracted automatically."
  },
  "connections": {
-  "cost": {
-   "open": "Cost details",
-   "title": "How each coin's cost is calculated",
-   "intro": "Read live from Binance (read-only). Like Binance's average cost, coins coming in cost their market price that day — not what was paid (the Buy button adds a fee and a spread) — and coins going out do not change it. The cost is kept in dollars and shown in euros at today's rate, as Binance does; gains use the price right now.",
-   "average": "Average cost",
-   "price": "price",
-   "held": "Held {{held}} · history explains {{tracked}}",
-   "unknown": "No history found: the price of the first sync is kept as the cost.",
-   "mismatch": "The history does not explain all the coins held: the average comes from the part it explains.",
-   "notReady": "The full history is read on the next sync (the first one takes a few minutes). Sync, then open this again.",
-   "used": "Cost used",
-   "gain": "gain",
-   "total": "Gain of all coins over their cost:",
-   "paid": "paid {{amount}}",
-   "atAverage": "at average",
-   "kind": {
-    "trade": "Spot trades",
-    "card": "Bought with card / EUR",
-    "convert": "Convert",
-    "reward": "Earn rewards",
-    "received": "Received from other wallets",
-    "sent": "Sent to other wallets"
-   }
-  },
   "subtitle": "Read-only links to your brokers. They can never trade, transfer or change settings.",
   "readOnly": "read-only",
   "status": {
