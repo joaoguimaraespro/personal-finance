@@ -76,44 +76,15 @@ internal static class BinanceValuation
         });
 
     /// <summary>
-    /// EUR cost per coin as Binance shows it ("cost price"): the average of everything that came in — bought, converted
-    /// to, received, earned — over the account's whole history. Coins going out (sold, converted from, sent to another
-    /// wallet) do not change it. Null when nothing came in: the cost of the coins held is unknown.
+    /// The real EUR cost per coin (weighted average cost): coins coming in add what they cost in euros on that day —
+    /// what was paid for purchases (fees included) and Convert orders, the day's value for rewards and coins received —
+    /// and coins going out (sold, converted, sent to another wallet) leave at the average, taking their cost with them.
+    /// Null when nothing came in: the cost of the coins held is unknown.
     /// </summary>
     public static decimal? AverageCost(IEnumerable<CostEvent> events)
     {
-        decimal quantity = 0, cost = 0;
-        foreach (var e in events.Where(e => e.Quantity > 0))
-        {
-            quantity += e.Quantity;
-            cost += e.EurValue;
-        }
-
+        var (quantity, cost) = Replay(events);
         return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
-    }
-
-    /// <summary>
-    /// <see cref="AverageCost(IEnumerable{CostEvent})"/> as Binance computes it: in dollars — each coin in at its
-    /// dollar value that day (its EUR value × that day's EURUSDT close) — then shown in euros at today's rate
-    /// (<paramref name="latestUsdPerEur"/>). When the euro has risen since the purchases, the cost in euros is lower
-    /// than with each day's rate.
-    /// </summary>
-    public static decimal? AverageCostInDollars(IEnumerable<CostEvent> events,
-        IReadOnlyDictionary<DateOnly, decimal> usdPerEurCloses, decimal latestUsdPerEur)
-    {
-        if (latestUsdPerEur <= 0)
-        {
-            return AverageCost(events);
-        }
-
-        decimal quantity = 0, dollars = 0;
-        foreach (var e in events.Where(e => e.Quantity > 0))
-        {
-            quantity += e.Quantity;
-            dollars += e.EurValue * UsdPerEurOn(DayOf(e.Time), usdPerEurCloses, latestUsdPerEur);
-        }
-
-        return quantity > 0 && dollars > 0 ? Round(dollars / quantity / latestUsdPerEur) : null;
     }
 
     /// <summary>Quantity and EUR cost left after the moving average has run over every event.</summary>
@@ -186,13 +157,10 @@ internal static class BinanceValuation
 }
 
 /// <summary>Coins of one asset coming in (positive quantity, worth <c>EurValue</c>) or going out (negative).</summary>
-/// <remarks><c>Paid</c>: what was actually paid for coins in (card purchases, Convert), when it differs from their
-/// market value; shown next to the cost so the two can be compared.</remarks>
-internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue, string Kind = "",
-    decimal? Paid = null)
+internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue, string Kind = "")
 {
-    public static CostEvent In(long time, decimal quantity, decimal eurValue, string kind = "", decimal? paid = null) =>
-        new(time, quantity, eurValue, kind, paid);
+    public static CostEvent In(long time, decimal quantity, decimal eurValue, string kind = "") =>
+        new(time, quantity, eurValue, kind);
 
     public static CostEvent Out(long time, decimal quantity, string kind = "") => new(time, -quantity, 0, kind);
 }

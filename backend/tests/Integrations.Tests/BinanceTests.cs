@@ -111,10 +111,10 @@ public sealed class BinanceTests
         var btc = positions[0];
         btc.Quantity.ShouldBe(0.15m); // spot 0.1 + flexible 0.05; the LDBTC shadow row is not counted again
         btc.LastPrice.ShouldBe(60_000m);
-        // As Binance shows it, the average of everything that came in (the sale does not change it): 0.1 bought for
-        // 5,000 EUR, 0.0016 by card for 100 EUR of which 2 EUR card fee (not part of the cost), an Earn reward of
-        // 0.0001 worth 5.80 EUR that day, then 0.05 for 3,300 USDT (3,000 EUR).
-        btc.AveragePrice.ShouldBe(decimal.Round((5_000m + 98m + 5.8m + 3_000m) / 0.1517m, 8));
+        // Real cost, weighted average: 0.1 bought for 5,000 EUR and half sold (2,500 left), 0.0016 by card for 100 EUR
+        // paid (its 2 EUR fee included), an Earn reward of 0.0001 worth 5.80 EUR that day, then 0.05 for 3,300 USDT
+        // (3,000 EUR).
+        btc.AveragePrice.ShouldBe(decimal.Round((2_500m + 100m + 5.8m + 3_000m) / 0.1017m, 8));
         btc.CostKnown.ShouldBeTrue();
         btc.Security.AssetClass.ShouldBe(AssetClass.Crypto);
         btc.Security.Currency.ShouldBe("EUR");
@@ -252,7 +252,7 @@ public sealed class BinanceTests
         var positions = await provider.GetPositionsAsync(CancellationToken.None);
 
         var sol = positions.Single(p => p.Security.Symbol == "SOL");
-        sol.AveragePrice.ShouldBe(103.33333333m); // 5 in for 500 and 1 received worth 120: 620 / 6
+        sol.AveragePrice.ShouldBe(104m); // 500 for 5, 1 out (400 for 4), +120 for 1 (520 for 5), 3 out → 208 for 2
         sol.CostKnown.ShouldBeTrue();
         var ada = positions.Single(p => p.Security.Symbol == "ADA");
         ada.CostKnown.ShouldBeFalse(); // no history at all: the first synced price is kept as its cost
@@ -294,14 +294,14 @@ public sealed class BinanceTests
             .Replace("/sapi/v1/capital/withdraw/history", "[]");
         third.HistoryState = kept;
         (await third.GetPositionsAsync(CancellationToken.None)).Single(p => p.Security.Symbol == "SOL")
-            .AveragePrice.ShouldBe(103.33333333m);
+            .AveragePrice.ShouldBe(104m);
     }
 
     [Fact]
-    public async Task Old_purchases_count_even_after_coins_were_sent_away()
+    public async Task Coins_sent_away_take_their_cost_with_them()
     {
         // 0.1 BTC bought by card in 2019 for 3,000 EUR, 0.08 sent to a cold wallet in 2021, 0.01 bought by card in
-        // 2026 for 600 EUR: like Binance, the average of every purchase, (3,000 + 600) / 0.11.
+        // 2026 for 600 EUR.
         var (provider, http) = Provider();
         static long At(int y, int m) => new DateTimeOffset(y, m, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
         http.Replace("/api/v3/account", """{"balances":[{"asset":"BTC","free":"0.03","locked":"0"}]}""")
@@ -324,78 +324,15 @@ public sealed class BinanceTests
 
         var btc = (await provider.GetPositionsAsync(CancellationToken.None)).Single();
 
-        btc.AveragePrice.ShouldBe(32_727.27272727m); // (3,000 + 600) / 0.11, like Binance's cost price
+        btc.AveragePrice.ShouldBe(40_000m); // the 0.08 sent took their cost: (0.02 × 30,000 + 600) / 0.03
     }
 
     [Fact]
-    public async Task A_purchase_costs_the_market_price_that_day_and_the_amount_paid_is_shown_beside_it()
-    {
-        // 0.001 BTC bought with the Buy button on 20 September for 70 EUR (1.50 fee + spread); BTC closed at 58,000.
-        var (provider, http) = Provider();
-        http.Replace("/api/v3/account", """{"balances":[{"asset":"BTC","free":"0.001","locked":"0"}]}""")
-            .Replace("/sapi/v1/simple-earn/flexible/position", Empty)
-            .Replace("/sapi/v1/simple-earn/locked/position", Empty)
-            .Replace("/api/v3/myTrades?symbol=BTCEUR", "[]")
-            .Replace("/api/v3/myTrades?symbol=BTCUSDT", "[]")
-            .Replace("/sapi/v1/simple-earn/flexible/history/rewardsRecord?type=REALTIME", Empty)
-            .Replace("/sapi/v1/simple-earn/locked/history/rewardsRecord", Empty)
-            .Replace("/sapi/v1/fiat/payments", $$"""
-                {"code":"000000","data":[
-                 {"orderNo":"B1","sourceAmount":"70","totalFee":"1.50","fiatCurrency":"EUR","obtainAmount":"0.001","cryptoCurrency":"BTC","status":"Completed","paymentMethod":"Cash Balance","createTime":{{Ms(9, 20) + 3_600_000}}}],
-                 "total":1}
-                """);
-
-        var btc = (await provider.GetCostBreakdownAsync(CancellationToken.None)).Single();
-
-        btc.AverageCost.ShouldBe(58_000m); // the market price, as Binance's average cost
-        var card = btc.Sources.Single(l => l.Kind == "card");
-        card.EurValue.ShouldBe(58m);
-        card.Paid.ShouldBe(70m);
-    }
-
-    [Fact]
-    public async Task The_cost_breakdown_shows_each_kind_of_movement()
-    {
-        var (provider, http) = Provider();
-        SolHistory(http);
-
-        var breakdown = await provider.GetCostBreakdownAsync(CancellationToken.None);
-
-        var sol = breakdown.Single(b => b.Asset == "SOL");
-        sol.Held.ShouldBe(2m);
-        sol.Tracked.ShouldBe(2m);
-        sol.AverageCost.ShouldBe(103.33333333m);
-        sol.Sources.Select(l => (l.Kind, l.Count, l.Quantity, l.EurValue)).ShouldBe(
-        [
-            ("convert", 1, 5m, 500m),
-            ("convert", 1, -1m, 0m),
-            ("received", 1, 1m, 120m),
-            ("sent", 1, -3m, 0m),
-        ], ignoreOrder: true);
-        var ada = breakdown.Single(b => b.Asset == "ADA");
-        ada.AverageCost.ShouldBeNull();
-        ada.Sources.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void The_cost_is_kept_in_dollars_and_shown_at_todays_rate_as_binance_does()
-    {
-        // 1 coin worth 100 EUR when 1 EUR bought 1.00 dollar: 100 dollars; today 1 EUR buys 1.25 dollars → 80 EUR.
-        var day = new DateTimeOffset(2025, 1, 10, 12, 0, 0, TimeSpan.Zero);
-        var closes = new Dictionary<DateOnly, decimal> { [DateOnly.FromDateTime(day.UtcDateTime)] = 1.00m };
-
-        BinanceValuation.AverageCostInDollars([CostEvent.In(day.ToUnixTimeMilliseconds(), 1, 100)], closes, 1.25m)
-            .ShouldBe(80m);
-        BinanceValuation.AverageCostInDollars([CostEvent.In(day.ToUnixTimeMilliseconds(), 1, 100)], closes, 0m)
-            .ShouldBe(100m); // no dollar rate: the EUR average
-    }
-
-    [Fact]
-    public void The_average_is_of_everything_that_came_in_and_unknown_without_coins_in()
+    public void Coins_going_out_leave_at_the_average_and_the_average_is_unknown_without_coins_in()
     {
         BinanceValuation.AverageCost([CostEvent.In(1, 2, 200), CostEvent.Out(2, 1), CostEvent.In(3, 1, 300)])
-            .ShouldBe(166.66666667m); // (200 + 300) / 3: what went out does not change it
-        BinanceValuation.AverageCost([CostEvent.In(1, 1, 100), CostEvent.Out(2, 1)]).ShouldBe(100m);
+            .ShouldBe(200m); // (100 left + 300) / 2
+        BinanceValuation.AverageCost([CostEvent.In(1, 1, 100), CostEvent.Out(2, 1)]).ShouldBeNull();
         BinanceValuation.AverageCost([CostEvent.Out(1, 1)]).ShouldBeNull();
     }
 

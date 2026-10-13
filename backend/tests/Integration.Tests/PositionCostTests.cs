@@ -134,4 +134,46 @@ public sealed class PositionCostTests(ApiFactory factory)
             after.SyncedAtUtc.ShouldBe(before.SyncedAtUtc);
         }
     }
+
+    [Fact]
+    public async Task A_holding_costs_what_its_trades_cost_in_euros_when_they_explain_it()
+    {
+        var api = await factory.OwnerAsync();
+        Guid accountId;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var finance = scope.ServiceProvider.GetRequiredService<IFinanceDb>();
+            var account = Account.Create("Stocks", AccountKind.Broker, "EUR", 0m, DateOnly.FromDateTime(DateTime.UtcNow),
+                "Trading 212");
+            finance.Accounts.Add(account);
+            await finance.SaveChangesAsync(CancellationToken.None);
+            accountId = account.Id;
+        }
+
+        var explained = new SecurityReport("BOOK1", null, "BOOK1", null, "Book one", "EUR", AssetClass.Stock);
+        var partial = new SecurityReport("BOOK2", null, "BOOK2", null, "Book two", "EUR", AssetClass.Stock);
+        var at = DateTimeOffset.UtcNow.AddDays(-30);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var writer = scope.ServiceProvider.GetRequiredService<PortfolioSyncWriter>();
+            // The broker says 100 a share; the two purchases took 1,050 EUR out of the account (fees, conversion).
+            await writer.ReplacePositionsAsync(accountId, DataSource.Trading212,
+                [new PositionReport(explained, 10, 100m, 120m, DateTimeOffset.UtcNow),
+                 new PositionReport(partial, 10, 50m, 60m, DateTimeOffset.UtcNow)], CancellationToken.None);
+            await writer.AddTradesAsync(accountId, DataSource.Trading212,
+            [
+                new TradeReport("book:1", explained, TradeSide.Buy, 6, 100m, "EUR", 2m, 0m, "EUR", -640m, "EUR", null, at),
+                new TradeReport("book:2", explained, TradeSide.Buy, 4, 100m, "EUR", 2m, 0m, "EUR", -410m, "EUR", null,
+                    at.AddDays(1)),
+                // Only 5 of the 10 held: the trades do not explain the holding, so the broker's price stays.
+                new TradeReport("book:3", partial, TradeSide.Buy, 5, 40m, "EUR", 0m, 0m, "EUR", -200m, "EUR", null, at),
+            ], CancellationToken.None);
+        }
+
+        var positions = await api.GetAsync<JsonElement[]>($"/api/portfolio/positions?accountId={accountId}");
+        positions.Single(p => p.GetProperty("symbol").GetString() == "BOOK1").GetProperty("costBase").GetDecimal()
+            .ShouldBe(1050m);
+        positions.Single(p => p.GetProperty("symbol").GetString() == "BOOK2").GetProperty("costBase").GetDecimal()
+            .ShouldBe(500m);
+    }
 }

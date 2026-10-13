@@ -44,10 +44,6 @@ public sealed class CreateConnectionValidator : AbstractValidator<CreateConnecti
     }
 }
 
-/// <summary>A coin's cost as rebuilt from history, with the cost its position carries and its gain.</summary>
-public sealed record CostBreakdownDto(string Asset, decimal Held, decimal Tracked, decimal? AverageCost,
-    decimal EurPrice, IReadOnlyList<CostSourceLine> Sources, decimal? StoredAverage, decimal? Gain);
-
 public static class IntegrationEndpoints
 {
     public static readonly IReadOnlyList<ProviderInfo> Providers =
@@ -154,64 +150,6 @@ public static class IntegrationEndpoints
             return queue.Enqueue(id)
                 ? Results.Accepted()
                 : ResultHttp.Problem(Error.Conflict("Sync.Busy", "Too many syncs queued; try again shortly."));
-        });
-
-        // How each coin's cost was rebuilt, read live from the broker (read-only) so the owner can check it.
-        group.MapGet("/connections/{id:guid}/cost-breakdown", async (Guid id, IIntegrationsDb db,
-            IInvestmentProviderFactory providers, ICredentialProtector credentials,
-            Investments.Application.Abstractions.IInvestmentsDb investments, CancellationToken ct) =>
-        {
-            var connection = await db.Connections.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
-            if (connection is null)
-            {
-                return Results.NotFound();
-            }
-
-            try
-            {
-                var provider = providers.Create(connection.Kind,
-                    credentials.Unprotect(connection.ProtectedCredentials));
-                if (provider is not ICostBreakdownProvider breakdown)
-                {
-                    return Results.NotFound();
-                }
-
-                // The whole history is read once, by a sync (minutes, rate-limited); this only reads what is new.
-                if (provider is IHistoryStateProvider kept)
-                {
-                    if (connection.HistoryState is null)
-                    {
-                        return Results.Problem(
-                            "The full history has not been read yet. Synchronise this connection first.",
-                            statusCode: StatusCodes.Status409Conflict);
-                    }
-
-                    kept.HistoryState = connection.HistoryState;
-                }
-
-                // Next to what the history explains: the cost the position really carries (a coin without history
-                // keeps its first sync's price) and the resulting gain, so the account's return can be checked coin by
-                // coin.
-                var stored = await (
-                        from p in investments.Positions.AsNoTracking()
-                        join s in investments.Securities.AsNoTracking() on p.SecurityId equals s.Id
-                        where p.AccountId == connection.AccountId
-                        select new { s.Symbol, p.Quantity, p.AveragePrice, p.LastPrice })
-                    .ToListAsync(ct);
-                return Results.Ok((await breakdown.GetCostBreakdownAsync(ct)).Select(b =>
-                {
-                    var position = stored.FirstOrDefault(p =>
-                        string.Equals(p.Symbol, b.Asset, StringComparison.OrdinalIgnoreCase));
-                    // Right now: today's price, and the cost from history (or, without it, the position's kept cost).
-                    var cost = b.AverageCost ?? position?.AveragePrice;
-                    return new CostBreakdownDto(b.Asset, b.Held, b.Tracked, b.AverageCost, b.EurPrice, b.Sources,
-                        cost, cost is null ? null : decimal.Round(b.Held * (b.EurPrice - cost.Value), 2));
-                }).OrderBy(b => b.Gain ?? 0).ToList());
-            }
-            catch (Exception e) when (e is ProviderConfigurationException or ProviderUnavailableException)
-            {
-                return Results.Problem(e.Message, statusCode: StatusCodes.Status502BadGateway);
-            }
         });
 
         group.MapPost("/connections/{id:guid}/enable", (Guid id, IIntegrationsDb db, CancellationToken ct) => SetEnabled(id, true, db, ct));
