@@ -41,7 +41,7 @@ public static class AccountBalances
                 account.Currency == Currency.Base ? @base : original;
 
             var balance = account.OpeningBalance;
-            foreach (var s in sums)
+            foreach (var s in sums.Where(s => !IsEarmark(s.Type, s.CounterAccountId)))
             {
                 // Income and sale proceeds flow into the account; for a sale the counter account is the source.
                 var inflow = s.Type is TransactionType.Income or TransactionType.InvestmentSale;
@@ -76,6 +76,13 @@ public static class AccountBalances
         return balances;
     }
 
+    /// <summary>
+    /// Savings without a destination account set money aside in a bucket while it stays in the source account: it
+    /// counts as saved that month, but no money moved, so no balance changes (it would vanish from net worth).
+    /// </summary>
+    public static bool IsEarmark(TransactionType type, Guid? counterAccountId) =>
+        type == TransactionType.Savings && counterAccountId is null;
+
     /// <summary>Balances at the end of each of <paramref name="days"/>, with one query for all of them.</summary>
     public static async Task<Dictionary<DateOnly, Dictionary<Guid, decimal>>> ComputeOnAsync(IFinanceDb db,
         IReadOnlyCollection<Account> accounts, IReadOnlyList<DateOnly> days, CancellationToken ct)
@@ -103,7 +110,7 @@ public static class AccountBalances
             foreach (var account in accounts)
             {
                 var balance = account.OpeningBalance;
-                foreach (var s in rows.Where(r => r.OccurredOn <= day &&
+                foreach (var s in rows.Where(r => r.OccurredOn <= day && !IsEarmark(r.Type, r.CounterAccountId) &&
                                                   (r.AccountId == account.Id || r.CounterAccountId == account.Id)))
                 {
                     var amount = account.Currency == Currency.Base ? s.Base : s.Original;
