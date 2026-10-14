@@ -335,6 +335,9 @@
   "goalQuestion": "Is this for a goal?"
  },
  "recurring": {
+  "yearlyOn": "First time (then every year on this day)",
+  "yearlyHint": "Repeats every year on {{date}}.",
+  "variableHint": "Bills that change (water, electricity): put an estimate. Each proposal comes with the average of the last 3 confirmed, and you can change it when you confirm.",
   "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.",
   "new": "New recurring",
   "edit": "Edit recurring",
