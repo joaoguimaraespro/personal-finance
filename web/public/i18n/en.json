@@ -1032,6 +1032,8 @@
   "timeout": "The server didn't respond. Check your connection (Tailscale) and try again."
  },
  "interest": {
+  "earns": "This account earns interest",
+  "earnsHint": "A savings account, or a current/card account that pays interest on its balance (e.g. Trading 212 or Revolut). The app then estimates it every day.",
   "pendingTitle": "Interest to confirm",
   "pendingHint": "Estimated from your rate and daily balances. Confirm it, or type what the bank really paid (0 if nothing). Unanswered months stay estimated.",
   "question": "Did {{bank}} pay {{amount}} interest in {{month}}?",

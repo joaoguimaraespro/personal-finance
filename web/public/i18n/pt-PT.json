@@ -1032,6 +1032,8 @@
   "timeout": "O servidor não respondeu. Verifica a ligação (Tailscale) e tenta de novo."
  },
  "interest": {
+  "earns": "Esta conta rende juros",
+  "earnsHint": "Uma conta poupança, ou uma conta à ordem/cartão que paga juros sobre o saldo (por exemplo Trading 212 ou Revolut). A app passa a estimá-los todos os dias.",
   "pendingTitle": "Juros por confirmar",
   "pendingHint": "Estimados a partir da taxa e dos saldos diários. Confirme, ou indique o que o banco pagou realmente (0 se nada). Meses sem resposta ficam como estimativa.",
   "question": "{{bank}} pagou {{amount}} de juros em {{month}}?",
