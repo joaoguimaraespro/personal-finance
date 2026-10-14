@@ -35,7 +35,8 @@ public sealed record MonthlySummary(
     IReadOnlyList<BucketLine> Buckets,
     int TransactionCount,
     decimal InvestmentPurchases = 0,
-    decimal InvestmentSales = 0);
+    decimal InvestmentSales = 0,
+    decimal DebtRepaid = 0);
 
 /// <summary>
 /// Deterministic port of the spreadsheet's month sheet ("RESUMO MENSAL" block). Formula references are to the
@@ -71,7 +72,8 @@ public static class MonthlyCalculator
             invested,
             saved,
             netBalance,
-            FreeCashFlow: netBalance - invested - saved,
+            // Capital repaid on loans is not spending, but it is money that is no longer free.
+            FreeCashFlow: netBalance - invested - saved - t.DebtRepaid,
             SavingsRate: Ratio(invested + saved, t.Income),      // I13 / Resumo J
             InvestmentRate: Ratio(invested, t.Income),           // Resumo N
             SavingsOnlyRate: Ratio(saved, t.Income),             // Resumo O
@@ -84,7 +86,8 @@ public static class MonthlyCalculator
             lines,
             t.TransactionCount,
             InvestmentPurchases: t.InvestmentPurchases,
-            InvestmentSales: t.InvestmentSales);
+            InvestmentSales: t.InvestmentSales,
+            DebtRepaid: t.DebtRepaid);
     }
 
     private static decimal? SumTargets(List<BucketLine> lines, bool investment)

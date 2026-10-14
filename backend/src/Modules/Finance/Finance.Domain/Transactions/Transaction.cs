@@ -107,6 +107,12 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
     public Guid? CounterAccountId { get; private set; }
     public Guid? CategoryId { get; private set; }
     public ExpenseNature? Nature { get; private set; }
+
+    /// <summary>
+    /// An expense given back (a return, a refund, an insurance payout for a cost): money comes in and the category's
+    /// spending goes down, instead of counting as income.
+    /// </summary>
+    public bool IsRefund { get; private set; }
     public Guid? BucketId { get; private set; }
     public Guid? GoalId { get; private set; }
 
@@ -189,6 +195,7 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
         CategoryId = d.Type is TransactionType.Expense or TransactionType.Income && !split ? d.CategoryId : null;
         // A split expense keeps only an explicit nature; otherwise each line carries its category's nature.
         Nature = d.Type == TransactionType.Expense ? split ? d.Nature : d.Nature ?? ExpenseNature.Variable : null;
+        IsRefund = d.Type == TransactionType.Expense && d.IsRefund;
         BucketId = d.Type == TransactionType.Savings || TransactionTypes.IsInvestment(d.Type) ? d.BucketId : null;
         GoalId = d.Type == TransactionType.Savings ? d.GoalId : null;
         ApplyAsset(TransactionTypes.IsInvestment(d.Type) ? d.Asset : null);
@@ -254,7 +261,8 @@ public sealed record TransactionDraft(
     DateTimeOffset? OccurredAtUtc = null,
     string? TimeZone = null,
     InvestmentAsset? Asset = null,
-    IReadOnlyList<SplitLine>? Splits = null);
+    IReadOnlyList<SplitLine>? Splits = null,
+    bool IsRefund = false);
 
 public static class TransactionErrors
 {
@@ -265,6 +273,9 @@ public static class TransactionErrors
 
     public static readonly Error CategoryRequired =
         Error.Validation("Transaction.Category", "Expenses and income require a category.");
+
+    public static readonly Error RefundNotAllowed =
+        Error.Validation("Transaction.Refund", "Only a single-category expense can be a refund.");
 
     public static readonly Error CounterAccountRequired =
         Error.Validation("Transaction.CounterAccount", "Transfers require a destination account.");
@@ -308,6 +319,11 @@ internal static class TransactionRules
         if (d.Currency != Currency.Base && d.FxRate is not > 0)
         {
             return TransactionErrors.FxRateRequired;
+        }
+
+        if (d.IsRefund && (d.Type != TransactionType.Expense || d.Splits is { Count: > 0 }))
+        {
+            return TransactionErrors.RefundNotAllowed;
         }
 
         if (d.Splits is { Count: > 0 } splits)
