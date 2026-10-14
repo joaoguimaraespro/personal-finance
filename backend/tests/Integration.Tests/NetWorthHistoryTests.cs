@@ -60,4 +60,29 @@ public sealed class NetWorthHistoryTests(ApiFactory factory)
         series[endTwoAgo].ShouldBe(3500m); // + the salary; the broker keeps its last value
         history.GetProperty("startDate").GetString().ShouldBe(endThreeAgo.ToString("yyyy-MM-dd"));
     }
+
+    [Fact]
+    public async Task Savings_without_a_destination_are_set_aside_and_stay_in_the_account()
+    {
+        var api = await factory.OwnerAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var bank = await api.CreateAsync("/api/accounts", new
+        {
+            name = "Everyday bank", kind = "Bank", currency = "EUR", openingBalance = 1000m,
+            openingBalanceOn = today.AddDays(-10).ToString("yyyy-MM-dd"),
+        });
+        var travel = (await api.GetAsync<JsonElement[]>("/api/buckets"))
+            .First(b => b.GetProperty("key").GetString() == "travel-fund").GetProperty("id").GetGuid();
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Savings", occurredOn = today.ToString("yyyy-MM-dd"), amount = 200m, currency = "EUR",
+            accountId = bank, bucketId = travel, description = "Set aside for the trip",
+        });
+
+        var account = (await api.GetAsync<JsonElement[]>("/api/accounts"))
+            .Single(a => a.GetProperty("id").GetGuid() == bank);
+        account.GetProperty("balance").GetDecimal().ShouldBe(1000m); // the money did not leave the account
+        var month = await api.GetJsonAsync($"/api/reports/monthly/{today:yyyy-MM}");
+        month.GetProperty("current").GetProperty("saved").GetDecimal().ShouldBe(200m); // but it counts as saved
+    }
 }

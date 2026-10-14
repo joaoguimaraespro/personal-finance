@@ -1,4 +1,5 @@
 using Finance.Application.Abstractions;
+using Finance.Application.Accounts;
 using Finance.Domain;
 using Finance.Domain.Accounts;
 using Finance.Domain.Interest;
@@ -91,7 +92,7 @@ public sealed class InterestAccrualService(IFinanceDb db, TimeProvider clock, IL
                         (t.AccountId == accountId || t.CounterAccountId == accountId))
             .Select(t => new
             {
-                t.OccurredOn, t.Type, t.AccountId, t.BaseAmount, t.OriginalAmount,
+                t.OccurredOn, t.Type, t.AccountId, t.CounterAccountId, t.BaseAmount, t.OriginalAmount,
                 // A split income with an interest line is real interest too.
                 IsInterest = t.CategoryId == InterestCategoryId || t.Splits.Any(s => s.CategoryId == InterestCategoryId),
             })
@@ -99,7 +100,7 @@ public sealed class InterestAccrualService(IFinanceDb db, TimeProvider clock, IL
 
         var useBase = account.Currency == Currency.Base;
         var flows = new Dictionary<DateOnly, decimal>();
-        foreach (var r in rows)
+        foreach (var r in rows.Where(r => !AccountBalances.IsEarmark(r.Type, r.CounterAccountId)))
         {
             var amount = useBase ? r.BaseAmount : r.OriginalAmount;
             var signed = Signed(r.Type, r.AccountId == accountId, amount);
