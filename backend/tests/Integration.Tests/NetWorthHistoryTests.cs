@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Finance.Application.Abstractions;
+using Finance.Application.Recurring;
+using Microsoft.EntityFrameworkCore;
 using Finance.Domain.Accounts;
 using Integration.Tests.Infrastructure;
 using Investments.Application.Portfolio;
@@ -127,5 +129,46 @@ public sealed class NetWorthHistoryTests(ApiFactory factory)
         month.GetProperty("income").GetDecimal().ShouldBe(0m); // and is not income
         month.GetProperty("debtRepaid").GetDecimal().ShouldBe(200m);
         month.GetProperty("freeCashFlow").GetDecimal().ShouldBe(-70m - 200m);
+    }
+
+    [Fact]
+    public async Task A_bill_that_varies_is_proposed_at_the_average_of_the_last_confirmed()
+    {
+        var api = await factory.OwnerAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var bank = await api.CreateAsync("/api/accounts", new
+        {
+            name = "Bills bank", kind = "Bank", currency = "EUR", openingBalance = 500m,
+            openingBalanceOn = today.AddMonths(-4).ToString("yyyy-MM-dd"),
+        });
+        var water = (await api.GetAsync<JsonElement[]>("/api/categories"))
+            .First(c => c.GetProperty("type").GetString() == "Expense").GetProperty("id").GetGuid();
+        var start = today.AddMonths(-2).AddDays(-10);
+        var id = await api.CreateAsync("/api/recurring", new
+        {
+            name = "Water", type = "Expense", amount = 30m, currency = "EUR", accountId = bank, frequency = "Monthly",
+            startOn = start.ToString("yyyy-MM-dd"), dayOfMonth = start.Day, categoryId = water,
+        });
+
+        // The past occurrences were proposed at the estimate; the bills came at 40 and 50.
+        var pending = (await api.GetAsync<JsonElement[]>("/api/expected?status=Pending"))
+            .Where(e => e.GetProperty("recurringTransactionId").GetGuid() == id)
+            .OrderBy(e => e.GetProperty("dueOn").GetString()).Take(2).ToList();
+        pending.Count.ShouldBe(2);
+        pending[0].GetProperty("amount").GetDecimal().ShouldBe(30m);
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/expected/{pending[0].GetProperty("id").GetGuid()}/confirm",
+            new { amount = 40m }));
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/expected/{pending[1].GetProperty("id").GetGuid()}/confirm",
+            new { amount = 50m }));
+
+        // The next occurrence proposed after that comes at the average.
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<IFinanceDb>();
+        var next = today.AddDays(1);
+        await ((DbContext)db).Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE finance.recurring_transactions SET next_due_on = {next} WHERE id = {id}");
+        await scope.ServiceProvider.GetRequiredService<RecurringProposer>().ProposeDueAsync(CancellationToken.None);
+        (await db.ExpectedTransactions.AsNoTracking().SingleAsync(e => e.RecurringTransactionId == id && e.DueOn == next))
+            .Amount.ShouldBe(45m);
     }
 }
