@@ -12,8 +12,10 @@ public sealed record SecurityReport(string BrokerSymbol, string? Isin, string Sy
 /// deposited or received with no history), so <paramref name="AveragePrice"/> is only today's price and the cost first
 /// recorded for the position is kept, so its gain counts from then on.
 /// </summary>
+/// <param name="CostBase">What the holding really cost in EUR, when the broker reports it (Trading 212).</param>
+/// <param name="ValueBase">The holding's value in EUR at the broker's own exchange rate, when reported.</param>
 public sealed record PositionReport(SecurityReport Security, decimal Quantity, decimal AveragePrice, decimal LastPrice,
-    DateTimeOffset PriceAsOf, bool CostKnown = true);
+    DateTimeOffset PriceAsOf, bool CostKnown = true, decimal? CostBase = null, decimal? ValueBase = null);
 
 public sealed record TradeReport(string ExternalId, SecurityReport Security, TradeSide Side, decimal Quantity,
     decimal Price, string Currency, decimal Fees, decimal Taxes, string FeesCurrency, decimal? NetAmountInAccountCurrency,

@@ -22,7 +22,9 @@ these?* in the add dialog), in English and Portuguese. Keep both in sync when th
 
 ## Cost of every holding
 
-Gains are measured against the **real cost in euros**. For each holding, the trades the broker reported are replayed
+Gains are measured against the **real cost in euros**. When the broker reports a holding's own EUR figures
+(Trading 212: what it really cost and its value at Trading 212's exchange rate), those are used, so the figures match
+its app. Otherwise, for each holding, the trades the broker reported are replayed
 as a weighted average of what left the account in euros on each purchase day: fees and currency conversion are
 included, and sales take their share of the cost. When the trades do not account for the quantity held (history
 shorter than the position, a stock split, an exchange without trades such as Binance), the broker's average price is
