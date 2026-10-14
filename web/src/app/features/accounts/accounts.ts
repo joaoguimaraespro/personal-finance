@@ -34,6 +34,8 @@ interface AccountForm {
   institution: string;
   identifier: string;
   interestPayout: InterestPayout;
+  /** Ticked: the interest section shows and a rate can be set (a savings account starts ticked). */
+  earnsInterest: boolean;
   /** A new rate period to add (empty = keep the current rate). */
   rate: string;
   rateFrom: string;
@@ -52,6 +54,7 @@ const EMPTY: AccountForm = {
   institution: '',
   identifier: '',
   interestPayout: 'Monthly',
+  earnsInterest: false,
   rate: '',
   rateFrom: today(),
   withholding: DEFAULT_WITHHOLDING,
@@ -386,8 +389,25 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
             {{ 'accounts.identifierNote' | translate }}
           </p>
         </div>
+        @if (canEarnInterest()) {
+          <label class="col-span-2 mt-2 flex items-start gap-2 border-t pt-4 text-sm">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="earns-interest"
+              [checked]="form().earnsInterest"
+              (change)="patch({ earnsInterest: $any($event.target).checked })"
+            />
+            <span
+              >{{ 'interest.earns' | translate }}
+              <span class="text-muted-foreground block text-xs">{{
+                'interest.earnsHint' | translate
+              }}</span></span
+            >
+          </label>
+        }
         @if (showInterest()) {
-          <fieldset class="col-span-2 mt-2 grid grid-cols-2 gap-3 border-t pt-4">
+          <fieldset class="col-span-2 grid grid-cols-2 gap-3">
             <legend class="sr-only">{{ 'interest.section' | translate }}</legend>
             <div class="col-span-2 flex items-center gap-2 text-sm font-semibold">
               <ng-icon name="lucidePercent" class="text-primary" />{{
@@ -521,7 +541,10 @@ export class AccountsComponent {
   protected readonly formOpen = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly form = signal<AccountForm>(EMPTY);
-  protected readonly showInterest = computed(() => supportsInterest(this.form().kind));
+  protected readonly canEarnInterest = computed(() => supportsInterest(this.form().kind));
+  protected readonly showInterest = computed(
+    () => this.canEarnInterest() && this.form().earnsInterest,
+  );
   protected readonly payoutOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
     return (['Monthly', 'Daily'] as InterestPayout[]).map((p) => ({
@@ -619,7 +642,9 @@ export class AccountsComponent {
   });
 
   protected patch(p: Partial<AccountForm>) {
-    this.form.update((f) => ({ ...f, ...p }));
+    // Choosing "savings" on a new account usually means it pays interest: tick it (it can be unticked).
+    const tick = p.kind === 'Savings' && !this.editingId() ? { earnsInterest: true } : {};
+    this.form.update((f) => ({ ...f, ...p, ...tick }));
   }
 
   protected openNew() {
@@ -639,6 +664,7 @@ export class AccountsComponent {
       institution: a.institution ?? '',
       identifier: '',
       interestPayout: a.interest?.payout ?? 'Monthly',
+      earnsInterest: (a.interest?.annualRatePercent ?? 0) > 0,
       rate: '',
       rateFrom: today(),
       withholding: String(a.interest?.withholdingPercent ?? DEFAULT_WITHHOLDING),
@@ -658,8 +684,11 @@ export class AccountsComponent {
       identifier: f.identifier || null,
       interestPayout: supportsInterest(f.kind) ? f.interestPayout : null,
     };
-    const rate = supportsInterest(f.kind) && f.rate.trim() ? parseAmount(f.rate) : null;
-    if (f.rate.trim() && supportsInterest(f.kind) && (rate === null || rate < 0 || rate > 100)) {
+    const earns = supportsInterest(f.kind) && f.earnsInterest;
+    const rate = earns && f.rate.trim() ? parseAmount(f.rate) : null;
+    // Unticked on an account that paid interest: a 0 % rate from today stops the estimate (history stays).
+    const stops = !earns && !!this.editingId() && (this.currentRate() ?? 0) > 0;
+    if (f.rate.trim() && earns && (rate === null || rate < 0 || rate > 100)) {
       this.toasts.show(this.i18n.instant('interest.invalidRate'), 'error');
       return;
     }
@@ -667,6 +696,15 @@ export class AccountsComponent {
       let id = this.editingId();
       if (id) await firstValueFrom(this.api.updateAccount(id, body));
       else id = (await firstValueFrom(this.api.createAccount(body))).id;
+      if (stops) {
+        await firstValueFrom(
+          this.api.addInterestRate(id, {
+            annualRatePercent: 0,
+            effectiveFrom: today(),
+            withholdingPercent: parseAmount(f.withholding),
+          }),
+        );
+      }
       if (rate !== null) {
         // A rate change adds a new period from its date; earlier periods are never rewritten.
         await firstValueFrom(
