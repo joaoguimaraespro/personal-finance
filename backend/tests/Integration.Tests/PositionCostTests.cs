@@ -176,4 +176,33 @@ public sealed class PositionCostTests(ApiFactory factory)
         positions.Single(p => p.GetProperty("symbol").GetString() == "BOOK2").GetProperty("costBase").GetDecimal()
             .ShouldBe(500m);
     }
+
+    [Fact]
+    public async Task The_brokers_own_euro_cost_and_value_come_first()
+    {
+        var api = await factory.OwnerAsync();
+        Guid accountId;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var finance = scope.ServiceProvider.GetRequiredService<IFinanceDb>();
+            var account = Account.Create("Trading 212", AccountKind.Broker, "EUR", 0m,
+                DateOnly.FromDateTime(DateTime.UtcNow), "Trading 212");
+            finance.Accounts.Add(account);
+            await finance.SaveChangesAsync(CancellationToken.None);
+            accountId = account.Id;
+        }
+
+        var share = new SecurityReport("EURO1", null, "EURO1", null, "Euro one", "EUR", AssetClass.Stock);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<PortfolioSyncWriter>().ReplacePositionsAsync(accountId,
+                DataSource.Trading212,
+                [new PositionReport(share, 3, 180m, 200m, DateTimeOffset.UtcNow, CostBase: 490.9m, ValueBase: 545.4m)],
+                CancellationToken.None);
+        }
+
+        var position = (await api.GetAsync<JsonElement[]>($"/api/portfolio/positions?accountId={accountId}")).Single();
+        position.GetProperty("costBase").GetDecimal().ShouldBe(490.9m);
+        position.GetProperty("marketValueBase").GetDecimal().ShouldBe(545.4m);
+    }
 }

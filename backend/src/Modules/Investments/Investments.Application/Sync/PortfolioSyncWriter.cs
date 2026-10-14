@@ -63,8 +63,9 @@ public sealed class PortfolioSyncWriter(IInvestmentsDb db, FxRates fx, TimeProvi
             var position = existing.FirstOrDefault(p => p.SecurityId == securityId);
             if (position is null)
             {
-                db.Positions.Add(Position.Report(accountId, securityId, r.Quantity, r.AveragePrice, r.LastPrice,
-                    r.PriceAsOf, source, now));
+                position = Position.Report(accountId, securityId, r.Quantity, r.AveragePrice, r.LastPrice,
+                    r.PriceAsOf, source, now);
+                db.Positions.Add(position);
                 imported++;
             }
             else
@@ -73,6 +74,8 @@ public sealed class PortfolioSyncWriter(IInvestmentsDb db, FxRates fx, TimeProvi
                 position.Update(r.Quantity, average, r.LastPrice, r.PriceAsOf, now);
                 updated++;
             }
+
+            position.SetBase(r.CostBase, r.ValueBase);
 
             await RecordPriceAsync(securityId, DateOnly.FromDateTime(r.PriceAsOf.UtcDateTime), r.LastPrice,
                 r.Security.Currency, source, ct);

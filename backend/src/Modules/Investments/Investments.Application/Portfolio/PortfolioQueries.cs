@@ -183,8 +183,11 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 DayChange.TradingDay(DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime), tradesEveryDay: crypto));
             return new Holding(r.p.AccountId, account.Name, r.p.Source, r.s.Id, r.s.Symbol, r.s.Isin, r.s.Name,
                 r.s.Currency, r.s.EffectiveAssetClass, r.p.Quantity, r.p.AveragePrice, r.p.LastPrice,
-                decimal.Round(r.p.MarketValue * factor, 2),
-                decimal.Round(BookCost(bookCosts, r.p.AccountId, r.s.Id, r.p.Quantity) ?? r.p.CostBasis * factor, 2),
+                // The broker's own EUR figures first (Trading 212: its exchange rate, fees and conversion included),
+                // then the EUR cost replayed from trades, then the broker's average price at today's rate.
+                decimal.Round(r.p.ValueBase ?? r.p.MarketValue * factor, 2),
+                decimal.Round(r.p.CostBase ?? BookCost(bookCosts, r.p.AccountId, r.s.Id, r.p.Quantity)
+                    ?? r.p.CostBasis * factor, 2),
                 r.p.PriceAsOfUtc, DayChange.Amount(r.p.Quantity, r.p.LastPrice, previous, factor),
                 reference is null ? DayChangeBasis.PreviousClose : DayChangeBasis.Rolling24Hours);
         }).ToList();
