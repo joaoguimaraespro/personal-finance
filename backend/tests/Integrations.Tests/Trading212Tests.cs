@@ -99,6 +99,10 @@ public sealed class Trading212Tests
         vwce.Quantity.ShouldBe(12.5m);
         vwce.AveragePrice.ShouldBe(100.1m);
         positions.Single(p => p.Security.Symbol == "AAPL").Security.AssetClass.ShouldBe(AssetClass.Stock);
+        // The euro figures the Trading 212 app shows: its exchange rate, fees and conversion included.
+        var apple = positions.Single(p => p.Security.Symbol == "AAPL");
+        apple.CostBase.ShouldBe(490.9m);
+        apple.ValueBase.ShouldBe(545.4m);
         http.Requests.ShouldAllBe(r => r.Headers.Authorization!.Scheme == "Basic");
         http.Requests.ShouldAllBe(r => r.Method == HttpMethod.Get);
     }
