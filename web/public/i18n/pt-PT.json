@@ -335,6 +335,9 @@
   "goalQuestion": "É para algum objetivo?"
  },
  "recurring": {
+  "yearlyOn": "Primeira vez (depois, todos os anos neste dia)",
+  "yearlyHint": "Repete todos os anos a {{date}}.",
+  "variableHint": "Contas que variam (água, luz): põe uma estimativa. Cada proposta vem com a média das últimas 3 confirmadas e podes mudar o valor ao confirmar.",
   "subtitle": "Os modelos propõem movimentos; nada é registado sem a tua confirmação.",
   "new": "Novo recorrente",
   "edit": "Editar recorrente",
