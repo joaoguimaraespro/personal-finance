@@ -63,7 +63,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     .OrderBy(t => t.OccurredOn).ToListAsync(ct)).Select(t => new
                 {
                     t.Id, t.Type, t.OccurredOn, t.OccurredAtUtc, t.TimeZone, t.AccountId, t.CounterAccountId, t.CategoryId,
-                    t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount,
+                    t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount, t.IsRefund,
                     t.BaseCurrency, t.Description, t.Notes, t.Source, t.ExternalId, t.CreatedAtUtc, t.UpdatedAtUtc,
                     t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetIsin, t.AssetQuantity, t.AssetUnitPrice,
                     t.AssetPriceSource,
@@ -288,7 +288,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                         ? new InvestmentAsset(Enum.Parse<InvestmentAssetKind>(kind), symbol, Str(t, "assetName"),
                             Str(t, "assetIsin"), Dec(t, "assetQuantity"), Dec(t, "assetUnitPrice"), Str(t, "assetPriceSource"))
                         : null,
-                    Splits: splits);
+                    Splits: splits,
+                    IsRefund: t.TryGetProperty("isRefund", out var refund) && refund.ValueKind == JsonValueKind.True);
                 var created = Transaction.Create(draft, DataSource.Json, externalId: $"json:{originalId}");
                 if (created.IsSuccess)
                 {

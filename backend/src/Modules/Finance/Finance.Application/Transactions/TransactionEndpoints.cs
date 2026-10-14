@@ -42,7 +42,8 @@ public sealed record TransactionDto(
     InvestmentAssetDto? Asset,
     IReadOnlyList<SplitDto> Splits,
     // Only when the list is filtered by category and this transaction is split: the part in that category.
-    decimal? CategoryAmount = null);
+    decimal? CategoryAmount = null,
+    bool IsRefund = false);
 
 /// <summary>A category line of a split transaction. Amount is in the transaction's currency.</summary>
 public sealed record SplitDto(Guid CategoryId, string CategoryKey, string CategoryName, decimal Amount,
@@ -82,11 +83,13 @@ public sealed record TransactionRequest(
     string? Description,
     string? Notes,
     InvestmentAssetDto? Asset = null,
-    IReadOnlyList<SplitLineRequest>? Splits = null)
+    IReadOnlyList<SplitLineRequest>? Splits = null,
+    bool? IsRefund = null)
 {
     public TransactionDraft ToDraft() => new(Type, OccurredOn, Amount, Currency ?? SharedKernel.Currency.Base,
         AccountId, CategoryId, Nature, CounterAccountId, BucketId, GoalId, FxRate, Description, Notes,
-        Asset: Asset?.ToDomain(), Splits: Splits is { Count: > 0 } ? Splits.Select(s => s.ToDomain()).ToList() : null);
+        Asset: Asset?.ToDomain(), Splits: Splits is { Count: > 0 } ? Splits.Select(s => s.ToDomain()).ToList() : null,
+        IsRefund: IsRefund ?? false);
 }
 
 public sealed class TransactionRequestValidator : AbstractValidator<TransactionRequest>
@@ -334,5 +337,5 @@ public static class TransactionEndpoints
                 join sc in db.Categories on s.CategoryId equals sc.Id
                 orderby s.Position
                 select new SplitDto(s.CategoryId, sc.Key, sc.Name, s.OriginalAmount, s.BaseAmount, s.Nature, s.Note))
-            .ToList());
+            .ToList(), null, t.IsRefund);
 }

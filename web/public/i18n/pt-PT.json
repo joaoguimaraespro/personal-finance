@@ -256,6 +256,8 @@
   "pendingCount": "{{count}} pendentes"
  },
  "monthly": {
+  "debtRepaid": "Dívida amortizada",
+  "debtRepaidHint": "Capital pago dos empréstimos neste mês. Não é gasto — a dívida baixou — mas é dinheiro que deixou de estar livre.",
   "title": "Resumo mensal",
   "allocation": "Alocação",
   "editBudget": "Editar orçamento",
@@ -289,6 +291,9 @@
   "rateNote": "O total da taxa de poupança é a média das taxas mensais, como na folha original. Ponderada pelo rendimento é {{weighted}}."
  },
  "tx": {
+  "refund": "É um reembolso",
+  "refundHint": "Dinheiro devolvido de uma despesa (devolução, reembolso): desconta nos gastos desta categoria em vez de contar como rendimento.",
+  "refundBadge": "reembolso",
   "add": "Adicionar movimento",
   "edit": "Editar movimento",
   "amount": "Valor",

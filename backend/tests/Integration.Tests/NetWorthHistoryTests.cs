@@ -85,4 +85,47 @@ public sealed class NetWorthHistoryTests(ApiFactory factory)
         var month = await api.GetJsonAsync($"/api/reports/monthly/{today:yyyy-MM}");
         month.GetProperty("current").GetProperty("saved").GetDecimal().ShouldBe(200m); // but it counts as saved
     }
+
+    [Fact]
+    public async Task A_refund_lowers_spending_and_capital_repaid_shows_in_the_month()
+    {
+        var api = await factory.OwnerAsync();
+        var day = new DateOnly(2031, 3, 10); // a month no other test touches
+        var bank = await api.CreateAsync("/api/accounts", new
+        {
+            name = "Refund bank", kind = "Bank", currency = "EUR", openingBalance = 1000m,
+            openingBalanceOn = day.AddDays(-5).ToString("yyyy-MM-dd"),
+        });
+        var loan = await api.CreateAsync("/api/accounts", new
+        {
+            name = "Car loan", kind = "Loan", currency = "EUR", openingBalance = -5000m,
+            openingBalanceOn = day.AddDays(-5).ToString("yyyy-MM-dd"),
+        });
+        var groceries = (await api.GetAsync<JsonElement[]>("/api/categories"))
+            .First(c => c.GetProperty("key").GetString() == "groceries").GetProperty("id").GetGuid();
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = day.ToString("yyyy-MM-dd"), amount = 100m, currency = "EUR",
+            accountId = bank, categoryId = groceries, description = "Shopping",
+        });
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", isRefund = true, occurredOn = day.AddDays(2).ToString("yyyy-MM-dd"), amount = 30m,
+            currency = "EUR", accountId = bank, categoryId = groceries, description = "Returned an item",
+        });
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Transfer", occurredOn = day.AddDays(3).ToString("yyyy-MM-dd"), amount = 200m, currency = "EUR",
+            accountId = bank, counterAccountId = loan, description = "Capital",
+        });
+
+        var accounts = await api.GetAsync<JsonElement[]>("/api/accounts");
+        accounts.Single(a => a.GetProperty("id").GetGuid() == bank).GetProperty("balance").GetDecimal()
+            .ShouldBe(1000m - 100m + 30m - 200m);
+        var month = (await api.GetJsonAsync("/api/reports/monthly/2031-03")).GetProperty("current");
+        month.GetProperty("totalExpenses").GetDecimal().ShouldBe(70m); // the refund lowers spending
+        month.GetProperty("income").GetDecimal().ShouldBe(0m); // and is not income
+        month.GetProperty("debtRepaid").GetDecimal().ShouldBe(200m);
+        month.GetProperty("freeCashFlow").GetDecimal().ShouldBe(-70m - 200m);
+    }
 }

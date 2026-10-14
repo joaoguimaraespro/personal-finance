@@ -989,6 +989,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("import_id");
 
+                    b.Property<bool>("IsRefund")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_refund");
+
                     b.Property<string>("Nature")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")

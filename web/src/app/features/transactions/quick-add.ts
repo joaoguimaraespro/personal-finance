@@ -389,6 +389,25 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
           </div>
         }
 
+        @if (type() === 'Expense' && !splitMode()) {
+          <!-- Money given back for a cost: it lowers the category's spending instead of counting as income. -->
+          <label class="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="qa-refund"
+              [checked]="isRefund()"
+              (change)="isRefund.set($any($event.target).checked)"
+            />
+            <span
+              >{{ 'tx.refund' | translate }}
+              <span class="text-muted-foreground block text-xs">{{
+                'tx.refundHint' | translate
+              }}</span></span
+            >
+          </label>
+        }
+
         <div>
           <label class="label" for="qa-desc">{{ 'tx.description' | translate }}</label>
           <input
@@ -499,6 +518,7 @@ export class QuickAddComponent {
   protected readonly nature = signal<ExpenseNature | null>('Variable');
   /** "Dividir por categorias": one movement spread over several category lines. */
   protected readonly splitMode = signal(false);
+  protected readonly isRefund = signal(false);
   protected readonly splitLines = signal<SplitDraftLine[]>([]);
   protected readonly parsedAmount = computed(() => parseAmount(this.amount()));
   protected readonly bucketId = signal<string | null>(null);
@@ -652,6 +672,7 @@ export class QuickAddComponent {
         this.splitMode.set(split);
         this.splitLines.set(split ? fromSplits(t.splits) : []);
         this.nature.set(split ? t.nature : (t.nature ?? 'Variable'));
+        this.isRefund.set(t.isRefund ?? false);
         this.bucketId.set(t.bucketId);
         this.goalId.set(t.goalId);
         this.date.set(t.occurredOn);
@@ -890,6 +911,7 @@ export class QuickAddComponent {
       counterAccountId: this.counterAccountId(),
       bucketId: this.bucketId(),
       goalId: this.type() === 'Savings' ? this.goalId() : null,
+      isRefund: this.type() === 'Expense' && !split && this.isRefund(),
       description: this.description() || null,
       notes: this.notes() || null,
       asset,
@@ -949,6 +971,7 @@ export class QuickAddComponent {
     this.description.set('');
     this.notes.set('');
     this.categoryId.set(null);
+    this.isRefund.set(false);
     this.splitMode.set(false);
     this.splitLines.set([]);
     // untracked: reset runs inside the open/edit effect, which must not re-run when the nature changes.
