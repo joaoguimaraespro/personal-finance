@@ -274,6 +274,17 @@ type Reference = 'previous' | 'average' | 'budget';
               <dt class="text-xs text-muted-foreground">{{ 'monthly.unallocated' | translate }}</dt>
               <dd class="num font-medium">{{ r.current.unallocated | money }}</dd>
             </div>
+            @if (r.current.debtRepaid) {
+              <div>
+                <dt
+                  class="text-xs text-muted-foreground"
+                  [title]="'monthly.debtRepaidHint' | translate"
+                >
+                  {{ 'monthly.debtRepaid' | translate }}
+                </dt>
+                <dd class="num font-medium">{{ r.current.debtRepaid | money }}</dd>
+              </div>
+            }
             <div>
               <dt class="text-xs text-muted-foreground">
                 {{ 'monthly.freeCashFlow' | translate }}

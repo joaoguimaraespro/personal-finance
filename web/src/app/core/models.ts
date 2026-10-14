@@ -164,6 +164,8 @@ export interface Bucket {
 export interface Transaction {
   id: string;
   type: TransactionType;
+  /** An expense given back: money in, the category's spending down. */
+  isRefund?: boolean;
   occurredOn: string;
   amount: number;
   currency: string;
@@ -213,6 +215,7 @@ export interface SplitLineRequest {
 
 export interface TransactionRequest {
   type: TransactionType;
+  isRefund?: boolean;
   occurredOn: string;
   amount: number;
   currency?: string | null;
@@ -270,6 +273,8 @@ export interface MonthlySummary {
   saved: number;
   netBalance: number;
   freeCashFlow: number;
+  /** Capital repaid on loans that month (transfers into loan accounts). */
+  debtRepaid?: number;
   savingsRate: number | null;
   investmentRate: number | null;
   savingsOnlyRate: number | null;
@@ -836,4 +841,3 @@ export interface PrepaymentSimulation {
   interestAfter: number;
   interestSaved: number;
 }
-

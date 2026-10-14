@@ -256,6 +256,8 @@
   "pendingCount": "{{count}} pending"
  },
  "monthly": {
+  "debtRepaid": "Debt repaid",
+  "debtRepaidHint": "Capital repaid on loans this month. Not spending — the debt went down — but money no longer free.",
   "title": "Monthly summary",
   "allocation": "Allocation",
   "editBudget": "Edit budget",
@@ -289,6 +291,9 @@
   "rateNote": "The savings-rate total is the average of monthly rates, as in the original spreadsheet. Weighted by income it is {{weighted}}."
  },
  "tx": {
+  "refund": "It's a refund",
+  "refundHint": "Money given back for a cost (a return, a refund): it lowers this category's spending instead of counting as income.",
+  "refundBadge": "refund",
   "add": "Add transaction",
   "edit": "Edit transaction",
   "amount": "Amount",
