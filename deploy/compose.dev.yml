@@ -2,7 +2,7 @@
 name: personal-finance-dev
 services:
   db:
-    image: postgres:17.6-alpine
+    image: postgres:17.11-alpine
     environment:
       POSTGRES_DB: finance
       POSTGRES_USER: finance_dev
