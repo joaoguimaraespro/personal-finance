@@ -845,3 +845,13 @@ export interface PrepaymentSimulation {
   interestAfter: number;
   interestSaved: number;
 }
+
+/** Coins sent from an exchange to other wallets and the cost they carried when they left. */
+export interface SentCoins {
+  connection: string;
+  asset: string;
+  quantity: number;
+  cost: number;
+  averageCost: number;
+  lastSentOn: string;
+}

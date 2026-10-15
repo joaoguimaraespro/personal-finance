@@ -44,6 +44,10 @@ public sealed class CreateConnectionValidator : AbstractValidator<CreateConnecti
     }
 }
 
+/// <summary>Coins sent from a connection's account to other wallets, and the cost they carried.</summary>
+public sealed record SentCoinsDto(string Connection, string Asset, decimal Quantity, decimal Cost, decimal AverageCost,
+    DateOnly LastSentOn);
+
 public static class IntegrationEndpoints
 {
     public static readonly IReadOnlyList<ProviderInfo> Providers =
@@ -150,6 +154,44 @@ public static class IntegrationEndpoints
             return queue.Enqueue(id)
                 ? Results.Accepted()
                 : ResultHttp.Problem(Error.Conflict("Sync.Busy", "Too many syncs queued; try again shortly."));
+        });
+
+        // What coins sent from an exchange to another wallet cost when they left: the cost a cold wallet should carry.
+        group.MapGet("/sent-coins", async (string symbol, IIntegrationsDb db, IInvestmentProviderFactory providers,
+            ICredentialProtector credentials, CancellationToken ct) =>
+        {
+            var found = new List<SentCoinsDto>();
+            var connections = await db.Connections.AsNoTracking()
+                .Where(c => c.HistoryState != null && c.Status != ConnectionStatus.Disabled).ToListAsync(ct);
+            foreach (var connection in connections)
+            {
+                try
+                {
+                    var provider = providers.Create(connection.Kind,
+                        credentials.Unprotect(connection.ProtectedCredentials));
+                    if (provider is not ISentCoinsProvider sent)
+                    {
+                        continue;
+                    }
+
+                    if (provider is IHistoryStateProvider kept)
+                    {
+                        kept.HistoryState = connection.HistoryState;
+                    }
+
+                    found.AddRange((await sent.GetSentCoinsAsync(ct))
+                        .Where(s => string.Equals(s.Asset, symbol.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .Select(s => new SentCoinsDto(connection.DisplayName, s.Asset, s.Quantity, s.Cost,
+                            s.AverageCost, s.LastSentOn)));
+                }
+                catch (Exception e) when (e is ProviderConfigurationException or ProviderUnavailableException
+                                              or HttpRequestException)
+                {
+                    // A suggestion only: a broker that cannot answer right now is left out.
+                }
+            }
+
+            return Results.Ok(found);
         });
 
         group.MapPost("/connections/{id:guid}/enable", (Guid id, IIntegrationsDb db, CancellationToken ct) => SetEnabled(id, true, db, ct));

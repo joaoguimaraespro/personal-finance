@@ -14,7 +14,7 @@ namespace Integrations.Infrastructure.Binance;
 /// <see cref="HistoryState"/>; later syncs read only what is new. A coin with no history keeps its first sync's price.
 /// </summary>
 internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
-    : IInvestmentProvider, IHistoryStateProvider
+    : IInvestmentProvider, IHistoryStateProvider, ISentCoinsProvider
 {
     /// <summary>How far back the first sync reads Earn rewards.</summary>
     public const int FirstSyncDays = 180;
@@ -80,7 +80,31 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
             return (coins, []);
         }
 
-        // Settled movements are kept; the last days are read again each time, so a late credit is never missed.
+        var movements = await AllMovementsAsync(h, ct);
+        var events = coins.ToDictionary(c => c.Asset, _ => new List<CostEvent>(), StringComparer.Ordinal);
+        foreach (var (asset, e) in movements)
+        {
+            if (events.TryGetValue(asset, out var list))
+            {
+                list.Add(e);
+            }
+        }
+
+        foreach (var c in coins)
+        {
+            events[c.Asset].AddRange(await FillEventsAsync(c.Asset, h, ct));
+        }
+
+        return (coins, events);
+    }
+
+    /// <summary>
+    /// Every windowed movement of every coin: the kept history, extended up to two days ago, plus the last days read
+    /// again each time (so a late credit is never missed).
+    /// </summary>
+    private async Task<List<(string Asset, CostEvent Event)>> AllMovementsAsync(Holdings h, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
         var history = CostHistory.Parse(HistoryState);
         var settled = now - Unsettled;
         if (history.Through < settled.ToUnixTimeMilliseconds())
@@ -91,29 +115,42 @@ internal sealed class BinanceProvider(BinanceClient client, TimeProvider clock)
         }
 
         var recent = await MovementsAsync(DateTimeOffset.FromUnixTimeMilliseconds(history.Through), now, h, ct);
-        var events = coins.ToDictionary(c => c.Asset, _ => new List<CostEvent>(), StringComparer.Ordinal);
-        foreach (var (asset, e) in history.Events.Concat(recent))
+        return history.Events.Concat(recent).ToList();
+    }
+
+    /// <summary>A coin's fills on EUR and dollar-stablecoin pairs, as cost events.</summary>
+    private async Task<IEnumerable<CostEvent>> FillEventsAsync(string asset, Holdings h, CancellationToken ct)
+    {
+        var fills = new List<(string, BinanceFill)>();
+        foreach (var quote in BinanceValuation.CostQuotes.Where(q => h.Prices.ContainsKey(asset + q)))
         {
-            if (events.TryGetValue(asset, out var list))
+            fills.AddRange((await client.FillsAsync(asset + quote, ct)).Select(f => (quote, f)));
+        }
+
+        return BinanceValuation.FillEvents(fills, await UsdPerEurClosesAsync(h, ct), h.Prices.GetValueOrDefault("EURUSDT"));
+    }
+
+    /// <summary>
+    /// Coins sent to other wallets and what they cost when they left (the average cost at each send), per coin — what
+    /// a wallet receiving them (a cold wallet) should carry as its cost.
+    /// </summary>
+    public async Task<IReadOnlyList<SentCoins>> GetSentCoinsAsync(CancellationToken ct)
+    {
+        var h = await HoldingsAsync(ct);
+        var movements = await AllMovementsAsync(h, ct);
+        var result = new List<SentCoins>();
+        foreach (var asset in movements.Where(m => m.Event.Kind == "sent").Select(m => m.Asset).Distinct())
+        {
+            var events = movements.Where(m => m.Asset == asset).Select(m => m.Event)
+                .Concat(await FillEventsAsync(asset, h, ct));
+            if (BinanceValuation.SentCost(events) is { Quantity: > 0, Cost: > 0 } sent)
             {
-                list.Add(e);
+                result.Add(new SentCoins(asset, sent.Quantity, decimal.Round(sent.Cost, 2),
+                    decimal.Round(sent.Cost / sent.Quantity, 2), BinanceValuation.DayOf(sent.LastTime)));
             }
         }
 
-        var latestUsdPerEur = h.Prices.GetValueOrDefault("EURUSDT");
-        var usdCloses = await UsdPerEurClosesAsync(h, ct);
-        foreach (var c in coins)
-        {
-            var fills = new List<(string, BinanceFill)>();
-            foreach (var quote in BinanceValuation.CostQuotes.Where(q => h.Prices.ContainsKey(c.Asset + q)))
-            {
-                fills.AddRange((await client.FillsAsync(c.Asset + quote, ct)).Select(f => (quote, f)));
-            }
-
-            events[c.Asset].AddRange(BinanceValuation.FillEvents(fills, usdCloses, latestUsdPerEur));
-        }
-
-        return (coins, events);
+        return result;
     }
 
     /// <summary>

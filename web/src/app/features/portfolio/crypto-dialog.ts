@@ -18,7 +18,7 @@ import { Api } from '../../core/api';
 import { Confirm } from '../../core/confirm';
 import { Prefs } from '../../core/prefs';
 import { DayPipe, MoneyPipe, today } from '../../core/format';
-import { CoinMatch, ManualHolding, RewardKind } from '../../core/models';
+import { CoinMatch, ManualHolding, RewardKind, SentCoins } from '../../core/models';
 import { Toasts, problemMessage } from '../../core/toast';
 import { DateFieldComponent } from '../../shared/date-field';
 import { APP_ICONS } from '../../shared/icons';
@@ -30,7 +30,15 @@ import { CoinSearchComponent } from './coin-search';
 type Field = 'coin' | 'quantity' | 'price' | 'location' | 'heldSince' | 'notes';
 
 /** Offered in the wallet picker until used; any other name can be typed with "+ New wallet…". */
-const SUGGESTED_WALLETS = ['Binance', 'Coinbase', 'Kraken', 'Ledger', 'Trezor', 'SafePal', 'Cold wallet'];
+const SUGGESTED_WALLETS = [
+  'Binance',
+  'Coinbase',
+  'Kraken',
+  'Ledger',
+  'Trezor',
+  'SafePal',
+  'Cold wallet',
+];
 type RewardField = 'quantity' | 'date';
 
 /** Server error codes with a translated, friendlier message. */
@@ -149,6 +157,31 @@ export function parseAmount(text: string): number | null {
               <p class="mt-1.5 text-xs text-muted-foreground">
                 {{ 'crypto.avgPriceHint' | translate }}
               </p>
+            }
+            <!-- Coins sent here from an exchange carry the cost they had when they left it. -->
+            @for (s of sent(); track s.connection) {
+              <div
+                class="mt-2 rounded-md border border-primary/30 bg-primary/5 p-2 text-xs"
+                data-testid="sent-coins"
+              >
+                {{
+                  'crypto.sentFrom'
+                    | translate
+                      : {
+                          connection: s.connection,
+                          quantity: s.quantity,
+                          symbol: s.asset,
+                          price: (s.averageCost | money),
+                        }
+                }}
+                <button
+                  type="button"
+                  class="text-primary ml-1 font-medium underline underline-offset-2"
+                  (click)="price.set(plain(s.averageCost))"
+                >
+                  {{ 'crypto.useSentCost' | translate }}
+                </button>
+              </div>
             }
           </div>
         </div>
@@ -414,9 +447,27 @@ export class CryptoDialogComponent {
       this.shownFor = key;
       untracked(() => this.reset(h));
     });
+    effect(() => {
+      const coin = this.coin();
+      const symbol = this.open() && !this.holding() && coin ? coin.symbol : null;
+      if (symbol === this.sentFor) return;
+      this.sentFor = symbol;
+      this.sent.set([]);
+      if (!symbol) return;
+      // A suggestion only: a broker that cannot answer leaves the field as it is.
+      firstValueFrom(this.api.sentCoins(symbol))
+        .then((found) => {
+          if (this.sentFor === symbol) this.sent.set(found);
+        })
+        .catch(() => undefined);
+    });
   }
 
   private shownFor: string | null | undefined;
+
+  /** For a new coin: what the same coin cost when it was sent from a connected exchange (e.g. Binance → SafePal). */
+  protected readonly sent = signal<SentCoins[]>([]);
+  private sentFor: string | null = null;
 
   private reset(h: ManualHolding | null) {
     this.coin.set(h ? { id: h.coinId, symbol: h.symbol, name: h.name } : null);
@@ -441,7 +492,7 @@ export class CryptoDialogComponent {
   }
 
   /** A number as the user would type it in their locale (0,05), without grouping. */
-  private plain(n: number): string {
+  protected plain(n: number): string {
     return new Intl.NumberFormat(this.prefs.locale(), {
       useGrouping: false,
       maximumFractionDigits: 12,
