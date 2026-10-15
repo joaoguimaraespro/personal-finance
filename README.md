@@ -61,18 +61,19 @@ encrypted backups. Details in [docs/deployment.md](docs/deployment.md) and the
 
 | Area | What it does |
 |---|---|
-| **Ledger** | One transaction table replaces twelve month sheets. Income, expenses (fixed/variable), transfers, savings, investment contributions. Multi-currency with original + EUR amounts. Provenance on every row (manual, recurring, Excel, CSV, broker). Soft delete and an append-only audit trail. |
+| **Transactions** | One ledger for income, fixed and variable expenses, transfers, savings and investment contributions, grouped by day. Split a movement over several categories, record refunds, multiple currencies with the EUR amount kept. Every change is audited. |
 | **Quick add** | Press <kbd>N</kbd> anywhere: amount first, recent categories as chips, remembered account, <kbd>Enter</kbd> to save, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save and add another. |
-| **Budgets** | Versioned by month (changing the split never rewrites past months). Percent of income, fixed EUR, or "remainder" — the spreadsheet's `1 − investments − savings`. Per-category limits (e.g. Restaurants €150). The monthly allocation works like recurring items: each bucket shows done / partial from what was set aside — including deposits synced at a linked broker — and one click records the rest. |
-| **Reports** | Monthly summary vs previous month / 12-month average / budget, annual summary (every column of the old "Resumo Anual"), category breakdown, trends. All figures computed on the server with `decimal`. |
-| **Recurring** | Salary, rent, subscriptions propose *expected* transactions; nothing is booked until you confirm, edit or skip. |
-| **Loans** | Mortgage, car or personal loan terms (fixed, or index + spread with revisions): instalment, interest vs capital, what is left, end date, full plan and an early-repayment simulator (shorten the term or lower the instalment). The debt in net worth follows the plan. |
-| **Goals** | Emergency fund, trips, house deposit — progress from a savings account the goal follows (its balance, interest included) or from savings linked to it; monthly amount needed. Investments never count towards goals. |
-| **Investments** | Read-only sync from Trading 212 (Public API + CSV), Interactive Brokers (Flex Web Service) and Binance (spot + Simple Earn, with Earn rewards as income; the key is checked to be read-only). Consolidated portfolio by ISIN with per-broker holdings, allocation vs target, dividends with withholding tax, TWR and XIRR, net worth history. [Setup](docs/broker-integrations.md). |
-| **Import / export** | Real .xlsx (Excel tables, native charts), CSV per dataset (Excel-PT dialect), and the app's complete JSON archive, which restores into any install (desktop, PC or server). "Start fresh" clears the finance data and keeps connections and categories. |
-| **AI** | MCP server for Claude Code / ChatGPT / local models and an optional in-app assistant, both behind a policy gateway: per-client revocable tokens, explicit scopes, question-specific minimal answers, untrusted-text wrapping, audit. Read-only by default; opt-in, audited write tools with a 30-day recycle bin. [Details](docs/ai.md). |
-| **Security** | Single owner, TOTP MFA (mandatory on server installs), CSRF protection, rate limiting, encrypted identifiers, least-privilege database roles, loopback/VPN-only exposure, encrypted backups. |
-| **i18n** | English and European Portuguese, light/dark theme. |
+| **Accounts** | Banks, savings, cards and brokers grouped by institution. Savings interest (TANB) with daily accrual, restricted-use balances such as meal and benefit cards. |
+| **Budgets** | Split income by percentage, fixed amount or "what is left" into expenses, savings and investments, with per-category limits. Changing the split never rewrites past months. The monthly checklist shows what was already set aside — broker deposits included — and records the rest in one click. |
+| **Recurring** | Salary, rent and subscriptions every N days, monthly or yearly on a date. They are proposals: nothing is booked until you confirm, edit or skip; bills that vary are proposed at their recent average. |
+| **Reports** | Month vs previous month, 12-month average and budget; the year at a glance; category breakdown and trends. All figures are calculated on the server with exact decimals. |
+| **Investments** | Read-only sync from Trading 212, Interactive Brokers and Binance (spot and Simple Earn); crypto in other wallets entered by hand. Real cost basis in euros, fees included. Portfolio by broker and wallet, allocation vs target, dividends with withholding tax, today's change and returns over 1M / YTD / 1Y / all time (TWR and XIRR). [Setup](docs/broker-integrations.md). |
+| **Net worth** | Every account, holding and loan over time, reconstructed month by month even before you started using the app. |
+| **Loans** | Mortgage, car or personal loans, fixed or variable: amortisation plan with commission, stamp duty and insurance, rate revisions, early repayments and a simulator. Instalments are proposed for booking. |
+| **Goals** | Emergency fund, trips, a house deposit — progress from the savings account a goal follows, and the monthly amount still needed. |
+| **Import / export** | .xlsx with native charts, CSV per dataset, and a complete JSON archive that restores into any install. "Start fresh" clears the data and keeps connections and categories. |
+| **AI (optional)** | An MCP server for Claude, ChatGPT or local models and an in-app assistant, behind a policy gateway: per-client revocable tokens, explicit permissions, minimal answers, audit. Read-only by default; opt-in writes with a 30-day recycle bin. [Details](docs/ai.md). |
+| **Everywhere** | Desktop app for Windows and macOS, or Docker on a computer or home server; phone layout; English and Portuguese (Portugal); light and dark themes. |
 
 <table>
 <tr>
@@ -88,55 +89,6 @@ encrypted backups. Details in [docs/deployment.md](docs/deployment.md) and the
 <td><img src="docs/screenshots/monthly-dark.png" alt="Dark mode" /></td>
 </tr>
 </table>
-
-## Why
-
-It started as a replacement for a monthly Excel workbook: every month a copy of the last sheet, formulas duplicated
-twelve times, allocation changes silently rewriting history, investments spread over several broker apps. The app
-keeps that workflow — fixed vs variable expenses, a percentage split of income into investments / savings /
-spending, a monthly checklist — and rebuilds it on a database.
-
-## Architecture
-
-A modular monolith: one deployable API, modules with their own domain, application and persistence
-layers, sharing one PostgreSQL database in separate schemas. The server install:
-
-```mermaid
-flowchart LR
-  subgraph Tailnet["Tailscale (VPN only)"]
-    Browser["Browser / phone"]
-    AI["AI client (MCP)"]
-  end
-  TS["tailscale serve\nHTTPS :8443"]
-  Browser --> TS
-  AI --> TS
-  subgraph Host["Home server — rootless Docker, user 'finance'"]
-    Web["web\nCaddy + Angular\n127.0.0.1:8080"]
-    API["api\nASP.NET Core"]
-    DB[("PostgreSQL\ninternal network\nno egress")]
-    MCP["mcp\nMCP server\n(no DB access)"]
-    Web -->|/api| API
-    Web -->|/mcp| MCP
-    MCP -->|AI gateway| API
-    API --> DB
-  end
-  TS --> Web
-  Brokers["Trading 212 / IBKR / Binance\n(read-only)"] --> API
-```
-
-The desktop app runs the same API and web app in one process with an embedded PostgreSQL
-([ADR-0010](docs/adr/0010-desktop-app.md)). Modules, layers and dependency rules: [docs/architecture.md](docs/architecture.md);
-decisions: [ADRs](docs/adr).
-
-## Design principles
-
-1. **The database is the source of truth.** Excel is an export format.
-2. **The backend calculates.** Savings rate, budget variance, totals — never the UI, never an LLM.
-3. **Broker integrations are read-only by construction.** No order, transfer or withdrawal operation
-   exists anywhere in the codebase; an architecture test fails the build if one appears.
-4. **Nothing financial happens silently.** Recurring items are proposals; imports preview; every change is audited.
-5. **AI is optional and least-privilege.** Scoped, revocable clients; query-specific data minimisation;
-   no SQL, shell or file access, and writes only when opted in — enforced by the gateway and by architecture tests.
 
 ## Security at a glance
 

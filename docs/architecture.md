@@ -40,6 +40,44 @@ deploy/                              Compose, Caddy, Postgres roles, backup/rest
   (`PlaceOrder`, `Buy`, `Sell`, `Withdraw`, `Deposit`, …).
 - No raw SQL APIs (`FromSqlRaw`, `ExecuteSqlRaw`, …) in application code.
 
+## Deployment (server install)
+
+```mermaid
+flowchart LR
+  subgraph Tailnet["Tailscale (VPN only)"]
+    Browser["Browser / phone"]
+    AI["AI client (MCP)"]
+  end
+  TS["tailscale serve\nHTTPS :8443"]
+  Browser --> TS
+  AI --> TS
+  subgraph Host["Home server — rootless Docker, user 'finance'"]
+    Web["web\nCaddy + Angular\n127.0.0.1:8080"]
+    API["api\nASP.NET Core"]
+    DB[("PostgreSQL\ninternal network\nno egress")]
+    MCP["mcp\nMCP server\n(no DB access)"]
+    Web -->|/api| API
+    Web -->|/mcp| MCP
+    MCP -->|AI gateway| API
+    API --> DB
+  end
+  TS --> Web
+  Brokers["Trading 212 / IBKR / Binance\n(read-only)"] --> API
+```
+
+The desktop app runs the same API and web app in one process with an embedded PostgreSQL
+([ADR-0010](adr/0010-desktop-app.md)).
+
+## Design principles
+
+1. **The database is the source of truth.** Excel is an export format.
+2. **The backend calculates.** Savings rate, budget variance, totals — never the UI, never an LLM.
+3. **Broker integrations are read-only by construction.** No order, transfer or withdrawal operation
+   exists anywhere in the codebase; an architecture test fails the build if one appears.
+4. **Nothing financial happens silently.** Recurring items are proposals; imports preview; every change is audited.
+5. **AI is optional and least-privilege.** Scoped, revocable clients; query-specific data minimisation;
+   no SQL, shell or file access, and writes only when opted in — enforced by the gateway and by architecture tests.
+
 ## The ledger
 
 The spreadsheet had twelve identical month sheets. The application has one `transactions` table:
