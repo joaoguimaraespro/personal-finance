@@ -21,7 +21,7 @@ internal sealed class HistoryRebuildJob(IServiceScopeFactory scopes, HistoryRebu
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogError(ex, "History reconstruction failed for account {AccountId}", accountId);
+                logger.LogError(ex, "History reconstruction failed for an account");
             }
         }
     }

@@ -114,8 +114,8 @@ public sealed class HistoryReconstructor(
         var days = HistoryReconstruction.Build(new ReconstructionInput(from, to, quantitiesNow, anchor.Date,
             anchor.CashBase, fills, cash, closes, rates.EurPerUnit));
         var written = await ReplaceAsync(accountId, days, real.Select(s => s.Date).ToHashSet(), ct);
-        logger.LogInformation("Reconstructed {Days} days of history for account {AccountId} ({Estimated} partly estimated)",
-            written, accountId, days.Count(d => d.EstimatedHoldings > 0));
+        logger.LogInformation("Reconstructed {Days} days of account history ({Estimated} partly estimated)",
+            written, days.Count(d => d.EstimatedHoldings > 0));
         return written;
     }
 
