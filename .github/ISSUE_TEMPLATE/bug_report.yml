@@ -1,0 +1,59 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Do not include real financial data, account numbers, API keys or tokens.**
+        Security problems go to a private advisory instead (see SECURITY.md).
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install type
+      options:
+        - Desktop app (installer)
+        - Docker on a Windows PC
+        - Docker on a macOS or Linux computer
+        - Home server (server-deploy.sh)
+        - Development setup
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release (e.g. 1.0.0) or commit.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and browser
+      placeholder: Windows 11, macOS 15 on Apple Silicon, Ubuntu 24.04 + Firefox…
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. …\n2. …"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Desktop app: app.log in its data folder. Docker on a computer: logs/launcher.log.
+        Server: docker compose logs api. Remove anything personal first.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed amounts, names, account numbers, keys and tokens from this report.
+          required: true

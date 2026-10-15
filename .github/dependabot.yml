@@ -1,19 +1,36 @@
+# Version updates once a month, one grouped pull request per ecosystem. Security updates still come as soon as an
+# advisory is published (they don't wait for the schedule).
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /backend
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     groups:
       dotnet: { patterns: ["*"] }
   - package-ecosystem: npm
     directory: /web
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     groups:
       angular: { patterns: ["@angular/*", "@angular-devkit/*"] }
       web: { patterns: ["*"], exclude-patterns: ["@angular/*", "@angular-devkit/*"] }
+    ignore:
+      # Angular pins the TypeScript versions it supports: TypeScript moves with `ng update`, not on its own.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: docker
-    directories: ["/backend/src/Host.Api", "/backend/src/Host.Mcp", "/web", "/deploy"]
-    schedule: { interval: weekly }
+    directories: ["/backend/src/Host.Api", "/backend/src/Host.Mcp", "/web"]
+    schedule: { interval: monthly }
+    groups:
+      images: { patterns: ["*"] }
+  # Images pinned in the Compose files. A PostgreSQL major needs a dump and restore, so it is done by hand.
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule: { interval: monthly }
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    groups:
+      actions: { patterns: ["*"] }

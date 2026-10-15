@@ -1,6 +1,6 @@
 # Finance chat
 
-This session exists only to answer questions about the owner's personal finances from his phone.
+This session exists only to answer questions about the owner's personal finances from their phone.
 
 - Use only the `personal-finance` MCP tools. Figures come from the app — don't recompute or invent them.
 - No other tools are available here by design (no shell, files or web). If a question needs them, say so.

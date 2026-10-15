@@ -1,5 +1,8 @@
 # Linux or macOS computer
 
+> **Just want the app on this computer?** Use the [desktop app](desktop-app.md): an installer, no Docker. This page is
+> the Docker install, which adds phone access over Tailscale and age-encrypted daily backups.
+
 Run Personal Finance on an everyday Linux or macOS computer that is **not on 24 hours a day**, the same way as on a
 [Windows PC](windows.md): an app shortcut that starts whatever is not running, an optional sign-in item, and a daily
 encrypted backup that catches up after the computer was off. Same images and `deploy/compose.yml` as the
@@ -10,6 +13,7 @@ One script does it all: [`deploy/desktop/personal-finance.sh`](../deploy/desktop
 
 | Install mode | Windows | macOS | Linux |
 |---|---|---|---|
+| Desktop app, no Docker (one computer) | [installer](desktop-app.md) | [installer](desktop-app.md) | — (use Docker) |
 | Try it (demo, throwaway) | `scripts/local-up.ps1` | `scripts/local-up.sh` | `scripts/local-up.sh` |
 | Everyday computer | [`Install.ps1`](windows.md) | `personal-finance.sh install` | `personal-finance.sh install` |
 | 24/7 home server | `Install.ps1 -AutoStart` + `tailscale serve`¹ | `personal-finance.sh install --autostart` + `tailscale serve`¹ | [`server-deploy.sh`](deployment.md) (isolated user, rootless Docker) |
@@ -91,7 +95,7 @@ personal-finance.sh backup                                                # now
 personal-finance.sh restore backups/finance-20261005T033000Z.tar.age /Volumes/USB/finance-backup-identity.txt
 ```
 
-Restore is DESTRUCTIVE (it asks you to type `restore`). The archive format is shared by all three platforms, so a
+Restore is DESTRUCTIVE (it asks you to type `restore`). The archive format is shared by all three Docker installs (server, Windows, macOS/Linux), so a
 server or Windows backup restores here and vice versa: install on the target first, then restore.
 
 ## Update and uninstall

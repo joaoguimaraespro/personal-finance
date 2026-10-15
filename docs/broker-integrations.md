@@ -1,6 +1,7 @@
 # Broker integrations (read-only)
 
-Both integrations are **read-only by construction** ([ADR-0005](adr/0005-read-only-broker-integrations.md)):
+All broker integrations (Trading 212, Interactive Brokers, Binance) are **read-only by construction**
+([ADR-0005](adr/0005-read-only-broker-integrations.md), [ADR-0009](adr/0009-binance-read-only-key.md)):
 the credentials you create cannot trade, and each HTTP client is wrapped in an allow-list that throws on any
 method or path other than the read endpoints below — before a request leaves the process.
 

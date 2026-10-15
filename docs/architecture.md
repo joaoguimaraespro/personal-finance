@@ -16,10 +16,19 @@ backend/                             .NET solution: PersonalFinance.slnx, global
         Finance.Infrastructure/      EF Core DbContext (schema "finance"), audit interceptor, seeding
       Reporting/Reporting.Application/  Pure calculators + read-only queries
       Imports/Imports.Application/      Workbook reader, planner, reconciliation, commit/undo
-    Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel
+      Investments/                   Securities, positions, trades, dividends, FX, snapshots, TWR/XIRR, net worth
+      Integrations/                  Read-only broker providers (Trading 212, IBKR Flex, Binance, CSV, demo), sync
+      Exports/                       XLSX with native charts, CSV, JSON archive and restore
+      Ai/                            Scopes, tool catalogue, policy gateway, audit, in-app assistant
+    Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel, jobs
+    Host.Mcp/                        MCP server: references only the AI contracts, never the database
+    Host.Desktop/                    Desktop launcher: native window, API in-process, embedded PostgreSQL (ADR-0010)
   tests/                             Unit, architecture and Testcontainers integration tests
 web/                                 Angular SPA; spartan/ui components in src/app/ui (ADR-0007)
-deploy/                              Compose, Caddy, Postgres roles, backup/restore
+deploy/                              Compose, Caddy, Postgres roles, backup/restore, server script
+  windows/ desktop/                  Docker installs for an everyday Windows / macOS / Linux computer
+  desktop-app/                       Desktop app installers (Inno Setup, macOS .app/.dmg)
+  remote-control/                    Template for a finance chat session over MCP
 ```
 
 ### Dependency rules (tested in `backend/tests/Architecture.Tests`)
@@ -30,6 +39,44 @@ deploy/                              Compose, Caddy, Postgres roles, backup/rest
 - No method anywhere may be named like a trading or money-movement operation
   (`PlaceOrder`, `Buy`, `Sell`, `Withdraw`, `Deposit`, …).
 - No raw SQL APIs (`FromSqlRaw`, `ExecuteSqlRaw`, …) in application code.
+
+## Deployment (server install)
+
+```mermaid
+flowchart LR
+  subgraph Tailnet["Tailscale (VPN only)"]
+    Browser["Browser / phone"]
+    AI["AI client (MCP)"]
+  end
+  TS["tailscale serve\nHTTPS :8443"]
+  Browser --> TS
+  AI --> TS
+  subgraph Host["Home server — rootless Docker, user 'finance'"]
+    Web["web\nCaddy + Angular\n127.0.0.1:8080"]
+    API["api\nASP.NET Core"]
+    DB[("PostgreSQL\ninternal network\nno egress")]
+    MCP["mcp\nMCP server\n(no DB access)"]
+    Web -->|/api| API
+    Web -->|/mcp| MCP
+    MCP -->|AI gateway| API
+    API --> DB
+  end
+  TS --> Web
+  Brokers["Trading 212 / IBKR / Binance\n(read-only)"] --> API
+```
+
+The desktop app runs the same API and web app in one process with an embedded PostgreSQL
+([ADR-0010](adr/0010-desktop-app.md)).
+
+## Design principles
+
+1. **The database is the source of truth.** Excel is an export format.
+2. **The backend calculates.** Savings rate, budget variance, totals — never the UI, never an LLM.
+3. **Broker integrations are read-only by construction.** No order, transfer or withdrawal operation
+   exists anywhere in the codebase; an architecture test fails the build if one appears.
+4. **Nothing financial happens silently.** Recurring items are proposals; imports preview; every change is audited.
+5. **AI is optional and least-privilege.** Scoped, revocable clients; query-specific data minimisation;
+   no SQL, shell or file access, and writes only when opted in — enforced by the gateway and by architecture tests.
 
 ## The ledger
 
