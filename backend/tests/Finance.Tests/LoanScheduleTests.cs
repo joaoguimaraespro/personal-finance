@@ -116,4 +116,33 @@ public sealed class LoanScheduleTests
         Loan.Create(account, new LoanTermsDraft(10_000m, First, 60, LoanRateType.Fixed, null, null, null,
             MonthlyFee: -1m)).Error.ShouldBe(LoanErrors.InvalidCharges);
     }
+
+    [Fact]
+    public void Real_days_over_360_count_each_months_interest_on_its_days_and_settle_in_the_last_instalment()
+    {
+        var first = new DateOnly(2024, 12, 5);
+        var plan = LoanSchedule.Build(8_397m, first, 48, [new RatePeriod(first, 5.95m)], [],
+            InterestDayCount.Actual360);
+
+        plan[0].Payment.ShouldBe(197.01m); // the instalment still uses the monthly rate
+        plan[0].Interest.ShouldBe(41.64m); // 8,397 × 5.95 % × 30 days (5 Nov → 5 Dec) / 360
+        plan[1].Interest.ShouldBe(42.23m); // 31 days in December
+        plan[22].Balance.ShouldBe(4_631.71m); // a bank statement after 23 instalments
+        plan.Count.ShouldBe(48);
+        plan[^1].Balance.ShouldBe(0m);
+        plan[^1].Payment.ShouldBeGreaterThan(197.01m); // the extra interest is settled at the end
+        plan.Sum(i => i.Principal).ShouldBe(8_397m);
+    }
+
+    [Fact]
+    public void Real_days_charge_more_interest_than_equal_months()
+    {
+        var first = new DateOnly(2024, 12, 5);
+        var rates = new[] { new RatePeriod(first, 5.95m) };
+        var months = LoanSchedule.Build(8_397m, first, 48, rates, []);
+        var days = LoanSchedule.Build(8_397m, first, 48, rates, [], InterestDayCount.Actual360);
+
+        days.Sum(i => i.Interest).ShouldBeGreaterThan(months.Sum(i => i.Interest));
+        days[22].Balance.ShouldBeGreaterThan(months[22].Balance);
+    }
 }

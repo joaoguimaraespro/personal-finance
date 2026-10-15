@@ -823,6 +823,8 @@ export interface LoanSummary {
   monthlyFee?: number;
   stampDuty?: boolean;
   monthlyInsurance?: number;
+  /** How interest is counted: equal months, or real days over 360 like most banks. */
+  dayCount?: 'Monthly' | 'Actual360';
 }
 
 export interface LoanDetail {

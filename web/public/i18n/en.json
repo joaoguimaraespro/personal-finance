@@ -1243,6 +1243,8 @@
   "monthlyInsurance": "Insurance collected with it (€/month)",
   "stampDuty": "Imposto do Selo (4 % of interest and commission)",
   "stampDutyHint": "Portuguese banks add it to every instalment. Your statement shows the commission and the stamp duty separately.",
+  "actualDays": "Interest on real days (Actual/360)",
+  "actualDaysHint": "Each month's interest counts the real days since the previous instalment over 360, as most Portuguese banks do. Tick it if your bank's outstanding capital is a little higher than here; the last instalment is then a little larger.",
   "title": "Loan",
   "subtitle": "What you owe, when it ends and what early repayments would save.",
   "editTerms": "Loan terms",

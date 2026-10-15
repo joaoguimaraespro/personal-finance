@@ -32,14 +32,17 @@ public sealed record LoanStatus(
 /// The French amortisation plan used by Portuguese banks: a constant instalment of interest + capital, recalculated
 /// over the remaining term whenever the rate changes (variable-rate revisions) or an early repayment asks to lower
 /// it; an early repayment that shortens the term keeps the instalment and ends the loan sooner. Amounts are rounded
-/// to the cent each month, as on a bank statement; the last instalment settles whatever is left.
+/// to the cent each month, as on a bank statement; the last instalment settles whatever is left. The instalment is
+/// always computed with the monthly rate; with <see cref="InterestDayCount.Actual360"/> each month's interest is
+/// counted on the real days since the previous instalment over 360, so more of it goes to interest.
 /// </summary>
 public static class LoanSchedule
 {
     public const int MaxMonths = 12 * 60;
 
     public static IReadOnlyList<Instalment> Build(decimal principal, DateOnly firstPaymentOn, int termMonths,
-        IReadOnlyList<RatePeriod> rates, IReadOnlyList<Prepayment> prepayments)
+        IReadOnlyList<RatePeriod> rates, IReadOnlyList<Prepayment> prepayments,
+        InterestDayCount dayCount = InterestDayCount.Monthly)
     {
         var plan = new List<Instalment>();
         if (principal <= 0 || termMonths <= 0 || rates.Count == 0)
@@ -91,7 +94,9 @@ public static class LoanSchedule
             }
 
             rateInForce = annual;
-            var interest = Round(balance * r);
+            var interest = dayCount == InterestDayCount.Actual360
+                ? Round(balance * annual / 100m * (date.DayNumber - firstPaymentOn.AddMonths(n - 2).DayNumber) / 360m)
+                : Round(balance * r);
             var capital = payment.Value - interest;
             if (capital >= balance || remaining <= 1)
             {
