@@ -1,4 +1,5 @@
 using Host.Api.Data;
+using Host.Api.Desktop;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Finance.Application;
@@ -43,6 +44,13 @@ if (args.Contains("--healthcheck"))
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+var desktop = DesktopMode.From(config);
+// The desktop app brings its own database: start it before anything needs the connection string.
+// (Without Desktop:PostgresBin — tests — the configured connection string is used.)
+var embeddedPostgres = desktop.Enabled && !string.IsNullOrWhiteSpace(config["Desktop:PostgresBin"])
+    ? await DesktopHosting.PrepareAsync(builder)
+    : null;
+builder.Services.AddSingleton(desktop);
 var connectionString = config.GetConnectionString("Finance")
                        ?? throw new InvalidOperationException("ConnectionStrings:Finance is required.");
 
@@ -98,7 +106,9 @@ builder.Services
     .AddDefaultTokenProviders();
 
 // Plain-HTTP local development and tests can't carry Secure cookies; everywhere else TLS is mandatory.
-var secureCookies = !builder.Environment.IsEnvironment("Testing") && !builder.Environment.IsDevelopment();
+// The desktop app is plain HTTP on 127.0.0.1 too (the traffic never leaves the computer).
+var secureCookies = !builder.Environment.IsEnvironment("Testing") && !builder.Environment.IsDevelopment() &&
+                    !desktop.Enabled;
 
 // TLS terminates at the reverse proxy. Only trust X-Forwarded-* from the proxy's network, never from clients.
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
@@ -139,7 +149,15 @@ builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.TwoFac
     o.Cookie.SecurePolicy = secureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(AuthEndpoints.MfaPolicy, p => p.RequireAuthenticatedUser().RequireClaim("amr", "mfa"));
+    .AddPolicy(AuthEndpoints.MfaPolicy, p =>
+    {
+        // Desktop: two-factor is optional (the owner may turn it on); a server always requires it.
+        p.RequireAuthenticatedUser();
+        if (!desktop.Enabled)
+        {
+            p.RequireClaim("amr", "mfa");
+        }
+    });
 builder.Services.AddAntiforgery(o =>
 {
     o.HeaderName = "X-XSRF-TOKEN";
@@ -176,6 +194,10 @@ builder.Services.Configure<HostOptions>(o =>
     o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 
 var app = builder.Build();
+if (embeddedPostgres is not null)
+{
+    app.Lifetime.ApplicationStopped.Register(embeddedPostgres.Stop);
+}
 
 if (args.Contains("--migrate"))
 {
@@ -196,6 +218,11 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<AntiforgeryMiddleware>();
+
+if (desktop.Enabled)
+{
+    app.UseDesktopWebApp();
+}
 
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = c => c.Tags.Contains("ready") });

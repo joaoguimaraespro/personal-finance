@@ -18,7 +18,7 @@ export class AuthService {
     return me;
   }
 
-  async setup(email: string, password: string, setupToken: string) {
+  async setup(email: string, password: string, setupToken: string | null) {
     await firstValueFrom(this.http.post('/api/auth/setup', { email, password, setupToken }));
   }
 

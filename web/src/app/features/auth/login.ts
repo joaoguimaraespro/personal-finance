@@ -134,7 +134,8 @@ export class LoginComponent {
     await this.run(async () => {
       const status = await this.auth.login(this.email(), this.password(), this.remember());
       if (status === 'mfa_required') this.step.set('mfa');
-      else await this.router.navigateByUrl('/mfa-setup');
+      // The desktop app signs in with the password alone when two-factor is off.
+      else await this.router.navigateByUrl(status === 'ok' ? '/dashboard' : '/mfa-setup');
     });
   }
 

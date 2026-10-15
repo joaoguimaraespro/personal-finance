@@ -1,3 +1,4 @@
+using Host.Api.Desktop;
 using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -15,7 +16,7 @@ using SharedKernel;
 
 namespace Host.Api.Auth;
 
-public sealed record SetupRequest(string Email, string Password, string SetupToken);
+public sealed record SetupRequest(string Email, string Password, string? SetupToken);
 
 public sealed record LoginRequest(string Email, string Password, bool RememberMe);
 
@@ -27,7 +28,9 @@ public sealed record ChangePasswordRequest(string CurrentPassword, string NewPas
 
 public sealed record LoginResponse(string Status);
 
-public sealed record MeResponse(bool Authenticated, bool SetupRequired, string? Email, bool MfaEnabled, bool MfaSatisfied);
+/// <param name="Desktop">The desktop app: no setup token, two-factor authentication optional.</param>
+public sealed record MeResponse(bool Authenticated, bool SetupRequired, string? Email, bool MfaEnabled, bool MfaSatisfied,
+    bool Desktop = false);
 
 /// <summary>When the current session ends if nothing renews it, so the UI can warn before it does.</summary>
 public sealed record SessionResponse(DateTimeOffset ExpiresAtUtc, int IdleTimeoutMinutes, bool Persistent);
@@ -40,7 +43,7 @@ public sealed class SetupValidator : AbstractValidator<SetupRequest>
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
         RuleFor(x => x.Password).NotEmpty().MinimumLength(12).MaximumLength(256);
-        RuleFor(x => x.SetupToken).NotEmpty();
+        // The desktop app has no setup token (only someone at the computer can reach it); the endpoint checks it.
     }
 }
 
@@ -76,27 +79,29 @@ public static class AuthEndpoints
             return Results.NoContent();
         });
 
-        group.MapGet("/me", async (HttpContext ctx, UserManager<AppUser> users, AuthDbContext db, CancellationToken ct) =>
+        group.MapGet("/me", async (HttpContext ctx, UserManager<AppUser> users, AuthDbContext db, DesktopMode desktop,
+            CancellationToken ct) =>
         {
             var setupRequired = !await db.Users.AnyAsync(ct);
             var user = await users.GetUserAsync(ctx.User);
             if (user is null)
             {
-                return Results.Ok(new MeResponse(false, setupRequired, null, false, false));
+                return Results.Ok(new MeResponse(false, setupRequired, null, false, false, desktop.Enabled));
             }
 
+            // Desktop: signing in is enough (two-factor is optional); a server needs the MFA claim.
             return Results.Ok(new MeResponse(true, false, user.Email, await users.GetTwoFactorEnabledAsync(user),
-                ctx.User.HasClaim("amr", "mfa")));
+                desktop.Enabled || ctx.User.HasClaim("amr", "mfa"), desktop.Enabled));
         });
 
         // First-run bootstrap: only works while no user exists and requires the out-of-band setup token.
         group.MapPost("/setup", async (SetupRequest req, UserManager<AppUser> users, AuthDbContext db,
-            IConfiguration config, TimeProvider clock, CancellationToken ct) =>
+            IConfiguration config, TimeProvider clock, DesktopMode desktop, CancellationToken ct) =>
         {
             var expected = config["Auth:SetupToken"];
-            if (string.IsNullOrEmpty(expected) || expected.Length < 24 ||
-                !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(req.SetupToken),
-                    Encoding.UTF8.GetBytes(expected)))
+            if (!desktop.Enabled && (string.IsNullOrEmpty(expected) || expected.Length < 24 ||
+                                     !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(req.SetupToken ?? ""),
+                                         Encoding.UTF8.GetBytes(expected))))
             {
                 return ResultHttp.Problem(Error.Forbidden("Auth.Setup", "Invalid setup token."));
             }
@@ -114,7 +119,7 @@ public static class AuthEndpoints
                     .ToDictionary(g => g.Key, g => g.Select(e => e.Description).ToArray()));
         }).Validate<SetupRequest>().RequireRateLimiting(LoginRateLimit);
 
-        group.MapPost("/login", async (LoginRequest req, SignInManager<AppUser> signIn) =>
+        group.MapPost("/login", async (LoginRequest req, SignInManager<AppUser> signIn, DesktopMode desktop) =>
         {
             var result = await signIn.PasswordSignInAsync(req.Email, req.Password, req.RememberMe,
                 lockoutOnFailure: true);
@@ -129,8 +134,9 @@ public static class AuthEndpoints
                     statusCode: StatusCodes.Status429TooManyRequests);
             }
 
-            // Password-only session: can only reach the MFA enrollment endpoints.
-            return result.Succeeded ? Results.Ok(new LoginResponse("mfa_enrollment_required"))
+            // Password-only session: on a server it can only reach the MFA enrollment endpoints; the desktop app is in.
+            return result.Succeeded
+                ? Results.Ok(new LoginResponse(desktop.Enabled ? "ok" : "mfa_enrollment_required"))
                 : ResultHttp.Problem(InvalidCredentials);
         }).RequireRateLimiting(LoginRateLimit);
 
