@@ -121,8 +121,11 @@ internal sealed class YahooPriceHistorySource(HttpClient http, ILogger<YahooPric
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Market data request failed with {Status} for {Path}", (int)response.StatusCode,
-                    pathAndQuery.Split('?')[0].Split('/')[3]);
+                // The symbol comes from the user: line breaks are removed so it cannot forge log lines.
+                var symbol = pathAndQuery.Split('?')[0].Split('/')[3].Replace("\r", "", StringComparison.Ordinal)
+                    .Replace("\n", "", StringComparison.Ordinal);
+                logger.LogWarning("Market data request failed with {Status} for {Symbol}", (int)response.StatusCode,
+                    symbol);
                 return null;
             }
 
