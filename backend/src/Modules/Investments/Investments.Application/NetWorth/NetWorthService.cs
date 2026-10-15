@@ -20,7 +20,8 @@ public sealed record NetWorthBreakdown(
     decimal Cash,
     decimal Investments,
     decimal ManualAssets,
-    IReadOnlyList<NetWorthLine> Lines);
+    IReadOnlyList<NetWorthLine> Lines,
+    decimal Restricted = 0);
 
 public sealed record NetWorthHistory(NetWorthBreakdown Current, decimal? ChangeSinceStart,
     decimal? ChangeSinceStartPercent, DateOnly? StartDate, IReadOnlyList<NetWorthPoint> Series);
@@ -44,9 +45,10 @@ public sealed class NetWorthService(IInvestmentsDb db, IFinanceDb finance, Portf
         foreach (var a in accounts)
         {
             var eur = decimal.Round(balances[a.Id] * factors.GetValueOrDefault(a.Currency, 0), 2);
+            // Restricted money (a meal card) is an asset, shown apart from money that can pay anything.
             lines.Add(a.IsLiability
                 ? new NetWorthLine("liability", a.Name, Math.Max(0, -eur))
-                : new NetWorthLine("cash", a.Name, eur));
+                : new NetWorthLine(a.RestrictedUse ? "restricted" : "cash", a.Name, eur));
         }
 
         var summary = await portfolio.SummaryAsync(new PortfolioScope(), ct);
@@ -62,12 +64,13 @@ public sealed class NetWorthService(IInvestmentsDb db, IFinanceDb finance, Portf
         }
 
         var cash = lines.Where(l => l.Group == "cash").Sum(l => l.Value);
+        var restricted = lines.Where(l => l.Group == "restricted").Sum(l => l.Value);
         var investments = lines.Where(l => l.Group == "investments").Sum(l => l.Value);
         var manual = lines.Where(l => l.Group == "manual").Sum(l => l.Value);
         var liabilities = lines.Where(l => l.Group == "liability").Sum(l => l.Value);
-        var totalAssets = cash + investments + manual;
+        var totalAssets = cash + restricted + investments + manual;
         return new NetWorthBreakdown(today, totalAssets, liabilities, totalAssets - liabilities, cash, investments,
-            manual, lines);
+            manual, lines, restricted);
     }
 
     public async Task<NetWorthHistory> HistoryAsync(CancellationToken ct)
