@@ -525,6 +525,9 @@
   "noHistory": "Ainda não há importações."
  },
  "settings": {
+  "mfaTitle": "Autenticação de dois fatores",
+  "mfaDesktopText": "Opcional neste computador: a app só responde aqui. Ativa-a se outras pessoas usarem este computador.",
+  "mfaEnable": "Ativar autenticação de dois fatores",
   "reset": {
    "title": "Começar do zero",
    "text": "Apaga tudo o que inseriste ou importaste, para recomeçar do início. As ligações às corretoras e as categorias ficam.",

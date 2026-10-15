@@ -466,6 +466,8 @@ export interface Me {
   email: string | null;
   mfaEnabled: boolean;
   mfaSatisfied: boolean;
+  /** The desktop app: no setup token, two-factor authentication optional. */
+  desktop?: boolean;
 }
 
 export interface ImportPreview {

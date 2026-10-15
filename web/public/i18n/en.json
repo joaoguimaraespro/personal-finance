@@ -525,6 +525,9 @@
   "noHistory": "No imports yet."
  },
  "settings": {
+  "mfaTitle": "Two-factor authentication",
+  "mfaDesktopText": "Optional on this computer: the app only answers here. Turn it on if others use this computer.",
+  "mfaEnable": "Turn on two-factor authentication",
   "reset": {
    "title": "Start fresh",
    "text": "Deletes everything you entered or imported, to start again from scratch. Broker connections and categories stay.",
