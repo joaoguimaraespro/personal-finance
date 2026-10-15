@@ -36,6 +36,8 @@ interface AccountForm {
   interestPayout: InterestPayout;
   /** Ticked: the interest section shows and a rate can be set (a savings account starts ticked). */
   earnsInterest: boolean;
+  /** Money that can only be spent on one thing (meal card, benefits). */
+  restrictedUse: boolean;
   /** A new rate period to add (empty = keep the current rate). */
   rate: string;
   rateFrom: string;
@@ -55,6 +57,7 @@ const EMPTY: AccountForm = {
   identifier: '',
   interestPayout: 'Monthly',
   earnsInterest: false,
+  restrictedUse: false,
   rate: '',
   rateFrom: today(),
   withholding: DEFAULT_WITHHOLDING,
@@ -62,6 +65,10 @@ const EMPTY: AccountForm = {
 
 /** Only savings and current accounts can carry a rate (TANB). */
 export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kind === 'Bank';
+
+/** Accounts holding money of yours that may be restricted to one use (not cards, loans or brokers). */
+export const canBeRestricted = (kind: AccountKind) =>
+  kind === 'Other' || kind === 'Bank' || kind === 'Cash' || kind === 'Savings';
 
 @Component({
   selector: 'app-accounts',
@@ -88,6 +95,18 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
   template: `
     <app-page-header [icon]="icons.accounts" [title]="'nav.accounts' | translate">
       <div class="flex flex-wrap items-center gap-3">
+        <div
+          class="segmented text-xs"
+          role="group"
+          [attr.aria-label]="'accounts.groupBy' | translate"
+        >
+          <button [class.active]="groupBy() === 'kind'" (click)="setGroupBy('kind')">
+            {{ 'accounts.byKind' | translate }}
+          </button>
+          <button [class.active]="groupBy() === 'institution'" (click)="setGroupBy('institution')">
+            {{ 'accounts.byInstitution' | translate }}
+          </button>
+        </div>
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
@@ -110,8 +129,17 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
         class="text-muted-foreground mb-3 flex items-baseline gap-2 text-xs font-semibold tracking-wider uppercase"
         [class.mt-8]="!first"
       >
-        {{ 'accounts.group.' + g.key | translate }}
+        @if (groupBy() === 'institution') {
+          {{ g.title ?? ('accounts.noInstitution' | translate) }}
+        } @else {
+          {{ 'accounts.group.' + g.key | translate }}
+        }
         <span class="num font-normal normal-case">· {{ g.accounts.length }}</span>
+        @if (g.total !== null && g.accounts.length > 1) {
+          <span class="num ml-auto font-medium normal-case text-foreground">{{
+            g.total | money
+          }}</span>
+        }
       </h2>
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         @for (a of g.accounts; track a.id) {
@@ -142,6 +170,12 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
                     }
                     @if (a.identifierMasked) {
                       · <span class="font-mono">{{ a.identifierMasked }}</span>
+                    }
+                    @if (a.restrictedUse) {
+                      <span
+                        class="badge ml-1 bg-amber-500/10 !px-1.5 !py-0 text-[10px] text-amber-700 dark:text-amber-400"
+                        >{{ 'accounts.restrictedBadge' | translate }}</span
+                      >
                     }
                   </p>
                 </div>
@@ -389,8 +423,25 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
             {{ 'accounts.identifierNote' | translate }}
           </p>
         </div>
-        @if (canEarnInterest()) {
+        @if (canRestrict()) {
           <label class="col-span-2 mt-2 flex items-start gap-2 border-t pt-4 text-sm">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="restricted-use"
+              [checked]="form().restrictedUse"
+              (change)="patch({ restrictedUse: $any($event.target).checked })"
+            />
+            <span
+              >{{ 'accounts.restricted' | translate }}
+              <span class="text-muted-foreground block text-xs">{{
+                'accounts.restrictedHint' | translate
+              }}</span></span
+            >
+          </label>
+        }
+        @if (canEarnInterest()) {
+          <label class="col-span-2 flex items-start gap-2 text-sm">
             <input
               type="checkbox"
               class="mt-0.5"
@@ -542,6 +593,7 @@ export class AccountsComponent {
   protected readonly editingId = signal<string | null>(null);
   protected readonly form = signal<AccountForm>(EMPTY);
   protected readonly canEarnInterest = computed(() => supportsInterest(this.form().kind));
+  protected readonly canRestrict = computed(() => canBeRestricted(this.form().kind));
   protected readonly showInterest = computed(
     () => this.canEarnInterest() && this.form().earnsInterest,
   );
@@ -626,8 +678,40 @@ export class AccountsComponent {
     (this.accounts.value() ?? []).filter((a) => this.showArchived() || !a.archived),
   );
 
+  /** "kind": everyday money, savings, investments, debts. "institution": each bank with its sub-accounts. */
+  protected readonly groupBy = signal<'kind' | 'institution'>(readGroupBy());
+
+  protected setGroupBy(mode: 'kind' | 'institution') {
+    this.groupBy.set(mode);
+    try {
+      localStorage.setItem('pf.accountsGroupBy', mode);
+    } catch {
+      // Private mode or blocked storage: the choice lasts for this visit only.
+    }
+  }
+
   /** Accounts by what they are: everyday money, savings, investments, debts (cards and loans). */
-  protected readonly groups = computed(() => {
+  protected readonly groups = computed<
+    { key: string; title: string | null; total: number | null; accounts: Account[] }[]
+  >(() => {
+    if (this.groupBy() === 'institution') {
+      // One block per institution (Revolut: main account, vaults and savings together) with its total.
+      const byName = new Map<string, Account[]>();
+      for (const a of this.visible()) {
+        const name = a.institution?.trim() || '';
+        byName.set(name.toLowerCase(), [...(byName.get(name.toLowerCase()) ?? []), a]);
+      }
+      return [...byName.values()]
+        .map((accounts) => ({
+          key: 'i:' + (accounts[0].institution?.trim().toLowerCase() || '-'),
+          title: accounts[0].institution?.trim() || null,
+          total: accounts.reduce((sum, a) => sum + a.balance, 0),
+          accounts,
+        }))
+        .sort((x, y) =>
+          x.title === null ? 1 : y.title === null ? -1 : (y.total ?? 0) - (x.total ?? 0),
+        );
+    }
     const groupOf = (a: Account) =>
       a.kind === 'Savings'
         ? 'savings'
@@ -637,7 +721,12 @@ export class AccountsComponent {
             ? 'debts'
             : 'money';
     return ['money', 'savings', 'investments', 'debts']
-      .map((key) => ({ key, accounts: this.visible().filter((a) => groupOf(a) === key) }))
+      .map((key) => ({
+        key,
+        title: null,
+        total: null,
+        accounts: this.visible().filter((a) => groupOf(a) === key),
+      }))
       .filter((g) => g.accounts.length > 0);
   });
 
@@ -665,6 +754,7 @@ export class AccountsComponent {
       identifier: '',
       interestPayout: a.interest?.payout ?? 'Monthly',
       earnsInterest: (a.interest?.annualRatePercent ?? 0) > 0,
+      restrictedUse: a.restrictedUse ?? false,
       rate: '',
       rateFrom: today(),
       withholding: String(a.interest?.withholdingPercent ?? DEFAULT_WITHHOLDING),
@@ -683,6 +773,7 @@ export class AccountsComponent {
       institution: f.institution || null,
       identifier: f.identifier || null,
       interestPayout: supportsInterest(f.kind) ? f.interestPayout : null,
+      restrictedUse: canBeRestricted(f.kind) && f.restrictedUse,
     };
     const earns = supportsInterest(f.kind) && f.earnsInterest;
     const rate = earns && f.rate.trim() ? parseAmount(f.rate) : null;
@@ -753,5 +844,14 @@ export class AccountsComponent {
     } catch (err) {
       this.toasts.error(err);
     }
+  }
+}
+
+/** The remembered grouping of the accounts page (by kind unless the owner chose institutions). */
+function readGroupBy(): 'kind' | 'institution' {
+  try {
+    return localStorage.getItem('pf.accountsGroupBy') === 'institution' ? 'institution' : 'kind';
+  } catch {
+    return 'kind';
   }
 }

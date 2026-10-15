@@ -171,4 +171,24 @@ public sealed class NetWorthHistoryTests(ApiFactory factory)
         (await db.ExpectedTransactions.AsNoTracking().SingleAsync(e => e.RecurringTransactionId == id && e.DueOn == next))
             .Amount.ShouldBe(45m);
     }
+
+    [Fact]
+    public async Task A_restricted_balance_is_an_asset_shown_apart_from_free_money()
+    {
+        var api = await factory.OwnerAsync();
+        var before = (await api.GetJsonAsync("/api/net-worth")).GetProperty("current");
+        var meal = await api.CreateAsync("/api/accounts", new
+        {
+            name = "Meal card", kind = "Other", currency = "EUR", openingBalance = 150m, restrictedUse = true,
+            institution = "Coverflex",
+        });
+
+        var account = (await api.GetAsync<JsonElement[]>("/api/accounts"))
+            .Single(a => a.GetProperty("id").GetGuid() == meal);
+        account.GetProperty("restrictedUse").GetBoolean().ShouldBeTrue();
+        var after = (await api.GetJsonAsync("/api/net-worth")).GetProperty("current");
+        (after.GetProperty("restricted").GetDecimal() - before.GetProperty("restricted").GetDecimal()).ShouldBe(150m);
+        after.GetProperty("cash").GetDecimal().ShouldBe(before.GetProperty("cash").GetDecimal()); // not free money
+        (after.GetProperty("netWorth").GetDecimal() - before.GetProperty("netWorth").GetDecimal()).ShouldBe(150m);
+    }
 }

@@ -96,6 +96,8 @@ export interface Account {
   archived: boolean;
   /** Only on savings and bank accounts. */
   interest?: AccountInterest | null;
+  /** Money that can only be spent on one thing (meal card, flexible benefits): shown apart in net worth. */
+  restrictedUse?: boolean;
   /** Broker accounts: the allocation bucket their synced deposits count towards. */
   allocationBucketId?: string | null;
 }
@@ -724,8 +726,10 @@ export interface NetWorthHistory {
     cash: number;
     investments: number;
     manualAssets: number;
+    /** Restricted-use balances (meal card, benefits), part of the assets. */
+    restricted?: number;
     lines: {
-      group: 'cash' | 'investments' | 'manual' | 'liability';
+      group: 'cash' | 'restricted' | 'investments' | 'manual' | 'liability';
       name: string;
       value: number;
     }[];

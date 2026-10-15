@@ -404,6 +404,13 @@
   "howProgressAccount": "O progresso é o saldo desta conta — transferências, poupanças e juros incluídos. Os investimentos nunca contam para os objetivos."
  },
  "accounts": {
+  "restricted": "Saldo de uso restrito",
+  "restrictedHint": "Dinheiro que só pode ser gasto numa coisa (cartão refeição, benefícios flexíveis). O património mostra-o à parte do dinheiro que paga qualquer coisa.",
+  "restrictedBadge": "uso restrito",
+  "groupBy": "Agrupar contas",
+  "byKind": "Por tipo",
+  "byInstitution": "Por instituição",
+  "noInstitution": "Sem instituição",
   "new": "Nova conta",
   "edit": "Editar conta",
   "kind": "Tipo",
@@ -635,6 +642,7 @@
   "positionsNote": "O lucro é desde a compra, seja qual for o período. Hoje é desde o fecho anterior; cripto mostra as últimas 24 horas."
  },
  "netWorth": {
+  "restricted": "Uso restrito",
   "addAsset": "Adicionar ativo ou dívida",
   "since": "desde",
   "cash": "Contas e liquidez",
@@ -645,6 +653,7 @@
   "breakdown": "Composição",
   "group": {
    "cash": "liquidez",
+   "restricted": "uso restrito",
    "investments": "investimentos",
    "manual": "ativo",
    "liability": "passivo"

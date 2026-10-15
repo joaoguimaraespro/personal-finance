@@ -87,6 +87,14 @@ import { EmptyStateComponent } from '../../shared/empty-state';
             icon="lucideBanknote"
             [color]="colors.saved"
           />
+          @if (d.current.restricted) {
+            <app-kpi
+              [label]="'netWorth.restricted' | translate"
+              [value]="d.current.restricted"
+              icon="lucideReceipt"
+              color="#f59e0b"
+            />
+          }
           <app-kpi
             [label]="'netWorth.investments' | translate"
             [value]="d.current.investments"
