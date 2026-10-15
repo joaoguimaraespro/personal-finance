@@ -53,3 +53,12 @@ public interface IHistoryStateProvider
 {
     string? HistoryState { get; set; }
 }
+
+/// <summary>A provider that knows which coins left the account for other wallets and what they cost then.</summary>
+public interface ISentCoinsProvider
+{
+    Task<IReadOnlyList<SentCoins>> GetSentCoinsAsync(CancellationToken ct);
+}
+
+/// <summary>Coins of <paramref name="Asset"/> sent to other wallets, with the cost they carried when they left.</summary>
+public sealed record SentCoins(string Asset, decimal Quantity, decimal Cost, decimal AverageCost, DateOnly LastSentOn);

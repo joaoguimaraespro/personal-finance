@@ -1080,6 +1080,8 @@
   "thisYearHint": "Interest after withholding tax, from the days the app knows this account and its rate. Record interest the bank paid earlier as income in the Interest category to include it."
  },
  "crypto": {
+  "sentFrom": "Sent from {{connection}}: {{quantity}} {{symbol}}, real cost {{price}} each when they left.",
+  "useSentCost": "Use this price",
   "earnBadge": "Earn",
   "rewardsMonthHint": "{{count}} rewards this month, summed",
   "addButton": "Add crypto",
