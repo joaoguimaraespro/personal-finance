@@ -48,6 +48,8 @@
 		}
 		header @immutable Cache-Control "public, max-age=31536000, immutable"
 		header /index.html Cache-Control "no-store"
+		# Translations keep a stable name: always revalidated, or a release shows the previous labels (or raw keys).
+		header /i18n/* Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}

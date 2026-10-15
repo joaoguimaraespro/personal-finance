@@ -18,12 +18,13 @@
   "portfolio": "Portfolio",
   "netWorth": "Net worth",
   "connections": "Connections",
-  "export": "Export",
+  "export": "Import / Export",
   "ai": "AI access",
   "assistant": "Assistant",
   "more": "More",
   "main": "Main navigation",
-  "general": "General"
+  "general": "General",
+  "loans": "Loans"
  },
  "common": {
   "save": "Save",
@@ -56,6 +57,7 @@
  "auth": {
   "signIn": "Sign in",
   "privateNotice": "Private finance server — owner access only",
+  "privateNoticeDesktop": "Private — your data stays on this computer",
   "email": "Email",
   "password": "Password",
   "remember": "Keep me signed in on this device",
@@ -69,6 +71,7 @@
   "logout": "Sign out",
   "setupTitle": "Create the owner account",
   "setupSubtitle": "First run. You'll need the setup token from the server's .env file.",
+  "setupSubtitleDesktop": "First run. Create your account — it stays on this computer.",
   "setupToken": "Setup token",
   "newPassword": "New password",
   "passwordHint": "At least 12 characters. A passphrase works best.",
@@ -218,6 +221,12 @@
   "cumulative": "Cumulative invested & saved"
  },
  "dashboard": {
+  "inYear": "in the year",
+  "onDay": "on {{date}}",
+  "noHistoryYear": "No history for this year.",
+  "yearGain": "Gain in the year",
+  "yearGainHint": "Value change during the year minus the money put in (deposits − withdrawals).",
+  "yearContributions": "Put in during the year",
   "title": "Dashboard",
   "subtitle": "Your year at a glance",
   "monthlyView": "Monthly view",
@@ -249,6 +258,8 @@
   "pendingCount": "{{count}} pending"
  },
  "monthly": {
+  "debtRepaid": "Debt repaid",
+  "debtRepaidHint": "Capital repaid on loans this month. Not spending — the debt went down — but money no longer free.",
   "title": "Monthly summary",
   "allocation": "Allocation",
   "editBudget": "Edit budget",
@@ -282,6 +293,9 @@
   "rateNote": "The savings-rate total is the average of monthly rates, as in the original spreadsheet. Weighted by income it is {{weighted}}."
  },
  "tx": {
+  "refund": "It's a refund",
+  "refundHint": "Money given back for a cost (a return, a refund): it lowers this category's spending instead of counting as income.",
+  "refundBadge": "refund",
   "add": "Add transaction",
   "edit": "Edit transaction",
   "amount": "Amount",
@@ -319,9 +333,13 @@
   "investmentHint": "Investments are reported separately from everyday income and expenses.",
   "emptyFiltered": "Try another search, date range or type, or clear the filters.",
   "emptyHint": "Add your first transaction, or import a spreadsheet or bank export.",
-  "filters": "Filters"
+  "filters": "Filters",
+  "goalQuestion": "Is this for a goal?"
  },
  "recurring": {
+  "yearlyOn": "First time (then every year on this day)",
+  "yearlyHint": "Repeats every year on {{date}}.",
+  "variableHint": "Bills that change (water, electricity): put an estimate. Each proposal comes with the average of the last 3 confirmed, and you can change it when you confirm.",
   "subtitle": "Templates propose transactions; nothing is recorded until you confirm it.",
   "new": "New recurring",
   "edit": "Edit recurring",
@@ -369,7 +387,7 @@
   }
  },
  "goals": {
-  "subtitle": "Savings linked to a goal count towards it automatically.",
+  "subtitle": "Progress comes from the savings account a goal follows, or from savings linked to it. Investments never count.",
   "new": "New goal",
   "edit": "Edit goal",
   "achieved": "Achieved",
@@ -381,9 +399,20 @@
   "manual": "Override current amount",
   "howProgress": "Progress = already saved + savings transactions linked to this goal, unless you override it.",
   "empty": "No goals yet.",
-  "inProgress": "In progress"
+  "inProgress": "In progress",
+  "account": "Follows an account (optional)",
+  "noAccount": "No — count savings linked to this goal",
+  "followsAccount": "Follows {{account}}",
+  "howProgressAccount": "Progress is this account's balance — transfers, savings and interest included. Investments never count towards goals."
  },
  "accounts": {
+  "restricted": "Restricted-use balance",
+  "restrictedHint": "Money that can only be spent on one thing (meal card, flexible benefits). Net worth shows it apart from money that can pay anything.",
+  "restrictedBadge": "restricted",
+  "groupBy": "Group accounts",
+  "byKind": "By type",
+  "byInstitution": "By institution",
+  "noInstitution": "No institution",
   "new": "New account",
   "edit": "Edit account",
   "kind": "Type",
@@ -399,9 +428,17 @@
   "countsTowards": "Deposits count towards",
   "countsTowardsHint": "Money you deposit here counts in that bucket’s monthly allocation, without recording it by hand.",
   "noBucket": "No bucket",
-  "countsTowardsSaved": "Saved. The monthly allocation now includes this broker’s deposits."
+  "countsTowardsSaved": "Saved. The monthly allocation now includes this broker’s deposits.",
+  "group": {
+   "money": "Everyday money",
+   "savings": "Savings",
+   "investments": "Investments",
+   "debts": "Debts"
+  }
  },
  "categories": {
+  "cashback": "Cashback",
+  "benefits": "Benefits (meal card, flexible benefits)",
   "new": "New category",
   "custom": "Custom",
   "expenses": "Expense categories",
@@ -441,7 +478,8 @@
   "other-income": "Other income",
   "rename": "Rename",
   "resetName": "Back to the default name",
-  "newName": "New name"
+  "newName": "New name",
+  "loan-interest": "Loan interest"
  },
  "import": {
   "title": "Import from Excel",
@@ -489,6 +527,20 @@
   "noHistory": "No imports yet."
  },
  "settings": {
+  "mfaTitle": "Two-factor authentication",
+  "mfaDesktopText": "Optional on this computer: the app only answers here. Turn it on if others use this computer.",
+  "mfaEnable": "Turn on two-factor authentication",
+  "reset": {
+   "title": "Start fresh",
+   "text": "Deletes everything you entered or imported, to start again from scratch. Broker connections and categories stay.",
+   "open": "Delete my data…",
+   "deletes": "Deleted: accounts, transactions, recurring items, budgets, goals, loans, savings interest, coins and assets entered by hand, and the net worth history.",
+   "keeps": "Kept: broker connections (Trading 212, IBKR, Binance) with their synced data, categories, allocation buckets, AI access and your login.",
+   "backup": "Download a full backup first",
+   "type": "Type {{word}} to confirm",
+   "confirm": "Delete everything",
+   "done": "Done: you are starting fresh."
+  },
   "appearance": "Appearance",
   "language": "Language",
   "theme": "Theme",
@@ -510,7 +562,9 @@
   "browserAlertsHint": "Show a system notification when something new needs attention while this tab is open in the background. Nothing is sent from the server.",
   "browserBlocked": "The browser blocked notifications for this site. Allow them in the site settings and try again.",
   "on": "On",
-  "off": "Off"
+  "off": "Off",
+  "currency": "Currency",
+  "currencyHint": "Everything is kept in EUR; USD shows EUR amounts at today's ECB rate."
  },
  "assetClass": {
   "Stock": "Stocks",
@@ -532,6 +586,9 @@
   "OtherDebt": "Other debt"
  },
  "portfolio": {
+  "costNote": "Gains use your real cost in euros: what you paid for each purchase, fees and that day's exchange rate included. They can differ from the broker's app, which often uses the market price or converts at today's rate.",
+  "gainOnCost": "Gain over cost",
+  "gainOnCostHint": "What the coins are worth now minus what they really cost in euros (what you paid, fees included; coins sent elsewhere take their cost with them), as a percentage of that cost.",
   "readOnly": "Read-only data from your brokers",
   "lastSync": "last sync",
   "empty": "No investments yet. Connect a broker or add crypto you hold elsewhere.",
@@ -557,14 +614,14 @@
   "quantity": "Quantity",
   "avgPrice": "Avg. price",
   "price": "Price",
-  "marketValue": "Value (EUR)",
+  "marketValue": "Value ({{currency}})",
   "weight": "Weight",
   "noPositions": "No positions.",
   "dividendsByMonth": "Dividends by month",
   "recentDividends": "Recent dividends",
   "gross": "Gross",
   "withholding": "Withholding",
-  "net": "Net (EUR)",
+  "net": "Net ({{currency}})",
   "derived": "Inferred from the API; import the broker CSV for the reported value",
   "targetsTitle": "Target allocation",
   "targetsHint": "Percentages of the portfolio (including cash). Leave blank for no target. Total at most 100%.",
@@ -590,6 +647,7 @@
   "positionsNote": "Gain is since purchase, whatever the period. Today is since the previous close; crypto shows the last 24 hours."
  },
  "netWorth": {
+  "restricted": "Restricted use",
   "addAsset": "Add asset or debt",
   "since": "since",
   "cash": "Cash & bank",
@@ -600,6 +658,7 @@
   "breakdown": "Breakdown",
   "group": {
    "cash": "cash",
+   "restricted": "restricted",
    "investments": "investments",
    "manual": "asset",
    "liability": "liability"
@@ -990,6 +1049,8 @@
   "timeout": "The server didn't respond. Check your connection (Tailscale) and try again."
  },
  "interest": {
+  "earns": "This account earns interest",
+  "earnsHint": "A savings account, or a current/card account that pays interest on its balance (e.g. Trading 212 or Revolut). The app then estimates it every day.",
   "pendingTitle": "Interest to confirm",
   "pendingHint": "Estimated from your rate and daily balances. Confirm it, or type what the bank really paid (0 if nothing). Unanswered months stay estimated.",
   "question": "Did {{bank}} pay {{amount}} interest in {{month}}?",
@@ -1016,9 +1077,18 @@
   },
   "history": "Rate history",
   "withheld": "{{pct}} withheld",
-  "removeLatest": "Remove latest rate"
+  "removeLatest": "Remove latest rate",
+  "perDay": "≈ {{gross}}/day gross ({{net}} net)",
+  "perDayHint": "Balance × TANB / 365, before the {{withholding}} % withholding tax.",
+  "thisYearNet": "{{amount}} net this year",
+  "since": "(since {{date}})",
+  "thisYearHint": "Interest after withholding tax, from the days the app knows this account and its rate. Record interest the bank paid earlier as income in the Interest category to include it."
  },
  "crypto": {
+  "sentFrom": "Sent from {{connection}}: {{quantity}} {{symbol}}, real cost {{price}} each when they left.",
+  "useSentCost": "Use this price",
+  "earnBadge": "Earn",
+  "rewardsMonthHint": "{{count}} rewards this month, summed",
   "addButton": "Add crypto",
   "editButton": "Edit",
   "addTitle": "Add crypto",
@@ -1134,7 +1204,11 @@
   "allocationDue": "Set aside for {{bucket}}",
   "allocationPartial": "Finish setting aside for {{bucket}}",
   "allocationDetail": "This month's allocation is not done yet.",
-  "allocationLeft": "{{remaining}} left of {{target}}"
+  "allocationLeft": "{{remaining}} left of {{target}}",
+  "loanDue": "{{name}}: instalment due",
+  "loanSplit": "interest {{interest}} · capital {{capital}}",
+  "loanRevision": "{{name}}: rate revision",
+  "loanRevisionDetail": "Enter the new rate from {{date}} (the bank's letter)."
  },
  "split": {
   "action": "Split by category",
@@ -1159,5 +1233,107 @@
    "note": "Notes are at most 120 characters.",
    "sum": "The lines must add up exactly to the amount."
   }
+ },
+ "loans": {
+  "chargesColumn": "Charges",
+  "chargesHint": "Commission, stamp duty and insurance collected with the instalment",
+  "charges": "charges",
+  "chargesTitle": "Charged with each instalment",
+  "monthlyFee": "Processing commission (€/month)",
+  "monthlyInsurance": "Insurance collected with it (€/month)",
+  "stampDuty": "Imposto do Selo (4 % of interest and commission)",
+  "stampDutyHint": "Portuguese banks add it to every instalment. Your statement shows the commission and the stamp duty separately.",
+  "title": "Loan",
+  "subtitle": "What you owe, when it ends and what early repayments would save.",
+  "editTerms": "Loan terms",
+  "terms": "Loan terms",
+  "setupTitle": "Add this loan's terms",
+  "setupText": "With the amount, rate and term, the app works out the instalment, what is left to pay, when it ends and how much interest you will still pay. The account's balance then follows the plan.",
+  "setup": "Add terms",
+  "outstanding": "Outstanding",
+  "paidOff": "{{share}} of {{principal}} repaid",
+  "nextPayment": "Next instalment",
+  "interest": "Interest",
+  "capital": "Capital",
+  "ends": "Ends",
+  "left": "{{months}} instalments left ({{time}})",
+  "rate": "Rate (TAN)",
+  "index": "Index",
+  "fixed": "Fixed rate",
+  "nextRevision": "next revision",
+  "debtOverTime": "Debt over time",
+  "interestSummary": "Interest paid so far {{paid}} · still to pay {{left}}",
+  "simulator": "Early repayment",
+  "amount": "Amount",
+  "simulate": "Simulate",
+  "interestSaved": "Interest saved",
+  "endsEarlier": "Ends earlier by",
+  "newPayment": "New instalment",
+  "recordIt": "Record this repayment",
+  "mode": {
+   "ReduceTerm": "Shorten the term",
+   "ReducePayment": "Lower the instalment"
+  },
+  "rates": "Rates",
+  "addRate": "New rate",
+  "addRevision": "Rate revision",
+  "from": "From",
+  "prepayments": "Early repayments",
+  "noPrepayments": "None yet. Use the simulator to see what one would save.",
+  "plan": "Repayment plan",
+  "year": "Year",
+  "payments": "Paid",
+  "balanceEnd": "Balance at the end",
+  "thisYear": "this year",
+  "principal": "Amount borrowed",
+  "termMonths": "Term (months)",
+  "firstPayment": "First instalment",
+  "rateType": {
+   "Fixed": "Fixed rate",
+   "Variable": "Variable rate"
+  },
+  "indexName": "Index",
+  "revisionMonths": "Revised",
+  "spread": "Spread (%)",
+  "indexValue": "Index value (%)",
+  "tanIs": "Starting TAN: {{rate}} (index + spread). Later revisions are added on the loan page.",
+  "tan": "TAN (%)",
+  "termsHint": "The French method used by Portuguese banks: a constant instalment, recalculated at each rate revision. Record the bank's figures for the best match.",
+  "spreadAdded": "The loan's spread is added to give the new TAN.",
+  "everyMonths": "Every {{months}} months",
+  "years": "{{count}} y",
+  "months": "{{count}} m",
+  "confirmRemoveRate": "Remove this rate? The plan is recalculated without it.",
+  "confirmRemovePrepayment": "Remove this early repayment? The plan is recalculated without it.",
+  "details": "Loan details",
+  "setupShort": "Add loan terms",
+  "indexStart": "Index at the start (%)",
+  "tanStart": "TAN at the start (%)",
+  "paidFrom": "Instalments paid from",
+  "notTracked": "Not booked — the debt still follows the plan",
+  "paidFromHint": "From now on each instalment is proposed when due: interest as an expense, capital as a transfer to this loan.",
+  "pending": "Instalments to book",
+  "book": "Book",
+  "skip": "Skip",
+  "dashboardTitle": "Loans",
+  "owed": "Owed",
+  "endsOn": "ends {{date}}",
+  "listSubtitle": "Mortgages, car and personal loans: what you owe and when each ends.",
+  "new": "New loan",
+  "monthly": "Instalments per month",
+  "interestLeftAll": "Interest still to pay",
+  "emptyTitle": "No loans",
+  "emptyText": "Add a mortgage, car or personal loan to see what you owe, the instalment, when it ends and what early repayments would save.",
+  "namePlaceholder": "Mortgage, Car loan…",
+  "newHint": "Next you enter the amount, rate and term.",
+  "next": "Continue"
+ },
+ "buckets": {
+  "stocks-etfs": "Stocks / ETFs",
+  "crypto": "Crypto",
+  "bonds": "Bonds",
+  "travel-fund": "Travel fund",
+  "emergency-fund": "Emergency fund",
+  "other-savings": "Other savings"
  }
 }

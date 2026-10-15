@@ -222,9 +222,6 @@ import { PageHeaderComponent } from '../../shared/page-header';
                       >
                         <ng-icon name="lucidePlus" />{{ 'tx.add' | translate }}
                       </button>
-                      <a hlmBtn size="sm" variant="ghost" routerLink="/import">
-                        <ng-icon name="lucideUpload" />{{ 'nav.import' | translate }}
-                      </a>
                     }
                     @default {
                       <a hlmBtn size="sm" variant="outline" routerLink="/connections">
@@ -266,7 +263,28 @@ import { PageHeaderComponent } from '../../shared/page-header';
           </a>
         </div>
         @if (netWorth.value(); as nw) {
-          @if (nw.series.length || nw.current.netWorth) {
+          @if (pastYear()) {
+            <!-- A past year: the value on its last day, and how it changed during that year. -->
+            @if (netWorthAt(nw, yearEnd()); as end) {
+              <p class="hero-value">{{ end.netWorth | money }}</p>
+              <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                @if (netWorthAt(nw, previousYearEnd()); as start) {
+                  <span [class]="toneChip(end.netWorth - start.netWorth)">
+                    <ng-icon [name]="trendIcon(end.netWorth - start.netWorth)" aria-hidden="true" />
+                    {{ end.netWorth - start.netWorth | money: 'EUR' : true }}
+                  </span>
+                  <span class="text-muted-foreground">{{ 'dashboard.inYear' | translate }}</span>
+                }
+                <span class="text-muted-foreground">{{
+                  'dashboard.onDay' | translate: { date: (end.date | day) }
+                }}</span>
+              </p>
+            } @else {
+              <p class="mt-3 text-sm text-muted-foreground">
+                {{ 'dashboard.noHistoryYear' | translate }}
+              </p>
+            }
+          } @else if (nw.series.length || nw.current.netWorth) {
             <p class="hero-value">{{ nw.current.netWorth | money }}</p>
             @if (nw.changeSinceStart !== null) {
               <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -422,7 +440,42 @@ import { PageHeaderComponent } from '../../shared/page-header';
             <ng-icon name="lucideChevronRight" />
           </a>
         </div>
-        @if (portfolio.value(); as p) {
+        @if (pastYear()) {
+          @if (portfolioYear(); as y) {
+            <p class="hero-value">{{ y.value | money }}</p>
+            <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span class="text-muted-foreground">{{
+                'dashboard.onDay' | translate: { date: (y.date | day) }
+              }}</span>
+            </p>
+            <dl class="mt-auto grid gap-2 pt-4 text-xs">
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted-foreground" [title]="'dashboard.yearGainHint' | translate">
+                  {{ 'dashboard.yearGain' | translate }}
+                </dt>
+                <dd
+                  class="num font-medium"
+                  [class.tone-pos]="y.gain > 0"
+                  [class.tone-neg]="y.gain < 0"
+                >
+                  {{ y.gain | money: 'EUR' : true }}
+                </dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted-foreground">
+                  {{ 'dashboard.yearContributions' | translate }}
+                </dt>
+                <dd class="num font-medium">{{ y.contributions | money }}</dd>
+              </div>
+            </dl>
+          } @else if (performance.isLoading()) {
+            <div class="skeleton mt-4 h-8 w-36"></div>
+          } @else {
+            <p class="mt-3 text-sm text-muted-foreground">
+              {{ 'dashboard.noHistoryYear' | translate }}
+            </p>
+          }
+        } @else if (portfolio.value(); as p) {
           @if (p.positions || p.accounts.length) {
             <p class="hero-value">{{ p.totalValue | money }}</p>
             <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -758,6 +811,45 @@ import { PageHeaderComponent } from '../../shared/page-header';
       </div>
     </section>
 
+    <!-- Loans: what is owed and the next instalment of each. -->
+    @if (loans.value()?.length) {
+      @let ls = loans.value()!;
+      <section class="card mt-6">
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 class="card-title !mb-0">
+            <ng-icon name="lucideHandCoins" />{{ 'loans.dashboardTitle' | translate }}
+          </h2>
+          <span class="text-muted-foreground num text-xs"
+            >{{ 'loans.owed' | translate }}
+            <b class="text-foreground">{{ loansOwed() | money }}</b></span
+          >
+        </div>
+        <ul class="grid gap-3 md:grid-cols-2">
+          @for (l of ls; track l.accountId) {
+            <li>
+              <a
+                [routerLink]="['/loans', l.accountId]"
+                class="hover:bg-muted/50 block rounded-lg border p-3 transition-colors"
+              >
+                <div class="flex items-baseline justify-between gap-2">
+                  <span class="truncate font-medium">{{ l.accountName }}</span>
+                  <span class="num font-semibold">{{ l.outstanding | money }}</span>
+                </div>
+                <app-progress class="mt-2 block" [value]="l.paidOffShare" />
+                <p class="text-muted-foreground num mt-1.5 text-xs">
+                  @if (l.next; as n) {
+                    {{ 'loans.nextPayment' | translate }} {{ n.total ?? n.payment | money }} ·
+                    {{ n.date | day }} ·
+                  }
+                  {{ 'loans.endsOn' | translate: { date: (l.endDate | day) } }}
+                </p>
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     @if (hasTransactions()) {
       <section class="mt-6 grid gap-4 xl:grid-cols-5">
         <div class="card xl:col-span-3">
@@ -894,6 +986,13 @@ export class DashboardComponent {
     params: () => this.events.version(),
     stream: () => this.api.expected(),
   });
+  protected readonly loans = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.loans(),
+  });
+  protected readonly loansOwed = computed(() =>
+    (this.loans.value() ?? []).reduce((sum, l) => sum + l.outstanding, 0),
+  );
   protected readonly goals = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.goals(),
@@ -913,6 +1012,7 @@ export class DashboardComponent {
     const c = nw.current;
     return [
       { key: 'cash', value: c.cash, color: SERIES_COLORS.income },
+      { key: 'restricted', value: c.restricted ?? 0, color: '#f59e0b' },
       { key: 'investments', value: c.investments, color: SERIES_COLORS.invested },
       { key: 'manual', value: c.manualAssets, color: SERIES_COLORS.saved },
       { key: 'liabilities', value: c.liabilities, color: SERIES_COLORS.expenses },
@@ -930,6 +1030,38 @@ export class DashboardComponent {
   protected readonly accounts = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.accounts(),
+  });
+
+  /** A past year: the net worth and portfolio cards show its last day instead of today. */
+  protected readonly pastYear = computed(() => this.year() < this.thisYear);
+  protected readonly yearEnd = computed(() => `${this.year()}-12-31`);
+  protected readonly previousYearEnd = computed(() => `${this.year() - 1}-12-31`);
+
+  /** The last net worth point on or before a day. */
+  protected netWorthAt(nw: NetWorthHistory, day: string) {
+    return [...nw.series].reverse().find((p) => p.date <= day) ?? null;
+  }
+
+  /** The portfolio's daily history, loaded only when a past year is shown. */
+  protected readonly performance = liveResource({
+    params: () => (this.pastYear() ? { v: this.events.version() } : undefined),
+    stream: () => this.api.performance(),
+  });
+
+  /** The portfolio on the year's last day and what it gained that year (value change minus money put in). */
+  protected readonly portfolioYear = computed(() => {
+    const series = this.performance.value()?.series ?? [];
+    const at = (day: string) => [...series].reverse().find((p) => p.date <= day) ?? null;
+    const end = at(this.yearEnd());
+    if (!end) return null;
+    const start = at(this.previousYearEnd());
+    const contributions = end.netContributions - (start?.netContributions ?? 0);
+    return {
+      date: end.date,
+      value: end.value,
+      contributions,
+      gain: end.value - (start?.value ?? 0) - contributions,
+    };
   });
 
   protected readonly hasTransactions = computed(() =>

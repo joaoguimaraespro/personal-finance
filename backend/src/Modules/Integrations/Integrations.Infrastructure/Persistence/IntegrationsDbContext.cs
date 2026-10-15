@@ -25,6 +25,8 @@ public sealed class IntegrationsDbContext(DbContextOptions<IntegrationsDbContext
             e.ToTable("broker_connections");
             e.Property(x => x.ProtectedCredentials).HasMaxLength(4000);
             e.Property(x => x.LastError).HasMaxLength(500);
+            // Movements of the whole account history (Binance): a few hundred KB at most.
+            e.Property(x => x.HistoryState).HasColumnType("text").HasMaxLength(10_000_000);
             e.HasIndex(x => x.AccountId).IsUnique();
         });
         modelBuilder.Entity<SyncJob>(e =>

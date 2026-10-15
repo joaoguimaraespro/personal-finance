@@ -26,7 +26,8 @@ public sealed record AccountDto(
     bool IsLiability,
     bool Archived,
     AccountInterestDto? Interest = null,
-    Guid? AllocationBucketId = null);
+    Guid? AllocationBucketId = null,
+    bool RestrictedUse = false);
 
 /// <summary>Which allocation bucket a broker account's synced deposits count towards (null: none).</summary>
 public sealed record SetAllocationBucketRequest(Guid? BucketId);
@@ -42,7 +43,8 @@ public sealed record AccountInterestDto(
     InterestPayout Payout,
     decimal YearToDate,
     decimal YearToDateEstimated,
-    decimal EstimatedInBalance);
+    decimal EstimatedInBalance,
+    DateOnly? AccruingSince = null);
 
 public sealed record CreateAccountRequest(
     string Name,
@@ -52,7 +54,8 @@ public sealed record CreateAccountRequest(
     DateOnly? OpeningBalanceOn,
     string? Institution,
     string? Identifier,
-    InterestPayout? InterestPayout = null);
+    InterestPayout? InterestPayout = null,
+    bool? RestrictedUse = null);
 
 public sealed record UpdateAccountRequest(
     string Name,
@@ -60,7 +63,8 @@ public sealed record UpdateAccountRequest(
     DateOnly OpeningBalanceOn,
     string? Institution,
     string? Identifier,
-    InterestPayout? InterestPayout = null);
+    InterestPayout? InterestPayout = null,
+    bool? RestrictedUse = null);
 
 public sealed class CreateAccountValidator : AbstractValidator<CreateAccountRequest>
 {
@@ -115,6 +119,7 @@ public static class AccountEndpoints
             var account = Account.Create(req.Name, req.Kind, req.Currency, req.OpeningBalance,
                 req.OpeningBalanceOn ?? DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime), req.Institution,
                 req.Identifier);
+            account.SetRestrictedUse(req.RestrictedUse ?? false);
             if (req.InterestPayout is { } payout && account.SupportsInterest)
             {
                 account.SetInterestPayout(payout);
@@ -147,6 +152,11 @@ public static class AccountEndpoints
                 _ => req.Identifier,
             };
             account.Update(req.Name, req.OpeningBalance, req.OpeningBalanceOn, req.Institution, identifier);
+            if (req.RestrictedUse is { } restricted)
+            {
+                account.SetRestrictedUse(restricted);
+            }
+
             if (req.InterestPayout is { } payout && account.SupportsInterest)
             {
                 account.SetInterestPayout(payout);
@@ -229,7 +239,7 @@ public static class AccountEndpoints
         a.Name, a.Kind, a.Currency, a.Institution, Mask(a.Identifier), a.OpeningBalance, a.OpeningBalanceOn, balance,
         a.IsManual, a.IsLiability, a.ArchivedAtUtc is not null,
         interest ?? (a.SupportsInterest ? new AccountInterestDto(null, null, null, a.InterestPayout, 0, 0, 0) : null),
-        a.AllocationBucketId);
+        a.AllocationBucketId, a.RestrictedUse);
 
     /// <summary>Current rate and this year's interest (real + estimated) for every account that can earn interest.</summary>
     public static async Task<Dictionary<Guid, AccountInterestDto>> InterestSummariesAsync(IFinanceDb db,
@@ -285,11 +295,17 @@ public static class AccountEndpoints
                     Amount = account.Currency == Currency.Base ? s.Base : s.Original,
                 })
                 .ToList();
+            // This year's figure only covers the days the app knows the account and its rate: say from when.
+            var firstRate = rates.Where(r => r.AccountId == account.Id).MinBy(r => r.EffectiveFrom)?.EffectiveFrom;
+            DateOnly? since = firstRate is { } f
+                ? new[] { yearStart, account.OpeningBalanceOn, f }.Max()
+                : null;
             result[account.Id] = new AccountInterestDto(current?.AnnualRatePercent, current?.WithholdingPercent,
                 current?.EffectiveFrom, account.InterestPayout,
                 mine.Where(s => s.ThisYear).Sum(s => s.Amount),
                 mine.Where(s => s.ThisYear && s.Estimated).Sum(s => s.Amount),
-                mine.Where(s => s.Estimated).Sum(s => s.Amount));
+                mine.Where(s => s.Estimated).Sum(s => s.Amount),
+                since);
         }
 
         return result;

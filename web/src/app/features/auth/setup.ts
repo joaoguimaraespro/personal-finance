@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -18,20 +18,22 @@ import { APP_ICONS } from '../../shared/icons';
   template: `
     <app-auth-layout
       [title]="'auth.setupTitle' | translate"
-      [subtitle]="'auth.setupSubtitle' | translate"
+      [subtitle]="(desktop() ? 'auth.setupSubtitleDesktop' : 'auth.setupSubtitle') | translate"
     >
       <form class="space-y-4" (submit)="$event.preventDefault(); create()">
-        <div>
-          <label class="label" for="token">{{ 'auth.setupToken' | translate }}</label>
-          <input
-            id="token"
-            hlmInput
-            class="font-mono"
-            autocomplete="off"
-            required
-            (input)="token.set($any($event.target).value)"
-          />
-        </div>
+        @if (!desktop()) {
+          <div>
+            <label class="label" for="token">{{ 'auth.setupToken' | translate }}</label>
+            <input
+              id="token"
+              hlmInput
+              class="font-mono"
+              autocomplete="off"
+              required
+              (input)="token.set($any($event.target).value)"
+            />
+          </div>
+        }
         <div>
           <label class="label" for="email">{{ 'auth.email' | translate }}</label>
           <input
@@ -72,6 +74,12 @@ export class SetupComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   protected readonly token = signal('');
+  /** The desktop app needs no setup token and goes straight in (two-factor is optional there). */
+  protected readonly desktop = computed(() => this.auth.me()?.desktop ?? false);
+
+  constructor() {
+    if (!this.auth.me()) void this.auth.refresh();
+  }
   protected readonly email = signal('');
   protected readonly password = signal('');
   protected readonly busy = signal(false);
@@ -81,9 +89,9 @@ export class SetupComponent {
     this.busy.set(true);
     this.error.set('');
     try {
-      await this.auth.setup(this.email(), this.password(), this.token());
-      await this.auth.login(this.email(), this.password(), false);
-      await this.router.navigateByUrl('/mfa-setup');
+      await this.auth.setup(this.email(), this.password(), this.desktop() ? null : this.token());
+      const status = await this.auth.login(this.email(), this.password(), false);
+      await this.router.navigateByUrl(status === 'ok' ? '/dashboard' : '/mfa-setup');
     } catch (err) {
       this.error.set(problemMessage(err));
     } finally {

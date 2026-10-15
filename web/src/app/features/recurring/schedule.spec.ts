@@ -84,4 +84,11 @@ describe('form rules', () => {
       frequency: 'Daily',
     });
   });
+
+  it('takes the day of a yearly item from its date', () => {
+    expect(
+      scheduleBody({ frequency: 'Yearly', interval: '1', dayOfMonth: '3', startOn: '2027-03-15' })
+        .dayOfMonth,
+    ).toBe(15);
+  });
 });

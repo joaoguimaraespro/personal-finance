@@ -4,6 +4,7 @@ import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
 import { BrokerLogoComponent } from '../../shared/broker-logo';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { bucketLabel } from '../../shared/bucket-label';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
@@ -33,6 +34,10 @@ interface AccountForm {
   institution: string;
   identifier: string;
   interestPayout: InterestPayout;
+  /** Ticked: the interest section shows and a rate can be set (a savings account starts ticked). */
+  earnsInterest: boolean;
+  /** Money that can only be spent on one thing (meal card, benefits). */
+  restrictedUse: boolean;
   /** A new rate period to add (empty = keep the current rate). */
   rate: string;
   rateFrom: string;
@@ -51,6 +56,8 @@ const EMPTY: AccountForm = {
   institution: '',
   identifier: '',
   interestPayout: 'Monthly',
+  earnsInterest: false,
+  restrictedUse: false,
   rate: '',
   rateFrom: today(),
   withholding: DEFAULT_WITHHOLDING,
@@ -58,6 +65,10 @@ const EMPTY: AccountForm = {
 
 /** Only savings and current accounts can carry a rate (TANB). */
 export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kind === 'Bank';
+
+/** Accounts holding money of yours that may be restricted to one use (not cards, loans or brokers). */
+export const canBeRestricted = (kind: AccountKind) =>
+  kind === 'Other' || kind === 'Bank' || kind === 'Cash' || kind === 'Savings';
 
 @Component({
   selector: 'app-accounts',
@@ -84,6 +95,18 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
   template: `
     <app-page-header [icon]="icons.accounts" [title]="'nav.accounts' | translate">
       <div class="flex flex-wrap items-center gap-3">
+        <div
+          class="segmented text-xs"
+          role="group"
+          [attr.aria-label]="'accounts.groupBy' | translate"
+        >
+          <button [class.active]="groupBy() === 'kind'" (click)="setGroupBy('kind')">
+            {{ 'accounts.byKind' | translate }}
+          </button>
+          <button [class.active]="groupBy() === 'institution'" (click)="setGroupBy('institution')">
+            {{ 'accounts.byInstitution' | translate }}
+          </button>
+        </div>
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
@@ -100,141 +123,222 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
 
     <app-interest-pending />
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      @for (a of visible(); track a.id) {
-        <div class="card card-hover flex flex-col" [class.opacity-60]="a.archived">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-3">
-              @if (brokerOf(a); as broker) {
-                <app-broker-logo [broker]="broker" [name]="a.name" [size]="40" aria-hidden="true" />
-              } @else {
-                <span
-                  class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
-                  aria-hidden="true"
-                >
-                  <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
-                </span>
-              }
-              <div class="min-w-0">
-                <p class="truncate font-semibold">{{ a.name }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ 'accountKind.' + a.kind | translate }}
-                  @if (a.institution) {
-                    · {{ a.institution }}
-                  }
-                  @if (a.identifierMasked) {
-                    · <span class="font-mono">{{ a.identifierMasked }}</span>
-                  }
-                </p>
+    <!-- Grouped: money you have, savings, investments, then what you owe. -->
+    @for (g of groups(); track g.key; let first = $first) {
+      <h2
+        class="text-muted-foreground mb-3 flex items-baseline gap-2 text-xs font-semibold tracking-wider uppercase"
+        [class.mt-8]="!first"
+      >
+        @if (groupBy() === 'institution') {
+          {{ g.title ?? ('accounts.noInstitution' | translate) }}
+        } @else {
+          {{ 'accounts.group.' + g.key | translate }}
+        }
+        <span class="num font-normal normal-case">· {{ g.accounts.length }}</span>
+        @if (g.total !== null && g.accounts.length > 1) {
+          <span class="num ml-auto font-medium normal-case text-foreground">{{
+            g.total | money
+          }}</span>
+        }
+      </h2>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        @for (a of g.accounts; track a.id) {
+          <div class="card card-hover flex flex-col" [class.opacity-60]="a.archived">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                @if (brokerOf(a); as broker) {
+                  <app-broker-logo
+                    [broker]="broker"
+                    [name]="a.name"
+                    [size]="40"
+                    aria-hidden="true"
+                  />
+                } @else {
+                  <span
+                    class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
+                    aria-hidden="true"
+                  >
+                    <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-lg" />
+                  </span>
+                }
+                <div class="min-w-0">
+                  <p class="truncate font-semibold">{{ a.name }}</p>
+                  <p class="text-xs text-muted-foreground">
+                    {{ 'accountKind.' + a.kind | translate }}
+                    @if (a.institution) {
+                      · {{ a.institution }}
+                    }
+                    @if (a.identifierMasked) {
+                      · <span class="font-mono">{{ a.identifierMasked }}</span>
+                    }
+                    @if (a.restrictedUse) {
+                      <span
+                        class="badge ml-1 bg-amber-500/10 !px-1.5 !py-0 text-[10px] text-amber-700 dark:text-amber-400"
+                        >{{ 'accounts.restrictedBadge' | translate }}</span
+                      >
+                    }
+                  </p>
+                </div>
               </div>
+              @if (!a.isManual) {
+                <app-status-badge tone="info" icon="lucideLock">{{
+                  'accounts.readOnly' | translate
+                }}</app-status-badge>
+              } @else if (a.archived) {
+                <app-status-badge icon="lucideArchive">{{
+                  'common.archive' | translate
+                }}</app-status-badge>
+              }
             </div>
-            @if (!a.isManual) {
-              <app-status-badge tone="info" icon="lucideLock">{{
-                'accounts.readOnly' | translate
-              }}</app-status-badge>
-            } @else if (a.archived) {
-              <app-status-badge icon="lucideArchive">{{
-                'common.archive' | translate
-              }}</app-status-badge>
+            @if (a.kind === 'Broker') {
+              <!-- A broker account's worth is its synced portfolio (positions + cash), not a ledger balance. -->
+              <p class="num mt-5 text-2xl font-semibold tracking-tight">
+                {{ brokerValue(a.id) | money }}
+              </p>
+              <a
+                routerLink="/portfolio"
+                class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {{ 'accounts.brokerValue' | translate }}
+                <ng-icon name="lucideArrowRight" aria-hidden="true" />
+              </a>
+              @if (brokerOf(a) !== 'Manual' && !a.archived) {
+                <!-- Deposits made at this broker count towards a bucket's monthly allocation. -->
+                <div class="mt-4 border-t pt-3">
+                  <label class="label" [for]="'alloc-' + a.id">{{
+                    'accounts.countsTowards' | translate
+                  }}</label>
+                  <app-select
+                    size="sm"
+                    triggerClass="text-xs"
+                    [inputId]="'alloc-' + a.id"
+                    [options]="bucketOptions()"
+                    [value]="a.allocationBucketId ?? ''"
+                    (valueChange)="setAllocationBucket(a, $event)"
+                  />
+                  <p class="mt-1 text-[11px] text-muted-foreground">
+                    {{ 'accounts.countsTowardsHint' | translate }}
+                  </p>
+                </div>
+              }
+            } @else {
+              <p
+                class="num mt-5 text-2xl font-semibold tracking-tight"
+                [class.tone-neg]="a.balance < 0"
+                [attr.title]="
+                  a.interest?.estimatedInBalance
+                    ? ('interest.balanceIncludes'
+                      | translate: { amount: (a.interest!.estimatedInBalance | money: a.currency) })
+                    : null
+                "
+              >
+                @if (a.interest?.estimatedInBalance) {
+                  <span class="text-muted-foreground" aria-hidden="true">≈</span>
+                }
+                {{ a.balance | money: a.currency }}
+              </p>
+              @if (a.kind === 'Loan') {
+                <!-- Loans: where the credit stands, from its plan; the terms live on the loan page. -->
+                @if (loanFor(a.id); as l) {
+                  <p class="text-muted-foreground num mt-1 text-xs">
+                    {{ 'loans.ends' | translate }} {{ l.endDate | day }} ·
+                    {{ 'loans.nextPayment' | translate }}
+                    {{ l.next ? (l.next.total ?? l.next.payment | money) : '—' }}
+                  </p>
+                }
+                <a
+                  [routerLink]="['/loans', a.id]"
+                  class="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                >
+                  <ng-icon name="lucideHandCoins" aria-hidden="true" />{{
+                    (loanFor(a.id) ? 'loans.details' : 'loans.setupShort') | translate
+                  }}
+                </a>
+              }
+              @if (a.interest; as i) {
+                @if (i.annualRatePercent !== null || i.yearToDate) {
+                  <!-- As the bank shows it: per day gross; the app books net of withholding. -->
+                  <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                    @if (i.annualRatePercent !== null) {
+                      <span class="num"
+                        >{{ 'interest.tanb' | translate }}
+                        {{ i.annualRatePercent / 100 | pct: 2 }}</span
+                      >
+                      @if (dailyGross(a); as d) {
+                        ·
+                        <span
+                          class="num cursor-help"
+                          [attr.title]="
+                            'interest.perDayHint'
+                              | translate: { withholding: i.withholdingPercent ?? 28 }
+                          "
+                          >{{
+                            'interest.perDay'
+                              | translate
+                                : {
+                                    gross: (d | money: a.currency),
+                                    net:
+                                      (d * (1 - (i.withholdingPercent ?? 28) / 100)
+                                      | money: a.currency),
+                                  }
+                          }}</span
+                        >
+                      }
+                    }
+                  </p>
+                  <p
+                    class="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground"
+                  >
+                    <span
+                      class="num tone-pos cursor-help"
+                      [attr.title]="'interest.thisYearHint' | translate"
+                      >{{
+                        'interest.thisYearNet'
+                          | translate: { amount: (i.yearToDate | money: a.currency : true) }
+                      }}</span
+                    >
+                    @if (sinceThisYear(i.accruingSince); as since) {
+                      <span>{{
+                        'interest.since' | translate: { date: (since | day: 'short') }
+                      }}</span>
+                    }
+                    @if (i.yearToDateEstimated) {
+                      <span
+                        class="badge bg-muted !px-1.5 !py-0"
+                        [attr.title]="'interest.estimatedHint' | translate"
+                      >
+                        ≈ {{ 'interest.estimated' | translate }}
+                      </span>
+                    }
+                  </p>
+                }
+              }
+            }
+            <div class="flex-1"></div>
+            @if (a.isManual) {
+              <div class="mt-4 flex gap-2 border-t pt-4">
+                <button hlmBtn variant="outline" size="sm" (click)="openEdit(a)">
+                  <ng-icon name="lucidePencil" />{{ 'common.edit' | translate }}
+                </button>
+                <button hlmBtn variant="ghost" size="sm" (click)="toggleArchive(a)">
+                  <ng-icon [name]="a.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />{{
+                    (a.archived ? 'common.restore' : 'common.archive') | translate
+                  }}
+                </button>
+              </div>
             }
           </div>
-          @if (a.kind === 'Broker') {
-            <!-- A broker account's worth is its synced portfolio (positions + cash), not a ledger balance. -->
-            <p class="num mt-5 text-2xl font-semibold tracking-tight">
-              {{ brokerValue(a.id) | money }}
-            </p>
-            <a
-              routerLink="/portfolio"
-              class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {{ 'accounts.brokerValue' | translate }}
-              <ng-icon name="lucideArrowRight" aria-hidden="true" />
-            </a>
-            @if (brokerOf(a) !== 'Manual' && !a.archived) {
-              <!-- Deposits made at this broker count towards a bucket's monthly allocation. -->
-              <div class="mt-4 border-t pt-3">
-                <label class="label" [for]="'alloc-' + a.id">{{
-                  'accounts.countsTowards' | translate
-                }}</label>
-                <app-select
-                  size="sm"
-                  triggerClass="text-xs"
-                  [inputId]="'alloc-' + a.id"
-                  [options]="bucketOptions()"
-                  [value]="a.allocationBucketId ?? ''"
-                  (valueChange)="setAllocationBucket(a, $event)"
-                />
-                <p class="mt-1 text-[11px] text-muted-foreground">
-                  {{ 'accounts.countsTowardsHint' | translate }}
-                </p>
-              </div>
-            }
-          } @else {
-            <p
-              class="num mt-5 text-2xl font-semibold tracking-tight"
-              [class.tone-neg]="a.balance < 0"
-              [attr.title]="
-                a.interest?.estimatedInBalance
-                  ? ('interest.balanceIncludes'
-                    | translate: { amount: (a.interest!.estimatedInBalance | money: a.currency) })
-                  : null
-              "
-            >
-              @if (a.interest?.estimatedInBalance) {
-                <span class="text-muted-foreground" aria-hidden="true">≈</span>
-              }
-              {{ a.balance | money: a.currency }}
-            </p>
-            @if (a.interest; as i) {
-              @if (i.annualRatePercent !== null || i.yearToDate) {
-                <p class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
-                  @if (i.annualRatePercent !== null) {
-                    <span class="num"
-                      >{{ 'interest.tanb' | translate }}
-                      {{ i.annualRatePercent / 100 | pct: 2 }}</span
-                    >
-                    ·
-                  }
-                  <span class="num tone-pos">{{
-                    'interest.thisYear'
-                      | translate: { amount: (i.yearToDate | money: a.currency : true) }
-                  }}</span>
-                  @if (i.yearToDateEstimated) {
-                    <span
-                      class="badge bg-muted !px-1.5 !py-0"
-                      [attr.title]="'interest.estimatedHint' | translate"
-                    >
-                      ≈ {{ 'interest.estimated' | translate }}
-                    </span>
-                  }
-                </p>
-              }
-            }
-          }
-          <div class="flex-1"></div>
-          @if (a.isManual) {
-            <div class="mt-4 flex gap-2 border-t pt-4">
-              <button hlmBtn variant="outline" size="sm" (click)="openEdit(a)">
-                <ng-icon name="lucidePencil" />{{ 'common.edit' | translate }}
-              </button>
-              <button hlmBtn variant="ghost" size="sm" (click)="toggleArchive(a)">
-                <ng-icon [name]="a.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />{{
-                  (a.archived ? 'common.restore' : 'common.archive') | translate
-                }}
-              </button>
-            </div>
-          }
-        </div>
-      } @empty {
-        <div class="card col-span-full !p-0">
-          <app-empty-state [icon]="icons.accounts" [text]="'accounts.empty' | translate">
-            <button hlmBtn size="sm" (click)="openNew()">
-              <ng-icon name="lucidePlus" />{{ 'accounts.new' | translate }}
-            </button>
-          </app-empty-state>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    } @empty {
+      <div class="card !p-0">
+        <app-empty-state [icon]="icons.accounts" [text]="'accounts.empty' | translate">
+          <button hlmBtn size="sm" (click)="openNew()">
+            <ng-icon name="lucidePlus" />{{ 'accounts.new' | translate }}
+          </button>
+        </app-empty-state>
+      </div>
+    }
 
     <app-modal
       [open]="formOpen()"
@@ -319,8 +423,42 @@ export const supportsInterest = (kind: AccountKind) => kind === 'Savings' || kin
             {{ 'accounts.identifierNote' | translate }}
           </p>
         </div>
+        @if (canRestrict()) {
+          <label class="col-span-2 mt-2 flex items-start gap-2 border-t pt-4 text-sm">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="restricted-use"
+              [checked]="form().restrictedUse"
+              (change)="patch({ restrictedUse: $any($event.target).checked })"
+            />
+            <span
+              >{{ 'accounts.restricted' | translate }}
+              <span class="text-muted-foreground block text-xs">{{
+                'accounts.restrictedHint' | translate
+              }}</span></span
+            >
+          </label>
+        }
+        @if (canEarnInterest()) {
+          <label class="col-span-2 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="earns-interest"
+              [checked]="form().earnsInterest"
+              (change)="patch({ earnsInterest: $any($event.target).checked })"
+            />
+            <span
+              >{{ 'interest.earns' | translate }}
+              <span class="text-muted-foreground block text-xs">{{
+                'interest.earnsHint' | translate
+              }}</span></span
+            >
+          </label>
+        }
         @if (showInterest()) {
-          <fieldset class="col-span-2 mt-2 grid grid-cols-2 gap-3 border-t pt-4">
+          <fieldset class="col-span-2 grid grid-cols-2 gap-3">
             <legend class="sr-only">{{ 'interest.section' | translate }}</legend>
             <div class="col-span-2 flex items-center gap-2 text-sm font-semibold">
               <ng-icon name="lucidePercent" class="text-primary" />{{
@@ -454,7 +592,11 @@ export class AccountsComponent {
   protected readonly formOpen = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly form = signal<AccountForm>(EMPTY);
-  protected readonly showInterest = computed(() => supportsInterest(this.form().kind));
+  protected readonly canEarnInterest = computed(() => supportsInterest(this.form().kind));
+  protected readonly canRestrict = computed(() => canBeRestricted(this.form().kind));
+  protected readonly showInterest = computed(
+    () => this.canEarnInterest() && this.form().earnsInterest,
+  );
   protected readonly payoutOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
     return (['Monthly', 'Daily'] as InterestPayout[]).map((p) => ({
@@ -480,17 +622,35 @@ export class AccountsComponent {
     params: () => this.events.version(),
     stream: () => this.api.accounts(true),
   });
+  private readonly loans = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.loans(),
+  });
+  protected loanFor = (accountId: string) =>
+    (this.loans.value() ?? []).find((l) => l.accountId === accountId) ?? null;
   private readonly buckets = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.buckets(),
   });
+  /** Today's gross interest: balance × TANB / 365 (the app's and the banks' day count). */
+  protected dailyGross(a: Account): number | null {
+    const rate = a.interest?.annualRatePercent;
+    if (rate == null || a.balance <= 0) return null;
+    return Math.round(((a.balance * rate) / 100 / 365) * 100) / 100;
+  }
+
+  /** When this year's interest only starts later than 1 January (the account or its rate is newer). */
+  protected sinceThisYear(since: string | null | undefined): string | null {
+    return since && !since.endsWith('-01-01') ? since : null;
+  }
+
   protected readonly bucketOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
     return [
       { value: '', label: this.i18n.instant('accounts.noBucket') },
       ...(this.buckets.value() ?? [])
         .filter((b) => !b.archived)
-        .map((b) => ({ value: b.id, label: b.name })),
+        .map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
     ];
   });
   private readonly portfolio = liveResource({
@@ -518,8 +678,62 @@ export class AccountsComponent {
     (this.accounts.value() ?? []).filter((a) => this.showArchived() || !a.archived),
   );
 
+  /** "kind": everyday money, savings, investments, debts. "institution": each bank with its sub-accounts. */
+  protected readonly groupBy = signal<'kind' | 'institution'>(readGroupBy());
+
+  protected setGroupBy(mode: 'kind' | 'institution') {
+    this.groupBy.set(mode);
+    try {
+      localStorage.setItem('pf.accountsGroupBy', mode);
+    } catch {
+      // Private mode or blocked storage: the choice lasts for this visit only.
+    }
+  }
+
+  /** Accounts by what they are: everyday money, savings, investments, debts (cards and loans). */
+  protected readonly groups = computed<
+    { key: string; title: string | null; total: number | null; accounts: Account[] }[]
+  >(() => {
+    if (this.groupBy() === 'institution') {
+      // One block per institution (Revolut: main account, vaults and savings together) with its total.
+      const byName = new Map<string, Account[]>();
+      for (const a of this.visible()) {
+        const name = a.institution?.trim() || '';
+        byName.set(name.toLowerCase(), [...(byName.get(name.toLowerCase()) ?? []), a]);
+      }
+      return [...byName.values()]
+        .map((accounts) => ({
+          key: 'i:' + (accounts[0].institution?.trim().toLowerCase() || '-'),
+          title: accounts[0].institution?.trim() || null,
+          total: accounts.reduce((sum, a) => sum + a.balance, 0),
+          accounts,
+        }))
+        .sort((x, y) =>
+          x.title === null ? 1 : y.title === null ? -1 : (y.total ?? 0) - (x.total ?? 0),
+        );
+    }
+    const groupOf = (a: Account) =>
+      a.kind === 'Savings'
+        ? 'savings'
+        : a.kind === 'Broker'
+          ? 'investments'
+          : a.kind === 'CreditCard' || a.kind === 'Loan'
+            ? 'debts'
+            : 'money';
+    return ['money', 'savings', 'investments', 'debts']
+      .map((key) => ({
+        key,
+        title: null,
+        total: null,
+        accounts: this.visible().filter((a) => groupOf(a) === key),
+      }))
+      .filter((g) => g.accounts.length > 0);
+  });
+
   protected patch(p: Partial<AccountForm>) {
-    this.form.update((f) => ({ ...f, ...p }));
+    // Choosing "savings" on a new account usually means it pays interest: tick it (it can be unticked).
+    const tick = p.kind === 'Savings' && !this.editingId() ? { earnsInterest: true } : {};
+    this.form.update((f) => ({ ...f, ...p, ...tick }));
   }
 
   protected openNew() {
@@ -539,6 +753,8 @@ export class AccountsComponent {
       institution: a.institution ?? '',
       identifier: '',
       interestPayout: a.interest?.payout ?? 'Monthly',
+      earnsInterest: (a.interest?.annualRatePercent ?? 0) > 0,
+      restrictedUse: a.restrictedUse ?? false,
       rate: '',
       rateFrom: today(),
       withholding: String(a.interest?.withholdingPercent ?? DEFAULT_WITHHOLDING),
@@ -557,9 +773,13 @@ export class AccountsComponent {
       institution: f.institution || null,
       identifier: f.identifier || null,
       interestPayout: supportsInterest(f.kind) ? f.interestPayout : null,
+      restrictedUse: canBeRestricted(f.kind) && f.restrictedUse,
     };
-    const rate = supportsInterest(f.kind) && f.rate.trim() ? parseAmount(f.rate) : null;
-    if (f.rate.trim() && supportsInterest(f.kind) && (rate === null || rate < 0 || rate > 100)) {
+    const earns = supportsInterest(f.kind) && f.earnsInterest;
+    const rate = earns && f.rate.trim() ? parseAmount(f.rate) : null;
+    // Unticked on an account that paid interest: a 0 % rate from today stops the estimate (history stays).
+    const stops = !earns && !!this.editingId() && (this.currentRate() ?? 0) > 0;
+    if (f.rate.trim() && earns && (rate === null || rate < 0 || rate > 100)) {
       this.toasts.show(this.i18n.instant('interest.invalidRate'), 'error');
       return;
     }
@@ -567,6 +787,15 @@ export class AccountsComponent {
       let id = this.editingId();
       if (id) await firstValueFrom(this.api.updateAccount(id, body));
       else id = (await firstValueFrom(this.api.createAccount(body))).id;
+      if (stops) {
+        await firstValueFrom(
+          this.api.addInterestRate(id, {
+            annualRatePercent: 0,
+            effectiveFrom: today(),
+            withholdingPercent: parseAmount(f.withholding),
+          }),
+        );
+      }
       if (rate !== null) {
         // A rate change adds a new period from its date; earlier periods are never rewritten.
         await firstValueFrom(
@@ -615,5 +844,14 @@ export class AccountsComponent {
     } catch (err) {
       this.toasts.error(err);
     }
+  }
+}
+
+/** The remembered grouping of the accounts page (by kind unless the owner chose institutions). */
+function readGroupBy(): 'kind' | 'institution' {
+  try {
+    return localStorage.getItem('pf.accountsGroupBy') === 'institution' ? 'institution' : 'kind';
+  } catch {
+    return 'kind';
   }
 }

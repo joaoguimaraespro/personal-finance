@@ -277,11 +277,13 @@ public sealed class ExpectedTransaction : Entity
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? ResolvedAtUtc { get; private set; }
 
-    public static ExpectedTransaction Propose(RecurringTransaction template, DateOnly dueOn, DateTimeOffset now) => new()
+    /// <param name="amount">The amount to propose; by default the template's.</param>
+    public static ExpectedTransaction Propose(RecurringTransaction template, DateOnly dueOn, DateTimeOffset now,
+        decimal? amount = null) => new()
     {
         RecurringTransactionId = template.Id,
         DueOn = dueOn,
-        Amount = template.Amount,
+        Amount = amount ?? template.Amount,
         Currency = template.Currency,
         CreatedAtUtc = now,
     };

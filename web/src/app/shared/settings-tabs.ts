@@ -31,11 +31,10 @@ import { APP_ICONS, PAGE_ICONS } from './icons';
 export class SettingsTabsComponent {
   protected readonly tabs = [
     { path: '/settings', label: 'nav.general', icon: PAGE_ICONS.settings },
-    { path: '/import', label: 'nav.import', icon: PAGE_ICONS.import },
     { path: '/export', label: 'nav.export', icon: PAGE_ICONS.export },
     { path: '/ai', label: 'nav.ai', icon: PAGE_ICONS.ai },
   ];
 }
 
 /** Routes that belong to the Settings entry of the main menu. */
-export const SETTINGS_ROUTES = ['/settings', '/import', '/export', '/ai'];
+export const SETTINGS_ROUTES = ['/settings', '/export', '/ai'];

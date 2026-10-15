@@ -33,6 +33,7 @@ import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { ModalComponent } from '../../shared/modal';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { bucketLabel } from '../../shared/bucket-label';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
@@ -373,15 +374,38 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
         }
 
         @if (type() === 'Savings' && (goals.value() ?? []).length) {
-          <div>
-            <label class="label" for="qa-goal">{{ 'tx.goal' | translate }}</label>
+          <!-- Recording a month's savings allocation asks which goal it is for (the goal's account, if any, becomes
+               the destination, so the goal that follows it moves). -->
+          <div [class]="askGoal() ? 'rounded-xl bg-primary/5 p-3 ring-1 ring-primary/30' : ''">
+            <label class="label" for="qa-goal">{{
+              (askGoal() ? 'tx.goalQuestion' : 'tx.goal') | translate
+            }}</label>
             <app-select
               inputId="qa-goal"
               [options]="goalOptions()"
               [value]="goalId() ?? ''"
-              (valueChange)="goalId.set($event || null)"
+              (valueChange)="pickGoal($event || null)"
             />
           </div>
+        }
+
+        @if (type() === 'Expense' && !splitMode()) {
+          <!-- Money given back for a cost: it lowers the category's spending instead of counting as income. -->
+          <label class="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              data-testid="qa-refund"
+              [checked]="isRefund()"
+              (change)="isRefund.set($any($event.target).checked)"
+            />
+            <span
+              >{{ 'tx.refund' | translate }}
+              <span class="text-muted-foreground block text-xs">{{
+                'tx.refundHint' | translate
+              }}</span></span
+            >
+          </label>
         }
 
         <div>
@@ -494,10 +518,20 @@ export class QuickAddComponent {
   protected readonly nature = signal<ExpenseNature | null>('Variable');
   /** "Dividir por categorias": one movement spread over several category lines. */
   protected readonly splitMode = signal(false);
+  protected readonly isRefund = signal(false);
   protected readonly splitLines = signal<SplitDraftLine[]>([]);
   protected readonly parsedAmount = computed(() => parseAmount(this.amount()));
   protected readonly bucketId = signal<string | null>(null);
   protected readonly goalId = signal<string | null>(null);
+  /** Opened to record a savings allocation: the goal question is highlighted. */
+  protected readonly askGoal = signal(false);
+
+  /** A goal that follows an account sends the money there: its balance is the goal's progress. */
+  protected pickGoal(id: string | null) {
+    this.goalId.set(id);
+    const account = (this.goals.value() ?? []).find((g) => g.id === id)?.accountId;
+    if (account && account !== this.accountId()) this.counterAccountId.set(account);
+  }
   protected readonly date = signal(today());
   protected readonly description = signal('');
   protected readonly notes = signal('');
@@ -579,12 +613,19 @@ export class QuickAddComponent {
       })),
     ];
   });
-  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
-    { value: '', label: '—' },
-    ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
-  ]);
+  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: '—' },
+      ...this.bucketOptions().map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
+    ];
+  });
+  /** A transfer may also start at a broker account (money moved to its card's spending pot, or to the bank). */
   protected readonly accountOptions = computed<SelectOption[]>(() =>
-    this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
+    (this.type() === 'Transfer'
+      ? (this.accounts.value() ?? []).filter((a) => !a.archived)
+      : this.manualAccounts()
+    ).map((a) => ({ value: a.id, label: a.name })),
   );
   protected readonly counterAccountOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
@@ -631,6 +672,7 @@ export class QuickAddComponent {
         this.splitMode.set(split);
         this.splitLines.set(split ? fromSplits(t.splits) : []);
         this.nature.set(split ? t.nature : (t.nature ?? 'Variable'));
+        this.isRefund.set(t.isRefund ?? false);
         this.bucketId.set(t.bucketId);
         this.goalId.set(t.goalId);
         this.date.set(t.occurredOn);
@@ -650,6 +692,7 @@ export class QuickAddComponent {
       } else {
         this.reset(true);
         const p = untracked(this.quick.prefill);
+        this.askGoal.set(p?.type === 'Savings');
         if (p) {
           this.type.set(p.type);
           if (p.amount) this.amount.set(formatInput(Math.round(p.amount * 100) / 100));
@@ -868,6 +911,7 @@ export class QuickAddComponent {
       counterAccountId: this.counterAccountId(),
       bucketId: this.bucketId(),
       goalId: this.type() === 'Savings' ? this.goalId() : null,
+      isRefund: this.type() === 'Expense' && !split && this.isRefund(),
       description: this.description() || null,
       notes: this.notes() || null,
       asset,
@@ -927,6 +971,7 @@ export class QuickAddComponent {
     this.description.set('');
     this.notes.set('');
     this.categoryId.set(null);
+    this.isRefund.set(false);
     this.splitMode.set(false);
     this.splitLines.set([]);
     // untracked: reset runs inside the open/edit effect, which must not re-run when the nature changes.

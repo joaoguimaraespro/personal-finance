@@ -1,3 +1,4 @@
+import { formatMoney, inDisplay } from '../core/display-currency';
 import type { EChartsOption } from 'echarts';
 
 /**
@@ -42,7 +43,9 @@ export function moneyAxis(locale: string): EChartsOption['yAxis'] {
     axisLabel: {
       ...axisLabel,
       formatter: (v: number) =>
-        new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(v),
+        new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(
+          inDisplay(v).value,
+        ),
     },
     splitLine: { lineStyle: { color: 'rgba(161,161,170,0.18)' } },
   };
@@ -82,10 +85,7 @@ export const baseChart: EChartsOption = {
 export function moneyTooltip(locale: string) {
   return {
     trigger: 'axis' as const,
-    valueFormatter: (v: unknown) =>
-      typeof v === 'number'
-        ? new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(v)
-        : '—',
+    valueFormatter: (v: unknown) => (typeof v === 'number' ? formatMoney(locale, v) : '—'),
   };
 }
 

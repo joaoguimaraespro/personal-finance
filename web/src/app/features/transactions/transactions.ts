@@ -18,6 +18,7 @@ import {
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { BucketLabelPipe } from '../../shared/bucket-label';
 import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
@@ -74,6 +75,7 @@ const SIGN: Partial<Record<TransactionType, string>> = {
     MoneyPipe,
     DayPipe,
     CategoryLabelPipe,
+    BucketLabelPipe,
     ModalComponent,
   ],
   providers: [APP_ICONS],
@@ -227,7 +229,9 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                       {{
                         t.categoryKey
                           ? (t | categoryLabel)
-                          : (t.bucketName ?? ('type.' + t.type | translate))
+                          : t.bucketName
+                            ? (t.bucketName | bucketLabel)
+                            : ('type.' + t.type | translate)
                       }}
                     }
                     <span class="hidden sm:inline">
@@ -267,13 +271,19 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                     <ng-container *ngTemplateOutlet="actions; context: { $implicit: t }" />
                   </div>
                   <div class="text-right">
-                    <div class="num font-semibold whitespace-nowrap" [class]="tone(t.type)">
+                    <div class="num font-semibold whitespace-nowrap" [class]="toneOf(t)">
                       @if (t.source === 'InterestEstimate') {
                         <span aria-hidden="true" [attr.title]="'interest.estimatedHint' | translate"
                           >≈</span
                         >
                       }
-                      {{ sign(t.type) }}{{ shownAmount(t) | money: t.currency }}
+                      {{ signOf(t) }}{{ shownAmount(t) | money: t.currency }}
+                      @if (t.isRefund) {
+                        <span
+                          class="badge ml-1 bg-emerald-500/10 !px-1.5 !py-0 text-[10px] font-normal text-emerald-700 dark:text-emerald-400"
+                          >{{ 'tx.refundBadge' | translate }}</span
+                        >
+                      }
                     </div>
                     @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
                       <div class="text-muted-foreground num text-[11px]">
@@ -576,7 +586,8 @@ export class TransactionsComponent {
       }
       g.items.push(t);
       const share = t.categoryAmount != null && t.amount ? t.categoryAmount / t.amount : 1;
-      const direction = SIGN[t.type] === '+' ? 1 : SIGN[t.type] === '−' ? -1 : 0;
+      const sign = this.signOf(t);
+      const direction = sign === '+' ? 1 : sign === '−' ? -1 : 0;
       g.total = Math.round((g.total + direction * t.baseAmount * share) * 100) / 100;
     }
     return groups;
@@ -619,6 +630,9 @@ export class TransactionsComponent {
     });
   }
   protected sign = (type: TransactionType) => SIGN[type] ?? '';
+  /** A refund is money in, even though it is an expense entry. */
+  protected signOf = (t: Transaction) => (t.isRefund ? '+' : this.sign(t.type));
+  protected toneOf = (t: Transaction) => (t.isRefund ? TYPE_TONE['Income'] : this.tone(t.type));
 
   /** Descriptions are user/imported data and rendered as text only. */
   protected title(t: Transaction) {

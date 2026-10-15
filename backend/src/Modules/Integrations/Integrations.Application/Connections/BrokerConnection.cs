@@ -28,6 +28,9 @@ public sealed class BrokerConnection : Entity, IAuditable
     public string? LastError { get; private set; }
     public DateTimeOffset? LastSuccessfulSyncUtc { get; private set; }
     public DateOnly? CredentialsExpireOn { get; private set; }
+
+    /// <summary>What the provider keeps between syncs (Binance: the movements already read); never credentials.</summary>
+    public string? HistoryState { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
@@ -45,11 +48,14 @@ public sealed class BrokerConnection : Entity, IAuditable
     {
         ProtectedCredentials = protectedCredentials;
         CredentialsExpireOn = expiresOn;
+        HistoryState = null; // another key may be another account
         Status = ConnectionStatus.Active;
         LastError = null;
     }
 
     public void Rename(string name) => DisplayName = name.Trim();
+
+    public void KeepHistory(string? state) => HistoryState = state;
 
     public void Succeeded(DateTimeOffset at)
     {

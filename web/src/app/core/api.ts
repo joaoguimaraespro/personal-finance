@@ -8,6 +8,7 @@ import {
   AssetClass,
   Broker,
   Connection,
+  SentCoins,
   DividendSummary,
   CoinMatch,
   ManualAsset,
@@ -45,6 +46,9 @@ import {
   Transaction,
   TransactionRequest,
   TrendPoint,
+  LoanDetail,
+  LoanSummary,
+  PrepaymentSimulation,
 } from './models';
 
 export interface TransactionFilter {
@@ -162,6 +166,27 @@ export class Api {
     this.http.put<void>(`/api/budgets/${period}`, body);
   deleteBudget = (period: string) => this.http.delete<void>(`/api/budgets/${period}`);
   goals = () => this.http.get<Goal[]>('/api/goals');
+  loans = () => this.http.get<LoanSummary[]>('/api/loans');
+  loan = (accountId: string) => this.http.get<LoanDetail>(`/api/loans/${accountId}`);
+  saveLoan = (accountId: string, body: unknown) =>
+    this.http.put<void>(`/api/loans/${accountId}`, body);
+  deleteLoan = (accountId: string) => this.http.delete<void>(`/api/loans/${accountId}`);
+  addLoanRate = (accountId: string, body: unknown) =>
+    this.http.post<void>(`/api/loans/${accountId}/rates`, body);
+  deleteLoanRate = (accountId: string, rateId: string) =>
+    this.http.delete<void>(`/api/loans/${accountId}/rates/${rateId}`);
+  addPrepayment = (accountId: string, body: unknown) =>
+    this.http.post<void>(`/api/loans/${accountId}/prepayments`, body);
+  deletePrepayment = (accountId: string, id: string) =>
+    this.http.delete<void>(`/api/loans/${accountId}/prepayments/${id}`);
+  setLoanPaymentAccount = (accountId: string, payFrom: string | null) =>
+    this.http.put<void>(`/api/loans/${accountId}/payment-account`, { accountId: payFrom });
+  bookInstalment = (accountId: string, number: number) =>
+    this.http.post<void>(`/api/loans/${accountId}/instalments/${number}/book`, {});
+  skipInstalment = (accountId: string, number: number) =>
+    this.http.post<void>(`/api/loans/${accountId}/instalments/${number}/skip`, {});
+  simulatePrepayment = (accountId: string, body: unknown) =>
+    this.http.post<PrepaymentSimulation>(`/api/loans/${accountId}/simulate`, body);
   createGoal = (body: unknown) => this.http.post<{ id: string }>('/api/goals', body);
   updateGoal = (id: string, body: unknown) => this.http.put<void>(`/api/goals/${id}`, body);
   archiveGoal = (id: string) => this.http.post<void>(`/api/goals/${id}/archive`, {});
@@ -266,6 +291,8 @@ export class Api {
     this.http.post<{ id: string }>('/api/integrations/connections', body);
   updateCredentials = (id: string, body: unknown) =>
     this.http.put<void>(`/api/integrations/connections/${id}/credentials`, body);
+  sentCoins = (symbol: string) =>
+    this.http.get<SentCoins[]>('/api/integrations/sent-coins', { params: { symbol } });
   syncConnection = (id: string) =>
     this.http.post<void>(`/api/integrations/connections/${id}/sync`, {});
   setConnectionEnabled = (id: string, enabled: boolean) =>

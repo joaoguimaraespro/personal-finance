@@ -1,3 +1,4 @@
+import { inDisplay } from './display-currency';
 import { Pipe, PipeTransform, inject } from '@angular/core';
 import { Prefs } from './prefs';
 
@@ -8,12 +9,13 @@ export class MoneyPipe implements PipeTransform {
 
   transform(value: number | null | undefined, currency = 'EUR', signed = false): string {
     if (value === null || value === undefined) return '—';
+    const d = inDisplay(value, currency);
     const text = new Intl.NumberFormat(this.prefs.locale(), {
       style: 'currency',
-      currency,
+      currency: d.currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value);
+    }).format(d.value);
     return signed && value > 0 ? `+${text}` : text;
   }
 }
@@ -101,13 +103,14 @@ export class PricePipe implements PipeTransform {
 
   transform(value: number | null | undefined, currency = 'EUR'): string {
     if (value === null || value === undefined) return '—';
-    const small = Math.abs(value) > 0 && Math.abs(value) < 1;
+    const d = inDisplay(value, currency);
+    const small = Math.abs(d.value) > 0 && Math.abs(d.value) < 1;
     return new Intl.NumberFormat(this.prefs.locale(), {
       style: 'currency',
-      currency,
+      currency: d.currency,
       ...(small
         ? { minimumSignificantDigits: 2, maximumSignificantDigits: 4 }
         : { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    }).format(value);
+    }).format(d.value);
   }
 }

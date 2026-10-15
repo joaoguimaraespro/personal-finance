@@ -32,7 +32,8 @@ monthly checklist — and rebuilds it on a database.
 | **Budgets** | Versioned by month (changing the split never rewrites past months). Percent of income, fixed EUR, or "remainder" — the spreadsheet's `1 − investments − savings`. Per-category limits (e.g. Restaurants €150). The monthly allocation works like recurring items: each bucket shows done / partial from what was set aside — including deposits synced at a linked broker — and one click records the rest. |
 | **Reports** | Monthly summary vs previous month / 12-month average / budget, annual summary (every column of the old "Resumo Anual"), category breakdown, trends. All figures computed on the server with `decimal`. |
 | **Recurring** | Salary, rent, subscriptions propose *expected* transactions; nothing is booked until you confirm, edit or skip. |
-| **Goals** | Emergency fund, trips, house deposit — progress from linked savings, monthly amount needed. |
+| **Loans** | Mortgage, car or personal loan terms (fixed, or index + spread with revisions): instalment, interest vs capital, what is left, end date, full plan and an early-repayment simulator (shorten the term or lower the instalment). The debt in net worth follows the plan. |
+| **Goals** | Emergency fund, trips, house deposit — progress from a savings account the goal follows (its balance, interest included) or from savings linked to it; monthly amount needed. Investments never count towards goals. |
 | **Excel migration** | Analyze → map → validate → preview → import → undo. Reconciles every month against the workbook's own totals to the cent before anything is written. Idempotent re-imports. |
 | **Investments** | Read-only sync from Trading 212 (Public API + CSV), Interactive Brokers (Flex Web Service) and Binance (spot + Simple Earn, with Earn rewards as income; the key is checked to be read-only). Consolidated portfolio by ISIN with per-broker holdings, allocation vs target, dividends with withholding tax, TWR and XIRR, net worth history. [Setup](docs/broker-integrations.md). |
 | **Export** | Real .xlsx (Excel tables, native charts, schema-validated), CSV per dataset (Excel-PT dialect), complete JSON archive with restore. |
@@ -127,6 +128,13 @@ More in [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr).
 Details: [docs/security.md](docs/security.md).
 
 ## Running it
+
+### Desktop app (Windows or macOS, no Docker)
+
+Download the installer from the [releases page](https://github.com/joaoguimaraespro/personal-finance/releases)
+(Windows `.exe`, macOS `.dmg` for Apple Silicon or Intel), install and open **Personal Finance**. It brings its own
+database and runs only while its window is open. Unsigned for now: see the first-run steps in
+[docs/desktop-app.md](docs/desktop-app.md).
 
 ### Try it on your PC (Docker only)
 
@@ -227,7 +235,7 @@ PostgreSQL 17 · Caddy · Docker Compose · Tailscale · xUnit v3 · Testcontain
 
 [MIT](LICENSE)
 
-Trading 212, Interactive Brokers, Binance, Coinbase, Kraken, Ledger and Trezor names and logos are trademarks
+Trading 212, Interactive Brokers, Binance, Coinbase, Kraken, Ledger, Trezor and SafePal names and logos, and the company logos shown next to holdings, are trademarks
 of their respective owners. They are used only to identify the broker a connection belongs to, or the exchange
 or wallet a hand-entered crypto wallet is named after; this project is not affiliated with or endorsed by any of
 them. The MIT license does not cover them (`web/public/brokers/`, `web/public/wallets/`).

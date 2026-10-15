@@ -16,7 +16,10 @@ internal sealed record T212Investments(decimal CurrentValue, decimal TotalCost, 
     decimal UnrealizedProfitLoss);
 
 internal sealed record T212Position(decimal Quantity, decimal AveragePricePaid, decimal CurrentPrice,
-    DateTimeOffset? CreatedAt, T212Instrument Instrument);
+    DateTimeOffset? CreatedAt, T212Instrument Instrument, T212PositionWalletImpact? WalletImpact = null);
+
+/// <summary>The position in the account's currency, as the Trading 212 app shows it.</summary>
+internal sealed record T212PositionWalletImpact(string? Currency, decimal? CurrentValue, decimal? TotalCost);
 
 internal sealed record T212InstrumentMeta(string Ticker, string? Isin, string? CurrencyCode, string? Name,
     string? ShortName, string? Type);

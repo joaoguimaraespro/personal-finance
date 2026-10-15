@@ -86,8 +86,10 @@ public sealed record PortfolioSummary(
 /// or the first value when history begins later (<see cref="Partial"/>).</param>
 /// <param name="Partial">History starts inside the period, so the return covers less than the period.</param>
 /// <param name="TimeWeighted">True when <see cref="Percent"/> is a time-weighted return.</param>
+/// <param name="CostBased">The holdings' gain over their cost (crypto wallets), not a return since a date: there is no
+/// <see cref="From"/>, since the money that went in is not known.</param>
 public sealed record PeriodReturn(string Period, decimal? Gain, decimal? Percent, DateOnly? From, bool Partial,
-    bool TimeWeighted);
+    bool TimeWeighted, bool CostBased = false);
 
 /// <summary>One account ("wallet") of the summary, with enough to draw its card without a scoped request.</summary>
 /// <param name="TotalReturn">Value minus net contributions of this account, as the summary computes it.</param>
@@ -168,6 +170,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
             .Where(l => securityIds.Contains(l.SecurityId) && l.Reference24hPrice != null)
             .Select(l => new { l.SecurityId, l.Reference24hPrice, l.Reference24hAtUtc })
             .ToDictionaryAsync(l => l.SecurityId, ct);
+        var bookCosts = await BookCostsAsync(ids, ct);
         return rows.Select(r =>
         {
             var factor = factors.GetValueOrDefault(r.s.Currency);
@@ -180,10 +183,66 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 DayChange.TradingDay(DateOnly.FromDateTime(r.p.PriceAsOfUtc.UtcDateTime), tradesEveryDay: crypto));
             return new Holding(r.p.AccountId, account.Name, r.p.Source, r.s.Id, r.s.Symbol, r.s.Isin, r.s.Name,
                 r.s.Currency, r.s.EffectiveAssetClass, r.p.Quantity, r.p.AveragePrice, r.p.LastPrice,
-                decimal.Round(r.p.MarketValue * factor, 2), decimal.Round(r.p.CostBasis * factor, 2),
+                // The broker's own EUR figures first (Trading 212: its exchange rate, fees and conversion included),
+                // then the EUR cost replayed from trades, then the broker's average price at today's rate.
+                decimal.Round(r.p.ValueBase ?? r.p.MarketValue * factor, 2),
+                decimal.Round(r.p.CostBase ?? BookCost(bookCosts, r.p.AccountId, r.s.Id, r.p.Quantity)
+                    ?? r.p.CostBasis * factor, 2),
                 r.p.PriceAsOfUtc, DayChange.Amount(r.p.Quantity, r.p.LastPrice, previous, factor),
                 reference is null ? DayChangeBasis.PreviousClose : DayChangeBasis.Rolling24Hours);
         }).ToList();
+    }
+
+    /// <summary>
+    /// What each holding really cost in euros, from its trades: what left the account in euros on each purchase day
+    /// (fees and currency conversion included), as a weighted average — sales take their share of the cost. The
+    /// broker's average price converted at today's rate would move the cost with the exchange rate, as if a dollar
+    /// share bought last year had cost what it would cost in euros today.
+    /// </summary>
+    private async Task<Dictionary<(Guid Account, Guid Security), (decimal Quantity, decimal Cost)>> BookCostsAsync(
+        List<Guid> accountIds, CancellationToken ct)
+    {
+        var trades = await db.Trades.AsNoTracking().Where(t => accountIds.Contains(t.AccountId))
+            .OrderBy(t => t.ExecutedAtUtc)
+            .Select(t => new { t.AccountId, t.SecurityId, t.Side, t.Quantity, t.BaseAmount })
+            .ToListAsync(ct);
+        var books = new Dictionary<(Guid, Guid), (decimal Quantity, decimal Cost)>();
+        foreach (var t in trades)
+        {
+            var key = (t.AccountId, t.SecurityId);
+            var (quantity, cost) = books.GetValueOrDefault(key);
+            if (t.Side == TradeSide.Buy)
+            {
+                quantity += t.Quantity;
+                cost += Math.Abs(t.BaseAmount);
+            }
+            else if (quantity > 0)
+            {
+                var sold = Math.Min(t.Quantity, quantity);
+                cost -= cost / quantity * sold;
+                quantity -= sold;
+            }
+
+            books[key] = (quantity, cost);
+        }
+
+        return books;
+    }
+
+    /// <summary>
+    /// The holding's EUR cost from its trades when they account for what is held (within 0.5 %); otherwise null, and
+    /// the broker's average price is used (history too short, a stock split, coins from an exchange without trades).
+    /// </summary>
+    private static decimal? BookCost(Dictionary<(Guid Account, Guid Security), (decimal Quantity, decimal Cost)> books,
+        Guid accountId, Guid securityId, decimal quantity)
+    {
+        if (!books.TryGetValue((accountId, securityId), out var book) || book.Quantity <= 0 || book.Cost <= 0 ||
+            quantity <= 0 || Math.Abs(book.Quantity - quantity) > Math.Max(quantity * 0.005m, 0.000001m))
+        {
+            return null;
+        }
+
+        return book.Cost / book.Quantity * quantity;
     }
 
     /// <summary>Same security at several brokers is merged by ISIN; each broker holding stays visible.</summary>
@@ -260,11 +319,15 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         var totals = accounts.Values.Select(a => AccountTotalOf(a, holdings.Where(h => h.AccountId == a.Id).ToList(),
             cash.Where(c => c.AccountId == a.Id).Sum(c => c.Value), contributionsByAccount.GetValueOrDefault(a.Id),
             since.TryGetValue(a.Id, out var first) ? first : null)).ToList();
-        var totalReturnPercent =
-            contributions > 0 ? decimal.Round((totalValue - contributions) / contributions, 6) : (decimal?)null;
+        // Each account's gain over what went into it (see AccountTotalOf); the sum is the portfolio's.
+        var totalReturn = totals.Sum(t => t.TotalReturn);
+        var invested = totals.Sum(Invested);
+        var totalReturnPercent = invested > 0 ? decimal.Round(totalReturn / invested, 6) : (decimal?)null;
         DateOnly? firstDay = since.Count == 0 ? null : since.Values.Min();
-        var periodReturn = new PeriodReturn("ALL", totalValue - contributions, totalReturnPercent, firstDay, false,
-            false);
+        // Only crypto wallets (gain over cost): say so instead of a "since" date that is just the first sync's window.
+        var costBased = totals.Count > 0 && totals.All(t => t.PeriodReturn?.CostBased == true);
+        var periodReturn = new PeriodReturn("ALL", totalReturn, totalReturnPercent, costBased ? null : firstDay, false,
+            false, costBased);
 
         if (period != ReturnPeriod.All)
         {
@@ -282,7 +345,7 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         }
 
         return new PortfolioSummary(
-            totalValue, marketValue, cashTotal, contributions, totalValue - contributions, totalReturnPercent,
+            totalValue, marketValue, cashTotal, contributions, totalReturn, totalReturnPercent,
             realized, holdings.Sum(h => h.MarketValueBase - h.CostBase), dividends, fees, holdings.Count, lastSync,
             totals, dayChange, DayChange.Percent(dayChange, marketValue), firstDay, periodReturn,
             DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
@@ -292,19 +355,33 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
         new(PeriodReturns.Code(period), result?.Gain, result?.TimeWeightedReturn, result?.From,
             result?.Partial ?? false, true);
 
-    /// <summary>The summary's figures for one account.</summary>
+    /// <summary>
+    /// The summary's figures for one account. Its return is value minus net contributions where the broker reports
+    /// every deposit and withdrawal. A crypto wallet does not: coins are sent in from other wallets and Binance's fiat
+    /// history is read from the first sync's window only, so value minus deposits would count coins sent in as gain.
+    /// Its return is the holdings' gain over their cost instead (cash counted at par), as it is for an account with
+    /// no money movements at all.
+    /// </summary>
     private static AccountTotal AccountTotalOf(BrokerAccount account, List<Holding> holdings, decimal cash,
         decimal contributions, DateOnly? since)
     {
         var marketValue = holdings.Sum(h => h.MarketValueBase);
         var total = marketValue + cash;
         var day = SumKnown(holdings.Select(h => h.DayChangeBase));
-        var percent = contributions > 0 ? decimal.Round((total - contributions) / contributions, 6) : (decimal?)null;
+        var cost = holdings.Sum(h => h.CostBase);
+        var byCost = contributions == 0 || account.Broker is DataSource.Binance or DataSource.Manual;
+        var (gain, invested) = byCost ? (marketValue - cost, cost + cash) : (total - contributions, contributions);
+        var percent = invested > 0 ? decimal.Round(gain / invested, 6) : (decimal?)null;
         return new AccountTotal(account.Id, account.Name, account.Broker, marketValue, cash, contributions,
-            total - contributions, percent, day, DayChange.Percent(day, marketValue), holdings.Count, since,
-            new PeriodReturn("ALL", total - contributions, percent, since, false, false),
+            gain, percent, day, DayChange.Percent(day, marketValue), holdings.Count, since,
+            byCost
+                ? new PeriodReturn("ALL", gain, percent, null, false, false, CostBased: true)
+                : new PeriodReturn("ALL", gain, percent, since, false, false),
             DayChange.Combine(holdings.Select(h => h.DayChangeBasis)));
     }
+
+    /// <summary>What the account's return is measured against (see <see cref="AccountTotalOf"/>).</summary>
+    private static decimal Invested(AccountTotal t) => t.MarketValue + t.Cash - t.TotalReturn;
 
     /// <summary>First known day of each account: its first cash movement, trade or valuation.</summary>
     private async Task<Dictionary<Guid, DateOnly>> InceptionAsync(List<Guid> ids, CancellationToken ct)

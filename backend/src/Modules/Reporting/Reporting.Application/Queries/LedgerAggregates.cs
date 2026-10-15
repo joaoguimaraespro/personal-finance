@@ -1,5 +1,6 @@
 using Finance.Application.Abstractions;
 using Finance.Application.Budgets;
+using Finance.Domain.Accounts;
 using Finance.Domain.Allocation;
 using Finance.Domain.Budgets;
 using Finance.Domain.Categories;
@@ -35,10 +36,17 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
                 t.BucketId,
                 // The broker an investment entry went to: the same money as that broker's synced deposit.
                 CounterAccountId = t.BucketId != null ? t.CounterAccountId : null,
+                t.IsRefund,
             })
-            .Select(g => new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, g.Key.Nature, g.Key.CategoryId,
-                g.Key.BucketId, g.Sum(t => t.BaseAmount), g.Count(), g.Key.CounterAccountId))
+            .Select(g => new
+            {
+                Row = new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, g.Key.Nature, g.Key.CategoryId,
+                    g.Key.BucketId, g.Sum(t => t.BaseAmount), g.Count(), g.Key.CounterAccountId),
+                g.Key.IsRefund,
+            })
             .ToListAsync(ct);
+        // A refund lowers its category's spending (and the month's expenses) instead of counting as income.
+        var wholeRows = whole.Select(w => w.IsRefund ? w.Row with { Amount = -w.Row.Amount } : w.Row).ToList();
 
         // A split transaction counts by its lines: each line's category, nature and EUR amount (the lines add up
         // exactly to the transaction's EUR amount, so totals are unchanged).
@@ -63,7 +71,21 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
             .Select(g => new LedgerRow(g.Key.Year, g.Key.Month, g.Key.Type, null, null, null, 0, g.Count()))
             .ToListAsync(ct);
 
-        var rows = whole.Concat(lines).Concat(splitCounts).ToList();
+        var rows = wholeRows.Concat(lines).Concat(splitCounts).ToList();
+
+        // Capital repaid on loans: transfers into loan accounts. Not an expense (the debt goes down), but money that
+        // left the everyday accounts, so the month's free cash flow accounts for it.
+        var loanIds = await db.Accounts.AsNoTracking().Where(a => a.Kind == AccountKind.Loan).Select(a => a.Id)
+            .ToListAsync(ct);
+        var repaid = loanIds.Count == 0
+            ? []
+            : await db.Transactions.AsNoTracking()
+                .Where(t => t.OccurredOn >= start && t.OccurredOn <= end && t.Type == TransactionType.Transfer &&
+                            t.CounterAccountId != null && loanIds.Contains(t.CounterAccountId.Value) &&
+                            !loanIds.Contains(t.AccountId))
+                .GroupBy(t => new { t.OccurredOn.Year, t.OccurredOn.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(t => t.BaseAmount) })
+                .ToListAsync(ct);
         var linked = await db.Accounts.AsNoTracking()
             .Where(a => a.AllocationBucketId != null)
             .Select(a => new { a.Id, BucketId = a.AllocationBucketId!.Value })
@@ -106,7 +128,8 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
                 month.Sum(r => r.Count),
                 month.Where(r => r.Type == TransactionType.InvestmentContribution).Sum(r => r.Amount),
                 month.Where(r => r.Type == TransactionType.InvestmentSale).Sum(r => r.Amount),
-                fromBrokers));
+                fromBrokers,
+                repaid.Where(x => x.Year == p.Year && x.Month == p.Month).Sum(x => x.Amount)));
         }
 
         return result;

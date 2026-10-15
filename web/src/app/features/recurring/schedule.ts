@@ -23,17 +23,29 @@ export function scheduleLabel(r: { frequency: Frequency; interval: number }): {
 }
 
 /** The schedule part of a create/update request built from the form's text fields. */
-export function scheduleBody(f: { frequency: Frequency; interval: string; dayOfMonth: string }): {
+export function scheduleBody(f: {
+  frequency: Frequency;
+  interval: string;
+  dayOfMonth: string;
+  startOn?: string;
+}): {
   frequency: Frequency;
   interval: number;
   dayOfMonth: number | null;
 } {
   const interval = Math.trunc(Number(f.interval));
+  // A yearly item repeats on its start date's day and month: the day comes from that date, not a separate field.
+  const day =
+    f.frequency === 'Yearly' && f.startOn
+      ? Number(f.startOn.slice(8, 10))
+      : usesDayOfMonth(f.frequency) && f.dayOfMonth
+        ? Number(f.dayOfMonth)
+        : null;
   return {
     frequency: f.frequency,
     // Kept for every frequency so editing a "every 2 weeks" item does not reset it.
     interval: Number.isFinite(interval) && interval >= 1 ? interval : 1,
-    dayOfMonth: usesDayOfMonth(f.frequency) && f.dayOfMonth ? Number(f.dayOfMonth) : null,
+    dayOfMonth: day,
   };
 }
 

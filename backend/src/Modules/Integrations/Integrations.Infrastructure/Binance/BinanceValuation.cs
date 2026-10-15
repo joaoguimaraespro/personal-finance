@@ -53,47 +53,148 @@ internal static class BinanceValuation
     }
 
     /// <summary>
-    /// Average EUR cost of the coins bought, from fills in EUR or dollar stablecoins (moving average: sells reduce the
-    /// quantity, not the average). Dollar fills are converted with that day's EURUSDT close (else the latest one).
-    /// Null when nothing was bought on these pairs — coins deposited, converted or earned have no known cost.
+    /// Average EUR cost of the coins bought on EUR and dollar-stablecoin pairs (see <see cref="AverageCost(IEnumerable{CostEvent})"/>).
+    /// Dollar fills are converted with that day's EURUSDT close (else the latest one).
     /// </summary>
     public static decimal? AverageCost(IEnumerable<(string Quote, BinanceFill Fill)> fills,
-        IReadOnlyDictionary<DateOnly, decimal> usdPerEurCloses, decimal latestUsdPerEur)
-    {
-        decimal quantity = 0, cost = 0;
-        foreach (var (quote, f) in fills.OrderBy(x => x.Fill.Time))
+        IReadOnlyDictionary<DateOnly, decimal> usdPerEurCloses, decimal latestUsdPerEur) =>
+        AverageCost(FillEvents(fills, usdPerEurCloses, latestUsdPerEur));
+
+    public static IEnumerable<CostEvent> FillEvents(IEnumerable<(string Quote, BinanceFill Fill)> fills,
+        IReadOnlyDictionary<DateOnly, decimal> usdPerEurCloses, decimal latestUsdPerEur) =>
+        fills.Select(x =>
         {
-            var day = DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(f.Time).UtcDateTime);
-            var toEur = quote == "EUR" ? 1m : 1m / UsdPerEurOn(day, usdPerEurCloses, latestUsdPerEur);
-            if (f.IsBuyer)
+            var (quote, f) = x;
+            if (!f.IsBuyer)
             {
-                quantity += f.Qty;
-                cost += f.QuoteQty * toEur;
+                return CostEvent.Out(f.Time, f.Qty, "trade");
+            }
+
+            var day = DayOf(f.Time);
+            var toEur = quote == "EUR" ? 1m : 1m / UsdPerEurOn(day, usdPerEurCloses, latestUsdPerEur);
+            return CostEvent.In(f.Time, f.Qty, f.QuoteQty * toEur, "trade");
+        });
+
+    /// <summary>
+    /// The real EUR cost per coin (weighted average cost): coins coming in add what they cost in euros on that day —
+    /// what was paid for purchases (fees included) and Convert orders, the day's value for rewards and coins received —
+    /// and coins going out (sold, converted, sent to another wallet) leave at the average, taking their cost with them.
+    /// Null when nothing came in: the cost of the coins held is unknown.
+    /// </summary>
+    public static decimal? AverageCost(IEnumerable<CostEvent> events)
+    {
+        var (quantity, cost) = Replay(events);
+        return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
+    }
+
+    /// <summary>
+    /// The coins sent to other wallets and their cost: each send leaves at the weighted average of that moment, like
+    /// any other outflow. Quantity 0 when nothing was sent.
+    /// </summary>
+    public static (decimal Quantity, decimal Cost, long LastTime) SentCost(IEnumerable<CostEvent> events)
+    {
+        decimal quantity = 0, cost = 0, sentQuantity = 0, sentCost = 0;
+        long last = 0;
+        foreach (var e in events.OrderBy(e => e.Time).ThenByDescending(e => e.Quantity))
+        {
+            if (e.Quantity > 0)
+            {
+                quantity += e.Quantity;
+                cost += e.EurValue;
             }
             else if (quantity > 0)
             {
-                var sold = Math.Min(f.Qty, quantity);
-                cost -= cost / quantity * sold;
-                quantity -= sold;
+                var gone = Math.Min(-e.Quantity, quantity);
+                var goneCost = cost / quantity * gone;
+                if (e.Kind == "sent")
+                {
+                    sentQuantity += gone;
+                    sentCost += goneCost;
+                    last = Math.Max(last, e.Time);
+                }
+
+                cost -= goneCost;
+                quantity -= gone;
             }
         }
 
-        return quantity > 0 ? Round(cost / quantity) : null;
+        return (sentQuantity, sentCost, last);
     }
+
+    /// <summary>Quantity and EUR cost left after the moving average has run over every event.</summary>
+    public static (decimal Quantity, decimal Cost) Replay(IEnumerable<CostEvent> events)
+    {
+        decimal quantity = 0, cost = 0;
+        foreach (var e in events.OrderBy(e => e.Time).ThenByDescending(e => e.Quantity))
+        {
+            if (e.Quantity > 0)
+            {
+                quantity += e.Quantity;
+                cost += e.EurValue;
+            }
+            else if (quantity > 0)
+            {
+                var gone = Math.Min(-e.Quantity, quantity);
+                cost -= cost / quantity * gone;
+                quantity -= gone;
+            }
+        }
+
+        return (quantity, cost);
+    }
+
+    /// <summary>
+    /// EUR value of <paramref name="amount"/> of <paramref name="asset"/> on <paramref name="day"/>: 1:1 for EUR, the
+    /// day's EURUSDT close for dollar stablecoins, else the asset's EUR close that day (or within the week before).
+    /// </summary>
+    public static decimal? EurValueOn(string asset, decimal amount, DateOnly day,
+        IReadOnlyDictionary<DateOnly, decimal> usdPerEurCloses, decimal latestUsdPerEur,
+        IReadOnlyDictionary<DateOnly, decimal> assetEurCloses)
+    {
+        if (asset == "EUR")
+        {
+            return amount;
+        }
+
+        if (UsdStable.Contains(asset) || asset == "USD")
+        {
+            var usdPerEur = UsdPerEurOn(day, usdPerEurCloses, latestUsdPerEur);
+            return usdPerEur > 0 ? amount / usdPerEur : null;
+        }
+
+        return CloseOn(day, assetEurCloses) is { } close ? amount * close : null;
+    }
+
+    public static bool IsDollar(string asset) => UsdStable.Contains(asset) || asset == "USD";
+
+    public static DateOnly DayOf(long unixMs) =>
+        DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(unixMs).UtcDateTime);
 
     /// <summary>EUR value of a reward: quantity × that day's close in EUR (else the current price).</summary>
     public static decimal RewardValue(decimal quantity, DateOnly day, IReadOnlyDictionary<DateOnly, decimal> eurCloses,
         decimal currentEurPrice)
     {
-        var close = eurCloses.TryGetValue(day, out var c) && c > 0
-            ? c
-            : eurCloses.Where(x => x.Key <= day && x.Key >= day.AddDays(-7) && x.Value > 0)
-                .OrderByDescending(x => x.Key).Select(x => (decimal?)x.Value).FirstOrDefault() ?? currentEurPrice;
+        var close = CloseOn(day, eurCloses) ?? currentEurPrice;
         return decimal.Round(quantity * close, 4);
     }
 
+    private static decimal? CloseOn(DateOnly day, IReadOnlyDictionary<DateOnly, decimal> closes) =>
+        closes.TryGetValue(day, out var c) && c > 0
+            ? c
+            : closes.Where(x => x.Key <= day && x.Key >= day.AddDays(-7) && x.Value > 0)
+                .OrderByDescending(x => x.Key).Select(x => (decimal?)x.Value).FirstOrDefault();
+
     private static decimal UsdPerEurOn(DateOnly day, IReadOnlyDictionary<DateOnly, decimal> closes, decimal latest) =>
-        closes.TryGetValue(day, out var v) && v > 0 ? v : latest;
+        CloseOn(day, closes) ?? latest;
 
     private static decimal Round(decimal value) => decimal.Round(value, 8);
+}
+
+/// <summary>Coins of one asset coming in (positive quantity, worth <c>EurValue</c>) or going out (negative).</summary>
+internal readonly record struct CostEvent(long Time, decimal Quantity, decimal EurValue, string Kind = "")
+{
+    public static CostEvent In(long time, decimal quantity, decimal eurValue, string kind = "") =>
+        new(time, quantity, eurValue, kind);
+
+    public static CostEvent Out(long time, decimal quantity, string kind = "") => new(time, -quantity, 0, kind);
 }
