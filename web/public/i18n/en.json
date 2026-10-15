@@ -57,6 +57,7 @@
  "auth": {
   "signIn": "Sign in",
   "privateNotice": "Private finance server — owner access only",
+  "privateNoticeDesktop": "Private — your data stays on this computer",
   "email": "Email",
   "password": "Password",
   "remember": "Keep me signed in on this device",
@@ -70,6 +71,7 @@
   "logout": "Sign out",
   "setupTitle": "Create the owner account",
   "setupSubtitle": "First run. You'll need the setup token from the server's .env file.",
+  "setupSubtitleDesktop": "First run. Create your account — it stays on this computer.",
   "setupToken": "Setup token",
   "newPassword": "New password",
   "passwordHint": "At least 12 characters. A passphrase works best.",

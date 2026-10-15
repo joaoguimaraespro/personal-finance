@@ -11,6 +11,9 @@
 AppId={{6B3F2B8E-5A61-4C1D-9C7E-2E8F4A5D9B10}
 AppName=Personal Finance
 AppVersion={#AppVersion}
+; Shown as just the name in the wizard and in Settings → Apps (the version has its own column there).
+AppVerName=Personal Finance
+UninstallDisplayName=Personal Finance
 AppPublisher=Personal Finance (open source)
 AppPublisherURL=https://github.com/joaoguimaraespro/personal-finance
 DefaultDirName={localappdata}\Programs\PersonalFinanceApp

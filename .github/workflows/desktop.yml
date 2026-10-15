@@ -144,6 +144,8 @@ jobs:
           pattern: desktop-*
           merge-multiple: true
           path: out
+      - name: Checksums
+        run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}

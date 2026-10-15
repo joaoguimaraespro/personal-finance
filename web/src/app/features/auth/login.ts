@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -17,7 +17,7 @@ import { APP_ICONS } from '../../shared/icons';
   template: `
     <app-auth-layout
       [title]="'auth.signIn' | translate"
-      [subtitle]="'auth.privateNotice' | translate"
+      [subtitle]="(desktop() ? 'auth.privateNoticeDesktop' : 'auth.privateNotice') | translate"
     >
       @if (expired && step() === 'password') {
         <p
@@ -109,6 +109,7 @@ import { APP_ICONS } from '../../shared/icons';
 })
 export class LoginComponent {
   private readonly auth = inject(AuthService);
+  protected readonly desktop = computed(() => this.auth.me()?.desktop ?? false);
   private readonly router = inject(Router);
   private readonly query = inject(ActivatedRoute).snapshot.queryParamMap;
   protected readonly expired = this.query.has('expired');
