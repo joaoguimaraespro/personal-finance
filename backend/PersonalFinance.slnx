@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Host.Api/Host.Api.csproj" />
     <Project Path="src/Host.Mcp/Host.Mcp.csproj" />
+    <Project Path="src/Host.Desktop/Host.Desktop.csproj" />
     <Project Path="src/SharedKernel/SharedKernel.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />

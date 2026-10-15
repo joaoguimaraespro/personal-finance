@@ -222,6 +222,7 @@ app.UseMiddleware<AntiforgeryMiddleware>();
 if (desktop.Enabled)
 {
     app.UseDesktopWebApp();
+    app.MapDesktopShutdown();
 }
 
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });

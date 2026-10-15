@@ -28,9 +28,39 @@ internal static class DesktopHosting
                      throw new InvalidOperationException("Desktop:PostgresBin is required.");
         var pg = await EmbeddedPostgres.StartAsync(binDir, dataDir, CancellationToken.None);
         config["ConnectionStrings:Finance"] = pg.ConnectionString;
-        config["DataProtection:KeyPath"] ??= Path.Combine(dataDir, "keys");
+        // Keys must survive restarts (sessions, encrypted identifiers): appsettings.json leaves the path empty.
+        if (string.IsNullOrWhiteSpace(config["DataProtection:KeyPath"]))
+        {
+            config["DataProtection:KeyPath"] = Path.Combine(dataDir, "keys");
+        }
         config["Database:MigrateOnStartup"] = "true";
         return pg;
+    }
+
+    /// <summary>
+    /// The launcher closes the app when its window closes: <c>POST /desktop/shutdown</c> with the token it generated
+    /// at start (only the launcher knows it), which stops the API and, with it, PostgreSQL.
+    /// </summary>
+    public static void MapDesktopShutdown(this WebApplication app)
+    {
+        var token = app.Configuration["Desktop:ShutdownToken"];
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return;
+        }
+
+        app.MapPost("/desktop/shutdown", (HttpContext ctx, IHostApplicationLifetime lifetime) =>
+        {
+            var sent = ctx.Request.Headers["X-Desktop-Token"].ToString();
+            if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                    System.Text.Encoding.UTF8.GetBytes(sent), System.Text.Encoding.UTF8.GetBytes(token)))
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            lifetime.StopApplication();
+            return Results.NoContent();
+        });
     }
 
     /// <summary>The Angular build, with index.html for every client-side route; hashed assets cached for a year.</summary>

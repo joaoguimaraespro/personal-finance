@@ -129,6 +129,13 @@ Details: [docs/security.md](docs/security.md).
 
 ## Running it
 
+### Desktop app (Windows or macOS, no Docker)
+
+Download the installer from the [releases page](https://github.com/joaoguimaraespro/personal-finance/releases)
+(Windows `.exe`, macOS `.dmg` for Apple Silicon or Intel), install and open **Personal Finance**. It brings its own
+database and runs only while its window is open. Unsigned for now: see the first-run steps in
+[docs/desktop-app.md](docs/desktop-app.md).
+
 ### Try it on your PC (Docker only)
 
 ```powershell
