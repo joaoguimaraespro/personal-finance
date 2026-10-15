@@ -328,6 +328,38 @@ public sealed class BinanceTests
     }
 
     [Fact]
+    public async Task Coins_sent_to_another_wallet_carry_the_cost_they_had_when_they_left()
+    {
+        var (provider, http) = Provider();
+        SolHistory(http);
+
+        var sent = (await provider.GetSentCoinsAsync(CancellationToken.None)).Single();
+
+        // 5 SOL for 500, 1 converted away (400 for 4), 1 received worth 120 (520 for 5, 104 each), then 3 sent.
+        sent.Asset.ShouldBe("SOL");
+        sent.Quantity.ShouldBe(3m);
+        sent.Cost.ShouldBe(312m);
+        sent.AverageCost.ShouldBe(104m);
+        sent.LastSentOn.ShouldBe(new DateOnly(2026, 6, 1));
+    }
+
+    [Fact]
+    public void Only_sends_count_as_sent_and_each_leaves_at_that_moments_average()
+    {
+        var events = new[]
+        {
+            CostEvent.In(1, 1, 100, "card"), CostEvent.Out(2, 0.5m, "sent"), CostEvent.In(3, 0.5m, 150, "card"),
+            CostEvent.Out(4, 0.5m, "trade"), CostEvent.Out(5, 0.25m, "sent"),
+        };
+
+        var (quantity, cost, last) = BinanceValuation.SentCost(events);
+
+        quantity.ShouldBe(0.75m);
+        cost.ShouldBe(50m + 50m); // 0.5 at 100, then 0.25 at 200 (50 + 150 for 1, half sold)
+        last.ShouldBe(5);
+    }
+
+    [Fact]
     public void Coins_going_out_leave_at_the_average_and_the_average_is_unknown_without_coins_in()
     {
         BinanceValuation.AverageCost([CostEvent.In(1, 2, 200), CostEvent.Out(2, 1), CostEvent.In(3, 1, 300)])

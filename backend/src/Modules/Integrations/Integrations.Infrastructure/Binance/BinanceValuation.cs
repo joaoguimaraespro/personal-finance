@@ -87,6 +87,40 @@ internal static class BinanceValuation
         return quantity > 0 && cost > 0 ? Round(cost / quantity) : null;
     }
 
+    /// <summary>
+    /// The coins sent to other wallets and their cost: each send leaves at the weighted average of that moment, like
+    /// any other outflow. Quantity 0 when nothing was sent.
+    /// </summary>
+    public static (decimal Quantity, decimal Cost, long LastTime) SentCost(IEnumerable<CostEvent> events)
+    {
+        decimal quantity = 0, cost = 0, sentQuantity = 0, sentCost = 0;
+        long last = 0;
+        foreach (var e in events.OrderBy(e => e.Time).ThenByDescending(e => e.Quantity))
+        {
+            if (e.Quantity > 0)
+            {
+                quantity += e.Quantity;
+                cost += e.EurValue;
+            }
+            else if (quantity > 0)
+            {
+                var gone = Math.Min(-e.Quantity, quantity);
+                var goneCost = cost / quantity * gone;
+                if (e.Kind == "sent")
+                {
+                    sentQuantity += gone;
+                    sentCost += goneCost;
+                    last = Math.Max(last, e.Time);
+                }
+
+                cost -= goneCost;
+                quantity -= gone;
+            }
+        }
+
+        return (sentQuantity, sentCost, last);
+    }
+
     /// <summary>Quantity and EUR cost left after the moving average has run over every event.</summary>
     public static (decimal Quantity, decimal Cost) Replay(IEnumerable<CostEvent> events)
     {
