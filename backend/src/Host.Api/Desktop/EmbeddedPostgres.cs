@@ -38,9 +38,19 @@ internal sealed class EmbeddedPostgres
         var port = FreePort();
         // A previous run that crashed may have left the server up: stop it so it restarts on the new port.
         await pg.RunAsync("pg_ctl", ["-D", pg._data, "-m", "fast", "-w", "stop"], ct, allowFailure: true);
-        await pg.RunAsync("pg_ctl",
-            ["-D", pg._data, "-l", pg._log, "-w", "-t", "60", "-o",
-                $"-p {port} -c listen_addresses=127.0.0.1 -c unix_socket_directories=''", "start"], ct);
+        // TCP on loopback only. No Unix socket: Windows has none by default, and there the quotes would reach the
+        // server literally (it does not parse '' as an empty value).
+        var options = $"-p {port} -c listen_addresses=127.0.0.1" +
+            (OperatingSystem.IsWindows() ? "" : " -c unix_socket_directories=''");
+        try
+        {
+            await pg.RunAsync("pg_ctl", ["-D", pg._data, "-l", pg._log, "-w", "-t", "60", "-o", options, "start"], ct);
+        }
+        catch (InvalidOperationException e) when (File.Exists(pg._log))
+        {
+            var log = File.ReadLines(pg._log).TakeLast(20);
+            throw new InvalidOperationException($"{e.Message}\n{string.Join('\n', log)}", e);
+        }
 
         var admin = new NpgsqlConnectionStringBuilder
         {
