@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: backend/global.json
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: web
           path: dist/app/web
@@ -106,7 +106,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: backend/global.json
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: web
           path: dist/web
@@ -139,7 +139,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: desktop-*
           merge-multiple: true
