@@ -57,6 +57,7 @@
  "auth": {
   "signIn": "Entrar",
   "privateNotice": "Servidor financeiro privado — acesso apenas do titular",
+  "privateNoticeDesktop": "Privado — os teus dados ficam neste computador",
   "email": "Email",
   "password": "Palavra-passe",
   "remember": "Manter sessão neste dispositivo",
@@ -70,6 +71,7 @@
   "logout": "Sair",
   "setupTitle": "Criar a conta do titular",
   "setupSubtitle": "Primeira utilização. Precisas do token de configuração do ficheiro .env do servidor.",
+  "setupSubtitleDesktop": "Primeira utilização. Cria a tua conta — fica guardada neste computador.",
   "setupToken": "Token de configuração",
   "newPassword": "Nova palavra-passe",
   "passwordHint": "Pelo menos 12 caracteres. Uma frase-passe é o ideal.",

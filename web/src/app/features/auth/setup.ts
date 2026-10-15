@@ -18,7 +18,7 @@ import { APP_ICONS } from '../../shared/icons';
   template: `
     <app-auth-layout
       [title]="'auth.setupTitle' | translate"
-      [subtitle]="'auth.setupSubtitle' | translate"
+      [subtitle]="(desktop() ? 'auth.setupSubtitleDesktop' : 'auth.setupSubtitle') | translate"
     >
       <form class="space-y-4" (submit)="$event.preventDefault(); create()">
         @if (!desktop()) {
