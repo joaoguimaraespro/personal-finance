@@ -596,6 +596,20 @@ interface YearGroup {
             }}</span></span
           >
         </label>
+        <label class="col-span-2 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            class="mt-0.5"
+            [checked]="fActualDays()"
+            (change)="fActualDays.set($any($event.target).checked)"
+          />
+          <span
+            >{{ 'loans.actualDays' | translate }}
+            <span class="text-muted-foreground block text-xs">{{
+              'loans.actualDaysHint' | translate
+            }}</span></span
+          >
+        </label>
         <p class="text-muted-foreground col-span-2 flex gap-1.5 text-xs">
           <ng-icon name="lucideInfo" class="mt-px shrink-0" aria-hidden="true" />{{
             'loans.termsHint' | translate
@@ -790,6 +804,7 @@ export class LoanComponent {
   protected readonly fFee = signal('');
   protected readonly fInsurance = signal('');
   protected readonly fStampDuty = signal(true);
+  protected readonly fActualDays = signal(false);
 
   /** Commission + stamp duty + insurance of an instalment; 0 (hidden) when the bank charges nothing else. */
   protected charges = (i: Instalment) => (i.fee ?? 0) + (i.stampDuty ?? 0) + (i.insurance ?? 0);
@@ -849,6 +864,7 @@ export class LoanComponent {
     this.fInsurance.set(money(s?.monthlyInsurance));
     // New loans: Portuguese credit pays Imposto do Selo on interest, so it starts ticked.
     this.fStampDuty.set(s ? (s.stampDuty ?? false) : true);
+    this.fActualDays.set(s?.dayCount === 'Actual360');
     this.termsOpen.set(true);
   }
 
@@ -867,6 +883,7 @@ export class LoanComponent {
       monthlyFee: parseAmount(this.fFee()) ?? 0,
       stampDuty: this.fStampDuty(),
       monthlyInsurance: parseAmount(this.fInsurance()) ?? 0,
+      dayCount: this.fActualDays() ? 'Actual360' : 'Monthly',
     };
     await this.run(this.api.saveLoan(this.accountId(), body), () => this.termsOpen.set(false));
   }

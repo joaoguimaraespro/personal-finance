@@ -11,6 +11,17 @@ public enum LoanRateType
     Variable = 1,
 }
 
+/// <summary>How each instalment's interest is counted.</summary>
+public enum InterestDayCount
+{
+    /// <summary>Equal months: the annual rate / 12 every month (30/360).</summary>
+    Monthly = 0,
+
+    /// <summary>Real days: the annual rate × the days since the previous instalment / 360 (Actual/360), as most
+    /// Portuguese banks count. Slightly more interest than equal months; the last instalment settles the rest.</summary>
+    Actual360 = 1,
+}
+
 public enum PrepaymentMode
 {
     /// <summary>Same instalment, fewer months.</summary>
@@ -55,6 +66,9 @@ public sealed class Loan : Entity, IAuditable
 
     /// <summary>Insurance collected together with the instalment (life, home), if the bank does.</summary>
     public decimal MonthlyInsurance { get; private set; }
+
+    /// <summary>How interest is counted: equal months, or real days over 360 like most banks.</summary>
+    public InterestDayCount DayCount { get; private set; }
 
     /// <summary>The bank account the instalments are paid from: set, each instalment is proposed for booking.</summary>
     public Guid? PaymentAccountId { get; private set; }
@@ -105,6 +119,7 @@ public sealed class Loan : Entity, IAuditable
         MonthlyFee = d.MonthlyFee;
         StampDuty = d.StampDuty;
         MonthlyInsurance = d.MonthlyInsurance;
+        DayCount = d.DayCount;
         return null;
     }
 
@@ -189,7 +204,8 @@ public sealed class Loan : Entity, IAuditable
     public IReadOnlyList<Instalment> Plan(IEnumerable<Prepayment>? extra = null) =>
         LoanSchedule.Build(Principal, FirstPaymentOn, TermMonths,
                 _rates.Select(r => new RatePeriod(r.EffectiveFrom, r.AnnualRatePercent)).ToList(),
-                _prepayments.Select(p => new Prepayment(p.On, p.Amount, p.Mode)).Concat(extra ?? []).ToList())
+                _prepayments.Select(p => new Prepayment(p.On, p.Amount, p.Mode)).Concat(extra ?? []).ToList(),
+                DayCount)
             .Select(i => i.Payment > 0
                 ? i with
                 {
@@ -222,7 +238,7 @@ public sealed class Loan : Entity, IAuditable
 
 public sealed record LoanTermsDraft(decimal Principal, DateOnly FirstPaymentOn, int TermMonths, LoanRateType RateType,
     int? RevisionMonths, string? IndexName, decimal? SpreadPercent, decimal MonthlyFee = 0, bool StampDuty = false,
-    decimal MonthlyInsurance = 0);
+    decimal MonthlyInsurance = 0, InterestDayCount DayCount = InterestDayCount.Monthly);
 
 public sealed class LoanRate : Entity
 {

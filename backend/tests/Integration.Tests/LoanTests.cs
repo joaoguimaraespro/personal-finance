@@ -61,6 +61,31 @@ public sealed class LoanTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Interest_on_real_days_is_saved_and_leaves_more_capital_owed_than_equal_months()
+    {
+        var api = await factory.OwnerAsync();
+        var first = new DateOnly(Today.Year, Today.Month, 5).AddMonths(-12);
+        async Task<JsonElement> Terms(string dayCount)
+        {
+            var loan = await api.CreateAsync("/api/accounts",
+                new { name = $"Car loan {dayCount}", kind = "Loan", currency = "EUR", openingBalance = 0 });
+            await ApiClient.EnsureAsync(await api.PutAsync($"/api/loans/{loan}", new
+            {
+                principal = 8_397m, firstPaymentOn = first.ToString("yyyy-MM-dd"), termMonths = 48,
+                rateType = "Fixed", initialRatePercent = 5.95m, dayCount,
+            }));
+            return (await api.GetJsonAsync($"/api/loans/{loan}")).GetProperty("summary");
+        }
+
+        var months = await Terms("Monthly");
+        var days = await Terms("Actual360");
+
+        days.GetProperty("dayCount").GetString().ShouldBe("Actual360");
+        months.GetProperty("dayCount").GetString().ShouldBe("Monthly");
+        days.GetProperty("outstanding").GetDecimal().ShouldBeGreaterThan(months.GetProperty("outstanding").GetDecimal());
+    }
+
+    [Fact]
     public async Task A_variable_rate_is_index_plus_spread_and_revisions_change_the_instalment()
     {
         var api = await factory.OwnerAsync();
