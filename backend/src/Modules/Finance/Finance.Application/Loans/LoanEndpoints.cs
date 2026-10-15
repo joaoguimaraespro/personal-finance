@@ -16,7 +16,8 @@ namespace Finance.Application.Loans;
 
 public sealed record LoanTermsRequest(decimal Principal, DateOnly FirstPaymentOn, int TermMonths, LoanRateType RateType,
     int? RevisionMonths, string? IndexName, decimal? SpreadPercent, decimal? InitialRatePercent,
-    decimal? InitialIndexPercent, decimal? MonthlyFee = null, bool? StampDuty = null, decimal? MonthlyInsurance = null);
+    decimal? InitialIndexPercent, decimal? MonthlyFee = null, bool? StampDuty = null, decimal? MonthlyInsurance = null,
+    InterestDayCount? DayCount = null);
 
 /// <summary>A rate from a date: the TAN, or for a variable loan the index (the loan's spread is added).</summary>
 public sealed record LoanRateRequest(DateOnly EffectiveFrom, decimal? AnnualRatePercent, decimal? IndexRatePercent);
@@ -56,7 +57,8 @@ public sealed record LoanSummaryDto(
     int PendingInstalments = 0,
     decimal MonthlyFee = 0,
     bool StampDuty = false,
-    decimal MonthlyInsurance = 0);
+    decimal MonthlyInsurance = 0,
+    InterestDayCount DayCount = InterestDayCount.Monthly);
 
 public sealed record LoanDetailDto(
     LoanSummaryDto Summary,
@@ -127,7 +129,7 @@ public static class LoanEndpoints
 
             var draft = new LoanTermsDraft(req.Principal, req.FirstPaymentOn, req.TermMonths, req.RateType,
                 req.RevisionMonths, req.IndexName, req.SpreadPercent, req.MonthlyFee ?? 0, req.StampDuty ?? false,
-                req.MonthlyInsurance ?? 0);
+                req.MonthlyInsurance ?? 0, req.DayCount ?? InterestDayCount.Monthly);
             var loan = await db.Loans.Include(l => l.Rates).Include(l => l.Prepayments)
                 .FirstOrDefaultAsync(l => l.AccountId == accountId, ct);
             if (loan is null)
@@ -428,7 +430,8 @@ public static class LoanEndpoints
             loan.Principal == 0 ? 0 : decimal.Round(1 - status.Outstanding / loan.Principal, 4),
             status.InstalmentsPaid, status.InstalmentsLeft, status.Next, status.EndDate, status.InterestPaid,
             status.InterestLeft, status.CurrentRatePercent, loan.NextRevisionAfter(today), loan.PaymentAccountId,
-            loan.PendingInstalments(today).Count, loan.MonthlyFee, loan.StampDuty, loan.MonthlyInsurance);
+            loan.PendingInstalments(today).Count, loan.MonthlyFee, loan.StampDuty, loan.MonthlyInsurance,
+            loan.DayCount);
     }
 
     private static LoanDetailDto Detail(Loan loan, string name, DateOnly today) => new(
