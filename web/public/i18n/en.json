@@ -404,6 +404,13 @@
   "howProgressAccount": "Progress is this account's balance — transfers, savings and interest included. Investments never count towards goals."
  },
  "accounts": {
+  "restricted": "Restricted-use balance",
+  "restrictedHint": "Money that can only be spent on one thing (meal card, flexible benefits). Net worth shows it apart from money that can pay anything.",
+  "restrictedBadge": "restricted",
+  "groupBy": "Group accounts",
+  "byKind": "By type",
+  "byInstitution": "By institution",
+  "noInstitution": "No institution",
   "new": "New account",
   "edit": "Edit account",
   "kind": "Type",
@@ -635,6 +642,7 @@
   "positionsNote": "Gain is since purchase, whatever the period. Today is since the previous close; crypto shows the last 24 hours."
  },
  "netWorth": {
+  "restricted": "Restricted use",
   "addAsset": "Add asset or debt",
   "since": "since",
   "cash": "Cash & bank",
@@ -645,6 +653,7 @@
   "breakdown": "Breakdown",
   "group": {
    "cash": "cash",
+   "restricted": "restricted",
    "investments": "investments",
    "manual": "asset",
    "liability": "liability"

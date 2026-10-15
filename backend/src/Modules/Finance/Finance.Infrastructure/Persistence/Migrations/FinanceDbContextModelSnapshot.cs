@@ -86,6 +86,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("opening_balance_on");
 
+                    b.Property<bool>("RestrictedUse")
+                        .HasColumnType("boolean")
+                        .HasColumnName("restricted_use");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at_utc");

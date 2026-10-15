@@ -47,6 +47,15 @@ public sealed class Account : Entity, IAuditable
     public InterestPayout InterestPayout { get; private set; } = InterestPayout.Monthly;
 
     /// <summary>
+    /// Money that can only be spent on one thing (a meal card, flexible-benefits balance): it is the owner's, but
+    /// cannot pay rent or bills, so net worth shows it apart from freely available money.
+    /// </summary>
+    public bool RestrictedUse { get; private set; }
+
+    public void SetRestrictedUse(bool restricted) => RestrictedUse = restricted && Kind is not (AccountKind.Broker
+        or AccountKind.CreditCard or AccountKind.Loan);
+
+    /// <summary>
     /// Broker accounts only: the allocation bucket their synced deposits count towards each month (e.g. Trading 212
     /// → Stocks / ETFs), so a deposit made at the broker shows the month's allocation as done without a manual entry.
     /// </summary>

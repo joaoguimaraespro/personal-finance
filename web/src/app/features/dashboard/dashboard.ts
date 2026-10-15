@@ -1012,6 +1012,7 @@ export class DashboardComponent {
     const c = nw.current;
     return [
       { key: 'cash', value: c.cash, color: SERIES_COLORS.income },
+      { key: 'restricted', value: c.restricted ?? 0, color: '#f59e0b' },
       { key: 'investments', value: c.investments, color: SERIES_COLORS.invested },
       { key: 'manual', value: c.manualAssets, color: SERIES_COLORS.saved },
       { key: 'liabilities', value: c.liabilities, color: SERIES_COLORS.expenses },
