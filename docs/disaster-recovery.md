@@ -13,6 +13,14 @@ Everything needed to rebuild the system:
 Each backup archive contains `finance.dump` (`pg_dump -Fc`), `dp-keys.tar` (the key ring that
 decrypts account identifiers and keeps sessions valid) and a manifest with SHA-256 checksums.
 
+## Desktop app
+
+The desktop app ([desktop-app.md](desktop-app.md)) has no scheduled backup: export the complete JSON archive from
+*Import / Export* regularly and keep it somewhere else (an encrypted drive, a cloud folder you trust). To recover,
+install the app on the new computer, create the account and restore the archive on the same page. The same archive
+moves a desktop install to a server or Docker install and back. Copying the whole data folder (with the app closed)
+also works between computers with the same system.
+
 ## Restore onto a new machine
 
 1. Prepare the host ([deployment.md](deployment.md) steps 1–2) and restore `deploy/.env` from the

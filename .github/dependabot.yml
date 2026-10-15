@@ -12,7 +12,11 @@ updates:
       angular: { patterns: ["@angular/*", "@angular-devkit/*"] }
       web: { patterns: ["*"], exclude-patterns: ["@angular/*", "@angular-devkit/*"] }
   - package-ecosystem: docker
-    directories: ["/backend/src/Host.Api", "/backend/src/Host.Mcp", "/web", "/deploy"]
+    directories: ["/backend/src/Host.Api", "/backend/src/Host.Mcp", "/web"]
+    schedule: { interval: weekly }
+  # Images pinned in the Compose files (PostgreSQL).
+  - package-ecosystem: docker-compose
+    directory: /deploy
     schedule: { interval: weekly }
   - package-ecosystem: github-actions
     directory: /

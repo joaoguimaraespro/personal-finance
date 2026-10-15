@@ -1,5 +1,8 @@
 # Excel migration (Phase 0 analysis)
 
+> Historical design notes. The workbook importer is no longer offered in the app: data moves between installs with the
+> app's own JSON archive (*Import / Export*).
+
 The source is the "Gestor Financeiro Pessoal" workbook (`FinanceTracker_Template.xlsx`, PT-PT). It was
 inspected read-only; it is never stored in this repository. Tests use a synthetic workbook with the same
 layout (`backend/tests/Integration.Tests/Fixtures/SyntheticWorkbook.cs`).
@@ -25,7 +28,7 @@ layout (`backend/tests/Integration.Tests/Fixtures/SyntheticWorkbook.cs`).
 
 ## Configuration
 
-`B5` Stocks/ETFs 25 %, `B6` Crypto 0 %, `B9` Travel 5 %, `B10` Other savings 5 %, expense budget
+`B5` Stocks/ETFs, `B6` Crypto, `B9` Travel, `B10` Other savings (each a percentage of income), expense budget
 `B13 = 1 − B7 − B11`. Imported as a budget version effective from January of the chosen year with the
 expense pool in `Remainder` mode. Categories `B17:B40` map to built-in categories (editable in the wizard):
 

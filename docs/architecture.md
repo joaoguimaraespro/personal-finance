@@ -16,10 +16,19 @@ backend/                             .NET solution: PersonalFinance.slnx, global
         Finance.Infrastructure/      EF Core DbContext (schema "finance"), audit interceptor, seeding
       Reporting/Reporting.Application/  Pure calculators + read-only queries
       Imports/Imports.Application/      Workbook reader, planner, reconciliation, commit/undo
-    Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel
+      Investments/                   Securities, positions, trades, dividends, FX, snapshots, TWR/XIRR, net worth
+      Integrations/                  Read-only broker providers (Trading 212, IBKR Flex, Binance, CSV, demo), sync
+      Exports/                       XLSX with native charts, CSV, JSON archive and restore
+      Ai/                            Scopes, tool catalogue, policy gateway, audit, in-app assistant
+    Host.Api/                        Composition root: Identity/MFA, CSRF, rate limits, health, OTel, jobs
+    Host.Mcp/                        MCP server: references only the AI contracts, never the database
+    Host.Desktop/                    Desktop launcher: native window, API in-process, embedded PostgreSQL (ADR-0010)
   tests/                             Unit, architecture and Testcontainers integration tests
 web/                                 Angular SPA; spartan/ui components in src/app/ui (ADR-0007)
-deploy/                              Compose, Caddy, Postgres roles, backup/restore
+deploy/                              Compose, Caddy, Postgres roles, backup/restore, server script
+  windows/ desktop/                  Docker installs for an everyday Windows / macOS / Linux computer
+  desktop-app/                       Desktop app installers (Inno Setup, macOS .app/.dmg)
+  remote-control/                    Template for a finance chat session over MCP
 ```
 
 ### Dependency rules (tested in `backend/tests/Architecture.Tests`)

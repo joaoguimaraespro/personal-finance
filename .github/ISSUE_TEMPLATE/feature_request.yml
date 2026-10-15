@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest an improvement. Please describe the problem first.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds you considered
+  - type: markdown
+    attributes:
+      value: >
+        Broker integrations stay read-only: requests to trade, transfer or withdraw through the app will be declined.

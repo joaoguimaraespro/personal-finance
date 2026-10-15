@@ -1,5 +1,8 @@
 # Windows PC
 
+> **Just want the app on this computer?** Use the [desktop app](desktop-app.md): an installer, no Docker. This page is
+> the Docker install, which adds phone access over Tailscale and age-encrypted daily backups.
+
 Run Personal Finance on a Windows PC that is **not on 24 hours a day**: it starts when you sign in (optional), when you
 open it from the Start Menu like any other app, or is simply there if it is already running. It uses the same images
 and the same `deploy/compose.yml` as the [Linux server](deployment.md), on Docker Desktop, plus a small override

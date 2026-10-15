@@ -1,7 +1,7 @@
 # Security
 
 This application holds a complete picture of someone's finances. The design assumes the network is
-hostile, the browser is hostile, imported files are hostile and — later — AI clients are untrusted.
+hostile, the browser is hostile, imported files are hostile and AI clients are untrusted.
 
 ## Exposure
 
@@ -10,15 +10,20 @@ hostile, the browser is hostile, imported files are hostile and — later — AI
 - The API trusts `X-Forwarded-*` only from the Caddy network (`ReverseProxy:KnownNetworks`).
 - On a Windows PC ([windows.md](windows.md#security-notes)) the same port is loopback-only and the browser reaches it as
   `http://localhost`, a secure context; Caddy marks that hop as HTTPS so the `Secure` cookies are kept.
+- The desktop app serves the API and web app itself on a random `127.0.0.1` port over plain HTTP (cookies without
+  `Secure`, still `HttpOnly` and `SameSite=Strict`). Its PostgreSQL listens on `127.0.0.1` only, with a random password
+  kept in the user's data folder.
 
 ## Authentication
 
 - ASP.NET Core Identity with a single owner ([ADR-0002](adr/0002-built-in-identity.md)). The owner is
   created once with an out-of-band `AUTH_SETUP_TOKEN`; the endpoint refuses once a user exists.
-- **MFA is mandatory.** Every financial endpoint requires the `amr=mfa` claim. After a correct password
+- **MFA is mandatory on server and Docker installs.** Every financial endpoint requires the `amr=mfa` claim. After a correct password
   the session can do nothing except complete TOTP enrolment or verification. Ten single-use recovery codes.
 - Passwords ≥ 12 characters (length over composition, NIST SP 800-63B), lockout after 5 failures for
   15 minutes, login endpoints rate-limited per IP.
+- **Desktop app** ([ADR-0010](adr/0010-desktop-app.md)): no setup token, and MFA is optional (it can be turned on in
+  *Settings*), because the app listens on `127.0.0.1` only and is used by whoever is signed in to that computer.
 - Optional OIDC (Keycloak, Authentik, …) can be added through configuration; not enabled by default.
 
 ## Sessions and browser
@@ -35,7 +40,7 @@ hostile, the browser is hostile, imported files are hostile and — later — AI
 
 - Money is `decimal`/`numeric`, never floating point.
 - Account identifiers (IBAN, account numbers) are encrypted at rest with ASP.NET Data Protection and
-  returned only masked (`••••0154`).
+  returned only masked (`••••1234`).
 - Database roles: `finance_migrator` owns the schemas (DDL), `finance_app` can only read/write rows,
   `finance_backup` can only read. The app role cannot create, alter or drop anything.
 - The database container sits on an `internal` Docker network: no published port, no internet egress.
@@ -103,4 +108,4 @@ revocation, audit).
 
 ## Reporting a vulnerability
 
-Please open a private security advisory on GitHub rather than a public issue.
+See [SECURITY.md](../SECURITY.md).

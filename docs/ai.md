@@ -111,7 +111,7 @@ More examples:
 2. On a machine on your tailnet:
 
    ```bash
-   claude mcp add --transport http personal-finance https://<host>.<tailnet>.ts.net/mcp \
+   claude mcp add --transport http personal-finance https://<host>.<tailnet>.ts.net:8443/mcp \
      --header "Authorization: Bearer pf_…"
    ```
 

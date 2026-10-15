@@ -14,7 +14,11 @@ Downloads are on the [releases page](https://github.com/joaoguimaraespro/persona
 
 ## First run
 
-The installers are not signed yet, so the system warns the first time:
+The installers are not code-signed yet (signing certificates cost money every year, and this is a free project), so
+the system warns the first time. The warning means "unknown publisher", not that something harmful was found. To
+check that a download is the one built here, compare its SHA-256 with `SHA256SUMS.txt` on the release page
+(Windows: `Get-FileHash .\PersonalFinance-Setup-*.exe`; macOS: `shasum -a 256 PersonalFinance-*.dmg`). Every
+installer is built from this repository's source by [GitHub Actions](../.github/workflows/desktop.yml).
 
 - **Windows** — SmartScreen shows "Windows protected your PC": choose **More info → Run anyway**. The installer
   needs no administrator rights (it installs for your user only) and can start the app at the end.
@@ -25,6 +29,11 @@ The installers are not signed yet, so the system warns the first time:
 Then create your account (no setup token on the desktop app). Two-factor authentication is optional here, since the
 app is only reachable from this computer; you can turn it on in *Settings*.
 
+## Updating
+
+Download the new installer from the [latest release](https://github.com/joaoguimaraespro/personal-finance/releases/latest)
+and install it over the old one (close the app first). Your data is kept; the database is upgraded on the next start.
+
 ## Where your data is
 
 | System | Folder |
@@ -33,8 +42,8 @@ app is only reachable from this computer; you can turn it on in *Settings*.
 | macOS | `~/Library/Application Support/PersonalFinance` |
 
 It holds the database, the encryption keys for broker credentials and `app.log`. Uninstalling the app keeps it;
-delete the folder to remove everything. Back it up with *Settings → Export* (the app's own archive), which also moves
-your data to a server install or another computer (*Import*). Set `PERSONAL_FINANCE_DATA` to use another folder.
+delete the folder to remove everything. Back it up with *Import / Export → Complete JSON archive*, which also moves
+your data to a server install or another computer (*Restore from JSON*); see [disaster recovery](disaster-recovery.md#desktop-app). Set `PERSONAL_FINANCE_DATA` to use another folder.
 
 ## What is different from the server install
 
