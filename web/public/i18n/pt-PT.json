@@ -18,12 +18,13 @@
   "portfolio": "Carteira",
   "netWorth": "Património líquido",
   "connections": "Ligações",
-  "export": "Exportar",
+  "export": "Importar / Exportar",
   "ai": "Acesso de IA",
   "assistant": "Assistente",
   "more": "Mais",
   "main": "Navegação principal",
-  "general": "Geral"
+  "general": "Geral",
+  "loans": "Empréstimos"
  },
  "common": {
   "save": "Guardar",
@@ -56,6 +57,7 @@
  "auth": {
   "signIn": "Entrar",
   "privateNotice": "Servidor financeiro privado — acesso apenas do titular",
+  "privateNoticeDesktop": "Privado — os teus dados ficam neste computador",
   "email": "Email",
   "password": "Palavra-passe",
   "remember": "Manter sessão neste dispositivo",
@@ -69,6 +71,7 @@
   "logout": "Sair",
   "setupTitle": "Criar a conta do titular",
   "setupSubtitle": "Primeira utilização. Precisas do token de configuração do ficheiro .env do servidor.",
+  "setupSubtitleDesktop": "Primeira utilização. Cria a tua conta — fica guardada neste computador.",
   "setupToken": "Token de configuração",
   "newPassword": "Nova palavra-passe",
   "passwordHint": "Pelo menos 12 caracteres. Uma frase-passe é o ideal.",
@@ -218,6 +221,12 @@
   "cumulative": "Investido e poupado acumulado"
  },
  "dashboard": {
+  "inYear": "no ano",
+  "onDay": "a {{date}}",
+  "noHistoryYear": "Sem histórico para este ano.",
+  "yearGain": "Ganho no ano",
+  "yearGainHint": "Variação do valor durante o ano menos o dinheiro investido (depósitos − levantamentos).",
+  "yearContributions": "Investido no ano",
   "title": "Dashboard",
   "subtitle": "O teu ano num relance",
   "monthlyView": "Visão mensal",
@@ -249,6 +258,8 @@
   "pendingCount": "{{count}} pendentes"
  },
  "monthly": {
+  "debtRepaid": "Dívida amortizada",
+  "debtRepaidHint": "Capital pago dos empréstimos neste mês. Não é gasto — a dívida baixou — mas é dinheiro que deixou de estar livre.",
   "title": "Resumo mensal",
   "allocation": "Alocação",
   "editBudget": "Editar orçamento",
@@ -282,6 +293,9 @@
   "rateNote": "O total da taxa de poupança é a média das taxas mensais, como na folha original. Ponderada pelo rendimento é {{weighted}}."
  },
  "tx": {
+  "refund": "É um reembolso",
+  "refundHint": "Dinheiro devolvido de uma despesa (devolução, reembolso): desconta nos gastos desta categoria em vez de contar como rendimento.",
+  "refundBadge": "reembolso",
   "add": "Adicionar movimento",
   "edit": "Editar movimento",
   "amount": "Valor",
@@ -319,9 +333,13 @@
   "investmentHint": "Os investimentos são apresentados separadamente das receitas e despesas do dia a dia.",
   "emptyFiltered": "Experimenta outra pesquisa, intervalo de datas ou tipo, ou limpa os filtros.",
   "emptyHint": "Adiciona o primeiro movimento, ou importa uma folha de cálculo ou extrato bancário.",
-  "filters": "Filtros"
+  "filters": "Filtros",
+  "goalQuestion": "É para algum objetivo?"
  },
  "recurring": {
+  "yearlyOn": "Primeira vez (depois, todos os anos neste dia)",
+  "yearlyHint": "Repete todos os anos a {{date}}.",
+  "variableHint": "Contas que variam (água, luz): põe uma estimativa. Cada proposta vem com a média das últimas 3 confirmadas e podes mudar o valor ao confirmar.",
   "subtitle": "Os modelos propõem movimentos; nada é registado sem a tua confirmação.",
   "new": "Novo recorrente",
   "edit": "Editar recorrente",
@@ -369,7 +387,7 @@
   }
  },
  "goals": {
-  "subtitle": "Poupanças associadas a um objetivo contam automaticamente.",
+  "subtitle": "O progresso vem da conta poupança que o objetivo segue, ou das poupanças associadas a ele. Os investimentos nunca contam.",
   "new": "Novo objetivo",
   "edit": "Editar objetivo",
   "achieved": "Atingido",
@@ -381,9 +399,20 @@
   "manual": "Substituir valor atual",
   "howProgress": "Progresso = já poupado + poupanças associadas a este objetivo, salvo se o substituíres.",
   "empty": "Ainda sem objetivos.",
-  "inProgress": "Em curso"
+  "inProgress": "Em curso",
+  "account": "Segue uma conta (opcional)",
+  "noAccount": "Não — contar as poupanças associadas a este objetivo",
+  "followsAccount": "Segue {{account}}",
+  "howProgressAccount": "O progresso é o saldo desta conta — transferências, poupanças e juros incluídos. Os investimentos nunca contam para os objetivos."
  },
  "accounts": {
+  "restricted": "Saldo de uso restrito",
+  "restrictedHint": "Dinheiro que só pode ser gasto numa coisa (cartão refeição, benefícios flexíveis). O património mostra-o à parte do dinheiro que paga qualquer coisa.",
+  "restrictedBadge": "uso restrito",
+  "groupBy": "Agrupar contas",
+  "byKind": "Por tipo",
+  "byInstitution": "Por instituição",
+  "noInstitution": "Sem instituição",
   "new": "Nova conta",
   "edit": "Editar conta",
   "kind": "Tipo",
@@ -399,9 +428,17 @@
   "countsTowards": "Os depósitos contam para",
   "countsTowardsHint": "O dinheiro que depositas aqui conta na alocação mensal desse balde, sem o registares à mão.",
   "noBucket": "Nenhum balde",
-  "countsTowardsSaved": "Guardado. A alocação mensal passa a incluir os depósitos desta corretora."
+  "countsTowardsSaved": "Guardado. A alocação mensal passa a incluir os depósitos desta corretora.",
+  "group": {
+   "money": "Dinheiro do dia a dia",
+   "savings": "Poupança",
+   "investments": "Investimentos",
+   "debts": "Dívidas"
+  }
  },
  "categories": {
+  "cashback": "Cashback",
+  "benefits": "Benefícios (cartão refeição, Coverflex)",
   "new": "Nova categoria",
   "custom": "Personalizada",
   "expenses": "Categorias de despesa",
@@ -441,7 +478,8 @@
   "other-income": "Outros rendimentos",
   "rename": "Mudar nome",
   "resetName": "Repor o nome original",
-  "newName": "Novo nome"
+  "newName": "Novo nome",
+  "loan-interest": "Juros de empréstimos"
  },
  "import": {
   "title": "Importar do Excel",
@@ -489,6 +527,20 @@
   "noHistory": "Ainda não há importações."
  },
  "settings": {
+  "mfaTitle": "Autenticação de dois fatores",
+  "mfaDesktopText": "Opcional neste computador: a app só responde aqui. Ativa-a se outras pessoas usarem este computador.",
+  "mfaEnable": "Ativar autenticação de dois fatores",
+  "reset": {
+   "title": "Começar do zero",
+   "text": "Apaga tudo o que inseriste ou importaste, para recomeçar do início. As ligações às corretoras e as categorias ficam.",
+   "open": "Apagar os meus dados…",
+   "deletes": "Apagado: contas, movimentos, recorrentes, orçamentos, objetivos, empréstimos, juros das poupanças, moedas e ativos inseridos à mão e o histórico do património.",
+   "keeps": "Fica: as ligações às corretoras (Trading 212, IBKR, Binance) com os dados sincronizados, as categorias, as alocações, o acesso de IA e o teu login.",
+   "backup": "Descarregar primeiro uma cópia completa",
+   "type": "Escreve {{word}} para confirmar",
+   "confirm": "Apagar tudo",
+   "done": "Feito: estás a começar do zero."
+  },
   "appearance": "Aspeto",
   "language": "Idioma",
   "theme": "Tema",
@@ -510,7 +562,9 @@
   "browserAlertsHint": "Mostra uma notificação do sistema quando surge algo novo que precisa de atenção, com este separador aberto em segundo plano. O servidor não envia nada.",
   "browserBlocked": "O browser bloqueou as notificações deste site. Permite-as nas definições do site e tenta de novo.",
   "on": "Ligadas",
-  "off": "Desligadas"
+  "off": "Desligadas",
+  "currency": "Moeda",
+  "currencyHint": "Tudo é guardado em EUR; USD mostra os valores em EUR à taxa do BCE de hoje."
  },
  "assetClass": {
   "Stock": "Ações",
@@ -532,6 +586,9 @@
   "OtherDebt": "Outra dívida"
  },
  "portfolio": {
+  "costNote": "Os ganhos usam o teu custo real em euros: o que pagaste em cada compra, com taxas e o câmbio desse dia. Por isso podem ser diferentes da app da corretora, que costuma usar o preço de mercado ou converter à taxa de hoje.",
+  "gainOnCost": "Ganho face ao custo",
+  "gainOnCostHint": "Quanto valem agora as moedas menos o que te custaram de facto em euros (o que pagaste, com taxas; as moedas enviadas para outro lado levam o seu custo), em percentagem desse custo.",
   "readOnly": "Dados só de leitura das tuas corretoras",
   "lastSync": "última sincronização",
   "empty": "Ainda sem investimentos. Ligue uma corretora ou adicione cripto que tenha noutro lado.",
@@ -557,14 +614,14 @@
   "quantity": "Quantidade",
   "avgPrice": "Preço médio",
   "price": "Preço",
-  "marketValue": "Valor (EUR)",
+  "marketValue": "Valor ({{currency}})",
   "weight": "Peso",
   "noPositions": "Sem posições.",
   "dividendsByMonth": "Dividendos por mês",
   "recentDividends": "Dividendos recentes",
   "gross": "Bruto",
   "withholding": "Retenção",
-  "net": "Líquido (EUR)",
+  "net": "Líquido ({{currency}})",
   "derived": "Inferido pela API; importa o CSV da corretora para o valor reportado",
   "targetsTitle": "Alocação objetivo",
   "targetsHint": "Percentagens da carteira (incluindo liquidez). Deixa vazio para sem objetivo. Total até 100%.",
@@ -590,6 +647,7 @@
   "positionsNote": "O lucro é desde a compra, seja qual for o período. Hoje é desde o fecho anterior; cripto mostra as últimas 24 horas."
  },
  "netWorth": {
+  "restricted": "Uso restrito",
   "addAsset": "Adicionar ativo ou dívida",
   "since": "desde",
   "cash": "Contas e liquidez",
@@ -600,6 +658,7 @@
   "breakdown": "Composição",
   "group": {
    "cash": "liquidez",
+   "restricted": "uso restrito",
    "investments": "investimentos",
    "manual": "ativo",
    "liability": "passivo"
@@ -990,6 +1049,8 @@
   "timeout": "O servidor não respondeu. Verifica a ligação (Tailscale) e tenta de novo."
  },
  "interest": {
+  "earns": "Esta conta rende juros",
+  "earnsHint": "Uma conta poupança, ou uma conta à ordem/cartão que paga juros sobre o saldo (por exemplo Trading 212 ou Revolut). A app passa a estimá-los todos os dias.",
   "pendingTitle": "Juros por confirmar",
   "pendingHint": "Estimados a partir da taxa e dos saldos diários. Confirme, ou indique o que o banco pagou realmente (0 se nada). Meses sem resposta ficam como estimativa.",
   "question": "{{bank}} pagou {{amount}} de juros em {{month}}?",
@@ -1016,9 +1077,18 @@
   },
   "history": "Histórico de taxas",
   "withheld": "{{pct}} retidos",
-  "removeLatest": "Remover a taxa mais recente"
+  "removeLatest": "Remover a taxa mais recente",
+  "perDay": "≈ {{gross}}/dia brutos ({{net}} líquidos)",
+  "perDayHint": "Saldo × TANB / 365, antes da retenção de {{withholding}} %.",
+  "thisYearNet": "{{amount}} líquidos este ano",
+  "since": "(desde {{date}})",
+  "thisYearHint": "Juros depois da retenção na fonte, nos dias em que a app conhece esta conta e a taxa. Para incluir juros que o banco pagou antes, regista-os como receita na categoria Juros."
  },
  "crypto": {
+  "sentFrom": "Enviado da {{connection}}: {{quantity}} {{symbol}}, com custo real de {{price}} cada quando saíram.",
+  "useSentCost": "Usar este preço",
+  "earnBadge": "Earn",
+  "rewardsMonthHint": "{{count}} recompensas neste mês, somadas",
   "addButton": "Adicionar cripto",
   "editButton": "Editar",
   "addTitle": "Adicionar cripto",
@@ -1134,7 +1204,11 @@
   "allocationDue": "Alocar para {{bucket}}",
   "allocationPartial": "Completar a alocação de {{bucket}}",
   "allocationDetail": "A alocação deste mês ainda não está feita.",
-  "allocationLeft": "Faltam {{remaining}} de {{target}}"
+  "allocationLeft": "Faltam {{remaining}} de {{target}}",
+  "loanDue": "{{name}}: prestação a pagar",
+  "loanSplit": "juros {{interest}} · capital {{capital}}",
+  "loanRevision": "{{name}}: revisão de taxa",
+  "loanRevisionDetail": "Indica a nova taxa a partir de {{date}} (a carta do banco)."
  },
  "split": {
   "action": "Dividir por categorias",
@@ -1159,5 +1233,107 @@
    "note": "As notas têm no máximo 120 caracteres.",
    "sum": "As linhas têm de somar exatamente o valor."
   }
+ },
+ "loans": {
+  "chargesColumn": "Encargos",
+  "chargesHint": "Comissão, Imposto do Selo e seguro cobrados com a prestação",
+  "charges": "encargos",
+  "chargesTitle": "Cobrado com cada prestação",
+  "monthlyFee": "Comissão de processamento (€/mês)",
+  "monthlyInsurance": "Seguro cobrado com a prestação (€/mês)",
+  "stampDuty": "Imposto do Selo (4 % dos juros e da comissão)",
+  "stampDutyHint": "Os bancos portugueses somam-no a cada prestação. O extrato mostra a comissão e o imposto em separado.",
+  "title": "Empréstimo",
+  "subtitle": "Quanto deves, quando acaba e quanto poupavas a amortizar antes.",
+  "editTerms": "Condições",
+  "terms": "Condições do empréstimo",
+  "setupTitle": "Adiciona as condições deste empréstimo",
+  "setupText": "Com o montante, a taxa e o prazo, a app calcula a prestação, quanto falta pagar, quando acaba e quanto ainda vais pagar de juros. O saldo da conta passa a seguir o plano.",
+  "setup": "Adicionar condições",
+  "outstanding": "Em dívida",
+  "paidOff": "{{share}} de {{principal}} já pago",
+  "nextPayment": "Próxima prestação",
+  "interest": "Juros",
+  "capital": "Capital",
+  "ends": "Termina",
+  "left": "Faltam {{months}} prestações ({{time}})",
+  "rate": "Taxa (TAN)",
+  "index": "Indexante",
+  "fixed": "Taxa fixa",
+  "nextRevision": "próxima revisão",
+  "debtOverTime": "Dívida ao longo do tempo",
+  "interestSummary": "Juros pagos até agora {{paid}} · por pagar {{left}}",
+  "simulator": "Amortização antecipada",
+  "amount": "Montante",
+  "simulate": "Simular",
+  "interestSaved": "Juros poupados",
+  "endsEarlier": "Acaba mais cedo",
+  "newPayment": "Nova prestação",
+  "recordIt": "Registar esta amortização",
+  "mode": {
+   "ReduceTerm": "Reduzir prazo",
+   "ReducePayment": "Reduzir prestação"
+  },
+  "rates": "Taxas",
+  "addRate": "Nova taxa",
+  "addRevision": "Revisão de taxa",
+  "from": "Desde",
+  "prepayments": "Amortizações antecipadas",
+  "noPrepayments": "Ainda nenhuma. Usa o simulador para ver quanto pouparias.",
+  "plan": "Plano de pagamentos",
+  "year": "Ano",
+  "payments": "Pago",
+  "balanceEnd": "Saldo no fim",
+  "thisYear": "este ano",
+  "principal": "Montante emprestado",
+  "termMonths": "Prazo (meses)",
+  "firstPayment": "Primeira prestação",
+  "rateType": {
+   "Fixed": "Taxa fixa",
+   "Variable": "Taxa variável"
+  },
+  "indexName": "Indexante",
+  "revisionMonths": "Revisão",
+  "spread": "Spread (%)",
+  "indexValue": "Valor do indexante (%)",
+  "tanIs": "TAN inicial: {{rate}} (indexante + spread). As revisões seguintes acrescentam-se na página do empréstimo.",
+  "tan": "TAN (%)",
+  "termsHint": "O método francês usado pelos bancos portugueses: prestação constante, recalculada a cada revisão de taxa. Usa os valores do banco para bater certo.",
+  "spreadAdded": "O spread do empréstimo é somado para dar a nova TAN.",
+  "everyMonths": "A cada {{months}} meses",
+  "years": "{{count}} a",
+  "months": "{{count}} m",
+  "confirmRemoveRate": "Remover esta taxa? O plano é recalculado sem ela.",
+  "confirmRemovePrepayment": "Remover esta amortização? O plano é recalculado sem ela.",
+  "details": "Ver empréstimo",
+  "setupShort": "Adicionar condições",
+  "indexStart": "Indexante no início (%)",
+  "tanStart": "TAN no início (%)",
+  "paidFrom": "Prestações pagas de",
+  "notTracked": "Não registar — a dívida segue na mesma o plano",
+  "paidFromHint": "A partir de agora cada prestação é proposta quando vence: juros como despesa, capital como transferência para este empréstimo.",
+  "pending": "Prestações por registar",
+  "book": "Registar",
+  "skip": "Saltar",
+  "dashboardTitle": "Empréstimos",
+  "owed": "Em dívida",
+  "endsOn": "termina {{date}}",
+  "listSubtitle": "Crédito habitação, automóvel e pessoal: quanto deves e quando acaba cada um.",
+  "new": "Novo empréstimo",
+  "monthly": "Prestações por mês",
+  "interestLeftAll": "Juros por pagar",
+  "emptyTitle": "Sem empréstimos",
+  "emptyText": "Adiciona um crédito habitação, automóvel ou pessoal para veres quanto deves, a prestação, quando acaba e quanto pouparias a amortizar.",
+  "namePlaceholder": "Crédito habitação, Carro…",
+  "newHint": "A seguir indicas o montante, a taxa e o prazo.",
+  "next": "Continuar"
+ },
+ "buckets": {
+  "stocks-etfs": "Ações / ETFs",
+  "crypto": "Cripto",
+  "bonds": "Obrigações",
+  "travel-fund": "Fundo de viagem",
+  "emergency-fund": "Fundo de emergência",
+  "other-savings": "Outras poupanças"
  }
 }

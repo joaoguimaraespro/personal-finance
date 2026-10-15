@@ -48,6 +48,11 @@ namespace Integrations.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("display_name");
 
+                    b.Property<string>("HistoryState")
+                        .HasMaxLength(10000000)
+                        .HasColumnType("text")
+                        .HasColumnName("history_state");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(32)

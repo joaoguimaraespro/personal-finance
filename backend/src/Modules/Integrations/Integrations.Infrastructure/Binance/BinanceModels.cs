@@ -45,6 +45,21 @@ internal sealed record BinanceFiatPage<T>(List<T>? Data, int Total);
 internal sealed record BinanceFiatOrder(string OrderNo, string FiatCurrency, decimal IndicatedAmount, decimal Amount,
     string? Status, string? Method, long CreateTime);
 
-/// <summary>Crypto bought directly with fiat (card, bank): <c>sourceAmount</c> of <c>fiatCurrency</c> paid in.</summary>
+/// <summary>
+/// Crypto bought directly with fiat (card, bank): <c>sourceAmount</c> of <c>fiatCurrency</c> paid in for
+/// <c>obtainAmount</c> of <c>cryptoCurrency</c>; <c>totalFee</c> (in the fiat currency) is part of what was paid.
+/// </summary>
 internal sealed record BinanceFiatPayment(string OrderNo, string FiatCurrency, decimal SourceAmount,
-    string? CryptoCurrency, string? Status, long CreateTime);
+    string? CryptoCurrency, string? Status, long CreateTime, decimal ObtainAmount = 0, decimal TotalFee = 0);
+
+/// <summary>A Convert order: <c>fromAmount</c> of <c>fromAsset</c> swapped for <c>toAmount</c> of <c>toAsset</c>.</summary>
+internal sealed record BinanceConversion(string? OrderStatus, string FromAsset, decimal FromAmount, string ToAsset,
+    decimal ToAmount, long CreateTime);
+
+internal sealed record BinanceConversionPage(List<BinanceConversion>? List, bool MoreData);
+
+/// <summary>Coins received from outside Binance (status 1 = credited); <c>insertTime</c> in ms.</summary>
+internal sealed record BinanceCoinReceived(string Coin, decimal Amount, int Status, long InsertTime);
+
+/// <summary>Coins sent out of Binance (status 6 = completed); <c>applyTime</c> is "yyyy-MM-dd HH:mm:ss" UTC.</summary>
+internal sealed record BinanceCoinSent(string Coin, decimal Amount, decimal TransactionFee, int Status, string ApplyTime);

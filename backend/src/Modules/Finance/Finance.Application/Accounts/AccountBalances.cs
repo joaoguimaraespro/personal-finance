@@ -2,6 +2,7 @@ using Finance.Application.Abstractions;
 using Finance.Domain.Accounts;
 using Finance.Domain.Transactions;
 using Microsoft.EntityFrameworkCore;
+using Finance.Domain.Loans;
 using SharedKernel;
 
 namespace Finance.Application.Accounts;
@@ -22,12 +23,13 @@ public static class AccountBalances
         }
 
         var sums = await query
-            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type })
+            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.IsRefund })
             .Select(g => new
             {
                 g.Key.AccountId,
                 g.Key.CounterAccountId,
                 g.Key.Type,
+                g.Key.IsRefund,
                 Base = g.Sum(t => t.BaseAmount),
                 Original = g.Sum(t => t.OriginalAmount),
             })
@@ -40,10 +42,10 @@ public static class AccountBalances
                 account.Currency == Currency.Base ? @base : original;
 
             var balance = account.OpeningBalance;
-            foreach (var s in sums)
+            foreach (var s in sums.Where(s => !IsEarmark(s.Type, s.CounterAccountId)))
             {
                 // Income and sale proceeds flow into the account; for a sale the counter account is the source.
-                var inflow = s.Type is TransactionType.Income or TransactionType.InvestmentSale;
+                var inflow = IsInflow(s.Type, s.IsRefund);
                 if (s.AccountId == account.Id)
                 {
                     balance += inflow ? Amount(s.Base, s.Original) : -Amount(s.Base, s.Original);
@@ -59,6 +61,81 @@ public static class AccountBalances
             balances[account.Id] = balance;
         }
 
+        // A loan with terms owes what its amortisation plan says on that day (instalments need not be booked).
+        var loanIds = accounts.Where(a => a.Kind == AccountKind.Loan).Select(a => a.Id).ToList();
+        if (loanIds.Count > 0)
+        {
+            var day = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var loans = await db.Loans.AsNoTracking().Include(l => l.Rates).Include(l => l.Prepayments)
+                .Where(l => loanIds.Contains(l.AccountId)).ToListAsync(ct);
+            foreach (var loan in loans.Where(l => l.Rates.Count > 0))
+            {
+                balances[loan.AccountId] = -LoanSchedule.StatusOn(loan.Plan(), loan.Principal, day).Outstanding;
+            }
+        }
+
         return balances;
+    }
+
+    /// <summary>
+    /// Savings without a destination account set money aside in a bucket while it stays in the source account: it
+    /// counts as saved that month, but no money moved, so no balance changes (it would vanish from net worth).
+    /// </summary>
+    public static bool IsInflow(TransactionType type, bool isRefund) =>
+        type is TransactionType.Income or TransactionType.InvestmentSale || type == TransactionType.Expense && isRefund;
+
+    public static bool IsEarmark(TransactionType type, Guid? counterAccountId) =>
+        type == TransactionType.Savings && counterAccountId is null;
+
+    /// <summary>Balances at the end of each of <paramref name="days"/>, with one query for all of them.</summary>
+    public static async Task<Dictionary<DateOnly, Dictionary<Guid, decimal>>> ComputeOnAsync(IFinanceDb db,
+        IReadOnlyCollection<Account> accounts, IReadOnlyList<DateOnly> days, CancellationToken ct)
+    {
+        var last = days.Max();
+        var rows = await db.Transactions.AsNoTracking().Where(t => t.OccurredOn <= last)
+            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.OccurredOn, t.IsRefund })
+            .Select(g => new
+            {
+                g.Key.AccountId,
+                g.Key.CounterAccountId,
+                g.Key.Type,
+                g.Key.IsRefund,
+                g.Key.OccurredOn,
+                Base = g.Sum(t => t.BaseAmount),
+                Original = g.Sum(t => t.OriginalAmount),
+            })
+            .ToListAsync(ct);
+        var loans = await db.Loans.AsNoTracking().Include(l => l.Rates).Include(l => l.Prepayments)
+            .Where(l => l.Rates.Count > 0).ToListAsync(ct);
+
+        var result = new Dictionary<DateOnly, Dictionary<Guid, decimal>>();
+        foreach (var day in days)
+        {
+            var balances = new Dictionary<Guid, decimal>();
+            foreach (var account in accounts)
+            {
+                var balance = account.OpeningBalance;
+                foreach (var s in rows.Where(r => r.OccurredOn <= day && !IsEarmark(r.Type, r.CounterAccountId) &&
+                                                  (r.AccountId == account.Id || r.CounterAccountId == account.Id)))
+                {
+                    var amount = account.Currency == Currency.Base ? s.Base : s.Original;
+                    var inflow = IsInflow(s.Type, s.IsRefund);
+                    balance += s.AccountId == account.Id
+                        ? inflow ? amount : -amount
+                        : s.Type == TransactionType.InvestmentSale ? -amount : amount;
+                }
+
+                balances[account.Id] = balance;
+            }
+
+            foreach (var loan in loans.Where(l => balances.ContainsKey(l.AccountId)))
+            {
+                balances[loan.AccountId] = -LoanSchedule.StatusOn(loan.Plan(), loan.Principal, day).Outstanding;
+            }
+
+            result[day] = balances;
+        }
+
+        return result;
     }
 }

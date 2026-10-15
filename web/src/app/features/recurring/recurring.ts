@@ -9,6 +9,7 @@ import { Expected, Frequency, Recurring, TransactionType } from '../../core/mode
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
+import { bucketLabel } from '../../shared/bucket-label';
 import { ModalComponent } from '../../shared/modal';
 import { parseAmount } from '../transactions/quick-add';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -266,6 +267,9 @@ interface Form {
             [value]="form().amount"
             (input)="patch({ amount: $any($event.target).value })"
           />
+          <p class="mt-1 text-[11px] text-muted-foreground">
+            {{ 'recurring.variableHint' | translate }}
+          </p>
         </div>
         @if ((form().type === 'Expense' || form().type === 'Income') && form().splits) {
           <div class="col-span-2">
@@ -353,7 +357,7 @@ interface Form {
               {{ 'recurring.intervalDaysHint' | translate }}
             </p>
           </div>
-        } @else if (hasDay(form().frequency)) {
+        } @else if (hasDay(form().frequency) && form().frequency !== 'Yearly') {
           <div>
             <label class="label" for="r-day">{{ 'recurring.dayOfMonth' | translate }}</label>
             <input
@@ -369,12 +373,19 @@ interface Form {
           </div>
         }
         <div>
-          <label class="label" for="r-start">{{ 'recurring.start' | translate }}</label>
+          <label class="label" for="r-start">{{
+            (form().frequency === 'Yearly' ? 'recurring.yearlyOn' : 'recurring.start') | translate
+          }}</label>
           <app-date-field
             inputId="r-start"
             [value]="form().startOn"
             (valueChange)="patch({ startOn: $event })"
           />
+          @if (form().frequency === 'Yearly' && form().startOn) {
+            <p class="mt-1 text-xs text-muted-foreground">
+              {{ 'recurring.yearlyHint' | translate: { date: dayMonth(form().startOn) } }}
+            </p>
+          }
         </div>
         <div>
           <label class="label" for="r-end">{{ 'recurring.end' | translate }}</label>
@@ -467,16 +478,26 @@ export class RecurringComponent {
   });
   protected readonly parsedAmount = computed(() => parseAmount(this.form().amount));
   protected readonly startSplit = startSplit;
-  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => [
-    { value: '', label: '—' },
-    ...this.bucketOptions().map((b) => ({ value: b.id, label: b.name })),
-  ]);
+  protected readonly bucketSelectOptions = computed<SelectOption[]>(() => {
+    this.prefs.translations();
+    return [
+      { value: '', label: '—' },
+      ...this.bucketOptions().map((b) => ({ value: b.id, label: bucketLabel(this.i18n, b.name) })),
+    ];
+  });
   protected readonly accountOptions = computed<SelectOption[]>(() =>
     this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
   );
 
   protected readonly schedule = scheduleLabel;
   protected readonly hasDay = usesDayOfMonth;
+  /** "15 de março": the day a yearly item repeats on. */
+  protected dayMonth(iso: string): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Intl.DateTimeFormat(this.prefs.locale(), { day: 'numeric', month: 'long' }).format(
+      new Date(y, m - 1, d),
+    );
+  }
   protected readonly maxInterval = maxInterval;
   protected readonly withFrequency = withFrequency;
 

@@ -99,8 +99,28 @@ public sealed class Trading212Tests
         vwce.Quantity.ShouldBe(12.5m);
         vwce.AveragePrice.ShouldBe(100.1m);
         positions.Single(p => p.Security.Symbol == "AAPL").Security.AssetClass.ShouldBe(AssetClass.Stock);
+        // The euro figures the Trading 212 app shows: its exchange rate, fees and conversion included.
+        var apple = positions.Single(p => p.Security.Symbol == "AAPL");
+        apple.CostBase.ShouldBe(490.9m);
+        apple.ValueBase.ShouldBe(545.4m);
         http.Requests.ShouldAllBe(r => r.Headers.Authorization!.Scheme == "Basic");
         http.Requests.ShouldAllBe(r => r.Method == HttpMethod.Get);
+    }
+
+    [Fact]
+    public async Task Money_moved_to_another_pot_is_a_withdrawal_not_a_loss()
+    {
+        var (provider, _) = Provider(h => h.Replace($"{Api}/history/transactions", """
+            {"items":[{"amount":-80,"currency":"EUR","dateTime":"2026-09-02T09:00:00Z","reference":"x1","type":"TRANSFER"},
+                      {"amount":15,"currency":"EUR","dateTime":"2026-09-20T09:00:00Z","reference":"x2","type":"TRANSFER"}],
+             "nextPagePath":null}
+            """));
+
+        var cash = (await provider.GetTransactionsAsync(null, CancellationToken.None))
+            .Where(t => t.Cash is not null).Select(t => t.Cash!).ToList();
+
+        cash.Select(c => (c.Type, c.Amount)).ShouldBe(
+            [(CashMovementType.Withdrawal, -80m), (CashMovementType.Deposit, 15m)], ignoreOrder: true);
     }
 
     [Fact]

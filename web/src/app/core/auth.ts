@@ -18,7 +18,7 @@ export class AuthService {
     return me;
   }
 
-  async setup(email: string, password: string, setupToken: string) {
+  async setup(email: string, password: string, setupToken: string | null) {
     await firstValueFrom(this.http.post('/api/auth/setup', { email, password, setupToken }));
   }
 
@@ -35,10 +35,13 @@ export class AuthService {
     await this.refresh();
   }
 
-  mfaSetup = () => firstValueFrom(this.http.get<{ sharedKey: string; otpAuthUri: string }>('/api/auth/mfa/setup'));
+  mfaSetup = () =>
+    firstValueFrom(this.http.get<{ sharedKey: string; otpAuthUri: string }>('/api/auth/mfa/setup'));
 
   async enableMfa(code: string): Promise<string[]> {
-    const res = await firstValueFrom(this.http.post<{ recoveryCodes: string[] }>('/api/auth/mfa/enable', { code }));
+    const res = await firstValueFrom(
+      this.http.post<{ recoveryCodes: string[] }>('/api/auth/mfa/enable', { code }),
+    );
     await this.refresh();
     return res.recoveryCodes;
   }

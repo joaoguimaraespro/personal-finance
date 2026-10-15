@@ -20,6 +20,17 @@ these?* in the add dialog), in English and Portuguese. Keep both in sync when th
   needs the Client Portal Gateway with daily 2FA ([Web API authentication](https://www.interactivebrokers.com/docs/web-api/authentication/introduction)).
   The Flex Web Service token is the only unattended, reporting-only option.
 
+## Cost of every holding
+
+Gains are measured against the **real cost in euros**. When the broker reports a holding's own EUR figures
+(Trading 212: what it really cost and its value at Trading 212's exchange rate), those are used, so the figures match
+its app. Otherwise, for each holding, the trades the broker reported are replayed
+as a weighted average of what left the account in euros on each purchase day: fees and currency conversion are
+included, and sales take their share of the cost. When the trades do not account for the quantity held (history
+shorter than the position, a stock split, an exchange without trades such as Binance), the broker's average price is
+used instead (Binance: the real cost described below). Figures can therefore differ from the brokers' own apps, which
+often show market-price costs or convert at today's exchange rate; the portfolio page says so.
+
 ## Trading 212 — official Public API v0
 
 **Create the key** (about 3 minutes, app or web):
@@ -51,6 +62,13 @@ credentials*. `403` → a read permission is missing (usually Metadata or Histor
 four permissions above. The connection card explains both and links back to the guide.
 
 **Revoke** anytime: Settings → API (Beta) → select the key → Delete (immediate and permanent).
+
+**Card and spending pot.** The public API has no card payments, cashback or spending pot: its cash movements are
+deposits, withdrawals, fees, transfers and interest. A `TRANSFER` (money moved to or from another Trading 212 account
+or pot, such as the card's spending pot) is booked as a withdrawal or deposit of this account, so it is not shown as
+an investment loss or gain. To follow card spending, create a bank-type account for the spending pot, record money
+moved into it as a *transfer from the Trading 212 account* (the one entry a broker account accepts by hand), and
+book subscriptions (also as recurring items) and cashback (category *Cashback*) on that account.
 
 **Endpoints used** (and nothing else):
 
@@ -122,6 +140,9 @@ Later syncs request the query's own period (no `fd`/`td`): IBKR answers error 10
 a day it hasn't closed yet, and re-reading the year is harmless because records are keyed by IBKR ids.
 The first sync backfills history in 365-day windows (5 years by default,
 `Integrations:Ibkr:BackfillYears`); daily syncs run after 06:00 UTC because Flex data is end-of-day.
+Between syncs, IBKR positions follow the public market price (the configured market-data provider, every 30 minutes
+and when the portfolio opens; only the listing symbol is sent). Quantity, cost and the sync time still come from IBKR,
+and a public price older than IBKR's own is never used.
 
 ## Reconstructed history
 
@@ -171,16 +192,22 @@ that they are. Everything else (other exchanges, hardware wallets) is [entered b
 - **Read-only by construction** ([ADR-0009](adr/0009-binance-read-only-key.md)). Before reading anything, each sync
   asks Binance what the key may do (`GET /sapi/v1/account/apiRestrictions`) and refuses a key that can trade,
   transfer or withdraw. The HTTP client is allow-listed to `GET` requests on the account, Simple Earn positions and
-  rewards, fill history, prices and daily candles; an order, convert, redeem, transfer or withdrawal request is
-  blocked before it leaves the process. Requests are signed (HMAC-SHA256) and the secret is stored encrypted like
+  rewards, fill, fiat, Convert and coin deposit/withdrawal *history*, prices and daily candles; an order, convert,
+  redeem, transfer or withdrawal request is blocked before it leaves the process. Requests are signed (HMAC-SHA256) and the secret is stored encrypted like
   the other brokers' credentials.
 - **Positions.** One position per coin: spot balance + flexible Earn + locked Earn, valued in EUR at Binance's
   price (the EUR pair, else the USDT/USDC/FDUSD pair converted with EURUSDT). EUR balances are the account's cash.
   Coins Binance cannot price in EUR or dollars are skipped. A coin held both on Binance and by hand is one position
   line (coins have no ISIN, so the symbol identifies them).
-- **Cost.** The average buy price comes from the account's fills on EUR and dollar-stablecoin pairs (moving average;
-  dollar fills converted at that day's EURUSDT close). Coins that were never bought there (deposited, converted or
-  earned) have no known cost: they are valued from the first sync on, without a gain.
+- **Cost.** The real EUR cost, a weighted average over the account's whole history of what brought a coin in:
+  fills on EUR and dollar-stablecoin pairs (dollars converted at that day's EURUSDT close), purchases with the Buy
+  button (what was paid, fees included), Convert orders (the EUR value of what was given), Earn rewards and coins
+  received from another wallet (worth that day's close). Coins converted away, sold or sent out leave at the average
+  and take their cost with them. This differs from the Binance app on purpose: Binance shows the market price when
+  each coin came in, without fees, kept in dollars and converted at today's rate. The first sync reads the windowed histories from July 2017 once — a few minutes, because the
+  Convert and withdrawal histories weigh 3,000 and 18,000 of Binance's 180,000 per minute and are spaced out — and
+  keeps the settled movements with the connection (rewards merged per coin and month); later syncs read only the days
+  since. A coin with no history keeps the price of its first sync as its cost.
 - **Earn rewards** (flexible real-time APR, bonus tiers, locked rewards) are income, like dividends: one entry per
   reward, valued at the coin's EUR close of that day, under *Dividends & rewards*. The first sync reads the last
   180 days; later syncs read from the previous one, and the external id

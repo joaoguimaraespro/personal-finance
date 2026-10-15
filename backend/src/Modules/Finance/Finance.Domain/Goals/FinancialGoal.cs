@@ -3,8 +3,10 @@ using SharedKernel;
 namespace Finance.Domain.Goals;
 
 /// <summary>
-/// A savings target. Progress = <see cref="StartingAmount"/> + savings transactions linked to the goal,
-/// unless the user tracks it by hand via <see cref="ManualCurrentAmount"/>.
+/// A savings target. Progress is, in order: the balance of the cash account it is linked to
+/// (<see cref="AccountId"/>, e.g. a savings account kept for it — interest included), else the amount tracked by hand
+/// (<see cref="ManualCurrentAmount"/>), else <see cref="StartingAmount"/> + savings transactions linked to the goal.
+/// Investments never count: goals are about money set aside, not market value.
 /// </summary>
 public sealed class FinancialGoal : Entity, IAuditable
 {
@@ -16,6 +18,9 @@ public sealed class FinancialGoal : Entity, IAuditable
     public decimal StartingAmount { get; private set; }
     public decimal? ManualCurrentAmount { get; private set; }
     public string? Icon { get; private set; }
+
+    /// <summary>A cash account (savings, bank, cash) whose balance is the goal's progress.</summary>
+    public Guid? AccountId { get; private set; }
     public DateTimeOffset? AchievedAtUtc { get; private set; }
     public DateTimeOffset? ArchivedAtUtc { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -43,8 +48,12 @@ public sealed class FinancialGoal : Entity, IAuditable
         Icon = icon;
     }
 
-    public decimal CurrentAmount(decimal linkedContributions) =>
-        ManualCurrentAmount ?? StartingAmount + linkedContributions;
+    public decimal CurrentAmount(decimal linkedContributions, decimal? accountBalance = null) =>
+        AccountId is not null && accountBalance is { } balance
+            ? Math.Max(balance, 0)
+            : ManualCurrentAmount ?? StartingAmount + linkedContributions;
+
+    public void LinkAccount(Guid? accountId) => AccountId = accountId;
 
     /// <summary>
     /// Records money set aside for the goal outside the ledger: it raises the amount tracked by hand when the goal

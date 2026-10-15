@@ -17,7 +17,8 @@ public sealed record MonthTotals(
     int TransactionCount,
     decimal InvestmentPurchases = 0,
     decimal InvestmentSales = 0,
-    IReadOnlyDictionary<Guid, decimal>? FromBrokers = null)
+    IReadOnlyDictionary<Guid, decimal>? FromBrokers = null,
+    decimal DebtRepaid = 0)
 {
     public static MonthTotals Empty(YearMonth period) =>
         new(period, 0, 0, 0, new Dictionary<Guid, decimal>(), new Dictionary<Guid, decimal>(),

@@ -56,6 +56,21 @@ public static class InvestmentsInfrastructure
             services.AddSingleton<IPriceHistorySource, DisabledPriceHistorySource>();
         }
 
+        // Company logos (shown next to holdings) follow the same switch: with market data off, nothing is fetched.
+        if (provider == "yahoo")
+        {
+            services.AddHttpClient<ILogoSource, FmpLogoSource>(c =>
+                {
+                    c.Timeout = TimeSpan.FromSeconds(10);
+                    c.DefaultRequestHeaders.UserAgent.ParseAdd("personal-finance/1.0 (self-hosted)");
+                })
+                .AddHttpMessageHandler(() => new AllowListHttpHandler(FmpLogoSource.AllowList));
+        }
+        else
+        {
+            services.AddSingleton<ILogoSource, DisabledLogoSource>();
+        }
+
         return services;
     }
 }

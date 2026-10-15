@@ -23,6 +23,64 @@ public sealed class FinanceNotificationSource(IFinanceDb db) : INotificationSour
         items.AddRange(await RecurringAsync(today, ct));
         items.AddRange(await InterestAsync(today, ct));
         items.AddRange(await GoalsAsync(today, ct));
+        items.AddRange(await LoansAsync(today, ct));
+        return items;
+    }
+
+    /// <summary>A rate revision is announced this many days ahead (banks send the new rate around then).</summary>
+    public const int RevisionNoticeDays = 14;
+
+    private async Task<IEnumerable<NotificationItem>> LoansAsync(DateOnly today, CancellationToken ct)
+    {
+        var loans = await db.Loans.AsNoTracking().Include(l => l.Rates).Include(l => l.Prepayments).ToListAsync(ct);
+        if (loans.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = loans.Select(l => l.AccountId).ToList();
+        var names = await db.Accounts.AsNoTracking().Where(a => ids.Contains(a.Id) && a.ArchivedAtUtc == null)
+            .ToDictionaryAsync(a => a.Id, a => a.Name, ct);
+        var items = new List<NotificationItem>();
+        foreach (var loan in loans.Where(l => names.ContainsKey(l.AccountId)))
+        {
+            var name = names[loan.AccountId];
+            // Only the oldest: booking it brings up the next one.
+            var pending = loan.PendingInstalments(today);
+            if (pending.Count > 0 && pending[0] is var due)
+            {
+                items.Add(new NotificationItem(
+                    $"loan:{loan.Id}:{due.Number}",
+                    NotificationKind.LoanInstalmentDue,
+                    due.Date < today ? NotificationSeverity.Warning : NotificationSeverity.Info,
+                    due.Date,
+                    $"/loans/{loan.AccountId}",
+                    loan.AccountId,
+                    new Dictionary<string, object?>
+                    {
+                        ["name"] = name, ["number"] = due.Number, ["amount"] = due.Payment,
+                        ["interest"] = due.Interest, ["capital"] = due.Principal, ["currency"] = Currency.Base,
+                        ["overdue"] = due.Date < today,
+                    },
+                    ["confirm", "skip"]));
+            }
+
+            // A revision date (soon or past) with no rate entered for it.
+            var revision = loan.RevisionDatesUntil(today.AddDays(RevisionNoticeDays)).LastOrDefault();
+            if (revision != default && loan.Rates.All(r => r.EffectiveFrom != revision))
+            {
+                items.Add(new NotificationItem(
+                    $"loan-revision:{loan.Id}:{revision:yyyy-MM-dd}",
+                    NotificationKind.LoanRateRevision,
+                    revision <= today ? NotificationSeverity.Warning : NotificationSeverity.Info,
+                    revision,
+                    $"/loans/{loan.AccountId}",
+                    loan.AccountId,
+                    new Dictionary<string, object?> { ["name"] = name, ["index"] = loan.IndexName },
+                    []));
+            }
+        }
+
         return items;
     }
 

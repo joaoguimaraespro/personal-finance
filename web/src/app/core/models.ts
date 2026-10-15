@@ -96,6 +96,8 @@ export interface Account {
   archived: boolean;
   /** Only on savings and bank accounts. */
   interest?: AccountInterest | null;
+  /** Money that can only be spent on one thing (meal card, flexible benefits): shown apart in net worth. */
+  restrictedUse?: boolean;
   /** Broker accounts: the allocation bucket their synced deposits count towards. */
   allocationBucketId?: string | null;
 }
@@ -110,6 +112,8 @@ export interface AccountInterest {
   yearToDateEstimated: number;
   /** Part of the balance that is still an estimate. */
   estimatedInBalance: number;
+  /** This year's interest counts from this day (the account or its rate is newer than 1 January). */
+  accruingSince?: string | null;
 }
 
 export interface InterestRate {
@@ -162,6 +166,8 @@ export interface Bucket {
 export interface Transaction {
   id: string;
   type: TransactionType;
+  /** An expense given back: money in, the category's spending down. */
+  isRefund?: boolean;
   occurredOn: string;
   amount: number;
   currency: string;
@@ -211,6 +217,7 @@ export interface SplitLineRequest {
 
 export interface TransactionRequest {
   type: TransactionType;
+  isRefund?: boolean;
   occurredOn: string;
   amount: number;
   currency?: string | null;
@@ -268,6 +275,8 @@ export interface MonthlySummary {
   saved: number;
   netBalance: number;
   freeCashFlow: number;
+  /** Capital repaid on loans that month (transfers into loan accounts). */
+  debtRepaid?: number;
   savingsRate: number | null;
   investmentRate: number | null;
   savingsOnlyRate: number | null;
@@ -406,6 +415,9 @@ export interface Goal {
   icon: string | null;
   achieved: boolean;
   archived: boolean;
+  /** The cash account whose balance is the progress, when the goal follows one. */
+  accountId?: string | null;
+  accountName?: string | null;
 }
 
 export interface Recurring {
@@ -454,6 +466,8 @@ export interface Me {
   email: string | null;
   mfaEnabled: boolean;
   mfaSatisfied: boolean;
+  /** The desktop app: no setup token, two-factor authentication optional. */
+  desktop?: boolean;
 }
 
 export interface ImportPreview {
@@ -577,6 +591,8 @@ export interface PeriodReturn {
   from: string | null;
   partial: boolean;
   timeWeighted: boolean;
+  /** Crypto wallets: the coins' gain over their cost, not a return since a date. */
+  costBased?: boolean;
 }
 
 export interface PortfolioSummary {
@@ -712,8 +728,10 @@ export interface NetWorthHistory {
     cash: number;
     investments: number;
     manualAssets: number;
+    /** Restricted-use balances (meal card, benefits), part of the assets. */
+    restricted?: number;
     lines: {
-      group: 'cash' | 'investments' | 'manual' | 'liability';
+      group: 'cash' | 'restricted' | 'investments' | 'manual' | 'liability';
       name: string;
       value: number;
     }[];
@@ -755,4 +773,87 @@ export interface Connection {
   lastSuccessfulSyncUtc: string | null;
   credentialsExpireOn: string | null;
   lastJob: SyncJob | null;
+}
+
+// ---- Loans
+
+export type LoanRateType = 'Fixed' | 'Variable';
+export type PrepaymentMode = 'ReduceTerm' | 'ReducePayment';
+
+export interface Instalment {
+  number: number;
+  date: string;
+  annualRatePercent: number;
+  payment: number;
+  interest: number;
+  principal: number;
+  prepaid: number;
+  balance: number;
+  /** Bank charges on top of interest + capital: commission, Imposto do Selo, insurance. */
+  fee?: number;
+  stampDuty?: number;
+  insurance?: number;
+  /** What leaves the account: payment + charges. */
+  total?: number;
+}
+
+export interface LoanSummary {
+  accountId: string;
+  accountName: string;
+  principal: number;
+  firstPaymentOn: string;
+  termMonths: number;
+  rateType: LoanRateType;
+  revisionMonths: number | null;
+  indexName: string | null;
+  spreadPercent: number | null;
+  outstanding: number;
+  paidOffShare: number;
+  instalmentsPaid: number;
+  instalmentsLeft: number;
+  next: Instalment | null;
+  endDate: string | null;
+  interestPaid: number;
+  interestLeft: number;
+  currentRatePercent: number;
+  nextRevision: string | null;
+  /** Bank account the instalments are paid from (each one is then proposed for booking). */
+  paymentAccountId?: string | null;
+  pendingInstalments?: number;
+  monthlyFee?: number;
+  stampDuty?: boolean;
+  monthlyInsurance?: number;
+}
+
+export interface LoanDetail {
+  summary: LoanSummary;
+  rates: {
+    id: string;
+    effectiveFrom: string;
+    annualRatePercent: number;
+    indexRatePercent: number | null;
+  }[];
+  prepayments: { id: string; on: string; amount: number; mode: PrepaymentMode }[];
+  plan: Instalment[];
+}
+
+export interface PrepaymentSimulation {
+  endDateBefore: string | null;
+  endDateAfter: string | null;
+  monthsSaved: number;
+  paymentBefore: number;
+  paymentAfter: number;
+  interestBefore: number;
+  interestAfter: number;
+  interestSaved: number;
+}
+
+/** Coins sent from an exchange to other wallets and the cost they carried when they left. */
+export interface SentCoins {
+  connection: string;
+  asset: string;
+  quantity: number;
+  cost: number;
+  averageCost: number;
+  lastSentOn: string;
 }

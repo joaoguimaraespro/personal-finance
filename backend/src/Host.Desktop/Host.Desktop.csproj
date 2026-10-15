@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The desktop app (ADR-0010): a native window (system WebView via Photino) around the API running in the same
+    process in desktop mode. Published self-contained per platform by the release workflow, next to the portable
+    PostgreSQL (pgsql/) and the web build (web/).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>PersonalFinance</AssemblyName>
+    <RootNamespace>Host.Desktop</RootNamespace>
+    <ApplicationIcon>../../../deploy/windows/personal-finance.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Photino.NET" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Host.Api/Host.Api.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The API's defaults (logging levels, market data provider) when it runs inside the desktop app. -->
+    <Content Include="../Host.Api/appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

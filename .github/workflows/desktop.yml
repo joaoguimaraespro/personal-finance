@@ -1,0 +1,152 @@
+name: Desktop
+
+# Builds the desktop app (ADR-0010): a Windows installer and macOS disk images (Apple Silicon and Intel), each
+# smoke-tested on its own platform. A tag v* publishes them as a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - backend/src/Host.Desktop/**
+      - backend/src/Host.Api/Desktop/**
+      - deploy/desktop-app/**
+      - .github/workflows/desktop.yml
+
+permissions:
+  contents: read
+
+env:
+  PG_VERSION: 17.11.0
+  DOTNET_NOLOGO: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npx ng build --configuration production
+        working-directory: web
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: web/dist/web/browser
+
+  windows:
+    needs: web
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: backend/global.json
+      - uses: actions/download-artifact@v7
+        with:
+          name: web
+          path: dist/app/web
+      - name: Version
+        run: |
+          $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
+          "VERSION=$v" >> $env:GITHUB_ENV
+      - name: Publish
+        run: dotnet publish backend/src/Host.Desktop -c Release -r win-x64 --self-contained -o dist/app -p:Version=$env:VERSION
+      - name: PostgreSQL binaries
+        run: |
+          $name = "embedded-postgres-binaries-windows-amd64"
+          $url = "https://repo1.maven.org/maven2/io/zonky/test/postgres/$name/$env:PG_VERSION/$name-$env:PG_VERSION.jar"
+          New-Item -ItemType Directory -Force pg | Out-Null
+          Invoke-WebRequest $url -OutFile pg/pg.jar
+          7z x pg/pg.jar -opg/jar -y | Out-Null
+          7z x (Get-ChildItem pg/jar -Filter *.txz).FullName -opg -y | Out-Null
+          7z x pg/*.tar -odist/app/pgsql -y | Out-Null
+          if (-not (Test-Path dist/app/pgsql/bin/pg_ctl.exe)) { throw "pg_ctl.exe missing" }
+          Copy-Item deploy/windows/personal-finance.ico dist/app/
+      - name: Smoke test
+        run: |
+          $env:PERSONAL_FINANCE_DATA = "$env:RUNNER_TEMP\pf-data"
+          $p = Start-Process dist/app/PersonalFinance.exe -ArgumentList '--smoke' -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "smoke test failed ($($p.ExitCode))" }
+      - name: Installer
+        run: |
+          choco install innosetup --no-progress -y
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DSourceDir=$PWD\dist\app" "/DAppVersion=$env:VERSION" `
+            /Odist deploy/desktop-app/windows/personal-finance.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-windows
+          path: dist/*.exe
+
+  macos:
+    needs: web
+    strategy:
+      matrix:
+        include:
+          - rid: osx-arm64
+            arch: arm64
+            pg: darwin-arm64v8
+            runner: macos-latest
+          - rid: osx-x64
+            arch: x64
+            pg: darwin-amd64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: backend/global.json
+      - uses: actions/download-artifact@v7
+        with:
+          name: web
+          path: dist/web
+      - name: Version
+        run: |
+          v=0.0.0; [ "$GITHUB_REF_TYPE" = tag ] && v=${GITHUB_REF_NAME#v}
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - name: Publish
+        run: dotnet publish backend/src/Host.Desktop -c Release -r ${{ matrix.rid }} --self-contained -o dist/app -p:Version=$VERSION
+      - name: PostgreSQL binaries
+        run: |
+          name=embedded-postgres-binaries-${{ matrix.pg }}
+          curl -fsSL -o pg.jar "https://repo1.maven.org/maven2/io/zonky/test/postgres/$name/$PG_VERSION/$name-$PG_VERSION.jar"
+          mkdir -p pg dist/pgsql && unzip -q pg.jar -d pg
+          tar -xJf pg/*.txz -C dist/pgsql
+          test -x dist/pgsql/bin/pg_ctl
+      - name: App and disk image
+        run: deploy/desktop-app/macos/build-app.sh dist/app dist/web dist/pgsql "$VERSION" ${{ matrix.arch }} dist
+      - name: Smoke test
+        run: PERSONAL_FINANCE_DATA="$RUNNER_TEMP/pf-data" "dist/Personal Finance.app/Contents/MacOS/PersonalFinance" --smoke
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-macos-${{ matrix.arch }}
+          path: dist/*.dmg
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: out
+      - name: Checksums
+        run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

@@ -44,3 +44,21 @@ public sealed class ProviderConfigurationException(string message) : Exception(m
 
 /// <summary>A temporary failure (rate limit, statement still generating, network).</summary>
 public sealed class ProviderUnavailableException(string message, Exception? inner = null) : Exception(message, inner);
+
+/// <summary>
+/// A provider that keeps what it has read between syncs (e.g. a long history it reads only once). The sync sets
+/// <see cref="HistoryState"/> from the connection before reading and stores it back after a successful sync.
+/// </summary>
+public interface IHistoryStateProvider
+{
+    string? HistoryState { get; set; }
+}
+
+/// <summary>A provider that knows which coins left the account for other wallets and what they cost then.</summary>
+public interface ISentCoinsProvider
+{
+    Task<IReadOnlyList<SentCoins>> GetSentCoinsAsync(CancellationToken ct);
+}
+
+/// <summary>Coins of <paramref name="Asset"/> sent to other wallets, with the cost they carried when they left.</summary>
+public sealed record SentCoins(string Asset, decimal Quantity, decimal Cost, decimal AverageCost, DateOnly LastSentOn);

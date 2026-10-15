@@ -86,6 +86,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("opening_balance_on");
 
+                    b.Property<bool>("RestrictedUse")
+                        .HasColumnType("boolean")
+                        .HasColumnName("restricted_use");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at_utc");
@@ -332,6 +336,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
                     b.Property<DateTimeOffset?>("AchievedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("achieved_at_utc");
@@ -380,6 +388,9 @@ namespace Finance.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_goals");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_goals_account_id");
 
                     b.ToTable("goals", "finance");
                 });
@@ -558,6 +569,158 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_interest_months_account_id_year_month");
 
                     b.ToTable("interest_months", "finance");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.Loan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateOnly>("FirstPaymentOn")
+                        .HasColumnType("date")
+                        .HasColumnName("first_payment_on");
+
+                    b.Property<string>("IndexName")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("index_name");
+
+                    b.Property<int>("LastHandledInstalment")
+                        .HasColumnType("integer")
+                        .HasColumnName("last_handled_instalment");
+
+                    b.Property<decimal>("MonthlyFee")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("monthly_fee");
+
+                    b.Property<decimal>("MonthlyInsurance")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("monthly_insurance");
+
+                    b.Property<Guid?>("PaymentAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_account_id");
+
+                    b.Property<decimal>("Principal")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("principal");
+
+                    b.Property<string>("RateType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("rate_type");
+
+                    b.Property<int?>("RevisionMonths")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_months");
+
+                    b.Property<decimal?>("SpreadPercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)")
+                        .HasColumnName("spread_percent");
+
+                    b.Property<bool>("StampDuty")
+                        .HasColumnType("boolean")
+                        .HasColumnName("stamp_duty");
+
+                    b.Property<int>("TermMonths")
+                        .HasColumnType("integer")
+                        .HasColumnName("term_months");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_loans");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_loans_account_id");
+
+                    b.ToTable("loans", "finance");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.LoanPrepayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode");
+
+                    b.Property<DateOnly>("On")
+                        .HasColumnType("date")
+                        .HasColumnName("on");
+
+                    b.HasKey("Id")
+                        .HasName("pk_loan_prepayments");
+
+                    b.HasIndex("LoanId")
+                        .HasDatabaseName("ix_loan_prepayments_loan_id");
+
+                    b.ToTable("loan_prepayments", "finance");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.LoanRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AnnualRatePercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)")
+                        .HasColumnName("annual_rate_percent");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_from");
+
+                    b.Property<decimal?>("IndexRatePercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)")
+                        .HasColumnName("index_rate_percent");
+
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_loan_rates");
+
+                    b.HasIndex("LoanId", "EffectiveFrom")
+                        .IsUnique()
+                        .HasDatabaseName("ix_loan_rates_loan_id_effective_from");
+
+                    b.ToTable("loan_rates", "finance");
                 });
 
             modelBuilder.Entity("Finance.Domain.Recurring.ExpectedTransaction", b =>
@@ -830,6 +993,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("import_id");
 
+                    b.Property<bool>("IsRefund")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_refund");
+
                     b.Property<string>("Nature")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
@@ -1002,6 +1169,15 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_categories_categories_parent_id");
                 });
 
+            modelBuilder.Entity("Finance.Domain.Goals.FinancialGoal", b =>
+                {
+                    b.HasOne("Finance.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_goals_accounts_account_id");
+                });
+
             modelBuilder.Entity("Finance.Domain.Interest.AccountInterestRate", b =>
                 {
                     b.HasOne("Finance.Domain.Accounts.Account", null)
@@ -1020,6 +1196,36 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_interest_months_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.Loan", b =>
+                {
+                    b.HasOne("Finance.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_loans_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.LoanPrepayment", b =>
+                {
+                    b.HasOne("Finance.Domain.Loans.Loan", null)
+                        .WithMany("Prepayments")
+                        .HasForeignKey("LoanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_loan_prepayments_loans_loan_id");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.LoanRate", b =>
+                {
+                    b.HasOne("Finance.Domain.Loans.Loan", null)
+                        .WithMany("Rates")
+                        .HasForeignKey("LoanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_loan_rates_loans_loan_id");
                 });
 
             modelBuilder.Entity("Finance.Domain.Recurring.ExpectedTransaction", b =>
@@ -1201,6 +1407,13 @@ namespace Finance.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Finance.Domain.Budgets.Budget", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Finance.Domain.Loans.Loan", b =>
+                {
+                    b.Navigation("Prepayments");
+
+                    b.Navigation("Rates");
                 });
 #pragma warning restore 612, 618
         }

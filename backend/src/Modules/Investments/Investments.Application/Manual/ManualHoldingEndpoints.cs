@@ -94,9 +94,15 @@ public static class ManualHoldingEndpoints
         group.MapDelete("/{id:guid}/rewards/{rewardId:guid}", async (Guid id, Guid rewardId, ManualHoldingService s,
             CancellationToken ct) => (await s.RemoveRewardAsync(id, rewardId, ct)).ToHttp());
 
-        // Called when the portfolio is opened: prices older than 15 minutes are fetched again.
-        group.MapPost("/refresh-prices", async (ManualHoldingService s, CancellationToken ct) =>
-            Results.Ok(new { updated = await s.RefreshPricesAsync(ManualHoldingService.PriceMaxAge, ct) }));
+        // Called when the portfolio is opened: prices older than 15 minutes are fetched again, for coins entered by
+        // hand and for end-of-day brokers (IBKR) alike.
+        group.MapPost("/refresh-prices", async (ManualHoldingService s, Prices.IntradayRepricer brokers,
+            CancellationToken ct) =>
+        {
+            var coins = await s.RefreshPricesAsync(ManualHoldingService.PriceMaxAge, ct);
+            var positions = await brokers.RepriceAsync(ManualHoldingService.PriceMaxAge, ct);
+            return Results.Ok(new { updated = coins || positions > 0 });
+        });
 
         return app;
     }

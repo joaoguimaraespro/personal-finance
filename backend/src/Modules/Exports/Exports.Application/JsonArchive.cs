@@ -63,7 +63,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     .OrderBy(t => t.OccurredOn).ToListAsync(ct)).Select(t => new
                 {
                     t.Id, t.Type, t.OccurredOn, t.OccurredAtUtc, t.TimeZone, t.AccountId, t.CounterAccountId, t.CategoryId,
-                    t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount,
+                    t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount, t.IsRefund,
                     t.BaseCurrency, t.Description, t.Notes, t.Source, t.ExternalId, t.CreatedAtUtc, t.UpdatedAtUtc,
                     t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetIsin, t.AssetQuantity, t.AssetUnitPrice,
                     t.AssetPriceSource,
@@ -229,6 +229,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 var goal = FinancialGoal.Create(name, Dec(g, "targetAmount") ?? 0,
                     Str(g, "targetDate") is { } td ? DateOnly.Parse(td, System.Globalization.CultureInfo.InvariantCulture) : null,
                     Dec(g, "startingAmount") ?? 0, Dec(g, "manualCurrentAmount"), Str(g, "icon"));
+                // Accounts are imported above, so the account a goal follows is already mapped.
+                goal.LinkAccount(Mapped(g, "accountId", map));
                 finance.Goals.Add(goal);
                 map[id] = goal.Id;
                 goals++;
@@ -286,7 +288,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                         ? new InvestmentAsset(Enum.Parse<InvestmentAssetKind>(kind), symbol, Str(t, "assetName"),
                             Str(t, "assetIsin"), Dec(t, "assetQuantity"), Dec(t, "assetUnitPrice"), Str(t, "assetPriceSource"))
                         : null,
-                    Splits: splits);
+                    Splits: splits,
+                    IsRefund: t.TryGetProperty("isRefund", out var refund) && refund.ValueKind == JsonValueKind.True);
                 var created = Transaction.Create(draft, DataSource.Json, externalId: $"json:{originalId}");
                 if (created.IsSuccess)
                 {

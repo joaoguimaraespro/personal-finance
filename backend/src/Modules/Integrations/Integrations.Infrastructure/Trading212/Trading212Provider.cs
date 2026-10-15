@@ -25,8 +25,14 @@ internal sealed class Trading212Provider(Trading212Client client) : IInvestmentP
     {
         var positions = await client.PositionsAsync(ct);
         var meta = await InstrumentsAsync(ct);
-        return positions.Select(p => new PositionReport(ToSecurity(p.Instrument, meta), p.Quantity, p.AveragePricePaid,
-            p.CurrentPrice, DateTimeOffset.UtcNow)).ToList();
+        // Trading 212 also reports each position in the account's currency: what it really cost (fees and conversion
+        // included) and its value at its own exchange rate — the figures its app shows.
+        return positions.Select(p =>
+        {
+            var euros = p.WalletImpact is { Currency: SharedKernel.Currency.Base } w ? w : null;
+            return new PositionReport(ToSecurity(p.Instrument, meta), p.Quantity, p.AveragePricePaid, p.CurrentPrice,
+                DateTimeOffset.UtcNow, CostBase: euros?.TotalCost, ValueBase: euros?.CurrentValue);
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<InvestmentTransaction>> GetTransactionsAsync(DateTimeOffset? since,
@@ -68,6 +74,10 @@ internal sealed class Trading212Provider(Trading212Client client) : IInvestmentP
             var (type, amount) = t.Type switch
             {
                 "DEPOSIT" => (CashMovementType.Deposit, Math.Abs(t.Amount)),
+                // Money moved between Trading 212 accounts or pots (e.g. to the card's spending pot) enters or leaves
+                // this account like a deposit or withdrawal: it is not a gain or a loss of the investments.
+                "TRANSFER" when t.Amount >= 0 => (CashMovementType.Deposit, t.Amount),
+                "TRANSFER" => (CashMovementType.Withdrawal, t.Amount),
                 "WITHDRAW" => (CashMovementType.Withdrawal, -Math.Abs(t.Amount)),
                 "FEE" => (CashMovementType.Fee, -Math.Abs(t.Amount)),
                 "INTEREST_ON_FREE_CASH" or "LENDING_INTEREST" => (CashMovementType.Interest, Math.Abs(t.Amount)),

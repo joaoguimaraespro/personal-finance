@@ -21,6 +21,12 @@ public sealed class Position
     public DataSource Source { get; private set; }
     public DateTimeOffset SyncedAtUtc { get; private set; }
 
+    /// <summary>What the holding really cost in EUR, as the broker reports it (null: not reported).</summary>
+    public decimal? CostBase { get; private set; }
+
+    /// <summary>The holding's value in EUR at the broker's own rate, valid while <see cref="LastPrice"/> is the broker's.</summary>
+    public decimal? ValueBase { get; private set; }
+
     public decimal CostBasis => Quantity * AveragePrice;
     public decimal MarketValue => Quantity * LastPrice;
 
@@ -36,6 +42,21 @@ public sealed class Position
         Source = source,
         SyncedAtUtc = syncedAt,
     };
+
+    /// <summary>A newer public price between syncs (end-of-day brokers): quantity, cost and sync time stay.</summary>
+    public void Reprice(decimal lastPrice, DateTimeOffset priceAsOf)
+    {
+        LastPrice = lastPrice;
+        PriceAsOfUtc = priceAsOf;
+        ValueBase = null; // the broker's EUR value was for its own price
+    }
+
+    /// <summary>The broker's own EUR figures for the holding, when it reports them.</summary>
+    public void SetBase(decimal? cost, decimal? value)
+    {
+        CostBase = cost;
+        ValueBase = value;
+    }
 
     public void Update(decimal quantity, decimal averagePrice, decimal lastPrice, DateTimeOffset priceAsOf,
         DateTimeOffset syncedAt)

@@ -80,7 +80,7 @@ export class HlmDatePicker<T> implements BrnDatePickerBase<T>, ControlValueAcces
 
   /** Show dropdowns to navigate between months or years. */
   public readonly captionLayout = input<
-    'dropdown' | 'label' | 'dropdown-months' | 'dropdown-years'
+    'dropdown' | 'label' | 'dropdown-months' | 'dropdown-years' | 'drill'
   >('label');
 
   /** The minimum date that can be selected. */

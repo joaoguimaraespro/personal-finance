@@ -1,10 +1,15 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
 import { Notifications } from '../../core/notifications';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { DataEvents } from '../../core/data-events';
+import { ModalComponent } from '../../shared/modal';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
@@ -24,6 +29,8 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
     HlmInputImports,
     HlmButtonImports,
     TranslatePipe,
+    ModalComponent,
+    RouterLink,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,6 +76,22 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
                 </button>
               }
             </div>
+          </div>
+          <div>
+            <span class="label">{{ 'settings.currency' | translate }}</span>
+            <div class="segmented">
+              @for (c of currencies; track c) {
+                <button
+                  [class.active]="prefs.displayCurrency() === c"
+                  (click)="prefs.displayCurrency.set(c)"
+                >
+                  {{ c === 'EUR' ? '€ EUR' : '$ USD' }}
+                </button>
+              }
+            </div>
+            <p class="text-muted-foreground mt-1 max-w-xs text-[11px]">
+              {{ 'settings.currencyHint' | translate }}
+            </p>
           </div>
         </div>
       </section>
@@ -157,13 +180,75 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
         </form>
       </section>
 
+      @if (auth.me()?.desktop && !auth.me()?.mfaEnabled) {
+        <!-- Desktop app: two-factor authentication is optional; offer it once the app is in use. -->
+        <section class="card space-y-3">
+          <h2 class="card-title">
+            <ng-icon name="lucideKeyRound" />{{ 'settings.mfaTitle' | translate }}
+          </h2>
+          <p class="text-sm text-muted-foreground">{{ 'settings.mfaDesktopText' | translate }}</p>
+          <a hlmBtn variant="outline" routerLink="/mfa-setup">{{
+            'settings.mfaEnable' | translate
+          }}</a>
+        </section>
+      }
+
       <section class="card text-sm text-muted-foreground">
         <h2 class="card-title">
           <ng-icon name="lucideShieldCheck" />{{ 'settings.privacy' | translate }}
         </h2>
         <p class="leading-relaxed">{{ 'settings.privacyText' | translate }}</p>
       </section>
+
+      <!-- Start fresh: everything entered or imported goes; broker connections and categories stay. -->
+      <section class="card border-destructive/40 space-y-3">
+        <h2 class="card-title text-destructive">
+          <ng-icon name="lucideTriangleAlert" />{{ 'settings.reset.title' | translate }}
+        </h2>
+        <p class="text-sm text-muted-foreground">{{ 'settings.reset.text' | translate }}</p>
+        <button hlmBtn variant="destructive" (click)="resetOpen.set(true)">
+          <ng-icon name="lucideTrash2" />{{ 'settings.reset.open' | translate }}
+        </button>
+      </section>
     </div>
+
+    <app-modal
+      [open]="resetOpen()"
+      [title]="'settings.reset.title' | translate"
+      (closed)="resetOpen.set(false); resetWord.set('')"
+    >
+      <div class="space-y-3 text-sm">
+        <p>{{ 'settings.reset.deletes' | translate }}</p>
+        <p>{{ 'settings.reset.keeps' | translate }}</p>
+        <a hlmBtn variant="outline" size="sm" href="/api/exports/json" download>
+          <ng-icon name="lucideCloudDownload" />{{ 'settings.reset.backup' | translate }}
+        </a>
+        <label class="label block" for="reset-word">{{
+          'settings.reset.type' | translate: { word: confirmWord() }
+        }}</label>
+        <input
+          id="reset-word"
+          hlmInput
+          class="w-full"
+          autocomplete="off"
+          [value]="resetWord()"
+          (input)="resetWord.set($any($event.target).value)"
+        />
+        <div class="flex justify-end gap-2">
+          <button hlmBtn variant="outline" (click)="resetOpen.set(false)">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button
+            hlmBtn
+            variant="destructive"
+            [disabled]="resetWord().trim().toUpperCase() !== confirmWord() || resetting()"
+            (click)="reset()"
+          >
+            <ng-icon name="lucideTrash2" />{{ 'settings.reset.confirm' | translate }}
+          </button>
+        </div>
+      </div>
+    </app-modal>
   `,
 })
 export class SettingsComponent {
@@ -171,6 +256,7 @@ export class SettingsComponent {
   protected readonly auth = inject(AuthService);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  protected readonly currencies = ['EUR', 'USD'] as const;
   protected readonly themes = ['system', 'light', 'dark'] as const;
   protected readonly icons = PAGE_ICONS;
   protected readonly themeIcon = {
@@ -186,6 +272,28 @@ export class SettingsComponent {
 
   protected async setBrowserAlerts(on: boolean) {
     this.blocked.set(!(await this.notifications.setBrowserAlerts(on)));
+  }
+
+  private readonly http = inject(HttpClient);
+  private readonly events = inject(DataEvents);
+  protected readonly resetOpen = signal(false);
+  protected readonly resetWord = signal('');
+  protected readonly resetting = signal(false);
+  protected readonly confirmWord = () => (this.prefs.lang() === 'pt-PT' ? 'APAGAR' : 'DELETE');
+
+  protected async reset() {
+    this.resetting.set(true);
+    try {
+      await firstValueFrom(this.http.post('/api/data/reset', { confirm: 'reset-all-data' }));
+      this.resetOpen.set(false);
+      this.resetWord.set('');
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('settings.reset.done'));
+    } catch (err) {
+      this.toasts.error(err);
+    } finally {
+      this.resetting.set(false);
+    }
   }
 
   protected async changePassword() {

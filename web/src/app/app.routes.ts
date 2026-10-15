@@ -68,6 +68,14 @@ export const routes: Routes = [
           import('./features/connections/connections').then((m) => m.ConnectionsComponent),
       },
       {
+        path: 'loans',
+        loadComponent: () => import('./features/loans/loans').then((m) => m.LoansComponent),
+      },
+      {
+        path: 'loans/:accountId',
+        loadComponent: () => import('./features/loans/loan').then((m) => m.LoanComponent),
+      },
+      {
         path: 'accounts',
         loadComponent: () =>
           import('./features/accounts/accounts').then((m) => m.AccountsComponent),
@@ -77,10 +85,8 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/categories/categories').then((m) => m.CategoriesComponent),
       },
-      {
-        path: 'import',
-        loadComponent: () => import('./features/import/import').then((m) => m.ImportComponent),
-      },
+      // The old spreadsheet importer is gone: imports are the app's own JSON archive, on the export page.
+      { path: 'import', redirectTo: 'export' },
       {
         path: 'export',
         loadComponent: () => import('./features/export/export').then((m) => m.ExportComponent),

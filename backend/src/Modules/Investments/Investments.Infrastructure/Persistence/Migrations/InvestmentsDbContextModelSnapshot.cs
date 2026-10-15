@@ -527,6 +527,11 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(28,12)")
                         .HasColumnName("average_price");
 
+                    b.Property<decimal?>("CostBase")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("cost_base");
+
                     b.Property<decimal>("LastPrice")
                         .HasPrecision(28, 12)
                         .HasColumnType("numeric(28,12)")
@@ -550,6 +555,11 @@ namespace Investments.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("SyncedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("synced_at_utc");
+
+                    b.Property<decimal?>("ValueBase")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("numeric(19,4)")
+                        .HasColumnName("value_base");
 
                     b.HasKey("AccountId", "SecurityId")
                         .HasName("pk_positions");
@@ -666,6 +676,31 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .HasFilter("isin IS NOT NULL");
 
                     b.ToTable("securities", "investments");
+                });
+
+            modelBuilder.Entity("Investments.Domain.SecurityLogo", b =>
+                {
+                    b.Property<Guid>("SecurityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("security_id");
+
+                    b.Property<byte[]>("Content")
+                        .HasColumnType("bytea")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("FetchedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fetched_at_utc");
+
+                    b.HasKey("SecurityId")
+                        .HasName("pk_security_logos");
+
+                    b.ToTable("security_logos", "investments");
                 });
 
             modelBuilder.Entity("Investments.Domain.TargetAllocation", b =>
@@ -849,6 +884,16 @@ namespace Investments.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_price_listings_securities_security_id");
+                });
+
+            modelBuilder.Entity("Investments.Domain.SecurityLogo", b =>
+                {
+                    b.HasOne("Investments.Domain.Security", null)
+                        .WithMany()
+                        .HasForeignKey("SecurityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_security_logos_securities_security_id");
                 });
 
             modelBuilder.Entity("Investments.Domain.Trade", b =>

@@ -38,6 +38,12 @@ describe('return periods', () => {
     expect(returnHint(ret({}))).toBe('portfolio.returnAllHint');
   });
 
+  it('labels the gain over cost of a crypto wallet without a start date', () => {
+    const r = ret({ from: null, costBased: true });
+    expect(returnLabel(r, 'pt-PT')).toEqual({ key: 'portfolio.gainOnCost' });
+    expect(returnHint(r)).toBe('portfolio.gainOnCostHint');
+  });
+
   it('labels a period as time-weighted, with its translated name', () => {
     const r = ret({ period: '1Y', from: '2025-10-03', timeWeighted: true });
     expect(returnLabel(r, 'pt-PT', (p) => (p === '1Y' ? '1A' : p))).toEqual({
