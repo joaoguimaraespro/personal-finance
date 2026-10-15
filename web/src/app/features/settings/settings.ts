@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth';
 import { Notifications } from '../../core/notifications';
@@ -29,6 +30,7 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
     HlmButtonImports,
     TranslatePipe,
     ModalComponent,
+    RouterLink,
   ],
   providers: [APP_ICONS],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -177,6 +179,19 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
           </div>
         </form>
       </section>
+
+      @if (auth.me()?.desktop && !auth.me()?.mfaEnabled) {
+        <!-- Desktop app: two-factor authentication is optional; offer it once the app is in use. -->
+        <section class="card space-y-3">
+          <h2 class="card-title">
+            <ng-icon name="lucideKeyRound" />{{ 'settings.mfaTitle' | translate }}
+          </h2>
+          <p class="text-sm text-muted-foreground">{{ 'settings.mfaDesktopText' | translate }}</p>
+          <a hlmBtn variant="outline" routerLink="/mfa-setup">{{
+            'settings.mfaEnable' | translate
+          }}</a>
+        </section>
+      }
 
       <section class="card text-sm text-muted-foreground">
         <h2 class="card-title">
