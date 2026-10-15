@@ -130,6 +130,14 @@ export const canBeRestricted = (kind: AccountKind) =>
         [class.mt-8]="!first"
       >
         @if (groupBy() === 'institution') {
+          @if (g.title) {
+            <span
+              class="flex size-5 items-center justify-center self-center rounded-md text-[10px] font-semibold tracking-normal text-white"
+              [style.background-color]="institutionColor(g.title)"
+              aria-hidden="true"
+              >{{ monogram(g.title) }}</span
+            >
+          }
           {{ g.title ?? ('accounts.noInstitution' | translate) }}
         } @else {
           {{ 'accounts.group.' + g.key | translate }}
@@ -153,6 +161,20 @@ export const canBeRestricted = (kind: AccountKind) =>
                     [size]="40"
                     aria-hidden="true"
                   />
+                } @else if (a.institution?.trim()) {
+                  <!-- The bank's monogram, in a colour of its own; the kind of account sits on its corner. -->
+                  <span class="relative shrink-0" aria-hidden="true">
+                    <span
+                      class="flex size-10 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-sm"
+                      [style.background-color]="institutionColor(a.institution)"
+                      >{{ monogram(a.institution) }}</span
+                    >
+                    <span
+                      class="bg-card text-muted-foreground absolute -right-1.5 -bottom-1.5 flex size-5 items-center justify-center rounded-full border"
+                    >
+                      <ng-icon [name]="kindIcon[a.kind] ?? 'lucideWallet'" class="text-[11px]" />
+                    </span>
+                  </span>
                 } @else {
                   <span
                     class="bg-primary/10 text-primary dark:bg-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full"
@@ -162,12 +184,16 @@ export const canBeRestricted = (kind: AccountKind) =>
                   </span>
                 }
                 <div class="min-w-0">
+                  @if (a.institution?.trim() && !brokerOf(a) && groupBy() !== 'institution') {
+                    <p
+                      class="text-muted-foreground truncate text-[11px] font-medium tracking-wide uppercase"
+                    >
+                      {{ a.institution }}
+                    </p>
+                  }
                   <p class="truncate font-semibold">{{ a.name }}</p>
                   <p class="text-xs text-muted-foreground">
                     {{ 'accountKind.' + a.kind | translate }}
-                    @if (a.institution) {
-                      · {{ a.institution }}
-                    }
                     @if (a.identifierMasked) {
                       · <span class="font-mono">{{ a.identifierMasked }}</span>
                     }
@@ -658,7 +684,26 @@ export class AccountsComponent {
     stream: () => this.api.portfolioSummary(),
   });
 
-  /** Market value + cash of a synced broker account; null until the portfolio has loaded. */
+  /** Up to two letters for a bank's badge: "Santander" → "S", "Caixa Geral" → "CG". */
+  protected monogram(institution: string | null | undefined): string {
+    const words = (institution ?? '')
+      .trim()
+      .split(/\s+/)
+      .filter((w) => /^\p{L}/u.test(w));
+    return words
+      .slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join('');
+  }
+
+  /** A stable colour per bank, readable with white text in both themes. */
+  protected institutionColor(institution: string | null | undefined): string {
+    const name = (institution ?? '').trim().toLowerCase();
+    let hash = 0;
+    for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+    return `oklch(0.58 0.13 ${hash % 360})`;
+  }
+
   /** Which broker a synced account belongs to (its institution is the provider's name). */
   protected brokerOf(a: Account): Broker | null {
     if (a.kind !== 'Broker') return null;
@@ -670,6 +715,7 @@ export class AccountsComponent {
     return null;
   }
 
+  /** Market value + cash of a synced broker account; null until the portfolio has loaded. */
   protected brokerValue(accountId: string): number | null {
     const account = this.portfolio.value()?.accounts.find((x) => x.accountId === accountId);
     return account ? account.marketValue + account.cash : null;
