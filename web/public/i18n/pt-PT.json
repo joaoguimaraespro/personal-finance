@@ -377,7 +377,8 @@
   "start": "Início",
   "end": "Fim (opcional)",
   "active": "Ativo",
-  "paused": "Em pausa"
+  "paused": "Em pausa",
+  "shareHint": "Sempre que for confirmado, ficam a dever a parte deles do que foi pago — a divisão acompanha o valor quando a conta varia."
  },
  "budgets": {
   "subtitle": "Cada versão aplica-se a partir do seu mês — alterá-la nunca reescreve meses anteriores.",
@@ -1224,7 +1225,11 @@
   "loanDue": "{{name}}: prestação a pagar",
   "loanSplit": "juros {{interest}} · capital {{capital}}",
   "loanRevision": "{{name}}: revisão de taxa",
-  "loanRevisionDetail": "Indica a nova taxa a partir de {{date}} (a carta do banco)."
+  "loanRevisionDetail": "Indica a nova taxa a partir de {{date}} (a carta do banco).",
+  "sharedOwed": "{{name}} deve-te a parte dele/dela",
+  "sharedYouOwe": "Deves a {{name}}",
+  "sharedDetail": "Regista em Partilhas quando for pago.",
+  "sharedSince": "desde {{date}}"
  },
  "split": {
   "action": "Dividir por categorias",

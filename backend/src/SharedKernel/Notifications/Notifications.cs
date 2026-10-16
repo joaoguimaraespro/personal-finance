@@ -35,6 +35,12 @@ public enum NotificationKind
 
     /// <summary>A variable-rate loan has a revision date with no rate entered for it.</summary>
     LoanRateRevision = 9,
+
+    /// <summary>Someone the owner shared costs with still owes their part.</summary>
+    SharedOwed = 10,
+
+    /// <summary>The owner owes someone who paid for them.</summary>
+    SharedYouOwe = 11,
 }
 
 public enum NotificationSeverity

@@ -39,6 +39,7 @@ import {
   startSplit,
   toSplitRequests,
 } from '../../shared/split-lines';
+import { equalShares, shareError } from '../../shared/share-lines';
 
 interface Form {
   name: string;
@@ -54,6 +55,10 @@ interface Form {
   endOn: string;
   /** Category lines when the item is split (e.g. one energy bill: electricity + gas); null otherwise. */
   splits: SplitDraftLine[] | null;
+  /** People who share it (ADR-0011): equal parts with the owner, or an amount each of the usual bill. */
+  sharePeople: string[];
+  shareEqual: boolean;
+  shareAmounts: Record<string, string>;
 }
 
 @Component({
@@ -148,6 +153,12 @@ interface Form {
                     {{ 'split.count' | translate: { count: r.splits.length } }}
                   } @else {
                     {{ categoryFor(r.categoryId) | categoryLabel }}
+                  }
+                  @if (r.shares?.length) {
+                    ·
+                    <span class="text-violet-700 dark:text-violet-300">{{
+                      'tx.sharedWith' | translate: { names: shareNames(r) }
+                    }}</span>
                   }
                 </div>
                 <!-- Narrow screens: schedule and next date under the name instead of their own columns. -->
@@ -328,6 +339,62 @@ interface Form {
             (valueChange)="patch({ accountId: $event })"
           />
         </div>
+        @if (canShare()) {
+          <!-- Shared with people (ADR-0011): each confirmed occurrence owes them their part of what was paid. -->
+          <div class="col-span-2 rounded-lg border p-3">
+            <p class="label">{{ 'tx.share' | translate }}</p>
+            <div class="flex flex-wrap gap-1.5">
+              @for (p of people(); track p.id) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.chip-active]="form().sharePeople.includes(p.id)"
+                  (click)="togglePerson(p.id)"
+                >
+                  {{ p.name }}
+                </button>
+              }
+            </div>
+            @if (form().sharePeople.length) {
+              <div
+                class="segmented mt-3 text-xs"
+                role="group"
+                [attr.aria-label]="'tx.share' | translate"
+              >
+                <button
+                  type="button"
+                  [class.active]="form().shareEqual"
+                  (click)="patch({ shareEqual: true })"
+                >
+                  {{ 'tx.shareEqual' | translate }}
+                </button>
+                <button type="button" [class.active]="!form().shareEqual" (click)="customShares()">
+                  {{ 'tx.shareCustom' | translate }}
+                </button>
+              </div>
+              @if (!form().shareEqual) {
+                <div class="mt-3 space-y-2">
+                  @for (p of selectedPeople(); track p.id) {
+                    <div class="flex items-center gap-2 text-sm">
+                      <span class="min-w-0 flex-1 truncate">{{ p.name }}</span>
+                      <input
+                        hlmInput
+                        class="num h-8 w-28"
+                        inputmode="decimal"
+                        [attr.aria-label]="p.name"
+                        [value]="form().shareAmounts[p.id] ?? ''"
+                        (input)="setShareAmount(p.id, $any($event.target).value)"
+                      />
+                    </div>
+                  }
+                </div>
+              }
+              <p class="text-muted-foreground mt-3 text-xs">
+                {{ 'recurring.shareHint' | translate }}
+              </p>
+            }
+          </div>
+        }
         <div>
           <label class="label" for="r-freq">{{ 'recurring.frequency' | translate }}</label>
           <app-select
@@ -439,8 +506,43 @@ export class RecurringComponent {
   protected readonly form = signal<Form>(this.blank());
 
   protected readonly manualAccounts = computed(() =>
-    (this.accounts.value() ?? []).filter((a) => a.isManual),
+    (this.accounts.value() ?? []).filter((a) => a.isManual && a.kind !== 'Person'),
   );
+  protected readonly people = computed(() =>
+    (this.accounts.value() ?? []).filter((a) => a.kind === 'Person' && !a.archived),
+  );
+  protected readonly selectedPeople = computed(() =>
+    this.people().filter((p) => this.form().sharePeople.includes(p.id)),
+  );
+  protected readonly canShare = computed(
+    () => this.form().type === 'Expense' && !this.form().splits && this.people().length > 0,
+  );
+  protected shareNames = (r: Recurring) =>
+    (r.shares ?? [])
+      .map((s) => this.people().find((p) => p.id === s.personId)?.name)
+      .filter((n) => !!n)
+      .join(', ');
+
+  protected togglePerson(id: string) {
+    const ids = this.form().sharePeople;
+    this.patch({ sharePeople: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] });
+  }
+
+  /** Switching to amounts starts from the equal split of the usual amount, to adjust. */
+  protected customShares() {
+    const f = this.form();
+    if (f.shareEqual) {
+      const amounts: Record<string, string> = {};
+      for (const s of equalShares(parseAmount(f.amount) ?? 0, f.sharePeople))
+        amounts[s.personId] = String(s.amount).replace('.', ',');
+      this.patch({ shareAmounts: amounts });
+    }
+    this.patch({ shareEqual: false });
+  }
+
+  protected setShareAmount(id: string, value: string) {
+    this.patch({ shareAmounts: { ...this.form().shareAmounts, [id]: value } });
+  }
   protected readonly categoryOptions = computed(() =>
     (this.categories.value() ?? []).filter(
       (c) => c.type === (this.form().type === 'Income' ? 'Income' : 'Expense'),
@@ -525,6 +627,7 @@ export class RecurringComponent {
             startOn: r.startOn,
             endOn: r.endOn ?? '',
             splits: r.splits?.length ? fromSplits(r.splits) : null,
+            ...sharesForm(r),
           }
         : { ...this.blank(), accountId: this.manualAccounts()[0]?.id ?? '' },
     );
@@ -546,6 +649,12 @@ export class RecurringComponent {
         return;
       }
     }
+    const sharing = f.type === 'Expense' && !split && f.sharePeople.length > 0;
+    const shares = sharing ? sharePercents(f) : null;
+    if (sharing && !shares) {
+      this.toasts.show(this.i18n.instant('tx.errors.share.amount'), 'error');
+      return;
+    }
     const body = {
       name: f.name,
       type: f.type,
@@ -558,6 +667,7 @@ export class RecurringComponent {
       categoryId: split ? null : f.categoryId || null,
       bucketId: f.bucketId || null,
       splits: split ? toSplitRequests(f.splits!) : null,
+      shares,
     };
     try {
       const id = this.editingId();
@@ -618,6 +728,44 @@ export class RecurringComponent {
       startOn: today(),
       endOn: '',
       splits: null,
+      sharePeople: [],
+      shareEqual: true,
+      shareAmounts: {},
     };
   }
+}
+
+/** The form's sharing fields for an item: equal parts when every person has 1/(n+1) of it. */
+function sharesForm(r: Recurring): Pick<Form, 'sharePeople' | 'shareEqual' | 'shareAmounts'> {
+  const shares = r.shares ?? [];
+  const equal = 100 / (shares.length + 1);
+  return {
+    sharePeople: shares.map((s) => s.personId),
+    shareEqual: shares.every((s) => Math.abs(s.percent - equal) < 0.0001),
+    shareAmounts: Object.fromEntries(
+      shares.map((s) => [
+        s.personId,
+        String(Math.round(r.amount * s.percent) / 100).replace('.', ','),
+      ]),
+    ),
+  };
+}
+
+/**
+ * Each person's percentage of every occurrence: equal parts with the owner, or their amount of the usual bill (so a
+ * bill that varies keeps the same split). Null when the amounts are not valid.
+ */
+function sharePercents(f: Form): { personId: string; percent: number }[] | null {
+  const round = (n: number) => Math.round(n * 1e6) / 1e6;
+  if (f.shareEqual) {
+    const percent = round(100 / (f.sharePeople.length + 1));
+    return f.sharePeople.map((personId) => ({ personId, percent }));
+  }
+  const total = parseAmount(f.amount) ?? 0;
+  const shares = f.sharePeople.map((personId) => ({
+    personId,
+    amount: parseAmount(f.shareAmounts[personId] ?? '') ?? 0,
+  }));
+  if (!(total > 0) || shareError(total, shares)) return null;
+  return shares.map((s) => ({ personId: s.personId, percent: round((s.amount / total) * 100) }));
 }

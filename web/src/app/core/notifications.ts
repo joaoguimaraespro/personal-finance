@@ -17,7 +17,9 @@ export type NotificationKind =
   | 'AiWrites'
   | 'AllocationDue'
   | 'LoanInstalmentDue'
-  | 'LoanRateRevision';
+  | 'LoanRateRevision'
+  | 'SharedOwed'
+  | 'SharedYouOwe';
 
 export type NotificationSeverity = 'Info' | 'Warning' | 'Error';
 
@@ -322,6 +324,16 @@ export class Notifications {
         return [
           format('notifications.loanRevision', { name: a['name'] }),
           format('notifications.loanRevisionDetail'),
+        ];
+      case 'SharedOwed':
+        return [
+          format('notifications.sharedOwed', { name: a['name'] }),
+          format('notifications.sharedDetail'),
+        ];
+      case 'SharedYouOwe':
+        return [
+          format('notifications.sharedYouOwe', { name: a['name'] }),
+          format('notifications.sharedDetail'),
         ];
       case 'AllocationDue':
         return [

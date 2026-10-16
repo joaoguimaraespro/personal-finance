@@ -377,7 +377,8 @@
   "start": "Starts",
   "end": "Ends (optional)",
   "active": "Active",
-  "paused": "Paused"
+  "paused": "Paused",
+  "shareHint": "Each time it is confirmed, they owe their part of what was paid — the split follows the amount when the bill varies."
  },
  "budgets": {
   "subtitle": "Each version applies from its month onwards — changing it never rewrites past months.",
@@ -1224,7 +1225,11 @@
   "loanDue": "{{name}}: instalment due",
   "loanSplit": "interest {{interest}} · capital {{capital}}",
   "loanRevision": "{{name}}: rate revision",
-  "loanRevisionDetail": "Enter the new rate from {{date}} (the bank's letter)."
+  "loanRevisionDetail": "Enter the new rate from {{date}} (the bank's letter).",
+  "sharedOwed": "{{name}} owes you their part",
+  "sharedYouOwe": "You owe {{name}}",
+  "sharedDetail": "Record it under Sharing when it is paid.",
+  "sharedSince": "since {{date}}"
  },
  "split": {
   "action": "Split by category",
