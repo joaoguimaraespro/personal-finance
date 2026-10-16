@@ -1226,7 +1226,7 @@
   "loanSplit": "interest {{interest}} · capital {{capital}}",
   "loanRevision": "{{name}}: rate revision",
   "loanRevisionDetail": "Enter the new rate from {{date}} (the bank's letter).",
-  "sharedOwed": "{{name}} owes you their part",
+  "sharedOwed": "{{name}} hasn't paid their part yet",
   "sharedYouOwe": "You owe {{name}}",
   "sharedDetail": "Record it under Sharing when it is paid.",
   "sharedSince": "since {{date}}"

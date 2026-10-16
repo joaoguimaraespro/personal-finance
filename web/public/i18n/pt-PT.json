@@ -1226,7 +1226,7 @@
   "loanSplit": "juros {{interest}} · capital {{capital}}",
   "loanRevision": "{{name}}: revisão de taxa",
   "loanRevisionDetail": "Indica a nova taxa a partir de {{date}} (a carta do banco).",
-  "sharedOwed": "{{name}} deve-te a parte dele/dela",
+  "sharedOwed": "{{name}} ainda não pagou a parte que deve",
   "sharedYouOwe": "Deves a {{name}}",
   "sharedDetail": "Regista em Partilhas quando for pago.",
   "sharedSince": "desde {{date}}"
@@ -1373,7 +1373,7 @@
   "ofTotal": "de {{total}}",
   "history": "Histórico",
   "kind": {
-   "share": "Parte dele/dela",
+   "share": "Parte a pagar",
    "paidYou": "Pagou-te",
    "youPaid": "Pagaste",
    "theyPaid": "Pagou por ti",
