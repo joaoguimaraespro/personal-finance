@@ -62,6 +62,7 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.Property(x => x.Identifier).HasConversion(identifierConverter).HasMaxLength(1024);
             e.Ignore(x => x.IsManual);
             e.Ignore(x => x.IsLiability);
+            e.Ignore(x => x.IsPerson);
             e.Ignore(x => x.SupportsInterest);
         });
 
@@ -148,6 +149,8 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
             e.Property(x => x.TimeZone).HasMaxLength(64);
             e.Property(x => x.Notes).HasMaxLength(2000);
             e.Property(x => x.ExternalId).HasMaxLength(128);
+            e.HasIndex(x => x.SharedFromId);
+            e.Ignore(x => x.IsShare);
             e.Property(x => x.AssetSymbol).HasMaxLength(32);
             e.Property(x => x.AssetIsin).HasMaxLength(12);
             e.Property(x => x.AssetPriceSource).HasMaxLength(32);

@@ -43,7 +43,11 @@ public sealed record TransactionDto(
     IReadOnlyList<SplitDto> Splits,
     // Only when the list is filtered by category and this transaction is split: the part in that category.
     decimal? CategoryAmount = null,
-    bool IsRefund = false);
+    bool IsRefund = false,
+    // A shared expense: each person's part (ADR-0011).
+    IReadOnlyList<ShareDto>? Shares = null,
+    // A share: the expense it is part of.
+    Guid? SharedFromId = null);
 
 /// <summary>A category line of a split transaction. Amount is in the transaction's currency.</summary>
 public sealed record SplitDto(Guid CategoryId, string CategoryKey, string CategoryName, decimal Amount,
@@ -84,7 +88,8 @@ public sealed record TransactionRequest(
     string? Notes,
     InvestmentAssetDto? Asset = null,
     IReadOnlyList<SplitLineRequest>? Splits = null,
-    bool? IsRefund = null)
+    bool? IsRefund = null,
+    IReadOnlyList<ShareRequest>? Shares = null)
 {
     public TransactionDraft ToDraft() => new(Type, OccurredOn, Amount, Currency ?? SharedKernel.Currency.Base,
         AccountId, CategoryId, Nature, CounterAccountId, BucketId, GoalId, FxRate, Description, Notes,
@@ -160,13 +165,14 @@ public static class TransactionEndpoints
 
         group.MapPost("/", async (TransactionRequest req, IFinanceDb db, InterestAccrualService interest,
                 CancellationToken ct) =>
-            (await TransactionCommands.CreateAsync(db, interest, req.ToDraft(), DataSource.Manual, ct))
+            (await TransactionCommands.CreateAsync(db, interest, req.ToDraft(), DataSource.Manual, ct, req.Shares))
             .ToHttp(t => Results.Created($"/api/transactions/{t.Id}", new { t.Id })))
             .Validate<TransactionRequest>();
 
         group.MapPut("/{id:guid}", async (Guid id, TransactionRequest req, IFinanceDb db,
                 InterestAccrualService interest, CancellationToken ct) =>
-            (await TransactionCommands.UpdateAsync(db, interest, id, req.ToDraft(), ct)).ToHttp(_ => Results.NoContent()))
+            (await TransactionCommands.UpdateAsync(db, interest, id, req.ToDraft(), ct, req.Shares))
+            .ToHttp(_ => Results.NoContent()))
             .Validate<TransactionRequest>();
 
         group.MapDelete("/{id:guid}", async (Guid id, IFinanceDb db, TimeProvider clock,
@@ -238,6 +244,11 @@ public static class TransactionEndpoints
         if (accountId is not null)
         {
             query = query.Where(t => t.AccountId == accountId || t.CounterAccountId == accountId);
+        }
+        else
+        {
+            // People's shares are shown on their expense; a person's own list shows them.
+            query = query.Where(t => t.SharedFromId == null);
         }
 
         List<Guid>? categoryIds = null;
@@ -327,7 +338,7 @@ public static class TransactionEndpoints
             c == null ? null : c.Key, c == null ? null : c.Name, t.Nature, t.BucketId, b == null ? null : b.Name,
             t.GoalId, t.Description, t.Notes, t.Source,
             t.Source != DataSource.Trading212 && t.Source != DataSource.InteractiveBrokers &&
-            t.Source != DataSource.InterestEstimate,
+            t.Source != DataSource.InterestEstimate && t.SharedFromId == null,
             t.CreatedAtUtc, t.UpdatedAtUtc, TransactionTypes.FlowOf(t.Type),
             t.AssetKind == null || t.AssetSymbol == null
                 ? null
@@ -337,5 +348,11 @@ public static class TransactionEndpoints
                 join sc in db.Categories on s.CategoryId equals sc.Id
                 orderby s.Position
                 select new SplitDto(s.CategoryId, sc.Key, sc.Name, s.OriginalAmount, s.BaseAmount, s.Nature, s.Note))
-            .ToList(), null, t.IsRefund);
+            .ToList(), null, t.IsRefund,
+            (from s in db.Transactions
+                join p in db.Accounts on s.AccountId equals p.Id
+                where s.SharedFromId == t.Id
+                orderby p.Name
+                select new ShareDto(s.Id, p.Id, p.Name, s.OriginalAmount)).ToList(),
+            t.SharedFromId);
 }

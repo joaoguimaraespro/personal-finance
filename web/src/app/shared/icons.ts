@@ -103,6 +103,7 @@ import {
   lucideUnplug,
   lucideUpload,
   lucideUserRound,
+  lucideUsers,
   lucideWallet,
   lucideX,
 } from '@ng-icons/lucide';
@@ -215,6 +216,7 @@ export const APP_ICONS = provideIcons({
   lucideUnplug,
   lucideUpload,
   lucideUserRound,
+  lucideUsers,
   lucideWallet,
   lucideX,
 });
@@ -222,6 +224,7 @@ export const APP_ICONS = provideIcons({
 /** Sidebar icon per route; page headers reuse it so a page and its nav entry always match. */
 export const PAGE_ICONS = {
   loans: 'lucideHandCoins',
+  sharing: 'lucideUsers',
   dashboard: 'lucideLayoutDashboard',
   monthly: 'lucideCalendarDays',
   annual: 'lucideChartColumn',

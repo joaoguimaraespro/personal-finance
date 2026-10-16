@@ -15,7 +15,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, of } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents, QuickAdd } from '../../core/data-events';
-import { today } from '../../core/format';
+import { MoneyPipe, today } from '../../core/format';
 import {
   AssetClass,
   AssetPriceSource,
@@ -50,6 +50,7 @@ import {
   startSplit,
   toSplitRequests,
 } from '../../shared/split-lines';
+import { equalShares, ownerPart, shareError } from '../../shared/share-lines';
 
 export { parseAmount, parseDecimal } from '../../shared/parse-amount';
 
@@ -78,6 +79,7 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
     ModalComponent,
     TranslatePipe,
     CategoryLabelPipe,
+    MoneyPipe,
     InstrumentSearchComponent,
     SplitLinesComponent,
   ],
@@ -408,6 +410,77 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
           </label>
         }
 
+        @if (canShare()) {
+          <!-- Shared with people: the account pays it all, spending counts only the owner's part (ADR-0011). -->
+          <div class="rounded-lg border p-3" data-testid="qa-share">
+            <label class="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                class="mt-0.5"
+                [checked]="shareMode()"
+                (change)="setShareMode($any($event.target).checked)"
+              />
+              <span
+                >{{ 'tx.share' | translate }}
+                <span class="text-muted-foreground block text-xs">{{
+                  'tx.shareHint' | translate
+                }}</span></span
+              >
+            </label>
+            @if (shareMode()) {
+              <div class="mt-3 flex flex-wrap gap-1.5">
+                @for (p of people(); track p.id) {
+                  <button
+                    type="button"
+                    class="chip"
+                    [class.chip-active]="sharePeople().includes(p.id)"
+                    (click)="togglePerson(p.id)"
+                  >
+                    {{ p.name }}
+                  </button>
+                }
+              </div>
+              <div
+                class="segmented mt-3 text-xs"
+                role="group"
+                [attr.aria-label]="'tx.share' | translate"
+              >
+                <button type="button" [class.active]="shareEqual()" (click)="shareEqual.set(true)">
+                  {{ 'tx.shareEqual' | translate }}
+                </button>
+                <button type="button" [class.active]="!shareEqual()" (click)="customShares()">
+                  {{ 'tx.shareCustom' | translate }}
+                </button>
+              </div>
+              @if (!shareEqual()) {
+                <div class="mt-3 space-y-2">
+                  @for (p of selectedPeople(); track p.id) {
+                    <div class="flex items-center gap-2 text-sm">
+                      <span class="min-w-0 flex-1 truncate">{{ p.name }}</span>
+                      <input
+                        hlmInput
+                        class="num h-8 w-28"
+                        inputmode="decimal"
+                        [attr.aria-label]="p.name"
+                        [value]="shareAmounts()[p.id] ?? ''"
+                        (input)="setShareAmount(p.id, $any($event.target).value)"
+                      />
+                    </div>
+                  }
+                </div>
+              }
+              @if (shares().length) {
+                <p class="text-muted-foreground mt-3 text-xs">
+                  {{ 'tx.yourPart' | translate: { amount: (yourPart() | money) } }}
+                  @if (shareEqual()) {
+                    · {{ 'tx.eachPart' | translate: { amount: (shares()[0].amount | money) } }}
+                  }
+                </p>
+              }
+            }
+          </div>
+        }
+
         <div>
           <label class="label" for="qa-desc">{{ 'tx.description' | translate }}</label>
           <input
@@ -519,6 +592,13 @@ export class QuickAddComponent {
   /** "Dividir por categorias": one movement spread over several category lines. */
   protected readonly splitMode = signal(false);
   protected readonly isRefund = signal(false);
+  /** Shared with people (ADR-0011): equal parts with the owner, or an amount per person. */
+  protected readonly shareMode = signal(false);
+  protected readonly sharePeople = signal<string[]>([]);
+  protected readonly shareEqual = signal(true);
+  protected readonly shareAmounts = signal<Record<string, string>>({});
+  /** The expense being edited had shares: saving without them removes them. */
+  private readonly hadShares = signal(false);
   protected readonly splitLines = signal<SplitDraftLine[]>([]);
   protected readonly parsedAmount = computed(() => parseAmount(this.amount()));
   protected readonly bucketId = signal<string | null>(null);
@@ -578,6 +658,58 @@ export class QuickAddComponent {
   protected readonly manualAccounts = computed(() =>
     (this.accounts.value() ?? []).filter((a) => a.isManual && !a.archived),
   );
+  protected readonly people = computed(() =>
+    (this.accounts.value() ?? []).filter((a) => a.kind === 'Person' && !a.archived),
+  );
+  protected readonly selectedPeople = computed(() =>
+    this.people().filter((p) => this.sharePeople().includes(p.id)),
+  );
+  /** Only an expense with one category, paid from the owner's own account, can be shared. */
+  protected readonly canShare = computed(
+    () =>
+      this.type() === 'Expense' &&
+      !this.splitMode() &&
+      !this.isRefund() &&
+      this.people().length > 0 &&
+      this.people().every((p) => p.id !== this.accountId()),
+  );
+  protected readonly shares = computed(() => {
+    const amount = this.parsedAmount() ?? 0;
+    const ids = this.selectedPeople().map((p) => p.id);
+    if (this.shareEqual()) return equalShares(amount, ids);
+    return ids.map((personId) => ({
+      personId,
+      amount: parseAmount(this.shareAmounts()[personId] ?? '') ?? 0,
+    }));
+  });
+  protected readonly yourPart = computed(() => ownerPart(this.parsedAmount() ?? 0, this.shares()));
+
+  protected setShareMode(on: boolean) {
+    this.shareMode.set(on);
+    if (on && this.sharePeople().length === 0 && this.people().length === 1) {
+      this.sharePeople.set([this.people()[0].id]);
+    }
+  }
+
+  protected togglePerson(id: string) {
+    this.sharePeople.update((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
+  }
+
+  /** Switching to amounts starts from the equal split, to adjust. */
+  protected customShares() {
+    if (this.shareEqual()) {
+      const start: Record<string, string> = {};
+      for (const s of this.shares()) start[s.personId] = formatInput(s.amount);
+      this.shareAmounts.set(start);
+    }
+    this.shareEqual.set(false);
+  }
+
+  protected setShareAmount(id: string, value: string) {
+    this.shareAmounts.update((a) => ({ ...a, [id]: value }));
+  }
   protected readonly flow = computed(() => flowOf(this.type()));
   protected readonly flowTypes = computed(() => FLOW_TYPES[this.flow()]);
   protected readonly isMovement = computed(() => this.flow() === 'Movement');
@@ -625,7 +757,10 @@ export class QuickAddComponent {
     (this.type() === 'Transfer'
       ? (this.accounts.value() ?? []).filter((a) => !a.archived)
       : this.manualAccounts()
-    ).map((a) => ({ value: a.id, label: a.name })),
+    ).map((a) => ({
+      value: a.id,
+      label: a.kind === 'Person' ? this.i18n.instant('tx.paidByPerson', { name: a.name }) : a.name,
+    })),
   );
   protected readonly counterAccountOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
@@ -673,6 +808,20 @@ export class QuickAddComponent {
         this.splitLines.set(split ? fromSplits(t.splits) : []);
         this.nature.set(split ? t.nature : (t.nature ?? 'Variable'));
         this.isRefund.set(t.isRefund ?? false);
+        const shares = t.shares ?? [];
+        const equal =
+          shares.length > 0 &&
+          equalShares(
+            t.amount,
+            shares.map((x) => x.personId),
+          ).every((e, i) => e.amount === shares[i].amount);
+        this.hadShares.set(shares.length > 0);
+        this.shareMode.set(shares.length > 0);
+        this.sharePeople.set(shares.map((x) => x.personId));
+        this.shareEqual.set(shares.length === 0 || equal);
+        this.shareAmounts.set(
+          Object.fromEntries(shares.map((x) => [x.personId, formatInput(x.amount)])),
+        );
         this.bucketId.set(t.bucketId);
         this.goalId.set(t.goalId);
         this.date.set(t.occurredOn);
@@ -892,6 +1041,14 @@ export class QuickAddComponent {
         return;
       }
     }
+    const sharing = this.canShare() && this.shareMode();
+    if (sharing) {
+      const problem = shareError(amount, this.shares());
+      if (problem) {
+        this.error.set(this.i18n.instant('tx.errors.share.' + problem));
+        return;
+      }
+    }
     const asset = this.isInvestment() ? this.assetBody() : null;
     if (asset === undefined) {
       this.error.set(this.i18n.instant('tx.errors.symbol'));
@@ -915,6 +1072,8 @@ export class QuickAddComponent {
       description: this.description() || null,
       notes: this.notes() || null,
       asset,
+      // null keeps an edited expense's shares as they are only if it never had any.
+      shares: sharing ? this.shares() : this.hadShares() ? [] : null,
     };
 
     this.saving.set(true);
@@ -972,6 +1131,11 @@ export class QuickAddComponent {
     this.notes.set('');
     this.categoryId.set(null);
     this.isRefund.set(false);
+    this.shareMode.set(false);
+    this.sharePeople.set([]);
+    this.shareEqual.set(true);
+    this.shareAmounts.set({});
+    this.hadShares.set(false);
     this.splitMode.set(false);
     this.splitLines.set([]);
     // untracked: reset runs inside the open/edit effect, which must not re-run when the nature changes.

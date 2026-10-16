@@ -8,6 +8,7 @@ using Finance.Application.Interest;
 using Finance.Application.Loans;
 using Finance.Application.Notifications;
 using Finance.Application.Recurring;
+using Finance.Application.Sharing;
 using Finance.Application.Transactions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +38,7 @@ public static class FinanceModule
         api.MapGoals();
         api.MapInterest();
         api.MapLoans();
+        api.MapSharing();
         return api;
     }
 }
