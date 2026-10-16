@@ -596,6 +596,7 @@ export class AccountsComponent {
     Broker: 'lucideBriefcase',
     Loan: 'lucideHandCoins',
     Other: 'lucideWallet',
+    Person: 'lucideUsers',
   };
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
@@ -720,8 +721,11 @@ export class AccountsComponent {
     const account = this.portfolio.value()?.accounts.find((x) => x.accountId === accountId);
     return account ? account.marketValue + account.cash : null;
   }
+  /** People live on the Sharing page. */
   protected readonly visible = computed(() =>
-    (this.accounts.value() ?? []).filter((a) => this.showArchived() || !a.archived),
+    (this.accounts.value() ?? []).filter(
+      (a) => a.kind !== 'Person' && (this.showArchived() || !a.archived),
+    ),
   );
 
   /** "kind": everyday money, savings, investments, debts. "institution": each bank with its sub-accounts. */

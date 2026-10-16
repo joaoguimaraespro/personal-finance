@@ -116,6 +116,14 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
     public Guid? BucketId { get; private set; }
     public Guid? GoalId { get; private set; }
 
+    /// <summary>
+    /// A person's part of a shared expense (ADR-0011): a refund of the expense's category in that person's account,
+    /// linked to the expense it came from. It follows that expense and is not edited on its own.
+    /// </summary>
+    public Guid? SharedFromId { get; private set; }
+
+    public bool IsShare => SharedFromId is not null;
+
     /// <summary>Instrument details, only on investment entries and optional (older entries have none).</summary>
     public InvestmentAssetKind? AssetKind { get; private set; }
     public string? AssetSymbol { get; private set; }
@@ -172,6 +180,23 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
     }
 
     public Result Update(TransactionDraft draft) => Apply(draft);
+
+    /// <summary>A person's part of <paramref name="expense"/>, booked in their account (see <see cref="SharedFromId"/>).</summary>
+    public static Result<Transaction> CreateShare(Transaction expense, Guid personAccountId, decimal amount,
+        string? externalId = null)
+    {
+        var share = new Transaction { Source = expense.Source, SharedFromId = expense.Id, ExternalId = externalId };
+        var applied = share.ApplyShare(expense, personAccountId, amount);
+        return applied.IsSuccess ? share : Result.Failure<Transaction>(applied.Error);
+    }
+
+    /// <summary>Follows <paramref name="expense"/> after it changed: same day, category, currency and description.</summary>
+    public Result UpdateShare(Transaction expense, decimal amount) => ApplyShare(expense, AccountId, amount);
+
+    private Result ApplyShare(Transaction expense, Guid personAccountId, decimal amount) => Apply(new TransactionDraft(
+        TransactionType.Expense, expense.OccurredOn, amount, expense.OriginalCurrency, personAccountId,
+        expense.CategoryId, expense.Nature, FxRate: expense.FxRate, Description: expense.Description,
+        OccurredAtUtc: expense.OccurredAtUtc, TimeZone: expense.TimeZone, IsRefund: true));
 
     public void SoftDelete(DateTimeOffset now) => DeletedAtUtc = now;
 

@@ -11,6 +11,12 @@ public enum AccountKind
     Broker = 4,
     Loan = 5,
     Other = 6,
+
+    /// <summary>
+    /// Someone the owner shares costs with (ADR-0011). The balance is what they owe the owner (positive) or what the
+    /// owner owes them (negative).
+    /// </summary>
+    Person = 7,
 }
 
 /// <summary>How often the bank credits interest. Daily payouts compound daily; monthly ones at month end.</summary>
@@ -41,6 +47,8 @@ public sealed class Account : Entity, IAuditable
 
     public bool IsLiability => Kind is AccountKind.CreditCard or AccountKind.Loan;
 
+    public bool IsPerson => Kind == AccountKind.Person;
+
     /// <summary>Only savings and current (bank) accounts can carry an interest rate.</summary>
     public bool SupportsInterest => Kind is AccountKind.Savings or AccountKind.Bank;
 
@@ -53,7 +61,7 @@ public sealed class Account : Entity, IAuditable
     public bool RestrictedUse { get; private set; }
 
     public void SetRestrictedUse(bool restricted) => RestrictedUse = restricted && Kind is not (AccountKind.Broker
-        or AccountKind.CreditCard or AccountKind.Loan);
+        or AccountKind.CreditCard or AccountKind.Loan or AccountKind.Person);
 
     /// <summary>
     /// Broker accounts only: the allocation bucket their synced deposits count towards each month (e.g. Trading 212

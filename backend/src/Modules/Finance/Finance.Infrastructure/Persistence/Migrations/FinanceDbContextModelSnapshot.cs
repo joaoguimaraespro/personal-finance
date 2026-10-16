@@ -1033,6 +1033,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnName("original_currency")
                         .IsFixedLength();
 
+                    b.Property<Guid?>("SharedFromId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shared_from_id");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -1078,6 +1082,9 @@ namespace Finance.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OccurredOn")
                         .HasDatabaseName("ix_transactions_occurred_on");
+
+                    b.HasIndex("SharedFromId")
+                        .HasDatabaseName("ix_transactions_shared_from_id");
 
                     b.HasIndex("Source", "ExternalId")
                         .IsUnique()

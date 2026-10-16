@@ -338,6 +338,7 @@ export class ShellComponent {
         { path: '/recurring', label: 'nav.recurring', icon: PAGE_ICONS.recurring },
         { path: '/budgets', label: 'nav.budgets', icon: PAGE_ICONS.budgets },
         { path: '/goals', label: 'nav.goals', icon: PAGE_ICONS.goals },
+        { path: '/sharing', label: 'nav.sharing', icon: PAGE_ICONS.sharing },
       ],
     },
     {

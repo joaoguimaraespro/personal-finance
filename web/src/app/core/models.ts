@@ -63,7 +63,16 @@ export interface InstrumentQuoteResult {
   message: string | null;
 }
 export type ExpenseNature = 'Fixed' | 'Variable';
-export type AccountKind = 'Bank' | 'Cash' | 'CreditCard' | 'Savings' | 'Broker' | 'Loan' | 'Other';
+export type AccountKind =
+  | 'Bank'
+  | 'Cash'
+  | 'CreditCard'
+  | 'Savings'
+  | 'Broker'
+  | 'Loan'
+  | 'Other'
+  /** Someone the owner shares costs with: the balance is what they owe (+) or are owed (−). */
+  | 'Person';
 export type DataSource =
   | 'Manual'
   | 'Recurring'
@@ -196,6 +205,69 @@ export interface Transaction {
   splits: TransactionSplit[];
   /** Only when the list is filtered by category and this row is split: the part in that category. */
   categoryAmount?: number | null;
+  /** A shared expense: each person's part. */
+  shares?: TransactionShare[];
+  /** A person's share: the expense it is part of. */
+  sharedFromId?: string | null;
+}
+
+export interface TransactionShare {
+  transactionId: string;
+  personId: string;
+  personName: string;
+  amount: number;
+}
+
+export interface ShareRequest {
+  personId: string;
+  amount: number;
+}
+
+/** A person's part of an expense and what is still to be paid of it. */
+export interface OpenShare {
+  shareId: string;
+  expenseId: string;
+  on: string;
+  description: string | null;
+  categoryName: string | null;
+  paidFrom: string;
+  expenseAmount: number;
+  amount: number;
+  outstanding: number;
+}
+
+export interface PersonMovement {
+  transactionId: string;
+  on: string;
+  kind: 'share' | 'paidYou' | 'youPaid' | 'theyPaid' | 'other';
+  /** + they owe more, − they owe less. */
+  amount: number;
+  description: string | null;
+  otherAccount: string | null;
+}
+
+export interface SharedPerson {
+  id: string;
+  name: string;
+  /** + they owe the owner, − the owner owes them. */
+  balance: number;
+  owedSince: string | null;
+  open: OpenShare[];
+  recent: PersonMovement[];
+}
+
+export interface SharingOverview {
+  owedToYou: number;
+  youOwe: number;
+  people: SharedPerson[];
+}
+
+export interface SettleRequest {
+  direction: 'received' | 'paid';
+  accountId: string;
+  amount: number;
+  on: string;
+  description?: string | null;
 }
 
 export interface TransactionSplit {
@@ -232,6 +304,8 @@ export interface TransactionRequest {
   notes?: string | null;
   asset?: InvestmentAsset | null;
   splits?: SplitLineRequest[] | null;
+  /** People's parts of a shared expense: null keeps them, empty removes them. */
+  shares?: ShareRequest[] | null;
 }
 
 export interface Page<T> {
@@ -730,8 +804,10 @@ export interface NetWorthHistory {
     manualAssets: number;
     /** Restricted-use balances (meal card, benefits), part of the assets. */
     restricted?: number;
+    /** What people owe the owner for shared costs, part of the assets. */
+    receivable?: number;
     lines: {
-      group: 'cash' | 'restricted' | 'investments' | 'manual' | 'liability';
+      group: 'cash' | 'restricted' | 'investments' | 'manual' | 'liability' | 'receivable';
       name: string;
       value: number;
     }[];

@@ -67,6 +67,8 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     t.BaseCurrency, t.Description, t.Notes, t.Source, t.ExternalId, t.CreatedAtUtc, t.UpdatedAtUtc,
                     t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetIsin, t.AssetQuantity, t.AssetUnitPrice,
                     t.AssetPriceSource,
+                    // A person's share of a shared expense: the expense it belongs to (ADR-0011).
+                    t.SharedFromId,
                     // Category lines of a split transaction (absent otherwise). EUR amounts are re-derived on import.
                     splits = t.IsSplit
                         ? t.Splits.OrderBy(s => s.Position).Select(s => new
@@ -261,6 +263,9 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 .Where(t => t.Source == DataSource.Json && importedIds.Contains(t.ExternalId!))
                 .Select(t => t.ExternalId!).ToListAsync(ct)).ToHashSet();
             var existingTransactions = (await finance.Transactions.IgnoreQueryFilters().Select(t => t.Id).ToListAsync(ct)).ToHashSet();
+            // Shares are linked to their expense once every expense of the archive has its new id.
+            var createdById = new Dictionary<Guid, Transaction>();
+            var shares = new List<(Guid ExpenseId, Transaction Share)>();
             foreach (var t in Items(f, "transactions"))
             {
                 var originalId = t.GetProperty("id").GetGuid();
@@ -293,13 +298,31 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                 var created = Transaction.Create(draft, DataSource.Json, externalId: $"json:{originalId}");
                 if (created.IsSuccess)
                 {
-                    finance.Transactions.Add(created.Value);
+                    createdById[originalId] = created.Value;
+                    if (t.TryGetProperty("sharedFromId", out var from) && from.ValueKind == JsonValueKind.String)
+                    {
+                        shares.Add((from.GetGuid(), created.Value));
+                    }
+                    else
+                    {
+                        finance.Transactions.Add(created.Value);
+                    }
+
                     transactions++;
                 }
                 else
                 {
                     skipped++;
                 }
+            }
+
+            foreach (var (expenseId, share) in shares)
+            {
+                // A share whose expense is not in this import stays a refund in the person's account.
+                var linked = createdById.TryGetValue(expenseId, out var expense)
+                    ? Transaction.CreateShare(expense, share.AccountId, share.OriginalAmount, share.ExternalId)
+                    : share;
+                finance.Transactions.Add(linked.IsSuccess ? linked.Value : share);
             }
 
             var recurringNames = await finance.RecurringTransactions.Select(r => r.Name).ToListAsync(ct);

@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { BACKGROUND } from './activity';
 import {
   Account,
+  SettleRequest,
+  SharingOverview,
   AllocationLine,
   AssetClass,
   Broker,
@@ -269,6 +271,9 @@ export class Api {
     );
 
   // Net worth
+  sharing = () => this.http.get<SharingOverview>('/api/sharing');
+  settle = (personId: string, body: SettleRequest) =>
+    this.http.post<{ id: string }>(`/api/sharing/${personId}/settle`, body);
   netWorth = () => this.http.get<NetWorthHistory>('/api/net-worth');
   manualAssets = () => this.http.get<ManualAsset[]>('/api/assets');
   createManualAsset = (body: unknown) => this.http.post<{ id: string }>('/api/assets', body);
