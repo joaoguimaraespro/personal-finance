@@ -119,7 +119,7 @@ public sealed class AiBoundaryTests
         AiTools.All.ShouldAllBe(t => AiScopes.Names.Contains(t.Scope));
         var sensitive = AiScopes.All.Where(s => s.Sensitive).Select(s => s.Name).ToHashSet();
         AiTools.Reads.ShouldAllBe(t => !sensitive.Contains(t.Scope));
-        sensitive.ShouldBe(["accounts.identifiers.read", "raw.transactions.read", "personal.notes.read",
+        sensitive.ShouldBe(["accounts.names.read", "accounts.identifiers.read", "raw.transactions.read", "personal.notes.read",
             .. AllowedWriteScopes], ignoreOrder: true);
     }
 
@@ -186,7 +186,7 @@ public sealed class AiBoundaryTests
             "get_portfolio_performance -> portfolio.performance.read",
             "get_dividend_summary -> dividends.read",
             "get_budget_status -> budget.read",
-            "get_goals -> goals.read",
+            "get_goals -> goals.read", "get_loans -> loans.read",
             "create_transaction -> transactions.write",
             "update_transaction -> transactions.write",
             "delete_transaction -> transactions.write",

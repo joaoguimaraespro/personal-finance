@@ -83,7 +83,8 @@ public sealed class AiToolCoverageTests(ApiFactory factory)
         interest.GetProperty("monthsAwaitingReconciliation").GetInt32().ShouldBe(2);
         (interest.GetProperty("thisYearEstimated").GetDecimal() + interest.GetProperty("thisYearConfirmed").GetDecimal())
             .ShouldBe(interest.GetProperty("thisYear").GetDecimal());
-        string[] allowed = ["kind", "institution", "currency", "balance", "balanceEur", "liability", "valuedFrom", "interest"];
+        string[] allowed = ["kind", "institution", "currency", "balance", "balanceEur", "liability", "valuedFrom", "interest",
+            "restrictedUse"];
         item.EnumerateObject().Select(p => p.Name).ShouldAllBe(n => allowed.Contains(n));
         raw.ShouldNotContain(Iban);
         raw.ShouldNotContain("private name");
@@ -97,6 +98,13 @@ public sealed class AiToolCoverageTests(ApiFactory factory)
         var named = full.GetProperty("items").EnumerateArray().Single(i => Untrusted(i, "institution") == Hostile);
         Untrusted(named, "name").ShouldBe("AI tools savings (private name)");
         named.GetProperty("identifier").GetString().ShouldBe(Iban);
+
+        // Names without IBANs: their own permission.
+        var names = await TokenAsync(owner, "Accounts with names", "accounts.balances.read", "accounts.names.read");
+        var (_, withNames, namesRaw) = await CallAsync(names, "get_accounts", new { kind = "Savings" });
+        Untrusted(withNames.GetProperty("items").EnumerateArray().Single(i => Untrusted(i, "institution") == Hostile), "name")
+            .ShouldBe("AI tools savings (private name)");
+        namesRaw.ShouldNotContain(Iban);
 
         (await CallAsync(plain, "get_accounts", new { kind = "Vault" })).Status.ShouldBe(HttpStatusCode.BadRequest);
         (await CallAsync(plain, "get_accounts", new { iban = true })).Status.ShouldBe(HttpStatusCode.BadRequest);
@@ -353,5 +361,71 @@ public sealed class AiToolCoverageTests(ApiFactory factory)
         var text = string.Join("", result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(c => c.Text));
         JsonDocument.Parse(text).RootElement.GetProperty("data").GetProperty("items").EnumerateArray()
             .ShouldAllBe(i => i.GetProperty("kind").GetString() == "Savings");
+    }
+
+    [Fact]
+    public async Task Loans_give_capital_owed_and_the_next_instalment_with_its_charges()
+    {
+        var owner = await factory.OwnerAsync();
+        var loan = await owner.CreateAsync("/api/accounts",
+            new { name = "AI loan (private name)", kind = "Loan", currency = "EUR", openingBalance = 0, institution = "LoanBankXyz" });
+        var first = new DateOnly(Today.Year, Today.Month, 5).AddMonths(-6);
+        await ApiClient.EnsureAsync(await owner.PutAsync($"/api/loans/{loan}", new
+        {
+            principal = 10_000m, firstPaymentOn = first.ToString("yyyy-MM-dd"), termMonths = 48, rateType = "Fixed",
+            initialRatePercent = 6m, monthlyFee = 2.5m, stampDuty = true, monthlyInsurance = 4.54m, dayCount = "Actual360",
+        }));
+
+        var token = await TokenAsync(owner, "Loans plain", "loans.read");
+        var (status, data, raw) = await CallAsync(token, "get_loans");
+
+        status.ShouldBe(HttpStatusCode.OK);
+        var item = data.GetProperty("items").EnumerateArray().Single(i => Untrusted(i, "institution") == "LoanBankXyz");
+        item.GetProperty("principal").GetDecimal().ShouldBe(10_000m);
+        item.GetProperty("outstanding").GetDecimal().ShouldBeInRange(8_000m, 9_500m);
+        item.GetProperty("instalmentsPaid").GetInt32().ShouldBeInRange(6, 7);
+        item.GetProperty("interestDayCount").GetString().ShouldBe("Actual360");
+        var next = item.GetProperty("next");
+        next.GetProperty("commission").GetDecimal().ShouldBe(2.5m);
+        next.GetProperty("insurance").GetDecimal().ShouldBe(4.54m);
+        next.GetProperty("stampDuty").GetDecimal().ShouldBeGreaterThan(0m);
+        next.GetProperty("total").GetDecimal().ShouldBe(next.GetProperty("payment").GetDecimal() + 2.5m + 4.54m +
+                                                         next.GetProperty("stampDuty").GetDecimal());
+        raw.ShouldNotContain("private name");
+
+        (await CallAsync(await TokenAsync(owner, "Loans denied", "accounts.balances.read"), "get_loans")).Status
+            .ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Refunds_are_flagged_and_lower_the_expense_total()
+    {
+        var owner = await factory.OwnerAsync();
+        var bank = await owner.CreateAsync("/api/accounts",
+            new { name = "AI refund bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var period = new DateOnly(Today.Year, Today.Month, 1).AddMonths(-3);
+        var on = period.AddDays(9).ToString("yyyy-MM-dd");
+        await owner.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = on, amount = 30m, currency = "EUR", accountId = bank,
+            categoryId = SystemCatalog.CategoryId("subscriptions"), description = "RefundXyz shared",
+        });
+        await owner.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = on, amount = 20m, currency = "EUR", accountId = bank,
+            categoryId = SystemCatalog.CategoryId("subscriptions"), description = "RefundXyz back", isRefund = true,
+        });
+
+        var token = await TokenAsync(owner, "Refunds", "transactions.read", "expenses.transactions.read");
+        var (_, data, _) = await CallAsync(token, "get_transactions",
+            new { type = "expense", period = period.ToString("yyyy-MM"), search = "RefundXyz" });
+
+        data.GetProperty("totalsByType")[0].GetProperty("totalEur").GetDecimal().ShouldBe(10m);
+        data.GetProperty("items").EnumerateArray()
+            .Single(i => Untrusted(i, "description") == "RefundXyz back").GetProperty("refund").GetBoolean().ShouldBeTrue();
+
+        var (_, expenses, _) = await CallAsync(token, "get_expense_transactions", new { period = period.ToString("yyyy-MM") });
+        expenses.GetProperty("items").EnumerateArray()
+            .Single(i => Untrusted(i, "description") == "RefundXyz back").GetProperty("refund").GetBoolean().ShouldBeTrue();
     }
 }

@@ -86,7 +86,7 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
         CancellationToken ct = default) => Call("get_net_worth_history", ct, ("range", range));
 
     [McpServerTool(Name = "get_accounts", Title = "Accounts", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
-    [Description("Each account's type, institution and current balance in EUR (broker accounts and crypto locations valued from the portfolio; archived accounts excluded). Savings and current accounts add their rate (TANB), withholding and interest this year (estimated vs confirmed).")]
+    [Description("Each account's type, institution and current balance in EUR (broker accounts and crypto locations valued from the portfolio; archived accounts excluded). Savings and current accounts add their rate (TANB), withholding and interest this year (estimated vs confirmed); restricted-use balances (meal and benefit cards) are flagged. Names only with the account-names permission.")]
     public Task<string> GetAccounts([Description("Optional account type: Bank, Cash, CreditCard, Savings, Broker, Loan or Other.")] string? kind = null,
         CancellationToken ct = default) => Call("get_accounts", ct, ("kind", kind));
 
@@ -129,6 +129,10 @@ public sealed class FinanceMcpTools(GatewayClient gateway, IHttpContextAccessor 
     [McpServerTool(Name = "get_goals", Title = "Goals", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Financial goals with target, current amount and progress.")]
     public Task<string> GetGoals(CancellationToken ct = default) => Call("get_goals", ct);
+
+    [McpServerTool(Name = "get_loans", Title = "Loans", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description("Each loan with terms: institution, amount borrowed, capital still owed, rate (fixed or index + spread), next instalment with its charges (commission, stamp duty, insurance), instalments paid and left, end date and interest paid and still to pay.")]
+    public Task<string> GetLoans(CancellationToken ct = default) => Call("get_loans", ct);
 
     // ---- Write tools: opt-in write scopes only. One record per call; ids and text are data.
 

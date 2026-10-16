@@ -39,7 +39,7 @@ public sealed class AssistantService(IAssistantModel model, AiGateway gateway, I
     [
         AiScopes.Overview, AiScopes.ExpensesSummary, AiScopes.IncomeSummary, AiScopes.Budget, AiScopes.Goals,
         AiScopes.NetWorth, AiScopes.PortfolioSummary, AiScopes.PortfolioPositions, AiScopes.PortfolioPerformance,
-        AiScopes.Dividends, AiScopes.AccountBalances, AiScopes.Recurring,
+        AiScopes.Dividends, AiScopes.AccountBalances, AiScopes.Recurring, AiScopes.Loans,
     ];
 
     private const string System = """
