@@ -3,6 +3,7 @@ using Ai.Contracts;
 using Finance.Application.Abstractions;
 using Finance.Application.Accounts;
 using Finance.Application.Goals;
+using Finance.Application.Loans;
 using Finance.Domain.Accounts;
 using Finance.Domain.Categories;
 using Finance.Domain.Interest;
@@ -56,6 +57,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         "get_dividend_summary" => DividendsAsync(ctx, ct),
         "get_budget_status" => BudgetAsync(ctx, ct),
         "get_goals" => GoalsAsync(ctx, ct),
+        "get_loans" => LoansAsync(ctx, ct),
         _ => throw new ToolArgumentException("Unknown tool."),
     };
 
@@ -170,7 +172,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 orderby t.OccurredOn descending, t.CreatedAtUtc descending
                 select new
                 {
-                    t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount,
+                    t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount, t.IsRefund,
                     Category = c == null ? null : c.Name, t.Description, t.Notes, Account = a.Institution ?? a.Name,
                     t.Source, Splits = (from sp in t.Splits
                         join sc in finance.Categories on sp.CategoryId equals sc.Id
@@ -191,6 +193,8 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 // Only clients that may edit transactions see ids, and only of the rows they may edit.
                 id = withIds && AiWritePolicy.IsEditable(r.Source, r.Type) ? r.Id : (Guid?)null,
                 date = r.OccurredOn,
+                // Money given back for an expense (it lowers the category's spending).
+                refund = r.IsRefund ? true : (bool?)null,
                 amount = r.OriginalAmount,
                 currency = r.OriginalCurrency,
                 amountEur = r.BaseAmount,
@@ -401,6 +405,53 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         }, goals.Count);
     }
 
+    private async Task<ToolOutput> LoansAsync(ToolContext ctx, CancellationToken ct)
+    {
+        var loans = await finance.Loans.AsNoTracking().Include(l => l.Rates).Include(l => l.Prepayments)
+            .Join(finance.Accounts.Where(a => a.ArchivedAtUtc == null), l => l.AccountId, a => a.Id,
+                (l, a) => new { Loan = l, a.Institution, a.Name })
+            .ToListAsync(ct);
+        var withNames = ctx.Has(AiScopes.AccountNames) || ctx.Has(AiScopes.AccountIdentifiers);
+        return new(new
+        {
+            currency = Currency.Base,
+            totalOwed = loans.Sum(x => LoanEndpoints.Summary(x.Loan, x.Name, ctx.Today).Outstanding),
+            items = loans.Select(x =>
+            {
+                var s = LoanEndpoints.Summary(x.Loan, x.Name, ctx.Today);
+                return new
+                {
+                    institution = UntrustedText.From(x.Institution),
+                    name = withNames ? UntrustedText.From(x.Name) : null,
+                    principal = s.Principal,
+                    outstanding = s.Outstanding,
+                    paidOffShare = s.PaidOffShare,
+                    rateType = s.RateType.ToString(),
+                    currentRatePercent = s.CurrentRatePercent,
+                    indexName = s.IndexName,
+                    spreadPercent = s.SpreadPercent,
+                    nextRevision = s.NextRevision,
+                    interestDayCount = s.DayCount.ToString(),
+                    firstPaymentOn = s.FirstPaymentOn,
+                    termMonths = s.TermMonths,
+                    next = s.Next is { } n
+                        ? new
+                        {
+                            date = n.Date, payment = n.Payment, interest = n.Interest, capital = n.Principal,
+                            commission = n.Fee, stampDuty = n.StampDuty, insurance = n.Insurance, total = n.Total,
+                        }
+                        : null,
+                    instalmentsPaid = s.InstalmentsPaid,
+                    instalmentsLeft = s.InstalmentsLeft,
+                    endDate = s.EndDate,
+                    interestPaid = s.InterestPaid,
+                    interestLeft = s.InterestLeft,
+                    pendingToBook = s.PendingInstalments,
+                };
+            }),
+        }, loans.Count);
+    }
+
     private async Task<ToolOutput> YearBreakdownAsync(ToolContext ctx, CancellationToken ct)
     {
         var year = ctx.Args.Year(ctx.Today);
@@ -473,8 +524,9 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                                      (t.AssetName != null && t.AssetName.ToLower().Contains(term)));
         }
 
+        // A refund is an expense given back: it lowers the expense total instead of adding to it.
         var totals = await query.GroupBy(t => t.Type)
-            .Select(g => new { Type = g.Key, Count = g.Count(), Total = g.Sum(t => t.BaseAmount) })
+            .Select(g => new { Type = g.Key, Count = g.Count(), Total = g.Sum(t => t.IsRefund ? -t.BaseAmount : t.BaseAmount) })
             .ToListAsync(ct);
         if (categoryIds is { } wanted)
         {
@@ -496,7 +548,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 orderby t.OccurredOn descending, t.CreatedAtUtc descending
                 select new
                 {
-                    t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount,
+                    t.Id, t.Type, t.OccurredOn, t.OriginalAmount, t.OriginalCurrency, t.BaseAmount, t.IsRefund,
                     Category = c == null ? null : c.Name, t.Nature, t.Description, t.Notes,
                     Account = a.Institution ?? a.Name, Counter = ca == null ? null : ca.Institution ?? ca.Name,
                     t.Source, t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetQuantity, Splits = (from sp in t.Splits
@@ -523,6 +575,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 id = withIds && AiWritePolicy.IsEditable(r.Source, r.Type) ? r.Id : (Guid?)null,
                 date = r.OccurredOn,
                 type = TypeName(r.Type),
+                refund = r.IsRefund ? true : (bool?)null,
                 amount = r.OriginalAmount,
                 currency = r.OriginalCurrency,
                 amountEur = r.BaseAmount,
@@ -593,7 +646,8 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
             ? (await portfolio.SummaryAsync(new PortfolioScope(), ct)).Accounts.ToDictionary(a => a.AccountId, a => a.MarketValue + a.Cash)
             : new Dictionary<Guid, decimal>();
 
-        var withNames = ctx.Has(AiScopes.AccountIdentifiers);
+        var withIdentifiers = ctx.Has(AiScopes.AccountIdentifiers);
+        var withNames = withIdentifiers || ctx.Has(AiScopes.AccountNames);
         // Account ids only for clients that can write entries, and only for accounts that accept them.
         var withIds = ctx.Has(AiScopes.TransactionsWrite) || ctx.Has(AiScopes.RecurringWrite);
         var items = accounts.Select(a =>
@@ -612,7 +666,8 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 // A crypto location's name ("Binance", "Cold wallet") is where the coins are: it plays the institution.
                 institution = UntrustedText.From(isLocation ? a.Name : a.Institution),
                 name = withNames ? UntrustedText.From(a.Name) : null,
-                identifier = withNames ? a.Identifier : null,
+                identifier = withIdentifiers ? a.Identifier : null,
+                restrictedUse = a.RestrictedUse ? true : (bool?)null,
                 currency = isBroker ? Currency.Base : a.Currency,
                 balance = native,
                 balanceEur = eur,
