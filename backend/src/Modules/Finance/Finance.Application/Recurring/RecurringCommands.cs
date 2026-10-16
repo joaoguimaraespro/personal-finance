@@ -99,6 +99,20 @@ public static class RecurringCommands
         }
 
         db.Transactions.Add(created.Value);
+        // The people who share it owe their part of what was actually paid (archived people no longer share).
+        var people = template.Shares.Select(s => s.PersonId).ToList();
+        var active = people.Count == 0
+            ? []
+            : await db.Accounts.Where(a => people.Contains(a.Id) && a.ArchivedAtUtc == null).Select(a => a.Id)
+                .ToListAsync(ct);
+        var shares = template.SharesFor(created.Value.OriginalAmount)
+            .Where(s => active.Contains(s.PersonId))
+            .Select(s => new ShareRequest(s.PersonId, s.Amount)).ToList();
+        if (shares.Count > 0 && await TransactionShares.SyncAsync(db, created.Value, shares, now, ct) is { } shareError)
+        {
+            return shareError;
+        }
+
         item.Confirm(created.Value.Id, now);
         await db.SaveChangesAsync(ct);
         return created.Value;
@@ -136,6 +150,23 @@ public static class RecurringCommands
         }
 
         var probeResult = Transaction.Create(resolved.Value, DataSource.Recurring);
-        return probeResult.IsFailure ? probeResult.Error : null;
+        if (probeResult.IsFailure)
+        {
+            return probeResult.Error;
+        }
+
+        if (def.Shares is not { Count: > 0 } shares)
+        {
+            return null;
+        }
+
+        // Shared with people (ADR-0011): checked like a shared expense of the template's amount.
+        if (shares.Any(s => s.Percent is <= 0 or > 100) || shares.Sum(s => s.Percent) > 100)
+        {
+            return ShareErrors.InvalidAmount;
+        }
+
+        return await TransactionShares.ValidateAsync(db, resolved.Value,
+            shares.Select(s => new ShareRequest(s.PersonId, 0.01m)).ToList(), ct);
     }
 }

@@ -1266,6 +1266,48 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_recurring_transactions_categories_category_id");
 
+                    b.OwnsMany("Finance.Domain.Recurring.RecurringShare", "Shares", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<decimal>("Percent")
+                                .HasPrecision(9, 6)
+                                .HasColumnType("numeric(9,6)")
+                                .HasColumnName("percent");
+
+                            b1.Property<Guid>("PersonId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("person_id");
+
+                            b1.Property<Guid>("RecurringTransactionId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("recurring_transaction_id");
+
+                            b1.HasKey("Id")
+                                .HasName("pk_recurring_transaction_shares");
+
+                            b1.HasIndex("PersonId")
+                                .HasDatabaseName("ix_recurring_transaction_shares_person_id");
+
+                            b1.HasIndex("RecurringTransactionId")
+                                .HasDatabaseName("ix_recurring_transaction_shares_recurring_transaction_id");
+
+                            b1.ToTable("recurring_transaction_shares", "finance");
+
+                            b1.HasOne("Finance.Domain.Accounts.Account", null)
+                                .WithMany()
+                                .HasForeignKey("PersonId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired()
+                                .HasConstraintName("fk_recurring_transaction_shares_accounts_person_id");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RecurringTransactionId")
+                                .HasConstraintName("fk_recurring_transaction_shares_recurring_transactions_recurri");
+                        });
+
                     b.OwnsMany("Finance.Domain.Recurring.RecurringSplit", "Splits", b1 =>
                         {
                             b1.Property<Guid>("Id")
@@ -1316,6 +1358,8 @@ namespace Finance.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("RecurringTransactionId")
                                 .HasConstraintName("fk_recurring_transaction_splits_recurring_transactions_recurri");
                         });
+
+                    b.Navigation("Shares");
 
                     b.Navigation("Splits");
                 });

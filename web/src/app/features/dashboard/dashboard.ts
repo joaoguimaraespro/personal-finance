@@ -850,6 +850,56 @@ import { PageHeaderComponent } from '../../shared/page-header';
       </section>
     }
 
+    <!-- Sharing: who still owes their part of shared costs, and whom the owner owes. -->
+    @if (owing().length) {
+      @let sh = sharing.value()!;
+      <section class="card mt-6">
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 class="card-title !mb-0">
+            <ng-icon name="lucideUsers" />{{ 'nav.sharing' | translate }}
+          </h2>
+          <span class="text-muted-foreground num text-xs"
+            >{{ 'sharing.owedToYou' | translate }}
+            <b class="tone-pos">{{ sh.owedToYou | money }}</b>
+            @if (sh.youOwe) {
+              · {{ 'sharing.youOwe' | translate }}
+              <b class="tone-neg">{{ sh.youOwe | money }}</b>
+            }
+          </span>
+        </div>
+        <ul class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          @for (p of owing(); track p.id) {
+            <li>
+              <a
+                routerLink="/sharing"
+                class="hover:bg-muted/50 flex items-baseline justify-between gap-2 rounded-lg border p-3 transition-colors"
+              >
+                <span class="min-w-0">
+                  <span class="block truncate font-medium">{{ p.name }}</span>
+                  <span class="text-muted-foreground text-xs">
+                    @if (p.balance > 0) {
+                      {{ 'sharing.owesYou' | translate }}
+                      @if (p.owedSince) {
+                        · {{ 'sharing.since' | translate: { date: (p.owedSince | day) } }}
+                      }
+                    } @else {
+                      {{ 'sharing.youOweThem' | translate }}
+                    }
+                  </span>
+                </span>
+                <span
+                  class="num font-semibold"
+                  [class.tone-pos]="p.balance > 0"
+                  [class.tone-neg]="p.balance < 0"
+                  >{{ abs(p.balance) | money }}</span
+                >
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     @if (hasTransactions()) {
       <section class="mt-6 grid gap-4 xl:grid-cols-5">
         <div class="card xl:col-span-3">
@@ -993,6 +1043,17 @@ export class DashboardComponent {
   protected readonly loansOwed = computed(() =>
     (this.loans.value() ?? []).reduce((sum, l) => sum + l.outstanding, 0),
   );
+  protected readonly sharing = liveResource({
+    params: () => this.events.version(),
+    stream: () => this.api.sharing(),
+  });
+  /** People with something open, the largest first. */
+  protected readonly owing = computed(() =>
+    (this.sharing.value()?.people ?? [])
+      .filter((p) => p.balance !== 0)
+      .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)),
+  );
+  protected readonly abs = Math.abs;
   protected readonly goals = liveResource({
     params: () => this.events.version(),
     stream: () => this.api.goals(),

@@ -21,6 +21,7 @@ public enum RecurrenceFrequency
 public sealed class RecurringTransaction : Entity, IAuditable
 {
     private readonly List<RecurringSplit> _splits = [];
+    private readonly List<RecurringShare> _shares = [];
 
     private RecurringTransaction() { }
 
@@ -54,6 +55,9 @@ public sealed class RecurringTransaction : Entity, IAuditable
 
     /// <summary>Category lines (e.g. one energy bill split into electricity and gas); empty for a single category.</summary>
     public IReadOnlyList<RecurringSplit> Splits => _splits;
+
+    /// <summary>People who share each occurrence (ADR-0011), as a percentage of its amount; empty when not shared.</summary>
+    public IReadOnlyList<RecurringShare> Shares => _shares;
 
     public static RecurringTransaction Create(RecurringDefinition def)
     {
@@ -136,6 +140,15 @@ public sealed class RecurringTransaction : Entity, IAuditable
             BucketId, Description: Description ?? Name, Splits: SplitLinesFor(amount));
     }
 
+    /// <summary>
+    /// Each person's part of an occurrence of <paramref name="amount"/>: their percentage, to the cent (rounded down,
+    /// so the owner keeps the rounding). Equal parts stay equal whatever the amount, so a bill that varies is shared too.
+    /// </summary>
+    public IReadOnlyList<(Guid PersonId, decimal Amount)> SharesFor(decimal amount) => _shares
+        .Select(s => (s.PersonId, decimal.Floor(decimal.Round(amount * s.Percent / 100m, 4) * 100m) / 100m))
+        .Where(s => s.Item2 > 0)
+        .ToList();
+
     /// <summary>The split lines for an occurrence of <paramref name="amount"/>; null when the template is not split.</summary>
     public IReadOnlyList<SplitLine>? SplitLinesFor(decimal amount) => _splits.Count == 0
         ? null
@@ -158,6 +171,12 @@ public sealed class RecurringTransaction : Entity, IAuditable
         if (split)
         {
             _splits.AddRange(def.Splits!.Select((l, i) => RecurringSplit.Create(i, l)));
+        }
+
+        _shares.Clear();
+        if (def.Shares is { Count: > 0 } shares && def.Type == TransactionType.Expense && !split)
+        {
+            _shares.AddRange(shares.Select(s => RecurringShare.Create(s.PersonId, s.Percent)));
         }
 
         BucketId = def.BucketId;
@@ -233,7 +252,26 @@ public sealed record RecurringDefinition(
     Guid? CounterAccountId = null,
     Guid? BucketId = null,
     string? Description = null,
-    IReadOnlyList<SplitLine>? Splits = null);
+    IReadOnlyList<SplitLine>? Splits = null,
+    IReadOnlyList<RecurringShareLine>? Shares = null);
+
+/// <summary>A person's part of every occurrence, as a percentage of its amount (0–100].</summary>
+public sealed record RecurringShareLine(Guid PersonId, decimal Percent);
+
+/// <summary>A person who shares a recurring expense (ADR-0011).</summary>
+public sealed class RecurringShare
+{
+    private RecurringShare() { }
+
+    public Guid Id { get; private set; }
+    public Guid PersonId { get; private set; }
+
+    /// <summary>Share of each occurrence's amount, in percent (e.g. 33.333333 for equal thirds).</summary>
+    public decimal Percent { get; private set; }
+
+    internal static RecurringShare Create(Guid personId, decimal percent) =>
+        new() { Id = Guid.CreateVersion7(), PersonId = personId, Percent = percent };
+}
 
 /// <summary>A category line of a split recurring template. Amounts are in the template's currency.</summary>
 public sealed class RecurringSplit

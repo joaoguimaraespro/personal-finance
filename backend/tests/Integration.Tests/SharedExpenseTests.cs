@@ -173,6 +173,56 @@ public sealed class SharedExpenseTests(ApiFactory factory)
         liability.GetProperty("value").GetDecimal().ShouldBe(4m);
     }
 
+    [Fact]
+    public async Task A_shared_recurring_bill_owes_each_person_their_part_of_what_was_paid_and_reminds()
+    {
+        var api = await factory.OwnerAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Flat bills bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var ana = await api.CreateAsync("/api/accounts", new { name = "Ana (flat)", kind = "Person", currency = "EUR", openingBalance = 0m });
+        var rui = await api.CreateAsync("/api/accounts", new { name = "Rui (flat)", kind = "Person", currency = "EUR", openingBalance = 0m });
+        var third = 100m / 3m;
+
+        var recurringId = await api.CreateAsync("/api/recurring", new
+        {
+            name = "Flat internet", type = "Expense", amount = 36m, accountId = bank, frequency = "Monthly",
+            startOn = today.ToString("yyyy-MM-dd"), dayOfMonth = today.Day, categoryId = SystemCatalog.CategoryId("internet"),
+            shares = new[] { new { personId = ana, percent = decimal.Round(third, 6) }, new { personId = rui, percent = decimal.Round(third, 6) } },
+        });
+        var item = (await api.GetAsync<JsonElement[]>("/api/recurring")).Single(r => r.GetProperty("id").GetGuid() == recurringId);
+        item.GetProperty("shares").GetArrayLength().ShouldBe(2);
+
+        // This month's bill came higher: the parts follow what was paid.
+        var proposal = (await api.GetAsync<JsonElement[]>("/api/expected"))
+            .Single(p => p.GetProperty("recurringTransactionId").GetGuid() == recurringId);
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/expected/{proposal.GetProperty("id").GetGuid()}/confirm",
+            new { amount = 45m }));
+
+        (await BalanceAsync(api, bank)).ShouldBe(-45m);
+        (await BalanceAsync(api, ana)).ShouldBe(15m);
+        (await BalanceAsync(api, rui)).ShouldBe(15m);
+
+        // The notification centre reminds who owes what.
+        var reminders = (await api.GetJsonAsync("/api/notifications")).GetProperty("items").EnumerateArray()
+            .Where(n => n.GetProperty("kind").GetString() == "SharedOwed" && n.GetProperty("targetId").GetGuid() == ana)
+            .ToList();
+        reminders.Single().GetProperty("args").GetProperty("amount").GetDecimal().ShouldBe(15m);
+
+        // Sharing a recurring item checks the people and their parts like an expense.
+        (await api.PostAsync("/api/recurring", new
+        {
+            name = "Too much", type = "Expense", amount = 10m, accountId = bank, frequency = "Monthly",
+            startOn = today.ToString("yyyy-MM-dd"), categoryId = SystemCatalog.CategoryId("internet"),
+            shares = new[] { new { personId = ana, percent = 60m }, new { personId = rui, percent = 50m } },
+        })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await api.PostAsync("/api/recurring", new
+        {
+            name = "Not a person", type = "Expense", amount = 10m, accountId = bank, frequency = "Monthly",
+            startOn = today.ToString("yyyy-MM-dd"), categoryId = SystemCatalog.CategoryId("internet"),
+            shares = new[] { new { personId = bank, percent = 50m } },
+        })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
     private static async Task<decimal> GetIncomeAsync(ApiClient api) =>
         (await api.GetJsonAsync("/api/reports/monthly/2053-07")).GetProperty("current").GetProperty("income").GetDecimal();
 }

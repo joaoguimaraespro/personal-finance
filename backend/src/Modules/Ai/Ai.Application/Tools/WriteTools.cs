@@ -379,7 +379,11 @@ public sealed class WriteTools(
             interval ?? existing?.Interval ?? 1,
             // A stored day of month means nothing for daily items (and is cleared when switching to daily).
             frequency == RecurrenceFrequency.Daily ? null : dayOfMonth ?? existing?.DayOfMonth, endOn ?? existing?.EndOn,
-            categoryId, nature, null, null, existing?.Description, keptSplits);
+            categoryId, nature, null, null, existing?.Description, keptSplits,
+            // People who share it keep their part: the AI tools do not change who shares what.
+            type == TransactionType.Expense && keptSplits is null
+                ? existing?.Shares.Select(s => new RecurringShareDto(s.PersonId, s.Percent)).ToList()
+                : null);
         await CheckAsync(recurringValidator, request, ct);
 
         var categoryName = keptSplits is null ? await CategoryNameAsync(categoryId, ct) : $"{keptSplits.Count} categories";
