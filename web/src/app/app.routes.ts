@@ -68,6 +68,10 @@ export const routes: Routes = [
           import('./features/connections/connections').then((m) => m.ConnectionsComponent),
       },
       {
+        path: 'sharing',
+        loadComponent: () => import('./features/sharing/sharing').then((m) => m.SharingComponent),
+      },
+      {
         path: 'loans',
         loadComponent: () => import('./features/loans/loans').then((m) => m.LoansComponent),
       },

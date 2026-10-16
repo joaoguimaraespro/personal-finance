@@ -24,7 +24,8 @@
   "more": "Mais",
   "main": "Navegação principal",
   "general": "Geral",
-  "loans": "Empréstimos"
+  "loans": "Empréstimos",
+  "sharing": "Partilhas"
  },
  "common": {
   "save": "Guardar",
@@ -157,7 +158,8 @@
   "Savings": "Poupança",
   "Broker": "Corretora",
   "Loan": "Empréstimo",
-  "Other": "Outra"
+  "Other": "Outra",
+  "Person": "Pessoa"
  },
  "source": {
   "Manual": "Manual",
@@ -326,7 +328,11 @@
   "errors": {
    "amount": "Introduz um valor superior a zero.",
    "account": "Escolhe uma conta.",
-   "symbol": "Indica o ticker ou símbolo do ativo."
+   "symbol": "Indica o ticker ou símbolo do ativo.",
+   "share": {
+    "none": "Escolhe com quem partilhaste.",
+    "amount": "Cada parte tem de ser positiva e juntas não podem passar o valor."
+   }
   },
   "cashAccount": "Conta à ordem",
   "brokerAccount": "Corretora / carteira (opcional)",
@@ -334,7 +340,15 @@
   "emptyFiltered": "Experimenta outra pesquisa, intervalo de datas ou tipo, ou limpa os filtros.",
   "emptyHint": "Adiciona o primeiro movimento, ou importa uma folha de cálculo ou extrato bancário.",
   "filters": "Filtros",
-  "goalQuestion": "É para algum objetivo?"
+  "goalQuestion": "É para algum objetivo?",
+  "share": "Partilhar com pessoas",
+  "shareHint": "A conta paga tudo; nos teus gastos conta só a tua parte, e cada pessoa fica a dever a dela até te pagar.",
+  "shareEqual": "Partes iguais",
+  "shareCustom": "Valores",
+  "yourPart": "A tua parte: {{amount}}",
+  "eachPart": "{{amount}} cada",
+  "paidByPerson": "{{name}} (pagou por ti)",
+  "sharedWith": "Partilhada com {{names}}"
  },
  "recurring": {
   "yearlyOn": "Primeira vez (depois, todos os anos neste dia)",
@@ -661,14 +675,16 @@
    "restricted": "uso restrito",
    "investments": "investimentos",
    "manual": "ativo",
-   "liability": "passivo"
+   "liability": "passivo",
+   "receivable": "A receber"
   },
   "manualTitle": "Ativos e dívidas avaliados manualmente",
   "value": "Valor",
   "valuedOn": "Avaliado em",
   "update": "Atualizar valor",
   "noManual": "Adiciona casa, carro, PPR ou crédito habitação para veres o património completo.",
-  "liabilityHint": "Introduz dívidas como valores positivos; são subtraídas automaticamente."
+  "liabilityHint": "Introduz dívidas como valores positivos; são subtraídas automaticamente.",
+  "receivable": "A receber"
  },
  "connections": {
   "subtitle": "Ligações só de leitura às tuas corretoras. Nunca podem negociar, transferir ou alterar definições.",
@@ -1337,5 +1353,38 @@
   "travel-fund": "Fundo de viagem",
   "emergency-fund": "Fundo de emergência",
   "other-savings": "Outras poupanças"
+ },
+ "sharing": {
+  "subtitle": "Despesas que divides com amigos ou colegas de casa: quem deve o quê, e desde quando.",
+  "addPerson": "Adicionar pessoa",
+  "namePlaceholder": "ex.: Ana",
+  "owedToYou": "Devem-te",
+  "youOwe": "Deves",
+  "owesYou": "Deve-te",
+  "since": "desde {{date}}",
+  "youOweThem": "Deves-lhe",
+  "settled": "Tudo pago",
+  "expense": "Despesa",
+  "ofTotal": "de {{total}}",
+  "history": "Histórico",
+  "kind": {
+   "share": "Parte dele/dela",
+   "paidYou": "Pagou-te",
+   "youPaid": "Pagaste",
+   "theyPaid": "Pagou por ti",
+   "other": "Outro"
+  },
+  "received": "Recebi",
+  "paid": "Paguei",
+  "receivedFrom": "Recebi de {{name}}",
+  "paidTo": "Paguei a {{name}}",
+  "intoAccount": "Para a conta",
+  "fromAccount": "Da conta",
+  "settleHint": "Fica como transferência: não conta como rendimento nem como gasto.",
+  "recorded": "Pagamento registado",
+  "archiveOpen": "Esta pessoa ainda tem saldo em aberto. Arquivar mesmo assim?",
+  "howTo": "Partilha uma despesa ao registá-la (\"Partilhar com pessoas\"). Se alguém pagou por ti, regista a despesa com o nome dessa pessoa como conta.",
+  "emptyTitle": "Ainda sem ninguém com quem partilhar",
+  "emptyText": "Adiciona as pessoas com quem divides despesas — a subscrição de streaming, as contas da casa, uma ida às compras — e sabe sempre quem deve o quê."
  }
 }

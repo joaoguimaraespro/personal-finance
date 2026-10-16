@@ -21,7 +21,8 @@ public sealed record NetWorthBreakdown(
     decimal Investments,
     decimal ManualAssets,
     IReadOnlyList<NetWorthLine> Lines,
-    decimal Restricted = 0);
+    decimal Restricted = 0,
+    decimal Receivable = 0);
 
 public sealed record NetWorthHistory(NetWorthBreakdown Current, decimal? ChangeSinceStart,
     decimal? ChangeSinceStartPercent, DateOnly? StartDate, IReadOnlyList<NetWorthPoint> Series);
@@ -45,7 +46,16 @@ public sealed class NetWorthService(IInvestmentsDb db, IFinanceDb finance, Portf
         foreach (var a in accounts)
         {
             var eur = decimal.Round(balances[a.Id] * factors.GetValueOrDefault(a.Currency, 0), 2);
-            // Restricted money (a meal card) is an asset, shown apart from money that can pay anything.
+            // Restricted money (a meal card) is an asset, shown apart from money that can pay anything. People owe the
+            // owner (receivable) or are owed by the owner (a liability) what their shared costs left open.
+            if (a.IsPerson)
+            {
+                lines.Add(eur >= 0
+                    ? new NetWorthLine("receivable", a.Name, eur)
+                    : new NetWorthLine("liability", a.Name, -eur));
+                continue;
+            }
+
             lines.Add(a.IsLiability
                 ? new NetWorthLine("liability", a.Name, Math.Max(0, -eur))
                 : new NetWorthLine(a.RestrictedUse ? "restricted" : "cash", a.Name, eur));
@@ -67,10 +77,11 @@ public sealed class NetWorthService(IInvestmentsDb db, IFinanceDb finance, Portf
         var restricted = lines.Where(l => l.Group == "restricted").Sum(l => l.Value);
         var investments = lines.Where(l => l.Group == "investments").Sum(l => l.Value);
         var manual = lines.Where(l => l.Group == "manual").Sum(l => l.Value);
+        var receivable = lines.Where(l => l.Group == "receivable").Sum(l => l.Value);
         var liabilities = lines.Where(l => l.Group == "liability").Sum(l => l.Value);
-        var totalAssets = cash + restricted + investments + manual;
+        var totalAssets = cash + restricted + investments + manual + receivable;
         return new NetWorthBreakdown(today, totalAssets, liabilities, totalAssets - liabilities, cash, investments,
-            manual, lines, restricted);
+            manual, lines, restricted, receivable);
     }
 
     public async Task<NetWorthHistory> HistoryAsync(CancellationToken ct)
@@ -148,7 +159,7 @@ public sealed class NetWorthService(IInvestmentsDb db, IFinanceDb finance, Portf
             foreach (var a in accounts.Where(a => a.OpeningBalanceOn <= day))
             {
                 var eur = balances[day][a.Id] * factors.GetValueOrDefault(a.Currency, 0);
-                if (a.IsLiability)
+                if (a.IsLiability || (a.IsPerson && eur < 0))
                 {
                     liabilities += Math.Max(0, -eur);
                 }

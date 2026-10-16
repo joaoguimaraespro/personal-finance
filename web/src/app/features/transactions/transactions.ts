@@ -258,6 +258,13 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                         'source.' + t.source | translate
                       }}</span>
                     }
+                    @if (t.shares?.length) {
+                      ·
+                      <span
+                        class="badge bg-violet-500/10 !px-1.5 !py-0 text-violet-700 dark:text-violet-300"
+                        >{{ 'tx.sharedWith' | translate: { names: shareNames(t) } }}</span
+                      >
+                    }
                   </div>
                   @if (expanded().has(t.id)) {
                     <ng-container *ngTemplateOutlet="splitList; context: { $implicit: t }" />
@@ -285,7 +292,13 @@ const SIGN: Partial<Record<TransactionType, string>> = {
                         >
                       }
                     </div>
-                    @if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
+                    @if (t.shares?.length) {
+                      <div class="text-muted-foreground num text-[11px]">
+                        {{
+                          'tx.yourPart' | translate: { amount: (yourPart(t) | money: t.currency) }
+                        }}
+                      </div>
+                    } @else if (t.categoryAmount !== null && t.categoryAmount !== undefined) {
                       <div class="text-muted-foreground num text-[11px]">
                         {{
                           'split.ofTotal' | translate: { amount: (t.amount | money: t.currency) }
@@ -631,6 +644,11 @@ export class TransactionsComponent {
   }
   protected sign = (type: TransactionType) => SIGN[type] ?? '';
   /** A refund is money in, even though it is an expense entry. */
+  protected shareNames = (t: Transaction) => (t.shares ?? []).map((x) => x.personName).join(', ');
+  protected yourPart = (t: Transaction) =>
+    (Math.round(t.amount * 100) -
+      (t.shares ?? []).reduce((s, x) => s + Math.round(x.amount * 100), 0)) /
+    100;
   protected signOf = (t: Transaction) => (t.isRefund ? '+' : this.sign(t.type));
   protected toneOf = (t: Transaction) => (t.isRefund ? TYPE_TONE['Income'] : this.tone(t.type));
 

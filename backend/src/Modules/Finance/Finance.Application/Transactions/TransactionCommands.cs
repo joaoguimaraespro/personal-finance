@@ -13,12 +13,17 @@ namespace Finance.Application.Transactions;
 public static class TransactionCommands
 {
     public static async Task<Result<Transaction>> CreateAsync(IFinanceDb db, InterestAccrualService interest,
-        TransactionDraft draft, DataSource source, CancellationToken ct)
+        TransactionDraft draft, DataSource source, CancellationToken ct, IReadOnlyList<ShareRequest>? shares = null)
     {
         var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
         if (resolved.IsFailure)
         {
             return resolved.Error;
+        }
+
+        if (shares is { Count: > 0 } && await TransactionShares.ValidateAsync(db, resolved.Value, shares, ct) is { } invalid)
+        {
+            return invalid;
         }
 
         var created = Transaction.Create(resolved.Value, source);
@@ -28,13 +33,20 @@ public static class TransactionCommands
         }
 
         db.Transactions.Add(created.Value);
+        if (shares is { Count: > 0 } &&
+            await TransactionShares.SyncAsync(db, created.Value, shares, DateTimeOffset.UtcNow, ct) is { } failed)
+        {
+            return failed;
+        }
+
         await db.SaveChangesAsync(ct);
         await interest.TryRecalculateAsync([created.Value.AccountId, created.Value.CounterAccountId], ct);
         return created.Value;
     }
 
+    /// <param name="shares">The people's shares (ADR-0011): null keeps the current ones, empty removes them.</param>
     public static async Task<Result<Transaction>> UpdateAsync(IFinanceDb db, InterestAccrualService interest, Guid id,
-        TransactionDraft draft, CancellationToken ct)
+        TransactionDraft draft, CancellationToken ct, IReadOnlyList<ShareRequest>? shares = null)
     {
         var transaction = await db.Transactions.FindAsync([id], ct);
         if (transaction is null)
@@ -47,6 +59,11 @@ public static class TransactionCommands
             return readOnly;
         }
 
+        if (transaction.IsShare)
+        {
+            return ShareErrors.EditTheExpense;
+        }
+
         Guid?[] before = [transaction.AccountId, transaction.CounterAccountId];
         var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
         if (resolved.IsFailure)
@@ -54,10 +71,20 @@ public static class TransactionCommands
             return resolved.Error;
         }
 
+        if (shares is { Count: > 0 } && await TransactionShares.ValidateAsync(db, resolved.Value, shares, ct) is { } invalid)
+        {
+            return invalid;
+        }
+
         var updated = transaction.Update(resolved.Value);
         if (updated.IsFailure)
         {
             return updated.Error;
+        }
+
+        if (await TransactionShares.SyncAsync(db, transaction, shares, DateTimeOffset.UtcNow, ct) is { } failed)
+        {
+            return failed;
         }
 
         await db.SaveChangesAsync(ct);
@@ -81,6 +108,12 @@ public static class TransactionCommands
         }
 
         transaction.SoftDelete(now);
+        // Its people's shares go with it; deleting one share only means the owner takes that part on.
+        foreach (var share in await db.Transactions.Where(t => t.SharedFromId == transaction.Id).ToListAsync(ct))
+        {
+            share.SoftDelete(now);
+        }
+
         await db.SaveChangesAsync(ct);
         await interest.TryRecalculateAsync([transaction.AccountId, transaction.CounterAccountId], ct);
         return transaction;
@@ -94,6 +127,19 @@ public static class TransactionCommands
         if (transaction is null)
         {
             return TransactionErrors.NotFound;
+        }
+
+        if (transaction.SharedFromId is { } expenseId && !await db.Transactions.AnyAsync(t => t.Id == expenseId, ct))
+        {
+            return TransactionErrors.NotFound;
+        }
+
+        // The shares deleted together with it come back with it.
+        var deletedAt = transaction.DeletedAtUtc;
+        foreach (var share in await db.Transactions.IgnoreQueryFilters()
+                     .Where(t => t.SharedFromId == transaction.Id && t.DeletedAtUtc == deletedAt).ToListAsync(ct))
+        {
+            share.Restore();
         }
 
         transaction.Restore();

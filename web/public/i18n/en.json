@@ -24,7 +24,8 @@
   "more": "More",
   "main": "Main navigation",
   "general": "General",
-  "loans": "Loans"
+  "loans": "Loans",
+  "sharing": "Sharing"
  },
  "common": {
   "save": "Save",
@@ -157,7 +158,8 @@
   "Savings": "Savings",
   "Broker": "Broker",
   "Loan": "Loan",
-  "Other": "Other"
+  "Other": "Other",
+  "Person": "Person"
  },
  "source": {
   "Manual": "Manual",
@@ -326,7 +328,11 @@
   "errors": {
    "amount": "Enter an amount greater than zero.",
    "account": "Choose an account.",
-   "symbol": "Enter the ticker or symbol of the asset."
+   "symbol": "Enter the ticker or symbol of the asset.",
+   "share": {
+    "none": "Choose who you shared it with.",
+    "amount": "Each part must be positive and together they cannot be more than the amount."
+   }
   },
   "cashAccount": "Cash account",
   "brokerAccount": "Broker / wallet (optional)",
@@ -334,7 +340,15 @@
   "emptyFiltered": "Try another search, date range or type, or clear the filters.",
   "emptyHint": "Add your first transaction, or import a spreadsheet or bank export.",
   "filters": "Filters",
-  "goalQuestion": "Is this for a goal?"
+  "goalQuestion": "Is this for a goal?",
+  "share": "Share with people",
+  "shareHint": "The account pays it all; your spending counts only your part, and each person owes theirs until they pay you back.",
+  "shareEqual": "Equal parts",
+  "shareCustom": "Amounts",
+  "yourPart": "Your part: {{amount}}",
+  "eachPart": "{{amount}} each",
+  "paidByPerson": "{{name}} (paid for you)",
+  "sharedWith": "Shared with {{names}}"
  },
  "recurring": {
   "yearlyOn": "First time (then every year on this day)",
@@ -661,14 +675,16 @@
    "restricted": "restricted",
    "investments": "investments",
    "manual": "asset",
-   "liability": "liability"
+   "liability": "liability",
+   "receivable": "Owed to you"
   },
   "manualTitle": "Assets and debts valued by hand",
   "value": "Value",
   "valuedOn": "Valued on",
   "update": "Update value",
   "noManual": "Add your home, car, pension or mortgage to see your full net worth.",
-  "liabilityHint": "Enter debts as positive amounts; they are subtracted automatically."
+  "liabilityHint": "Enter debts as positive amounts; they are subtracted automatically.",
+  "receivable": "Owed to you"
  },
  "connections": {
   "subtitle": "Read-only links to your brokers. They can never trade, transfer or change settings.",
@@ -1337,5 +1353,38 @@
   "travel-fund": "Travel fund",
   "emergency-fund": "Emergency fund",
   "other-savings": "Other savings"
+ },
+ "sharing": {
+  "subtitle": "Costs you share with friends or flatmates: who owes what, and since when.",
+  "addPerson": "Add person",
+  "namePlaceholder": "e.g. Ana",
+  "owedToYou": "Owed to you",
+  "youOwe": "You owe",
+  "owesYou": "Owes you",
+  "since": "since {{date}}",
+  "youOweThem": "You owe them",
+  "settled": "All settled",
+  "expense": "Expense",
+  "ofTotal": "of {{total}}",
+  "history": "History",
+  "kind": {
+   "share": "Their part",
+   "paidYou": "Paid you",
+   "youPaid": "You paid",
+   "theyPaid": "Paid for you",
+   "other": "Other"
+  },
+  "received": "Received",
+  "paid": "Paid",
+  "receivedFrom": "Received from {{name}}",
+  "paidTo": "Paid to {{name}}",
+  "intoAccount": "Into account",
+  "fromAccount": "From account",
+  "settleHint": "Recorded as a transfer: neither income nor spending.",
+  "recorded": "Payment recorded",
+  "archiveOpen": "This person still has an open balance. Archive anyway?",
+  "howTo": "Share an expense when you record it (\"Share with people\"). Someone who paid for you: record the expense with their name as the account.",
+  "emptyTitle": "No one to share with yet",
+  "emptyText": "Add the people you split costs with — the streaming plan, the flat's bills, a supermarket run — and keep track of who owes what."
  }
 }

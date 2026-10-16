@@ -27,7 +27,7 @@ public static class AiTools
 
     public static readonly IReadOnlyList<string> TransactionTypes = ["expense", "income", "investment", "transfer", "savings"];
 
-    public static readonly IReadOnlyList<string> AccountKinds = ["Bank", "Cash", "CreditCard", "Savings", "Broker", "Loan", "Other"];
+    public static readonly IReadOnlyList<string> AccountKinds = ["Bank", "Cash", "CreditCard", "Savings", "Broker", "Loan", "Other", "Person"];
 
     public static readonly IReadOnlyList<ToolDefinition> Reads =
     [

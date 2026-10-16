@@ -95,6 +95,14 @@ import { EmptyStateComponent } from '../../shared/empty-state';
               color="#f59e0b"
             />
           }
+          @if (d.current.receivable) {
+            <app-kpi
+              [label]="'netWorth.receivable' | translate"
+              [value]="d.current.receivable"
+              icon="lucideUsers"
+              color="#8b5cf6"
+            />
+          }
           <app-kpi
             [label]="'netWorth.investments' | translate"
             [value]="d.current.investments"
