@@ -378,7 +378,8 @@
   "end": "Fim (opcional)",
   "active": "Ativo",
   "paused": "Em pausa",
-  "shareHint": "Sempre que for confirmado, ficam a dever a parte deles do que foi pago — a divisão acompanha o valor quando a conta varia."
+  "shareHint": "Sempre que for confirmado, ficam a dever a parte deles do que foi pago — a divisão acompanha o valor quando a conta varia.",
+  "confirmValue": "{{name}}: quantia a confirmar"
  },
  "budgets": {
   "subtitle": "Cada versão aplica-se a partir do seu mês — alterá-la nunca reescreve meses anteriores.",

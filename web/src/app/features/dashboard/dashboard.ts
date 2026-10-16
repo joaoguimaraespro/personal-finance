@@ -726,7 +726,7 @@ import { PageHeaderComponent } from '../../shared/page-header';
                   class="num h-8 w-24 text-right text-sm font-semibold"
                   [class.tone-pos]="e.type === 'Income'"
                   inputmode="decimal"
-                  [attr.aria-label]="('tx.amount' | translate) + ' · ' + e.name"
+                  [attr.aria-label]="'recurring.confirmValue' | translate: { name: e.name }"
                   [value]="pendingAmounts()[e.id] ?? formatAmount(e.amount)"
                   (input)="setPendingAmount(e.id, $any($event.target).value)"
                   (keydown.enter)="confirm(e.id)"

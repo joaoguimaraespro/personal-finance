@@ -357,7 +357,9 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                         hlmInput
                         class="num h-8 w-24 text-right"
                         inputmode="decimal"
-                        [attr.aria-label]="('tx.amount' | translate) + ' · ' + title(item)"
+                        [attr.aria-label]="
+                          'recurring.confirmValue' | translate: { name: title(item) }
+                        "
                         [value]="amountText(item)"
                         (input)="setAmount(item.id, $any($event.target).value)"
                         (keydown.enter)="n.act(item, 'confirm', amountOf(item))"
