@@ -23,6 +23,8 @@ import {
 } from '../../shared/chart-options';
 import { ProgressComponent } from '../../shared/progress';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { parseAmount } from '../../shared/parse-amount';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { NgIcon } from '@ng-icons/core';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
@@ -41,6 +43,7 @@ import { PageHeaderComponent } from '../../shared/page-header';
     NgIcon,
     HlmTableImports,
     HlmButtonImports,
+    HlmInputImports,
     ChartComponent,
     ProgressComponent,
     TranslatePipe,
@@ -717,11 +720,17 @@ import { PageHeaderComponent } from '../../shared/page-header';
                   <p class="truncate text-sm font-medium">{{ e.name }}</p>
                   <p class="text-xs text-muted-foreground">{{ e.dueOn | day }}</p>
                 </div>
-                <span
-                  class="num text-sm font-semibold whitespace-nowrap"
+                <!-- The amount can be corrected before confirming (a bill or salary that varies). -->
+                <input
+                  hlmInput
+                  class="num h-8 w-24 text-right text-sm font-semibold"
                   [class.tone-pos]="e.type === 'Income'"
-                  >{{ e.amount | money: e.currency }}</span
-                >
+                  inputmode="decimal"
+                  [attr.aria-label]="'recurring.confirmValue' | translate: { name: e.name }"
+                  [value]="pendingAmounts()[e.id] ?? formatAmount(e.amount)"
+                  (input)="setPendingAmount(e.id, $any($event.target).value)"
+                  (keydown.enter)="confirm(e.id)"
+                />
                 <div class="flex shrink-0 items-center gap-1">
                   <button
                     hlmBtn
@@ -1311,9 +1320,18 @@ export class DashboardComponent {
     });
   }
 
+  /** Amounts typed into pending items before confirming, by item id. */
+  protected readonly pendingAmounts = signal<Record<string, string>>({});
+  protected formatAmount = (n: number) => String(n).replace('.', ',');
+  protected setPendingAmount(id: string, value: string) {
+    this.pendingAmounts.update((a) => ({ ...a, [id]: value }));
+  }
+
   protected async confirm(id: string) {
+    const typed = this.pendingAmounts()[id];
+    const amount = typed === undefined ? null : parseAmount(typed);
     try {
-      await firstValueFrom(this.api.confirmExpected(id));
+      await firstValueFrom(this.api.confirmExpected(id, amount ? { amount } : {}));
       this.events.bump();
       this.toasts.show(this.i18n.instant('recurring.confirmed'));
     } catch (err) {
