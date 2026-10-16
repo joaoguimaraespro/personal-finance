@@ -32,7 +32,11 @@ public sealed record RecurringDto(
     DateOnly? EndOn,
     DateOnly NextDueOn,
     bool IsActive,
-    IReadOnlyList<RecurringSplitDto> Splits);
+    IReadOnlyList<RecurringSplitDto> Splits,
+    IReadOnlyList<RecurringShareDto>? Shares = null);
+
+/// <summary>A person who shares each occurrence of a recurring expense, and their percentage.</summary>
+public sealed record RecurringShareDto(Guid PersonId, decimal Percent);
 
 /// <summary>A category line of a split recurring item (amount in the item's currency).</summary>
 public sealed record RecurringSplitDto(Guid CategoryId, decimal Amount, string? Note);
@@ -53,11 +57,13 @@ public sealed record RecurringRequest(
     Guid? CounterAccountId,
     Guid? BucketId,
     string? Description,
-    IReadOnlyList<SplitLineRequest>? Splits = null)
+    IReadOnlyList<SplitLineRequest>? Splits = null,
+    IReadOnlyList<RecurringShareDto>? Shares = null)
 {
     public RecurringDefinition ToDefinition() => new(Name, Type, Amount, Currency ?? SharedKernel.Currency.Base,
         AccountId, Frequency, StartOn, Interval ?? 1, DayOfMonth, EndOn, CategoryId, Nature, CounterAccountId,
-        BucketId, Description, Splits is { Count: > 0 } ? Splits.Select(s => s.ToDomain()).ToList() : null);
+        BucketId, Description, Splits is { Count: > 0 } ? Splits.Select(s => s.ToDomain()).ToList() : null,
+        Shares is { Count: > 0 } ? Shares.Select(s => new RecurringShareLine(s.PersonId, s.Percent)).ToList() : null);
 }
 
 public sealed class RecurringRequestValidator : AbstractValidator<RecurringRequest>
@@ -129,7 +135,8 @@ public static class RecurringEndpoints
                     r.CounterAccountId, r.CategoryId, r.Nature, r.BucketId, r.Description, r.Frequency, r.Interval,
                     r.DayOfMonth, r.StartOn, r.EndOn, r.NextOccurrenceOnOrAfter(today) ?? r.NextDueOn, r.IsActive,
                     r.Splits.OrderBy(s => s.Position).Select(s => new RecurringSplitDto(s.CategoryId, s.Amount, s.Note))
-                        .ToList()))
+                        .ToList(),
+                    r.Shares.Select(s => new RecurringShareDto(s.PersonId, s.Percent)).ToList()))
                 .OrderBy(r => r.NextDueOn)
                 .ToList());
         });

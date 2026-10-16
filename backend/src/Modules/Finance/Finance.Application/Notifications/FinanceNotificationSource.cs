@@ -1,5 +1,6 @@
 using Finance.Application.Abstractions;
 using Finance.Application.Goals;
+using Finance.Application.Sharing;
 using Finance.Domain.Interest;
 using Finance.Domain.Recurring;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,40 @@ public sealed class FinanceNotificationSource(IFinanceDb db) : INotificationSour
         items.AddRange(await InterestAsync(today, ct));
         items.AddRange(await GoalsAsync(today, ct));
         items.AddRange(await LoansAsync(today, ct));
+        items.AddRange(await SharedAsync(today, ct));
         return items;
+    }
+
+    /// <summary>Someone has owed their part for this long: the reminder turns into a warning.</summary>
+    public const int SharedReminderDays = 7;
+
+    /// <summary>
+    /// People who still owe their part of shared costs, and people the owner owes (ADR-0011). The id carries the
+    /// amount, so a new share or a partial payment makes the reminder new again.
+    /// </summary>
+    private async Task<IEnumerable<NotificationItem>> SharedAsync(DateOnly today, CancellationToken ct)
+    {
+        var overview = await SharingEndpoints.OverviewAsync(db, ct);
+        return overview.People.Where(p => p.Balance != 0).Select(p =>
+        {
+            var owed = p.Balance > 0;
+            var since = owed ? p.OwedSince ?? today : today;
+            return new NotificationItem(
+                $"shared:{p.Id}:{decimal.Round(p.Balance * 100):0}",
+                owed ? NotificationKind.SharedOwed : NotificationKind.SharedYouOwe,
+                owed && today.DayNumber - since.DayNumber >= SharedReminderDays
+                    ? NotificationSeverity.Warning
+                    : NotificationSeverity.Info,
+                since,
+                "/sharing",
+                p.Id,
+                new Dictionary<string, object?>
+                {
+                    ["name"] = p.Name, ["amount"] = Math.Abs(p.Balance), ["currency"] = Currency.Base,
+                    ["open"] = p.Open.Count,
+                },
+                []);
+        }).ToList();
     }
 
     /// <summary>A rate revision is announced this many days ahead (banks send the new rate around then).</summary>

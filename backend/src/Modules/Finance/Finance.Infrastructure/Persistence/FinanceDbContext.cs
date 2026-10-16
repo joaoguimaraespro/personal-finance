@@ -208,6 +208,16 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options,
                 s.HasOne<Category>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
             });
             e.Navigation(x => x.Splits).UsePropertyAccessMode(PropertyAccessMode.Field);
+            e.OwnsMany(x => x.Shares, s =>
+            {
+                s.ToTable("recurring_transaction_shares");
+                s.WithOwner().HasForeignKey("RecurringTransactionId");
+                s.HasKey(x => x.Id);
+                s.Property(x => x.Id).ValueGeneratedNever();
+                s.Property(x => x.Percent).HasPrecision(9, 6);
+                s.HasOne<Account>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Restrict);
+            });
+            e.Navigation(x => x.Shares).UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
         b.Entity<ExpectedTransaction>(e =>

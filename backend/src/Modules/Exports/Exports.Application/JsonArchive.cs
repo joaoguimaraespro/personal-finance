@@ -85,6 +85,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     splits = r.Splits.Count == 0
                         ? null
                         : r.Splits.OrderBy(s => s.Position).Select(s => new { s.CategoryId, s.Amount, s.Note }).ToList(),
+                    shares = r.Shares.Count == 0 ? null : r.Shares.Select(s => new { s.PersonId, s.Percent }).ToList(),
                 }).ToList(),
                 budgets = (await finance.Budgets.AsNoTracking().Include(b => b.Items).ToListAsync(ct)).Select(b => new
                 {
@@ -345,7 +346,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     Str(r, "endOn") is { } e ? DateOnly.Parse(e, System.Globalization.CultureInfo.InvariantCulture) : null,
                     Mapped(r, "categoryId", map), Str(r, "nature") is { } n ? Enum.Parse<ExpenseNature>(n) : null,
                     Mapped(r, "counterAccountId", map), Mapped(r, "bucketId", map), Str(r, "description"),
-                    recurringSplits)));
+                    recurringSplits, RecurringShares(r, map))));
                 recurring++;
             }
 
@@ -381,6 +382,22 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
             await interest.TryRecalculateAsync(map.Values.Distinct().Select(id => (Guid?)id), ct);
             return new ImportResult(accounts, categories, buckets, goals, budgets, recurring, transactions, skipped);
         }
+    }
+
+    /// <summary>A recurring item's people (ADR-0011), mapped to the imported people; null when not shared.</summary>
+    private static List<RecurringShareLine>? RecurringShares(JsonElement r, Dictionary<Guid, Guid> map)
+    {
+        if (!r.TryGetProperty("shares", out var shares) || shares.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var lines = shares.EnumerateArray()
+            .Select(s => (Person: Mapped(s, "personId", map), Percent: Dec(s, "percent") ?? 0))
+            .Where(s => s.Person is not null && s.Percent > 0)
+            .Select(s => new RecurringShareLine(s.Person!.Value, s.Percent))
+            .ToList();
+        return lines.Count > 0 ? lines : null;
     }
 
     /// <summary>

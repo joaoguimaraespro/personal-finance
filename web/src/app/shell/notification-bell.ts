@@ -41,6 +41,8 @@ const KIND_ICONS: Record<NotificationKind, string> = {
   AllocationDue: 'lucideLayers',
   LoanInstalmentDue: 'lucideHandCoins',
   LoanRateRevision: 'lucidePercent',
+  SharedOwed: 'lucideUsers',
+  SharedYouOwe: 'lucideUsers',
 };
 
 const ACTION_ICONS: Record<NotificationAction, string> = {
@@ -307,6 +309,21 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                           'notifications.loanRevisionDetail'
                             | translate: { date: (item.date | day) }
                         }}
+                      }
+                      @case ('SharedOwed') {
+                        <span class="num">{{ $any(item.args['amount']) | money }}</span>
+                        ·
+                        <span
+                          [class]="
+                            item.severity === 'Warning' ? 'text-amber-700 dark:text-amber-300' : ''
+                          "
+                          >{{
+                            'notifications.sharedSince' | translate: { date: (item.date | day) }
+                          }}</span
+                        >
+                      }
+                      @case ('SharedYouOwe') {
+                        <span class="num">{{ $any(item.args['amount']) | money }}</span>
                       }
                       @case ('AllocationDue') {
                         {{

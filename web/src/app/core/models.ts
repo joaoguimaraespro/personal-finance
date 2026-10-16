@@ -514,6 +514,8 @@ export interface Recurring {
   nextDueOn: string;
   isActive: boolean;
   splits: SplitLineRequest[];
+  /** People who share each occurrence, as a percentage of its amount. */
+  shares?: { personId: string; percent: number }[];
 }
 
 export interface Expected {
