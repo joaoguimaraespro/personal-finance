@@ -214,7 +214,7 @@ export class Notifications {
   }
 
   /** Confirm or skip a recurring item, or confirm an interest estimate, straight from the list. */
-  async act(item: NotificationItem, action: NotificationAction) {
+  async act(item: NotificationItem, action: NotificationAction, amount?: number | null) {
     if (!item.targetId || this.busy().has(item.id)) return;
     if (item.kind === 'AllocationDue' && action === 'record') {
       this.quickAdd.addWith(
@@ -235,7 +235,7 @@ export class Notifications {
           ? this.api.setAllocationCheck(String(item.args['month']), item.targetId, 'NotApplicable')
           : item.kind === 'RecurringDue'
             ? action === 'confirm'
-              ? this.api.confirmExpected(item.targetId)
+              ? this.api.confirmExpected(item.targetId, amount ? { amount } : {})
               : this.api.skipExpected(item.targetId)
             : item.kind === 'InterestToReconcile' && action === 'confirm'
               ? this.api.reconcileInterest(item.targetId)
