@@ -63,7 +63,7 @@ public static class AiTools
         new("get_net_worth_history", "Net worth history", "Month-end net worth, assets and liabilities over time.",
             AiScopes.NetWorth, [Range]),
         new("get_accounts", "Accounts",
-            "Each account's type, institution and current balance in EUR (broker accounts and crypto locations valued from the portfolio; archived accounts excluded). Savings and current accounts add their rate (TANB), withholding and interest this year (estimated vs confirmed).",
+            "Each account's type, institution and current balance in EUR (broker accounts and crypto locations valued from the portfolio; archived accounts excluded). Savings and current accounts add their rate (TANB), withholding and interest this year (estimated vs confirmed); restricted-use balances (meal and benefit cards) are flagged. Names only with the account-names permission.",
             AiScopes.AccountBalances, [new("kind", "string", "Optional account type filter.", Enum: AccountKinds)]),
         new("get_recurring", "Recurring items",
             "Recurring income and expenses (salary, rent, subscriptions) with amount, frequency and category, the monthly fixed-cost total, and what is due or awaiting confirmation in the next days.",
@@ -83,6 +83,9 @@ public static class AiTools
         new("get_budget_status", "Budget status", "How a month tracks against its budget: expense pool, allocation buckets and category limits.",
             AiScopes.Budget, [Period]),
         new("get_goals", "Goals", "Financial goals with target, current amount and progress.", AiScopes.Goals, []),
+        new("get_loans", "Loans",
+            "Each loan with terms: institution, amount borrowed, capital still owed, rate (fixed or index + spread), next instalment with its charges (commission, stamp duty, insurance), instalments paid and left, end date and interest paid and still to pay.",
+            AiScopes.Loans, []),
     ];
 
 

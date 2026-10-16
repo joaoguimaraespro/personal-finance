@@ -23,9 +23,11 @@ public static class AiScopes
     public const string AccountBalances = "accounts.balances.read";
     public const string Recurring = "recurring.read";
     public const string Transactions = "transactions.read";
+    public const string Loans = "loans.read";
 
     // Sensitive — never granted by default.
     public const string AccountIdentifiers = "accounts.identifiers.read";
+    public const string AccountNames = "accounts.names.read";
     public const string RawTransactions = "raw.transactions.read";
     public const string PersonalNotes = "personal.notes.read";
 
@@ -55,6 +57,8 @@ public static class AiScopes
         new(AccountBalances, "Accounts by type with balance in EUR (brokers and crypto locations valued from the portfolio); savings rate (TANB) and interest this year. No account names or IBANs.", false),
         new(Recurring, "Recurring items (salary, rent, subscriptions): amount, frequency, category, monthly fixed costs and what is due soon.", false),
         new(Transactions, "Individual transactions of any type (expense, income, investment, transfer, savings): date, amount, category and description (no account, no notes).", false),
+        new(Loans, "Loans: amount borrowed, capital still owed, rate, instalment with its charges, payments left and end date.", false),
+        new(AccountNames, "Account names (e.g. \"Holiday vault\") in account answers, without IBAN or account numbers.", true),
         new(AccountIdentifiers, "Account names and IBAN / account numbers in net-worth and account answers.", true),
         new(RawTransactions, "Adds the account and source of each transaction.", true),
         new(PersonalNotes, "Adds your personal notes on transactions.", true),

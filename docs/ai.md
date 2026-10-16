@@ -43,17 +43,19 @@ estimated-interest and archived records), and an audit entry marked *write* with
 | `overview.read` | `get_financial_overview`, `get_year_breakdown` (month by month), `get_monthly_summary` |
 | `expenses.summary.read` | `get_expense_summary` |
 | `expenses.transactions.read` | `get_expense_transactions` (no account, no notes) |
-| `transactions.read` | `get_transactions`: any type (expense, income, investment, transfer, savings), a month or a range of up to 12 months, category and description search, max 50 rows plus count and totals (no account, no notes) |
+| `transactions.read` | `get_transactions`: any type (expense, income, investment, transfer, savings), a month or a range of up to 12 months, category and description search, max 50 rows plus count and totals (no account, no notes). Refunds are expenses marked `refund: true` and lower the expense total |
 | `income.summary.read` | `get_income_summary` |
 | `budget.read` | `get_budget_status` |
 | `goals.read` | `get_goals` |
 | `networth.read` | `get_net_worth` (group totals), `get_net_worth_history` (month-end series) |
-| `accounts.balances.read` | `get_accounts`: type, institution and balance in EUR (brokers and crypto locations valued from the portfolio); savings rate (TANB), withholding and interest this year, estimated vs confirmed (no names, no IBANs) |
+| `accounts.balances.read` | `get_accounts`: type, institution and balance in EUR (brokers and crypto locations valued from the portfolio); savings rate (TANB), withholding and interest this year, estimated vs confirmed; restricted-use balances flagged `restrictedUse` (no names, no IBANs) |
+| `loans.read` | `get_loans`: each loan's institution, amount borrowed, capital owed, rate (fixed, or index + spread and next revision), interest day count, next instalment with commission, stamp duty and insurance, instalments paid and left, end date, interest paid and left |
 | `recurring.read` | `get_recurring`: recurring items (`frequency` Daily/Weekly/Monthly/Yearly with `interval`), monthly fixed costs, what is due or awaiting confirmation in the next 1–90 days (no accounts). Monthly equivalents use 365-day years: `amount × 365 / (days between occurrences × 12)` for daily and weekly items, `amount / interval` monthly, `amount / (12 × interval)` yearly |
 | `portfolio.summary.read` | `get_portfolio_summary` (today's change — coins over a rolling 24 hours, see below — and the total return since the first deposit or trade, `since`), `get_allocation` (by asset class vs target) |
 | `portfolio.positions.read` | `get_positions` (asset class, day change — 24 h for coins; hand-entered crypto marked `source: manual` with its location) |
 | `portfolio.performance.read` | `get_portfolio_performance` |
 | `dividends.read` | `get_dividend_summary` (dividends and crypto rewards, each total separately) |
+| **`accounts.names.read`** (sensitive) | adds account names (not IBANs) to `get_accounts` and `get_loans` |
 | **`accounts.identifiers.read`** (sensitive) | adds account names and IBANs to `get_net_worth` and `get_accounts` |
 | **`raw.transactions.read`** (sensitive) | adds account and source to transactions |
 | **`personal.notes.read`** (sensitive) | adds personal notes to transactions |
