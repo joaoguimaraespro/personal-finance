@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmPopoverImports } from '@spartan-ng/helm/popover';
 import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
@@ -29,6 +30,7 @@ import {
 import { friendlyError } from '../features/connections/credentials';
 import { categoryLabel } from '../shared/category-label';
 import { APP_ICONS } from '../shared/icons';
+import { parseAmount } from '../shared/parse-amount';
 
 const KIND_ICONS: Record<NotificationKind, string> = {
   RecurringDue: 'lucideRepeat',
@@ -91,6 +93,7 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
     DayPipe,
     PercentPipe,
     HlmButtonImports,
+    HlmInputImports,
     HlmPopoverImports,
     HlmSheetImports,
     HlmTooltipImports,
@@ -347,14 +350,30 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                   </span>
                 </a>
                 @if (item.actions.length) {
-                  <div class="mt-2 flex flex-wrap gap-2">
+                  <div class="mt-2 flex flex-wrap items-center gap-2">
+                    @if (item.kind === 'RecurringDue') {
+                      <!-- A bill that varies: the amount can be corrected before confirming. -->
+                      <input
+                        hlmInput
+                        class="num h-8 w-24 text-right"
+                        inputmode="decimal"
+                        [attr.aria-label]="
+                          'recurring.confirmValue' | translate: { name: title(item) }
+                        "
+                        [value]="amountText(item)"
+                        (input)="setAmount(item.id, $any($event.target).value)"
+                        (keydown.enter)="n.act(item, 'confirm', amountOf(item))"
+                      />
+                    }
                     @for (action of item.actions; track action) {
                       <button
                         hlmBtn
                         size="sm"
                         [variant]="action === 'skip' ? 'outline' : 'default'"
                         [disabled]="n.busy().has(item.id)"
-                        (click)="n.act(item, action); action === 'record' && close()"
+                        (click)="
+                          n.act(item, action, amountOf(item)); action === 'record' && close()
+                        "
                         [attr.aria-label]="
                           (actionLabel(item, action) | translate) + ' · ' + title(item)
                         "
@@ -374,6 +393,23 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
   `,
 })
 export class NotificationBellComponent {
+  /** Amounts typed into recurring items before confirming, by notification id. */
+  private readonly amounts = signal<Record<string, string>>({});
+
+  protected amountText(item: NotificationItem): string {
+    return this.amounts()[item.id] ?? String(item.args['amount'] ?? '').replace('.', ',');
+  }
+
+  protected setAmount(id: string, value: string) {
+    this.amounts.update((a) => ({ ...a, [id]: value }));
+  }
+
+  /** The corrected amount, or undefined to keep the proposed one. */
+  protected amountOf(item: NotificationItem): number | undefined {
+    const typed = this.amounts()[item.id];
+    return typed === undefined ? undefined : (parseAmount(typed) ?? undefined);
+  }
+
   protected readonly n = inject(Notifications);
   private readonly i18n = inject(TranslateService);
   private readonly prefs = inject(Prefs);
