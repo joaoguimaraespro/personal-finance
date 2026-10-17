@@ -8,7 +8,7 @@
    images, then publishes a GitHub release with them and `SHA256SUMS.txt`. The generated notes leave out Dependabot
    ([`.github/release.yml`](../.github/release.yml)).
 5. Replace the generated notes with the CHANGELOG entry plus the install table (see the
-   [1.0.0 release](https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.0.0) for the layout):
+   [1.1.0 release](https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.1.0) for the layout):
    `gh release edit v1.2.3 --notes-file notes.md`.
 
 Versions follow [Semantic Versioning](https://semver.org): a database change that needs a manual step, or a
