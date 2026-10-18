@@ -508,9 +508,8 @@ export class RecurringComponent {
   protected readonly manualAccounts = computed(() =>
     (this.accounts.value() ?? []).filter((a) => a.isManual && a.kind !== 'Person'),
   );
-  protected readonly people = computed(() =>
-    (this.accounts.value() ?? []).filter((a) => a.kind === 'Person' && !a.archived),
-  );
+  private readonly sharing = liveResource({ stream: () => this.api.sharing() });
+  protected readonly people = computed(() => this.sharing.value()?.people ?? []);
   protected readonly selectedPeople = computed(() =>
     this.people().filter((p) => this.form().sharePeople.includes(p.id)),
   );

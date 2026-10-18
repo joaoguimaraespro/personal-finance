@@ -23,13 +23,14 @@ public static class AccountBalances
         }
 
         var sums = await query
-            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.IsRefund })
+            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.IsRefund, t.FromOutside })
             .Select(g => new
             {
                 g.Key.AccountId,
                 g.Key.CounterAccountId,
                 g.Key.Type,
                 g.Key.IsRefund,
+                g.Key.FromOutside,
                 Base = g.Sum(t => t.BaseAmount),
                 Original = g.Sum(t => t.OriginalAmount),
             })
@@ -45,7 +46,7 @@ public static class AccountBalances
             foreach (var s in sums.Where(s => !IsEarmark(s.Type, s.CounterAccountId)))
             {
                 // Income and sale proceeds flow into the account; for a sale the counter account is the source.
-                var inflow = IsInflow(s.Type, s.IsRefund);
+                var inflow = IsInflow(s.Type, s.IsRefund, s.FromOutside);
                 if (s.AccountId == account.Id)
                 {
                     balance += inflow ? Amount(s.Base, s.Original) : -Amount(s.Base, s.Original);
@@ -81,8 +82,9 @@ public static class AccountBalances
     /// Savings without a destination account set money aside in a bucket while it stays in the source account: it
     /// counts as saved that month, but no money moved, so no balance changes (it would vanish from net worth).
     /// </summary>
-    public static bool IsInflow(TransactionType type, bool isRefund) =>
-        type is TransactionType.Income or TransactionType.InvestmentSale || type == TransactionType.Expense && isRefund;
+    public static bool IsInflow(TransactionType type, bool isRefund, bool fromOutside = false) =>
+        type is TransactionType.Income or TransactionType.InvestmentSale || type == TransactionType.Expense && isRefund ||
+        type == TransactionType.Transfer && fromOutside;
 
     public static bool IsEarmark(TransactionType type, Guid? counterAccountId) =>
         type == TransactionType.Savings && counterAccountId is null;
@@ -93,13 +95,14 @@ public static class AccountBalances
     {
         var last = days.Max();
         var rows = await db.Transactions.AsNoTracking().Where(t => t.OccurredOn <= last)
-            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.OccurredOn, t.IsRefund })
+            .GroupBy(t => new { t.AccountId, t.CounterAccountId, t.Type, t.OccurredOn, t.IsRefund, t.FromOutside })
             .Select(g => new
             {
                 g.Key.AccountId,
                 g.Key.CounterAccountId,
                 g.Key.Type,
                 g.Key.IsRefund,
+                g.Key.FromOutside,
                 g.Key.OccurredOn,
                 Base = g.Sum(t => t.BaseAmount),
                 Original = g.Sum(t => t.OriginalAmount),
@@ -119,7 +122,7 @@ public static class AccountBalances
                                                   (r.AccountId == account.Id || r.CounterAccountId == account.Id)))
                 {
                     var amount = account.Currency == Currency.Base ? s.Base : s.Original;
-                    var inflow = IsInflow(s.Type, s.IsRefund);
+                    var inflow = IsInflow(s.Type, s.IsRefund, s.FromOutside);
                     balance += s.AccountId == account.Id
                         ? inflow ? amount : -amount
                         : s.Type == TransactionType.InvestmentSale ? -amount : amount;

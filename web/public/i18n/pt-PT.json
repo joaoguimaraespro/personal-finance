@@ -347,7 +347,6 @@
   "shareCustom": "Valores",
   "yourPart": "A tua parte: {{amount}}",
   "eachPart": "{{amount}} cada",
-  "paidByPerson": "{{name}} (pagou por ti)",
   "sharedWith": "Partilhada com {{names}}"
  },
  "recurring": {
@@ -1389,8 +1388,13 @@
   "settleHint": "Fica como transferência: não conta como rendimento nem como gasto.",
   "recorded": "Pagamento registado",
   "archiveOpen": "Esta pessoa ainda tem saldo em aberto. Arquivar mesmo assim?",
-  "howTo": "Partilha uma despesa ao registá-la (\"Partilhar com pessoas\"). Se alguém pagou por ti, regista a despesa com o nome dessa pessoa como conta.",
+  "howTo": "Partilha uma despesa ao registá-la (\"Partilhar com pessoas\"). Se alguém pagou por ti, usa \"Pagou por mim\" no cartão dessa pessoa.",
   "emptyTitle": "Ainda sem ninguém com quem partilhar",
-  "emptyText": "Adiciona as pessoas com quem divides despesas — a subscrição de streaming, as contas da casa, uma ida às compras — e sabe sempre quem deve o quê."
+  "emptyText": "Adiciona as pessoas com quem divides despesas — a subscrição de streaming, as contas da casa, uma ida às compras — e sabe sempre quem deve o quê.",
+  "paidForMe": "Pagou por mim",
+  "paidForMeTitle": "{{name}} pagou por ti",
+  "paidForMeHint": "Conta como gasto teu nessa categoria; ficas a dever-lhe até pagares.",
+  "noAccount": "Sem conta (dinheiro ou fora da app)",
+  "settleOutsideHint": "Não fica registado em nenhuma conta: só muda o saldo da pessoa."
  }
 }

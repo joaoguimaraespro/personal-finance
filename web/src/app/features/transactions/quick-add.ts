@@ -658,9 +658,11 @@ export class QuickAddComponent {
   protected readonly manualAccounts = computed(() =>
     (this.accounts.value() ?? []).filter((a) => a.isManual && !a.archived),
   );
-  protected readonly people = computed(() =>
-    (this.accounts.value() ?? []).filter((a) => a.kind === 'Person' && !a.archived),
-  );
+  private readonly sharing = liveResource({
+    params: () => this.active() || undefined,
+    stream: () => this.api.sharing(),
+  });
+  protected readonly people = computed(() => this.sharing.value()?.people ?? []);
   protected readonly selectedPeople = computed(() =>
     this.people().filter((p) => this.sharePeople().includes(p.id)),
   );
@@ -757,10 +759,7 @@ export class QuickAddComponent {
     (this.type() === 'Transfer'
       ? (this.accounts.value() ?? []).filter((a) => !a.archived)
       : this.manualAccounts()
-    ).map((a) => ({
-      value: a.id,
-      label: a.kind === 'Person' ? this.i18n.instant('tx.paidByPerson', { name: a.name }) : a.name,
-    })),
+    ).map((a) => ({ value: a.id, label: a.name })),
   );
   protected readonly counterAccountOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
