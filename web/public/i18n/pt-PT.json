@@ -1406,5 +1406,17 @@
   "paidForMeHint": "Conta como gasto teu nessa categoria; ficas a dever-lhe até pagares.",
   "noAccount": "Sem conta (dinheiro ou fora da app)",
   "settleOutsideHint": "Não fica registado em nenhuma conta: só muda o saldo da pessoa."
+ },
+ "deletion": {
+  "ask": "Eliminar de vez a conta “{{name}}”?",
+  "askPerson": "Eliminar de vez {{name}}?",
+  "alsoDeletes": "Elimina também {{what}}.",
+  "nothingElse": "Não tem mais nada ligado.",
+  "transactions": "{{count}} movimentos",
+  "recurring": "{{count}} recorrentes",
+  "sharedParts": "{{count}} partes que outras pessoas devem",
+  "loan": "os termos do empréstimo",
+  "cannotUndo": "Não se pode desfazer (arquiva em vez disso para manter o histórico).",
+  "done": "Eliminado"
  }
 }

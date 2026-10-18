@@ -7,6 +7,8 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { bucketLabel } from '../../shared/bucket-label';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
+import { Confirm } from '../../core/confirm';
+import { deleteAccountConfirmed } from '../../shared/account-deletion';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, PercentPipe, today } from '../../core/format';
 import { Account, AccountKind, Broker, InterestPayout, InterestRate } from '../../core/models';
@@ -351,6 +353,16 @@ export const canBeRestricted = (kind: AccountKind) =>
                     (a.archived ? 'common.restore' : 'common.archive') | translate
                   }}
                 </button>
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  class="text-destructive ml-auto"
+                  [attr.aria-label]="('common.delete' | translate) + ' · ' + a.name"
+                  (click)="remove(a)"
+                >
+                  <ng-icon name="lucideTrash2" />
+                </button>
               </div>
             }
           </div>
@@ -599,6 +611,7 @@ export class AccountsComponent {
     Person: 'lucideUsers',
   };
   private readonly api = inject(Api);
+  private readonly confirm = inject(Confirm);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
@@ -880,6 +893,17 @@ export class AccountsComponent {
       await firstValueFrom(this.api.setAccountAllocationBucket(a.id, bucketId || null));
       this.toasts.show(this.i18n.instant('accounts.countsTowardsSaved'));
       this.events.bump(); // monthly figures and the notification centre follow
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async remove(a: Account) {
+    try {
+      if (await deleteAccountConfirmed(this.api, this.confirm, this.i18n, a.id)) {
+        this.events.bump();
+        this.toasts.show(this.i18n.instant('deletion.done'));
+      }
     } catch (err) {
       this.toasts.error(err);
     }
