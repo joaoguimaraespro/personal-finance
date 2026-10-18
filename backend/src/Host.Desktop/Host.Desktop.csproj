@@ -22,4 +22,15 @@
     <!-- The API's defaults (logging levels, market data provider) when it runs inside the desktop app. -->
     <Content Include="../Host.Api/appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <!--
+    Host.Api and Host.Mcp both bring an appsettings.json: the app keeps the API's (linked above) and the MCP server,
+    which needs nothing from its own, reads the same file.
+  -->
+  <Target Name="KeepApiSettingsOnly" AfterTargets="ComputeFilesToPublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <ItemGroup>
+      <_McpSettings Include="@(ResolvedFileToPublish)"
+                    Condition="$([System.String]::new('%(FullPath)').Contains('Host.Mcp')) And $([System.String]::new('%(Filename)').StartsWith('appsettings'))" />
+      <ResolvedFileToPublish Remove="@(_McpSettings)" />
+    </ItemGroup>
+  </Target>
 </Project>
