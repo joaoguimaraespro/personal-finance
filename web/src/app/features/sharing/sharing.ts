@@ -6,6 +6,7 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import { Confirm } from '../../core/confirm';
+import { deleteAccountConfirmed } from '../../shared/account-deletion';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, today } from '../../core/format';
 import { SharedPerson } from '../../core/models';
@@ -94,15 +95,26 @@ import { categoryLabel } from '../../shared/category-label';
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                class="text-muted-foreground hover:text-foreground"
-                [attr.aria-label]="'common.archive' | translate"
-                [title]="'common.archive' | translate"
-                (click)="archive(p)"
-              >
-                <ng-icon name="lucideArchive" />
-              </button>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground"
+                  [attr.aria-label]="'common.archive' | translate"
+                  [title]="'common.archive' | translate"
+                  (click)="archive(p)"
+                >
+                  <ng-icon name="lucideArchive" />
+                </button>
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-destructive"
+                  [attr.aria-label]="('common.delete' | translate) + ' · ' + p.name"
+                  [title]="'common.delete' | translate"
+                  (click)="remove(p)"
+                >
+                  <ng-icon name="lucideTrash2" />
+                </button>
+              </div>
             </div>
 
             <p
@@ -510,6 +522,17 @@ export class SharingComponent {
       this.toasts.error(err);
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  protected async remove(person: SharedPerson) {
+    try {
+      if (await deleteAccountConfirmed(this.api, this.confirm, this.i18n, person.id)) {
+        this.events.bump();
+        this.toasts.show(this.i18n.instant('deletion.done'));
+      }
+    } catch (err) {
+      this.toasts.error(err);
     }
   }
 

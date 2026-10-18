@@ -36,6 +36,12 @@ result), a separate **write budget** (default 20 per rolling hour), the **refusa
 estimated-interest and archived records), and an audit entry marked *write* with the record id and a short
 **before/after** summary. The ledger's own change history records the actor as `ai:<client name>`.
 
+## Desktop app
+
+The desktop app runs the same MCP server on this computer, at `http://127.0.0.1:47821/mcp`, while it is open
+([ADR-0012](adr/0012-desktop-mcp.md)). *AI access* shows the command for Claude Code and the configuration for Claude
+Desktop when a client is created. Details: [desktop-app.md](desktop-app.md#ai-clients-mcp).
+
 ## Scopes
 
 | Scope | Tools |

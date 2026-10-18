@@ -198,6 +198,12 @@ public static class AccountEndpoints
             return Results.NoContent();
         });
 
+        // Deleting for good (archiving keeps the history): what it takes with it first, then the deletion.
+        group.MapGet("/{id:guid}/deletion", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+            (await AccountDeletion.PreviewAsync(db, id, ct)).ToHttp(Results.Ok));
+        group.MapDelete("/{id:guid}", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+            (await AccountDeletion.DeleteAsync(db, id, ct)).ToHttp(Results.Ok));
+
         group.MapPost("/{id:guid}/archive", (Guid id, IFinanceDb db, TimeProvider clock,
             InterestAccrualService interest, CancellationToken ct) =>
             SetArchived(id, archived: true, db, clock, interest, ct));

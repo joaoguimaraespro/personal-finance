@@ -3,6 +3,23 @@
 Notable changes for people who install the app. Every release, with its installers, is on the
 [releases page](https://github.com/joaoguimaraespro/personal-finance/releases); the full history is in the [commits](https://github.com/joaoguimaraespro/personal-finance/commits/main).
 
+## [Unreleased]
+
+### Added
+
+- **Dividend calendar** on the Portfolio page: each position's dividends by month over the last 12 months, the ones
+  that pay nothing included, with yield, the monthly average and the thin months.
+- **Sharing:** received / paid with no account (cash or outside the app), and "Paid for me" on a person's card.
+- **Desktop app:** the MCP server for AI clients (Claude Code, Claude Desktop) runs inside the app; uninstalling on
+  Windows can delete the data too.
+- Accounts and people can be **deleted for good**, after showing what goes with them.
+
+### Changed
+
+- People no longer appear in account lists; they live on the Sharing page.
+- Monthly: the allocation status follows what was set aside (no "Automatic" option), with "Not this month" and undo;
+  the spending-by-category chart is centred.
+
 ## [1.1.0] - 2026-10-17
 
 First public release.

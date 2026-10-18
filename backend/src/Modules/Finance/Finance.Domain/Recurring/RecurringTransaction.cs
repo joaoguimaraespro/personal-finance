@@ -116,6 +116,9 @@ public sealed class RecurringTransaction : Entity, IAuditable
 
     public void SetActive(bool active) => IsActive = active;
 
+    /// <summary>A person no longer shares it (they were deleted): their part becomes the owner's.</summary>
+    public bool RemoveShare(Guid personId) => _shares.RemoveAll(s => s.PersonId == personId) > 0;
+
     /// <summary>Returns due dates up to <paramref name="horizon"/> and advances the schedule past them.</summary>
     public IReadOnlyList<DateOnly> TakeDueOccurrences(DateOnly horizon)
     {
