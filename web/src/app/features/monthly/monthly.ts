@@ -19,19 +19,19 @@ import { DataEvents } from '../../core/data-events';
 import { MoneyPipe, currentPeriod } from '../../core/format';
 import { AllocationStatus, BucketLine, MonthlySummary } from '../../core/models';
 import { QuickAdd } from '../../core/data-events';
-import { autoStatus, canRecord, remaining } from './allocation';
+import { canRecord, effectiveStatus, remaining } from './allocation';
 import { Prefs } from '../../core/prefs';
 import { Toasts } from '../../core/toast';
 import { CategoryLabelPipe, categoryLabel } from '../../shared/category-label';
 import { bucketLabel, BucketLabelPipe } from '../../shared/bucket-label';
 import { ChartComponent } from '../../shared/chart';
+import { StatusBadgeComponent, StatusTone } from '../../shared/status-badge';
 import { SERIES_COLORS } from '../../shared/chart-options';
 import { KpiComponent } from '../../shared/kpi';
 import { MonthPickerComponent } from '../../shared/month-picker';
 import { ProgressComponent } from '../../shared/progress';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { SelectComponent, SelectOption } from '../../shared/select';
 import { APP_ICONS, PAGE_ICONS } from '../../shared/icons';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { EmptyStateComponent } from '../../shared/empty-state';
@@ -44,13 +44,13 @@ type Reference = 'previous' | 'average' | 'budget';
     NgIcon,
     PageHeaderComponent,
     EmptyStateComponent,
-    SelectComponent,
     HlmTableImports,
     HlmButtonImports,
     MonthPickerComponent,
     KpiComponent,
     ProgressComponent,
     ChartComponent,
+    StatusBadgeComponent,
     TranslatePipe,
     MoneyPipe,
     CategoryLabelPipe,
@@ -211,15 +211,29 @@ type Reference = 'previous' | 'average' | 'budget';
                   <td hlmTd>
                     <!-- Like a recurring item: the status follows what was set aside, and one click records the rest. -->
                     <div class="flex flex-wrap items-center gap-2">
-                      <app-select
-                        class="w-40"
-                        size="sm"
-                        triggerClass="text-xs"
-                        [options]="optionsFor(b)"
-                        [value]="manualFor(b.bucketId) ?? 'Auto'"
-                        [ariaLabel]="b.name | bucketLabel"
-                        (valueChange)="setCheck(b.bucketId, $any($event))"
-                      />
+                      @if (statusOf(b); as s) {
+                        <app-status-badge [tone]="toneOf(s)">{{
+                          'allocation.' + s | translate
+                        }}</app-status-badge>
+                      }
+                      <!-- Only the exceptions are set by hand: the status otherwise follows what was set aside. -->
+                      @if (manualFor(b.bucketId)) {
+                        <button
+                          type="button"
+                          class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+                          (click)="setCheck(b.bucketId, 'Auto')"
+                        >
+                          {{ 'common.undo' | translate }}
+                        </button>
+                      } @else if (statusOf(b) !== 'Done') {
+                        <button
+                          type="button"
+                          class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+                          (click)="setCheck(b.bucketId, 'NotApplicable')"
+                        >
+                          {{ 'allocation.notThisMonth' | translate }}
+                        </button>
+                      }
                       @if (recordable(b)) {
                         <button
                           hlmBtn
@@ -385,11 +399,6 @@ export class MonthlyComponent {
   protected readonly colors = SERIES_COLORS;
   protected readonly references: Reference[] = ['previous', 'average', 'budget'];
   private readonly quickAdd = inject(QuickAdd);
-  protected readonly statuses: AllocationStatus[] = ['Todo', 'Done', 'Partial', 'NotApplicable'];
-  protected readonly statusOptions = computed<SelectOption[]>(() => {
-    this.prefs.translations();
-    return this.statuses.map((s) => ({ value: s, label: this.i18n.instant(`allocation.${s}`) }));
-  });
 
   private readonly queryPeriod = toSignal(
     this.route.queryParamMap.pipe(map((q) => q.get('period'))),
@@ -463,9 +472,9 @@ export class MonthlyComponent {
       },
       legend: {
         type: 'scroll',
-        orient: 'vertical',
-        right: 0,
-        top: 'middle',
+        orient: 'horizontal',
+        left: 'center',
+        bottom: 0,
         icon: 'circle',
         itemWidth: 8,
         textStyle: { color: '#a1a1aa', fontSize: 12 },
@@ -473,8 +482,8 @@ export class MonthlyComponent {
       series: [
         {
           type: 'pie',
-          center: ['32%', '50%'],
-          radius: ['50%', '80%'],
+          center: ['50%', '42%'],
+          radius: ['45%', '72%'],
           itemStyle: { borderRadius: 4, borderWidth: 2, borderColor: 'transparent' },
           label: { show: false },
           data: lines
@@ -494,14 +503,16 @@ export class MonthlyComponent {
     return this.checks.value()?.find((c) => c.bucketId === bucketId)?.status;
   }
 
-  /** "Automatic · Partial" first, then the statuses that can be picked by hand. */
-  protected optionsFor(b: BucketLine): SelectOption[] {
-    const auto = autoStatus(b);
-    const label =
-      this.i18n.instant('allocation.Auto') +
-      (auto ? ' · ' + this.i18n.instant(`allocation.${auto}`) : '');
-    return [{ value: 'Auto', label }, ...this.statusOptions()];
-  }
+  /** The status shown: one set by hand ("not this month"), otherwise what the figures say. */
+  protected statusOf = (b: BucketLine) => effectiveStatus(this.manualFor(b.bucketId), b);
+  protected toneOf = (s: AllocationStatus): StatusTone =>
+    s === 'Done'
+      ? 'success'
+      : s === 'Partial'
+        ? 'warning'
+        : s === 'NotApplicable'
+          ? 'neutral'
+          : 'info';
 
   protected recordable = (b: BucketLine) => canRecord(this.manualFor(b.bucketId), b);
   protected left = (b: BucketLine) => remaining(b);

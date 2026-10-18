@@ -146,7 +146,6 @@
   "Done": "Feito",
   "Partial": "Parcial",
   "NotApplicable": "N/A",
-  "Auto": "Automático",
   "record": "Registar",
   "notThisMonth": "Este mês não",
   "entryDescription": "Alocação: {{bucket}}"
