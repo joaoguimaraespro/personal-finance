@@ -7,9 +7,11 @@ namespace Host.Api.Desktop;
 /// API on 127.0.0.1 over plain HTTP, its own PostgreSQL, the web app served by the API itself (no reverse proxy).
 /// Sign-in needs no setup token and two-factor authentication is optional (it can be turned on in Settings).
 /// </summary>
-public sealed record DesktopMode(bool Enabled)
+/// <param name="McpUrl">Where the desktop app's MCP server listens for AI clients (Claude, …), when it runs one.</param>
+public sealed record DesktopMode(bool Enabled, string? McpUrl = null)
 {
-    public static DesktopMode From(IConfiguration config) => new(config.GetValue<bool>("Desktop:Enabled"));
+    public static DesktopMode From(IConfiguration config) =>
+        new(config.GetValue<bool>("Desktop:Enabled"), config["Desktop:McpUrl"] is { Length: > 0 } url ? url : null);
 }
 
 internal static class DesktopHosting

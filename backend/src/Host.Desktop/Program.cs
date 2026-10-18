@@ -1,3 +1,4 @@
+extern alias mcp;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -36,14 +37,21 @@ internal static class Program
             return SingleInstance.RunningUrl(layout.DataDir) is { } running ? ShowWindow(layout, running) : 1;
         }
 
-        var server = ApiServer.Start(layout);
+        // AI clients (Claude Code, Claude Desktop, …) need an address that stays the same between runs.
+        var mcpUrl = McpServer.FreeUrl();
+        var server = ApiServer.Start(layout, mcpUrl);
         SingleInstance.Publish(layout.DataDir, server.Url);
+        if (mcpUrl is not null)
+        {
+            McpServer.Start(mcpUrl, server.Url);
+        }
         try
         {
             if (args.Contains("--smoke"))
             {
                 return server.WaitReadyAsync(TimeSpan.FromMinutes(3)).GetAwaiter().GetResult() &&
-                       server.AnswersAsync().GetAwaiter().GetResult()
+                       server.AnswersAsync().GetAwaiter().GetResult() &&
+                       (mcpUrl is null || McpServer.AnswersAsync(mcpUrl).GetAwaiter().GetResult())
                     ? 0
                     : 1;
             }
@@ -131,7 +139,7 @@ internal sealed class ApiServer
     public string Url { get; }
     public Task<int> Completion { get; }
 
-    public static ApiServer Start(AppLayout layout)
+    public static ApiServer Start(AppLayout layout, string? mcpUrl = null)
     {
         var url = $"http://127.0.0.1:{FreePort()}";
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
@@ -145,6 +153,7 @@ internal sealed class ApiServer
             ["Desktop__ShutdownToken"] = token,
             ["ASPNETCORE_URLS"] = url,
             ["ASPNETCORE_CONTENTROOT"] = layout.BaseDir,
+            ["Desktop__McpUrl"] = mcpUrl is null ? "" : mcpUrl + "/mcp",
         };
         foreach (var (key, value) in settings)
         {
@@ -301,4 +310,84 @@ internal static class LoadingPage
           poll();
         </script></body></html>
         """;
+}
+
+/// <summary>
+/// The MCP server (the same one a server install runs) in this process, so AI clients on this computer can use the
+/// app while it is open. It calls the API's AI gateway with each client's token, exactly as on a server.
+/// </summary>
+internal static class McpServer
+{
+    /// <summary>The usual port; the next few are tried when it is taken. <c>PERSONAL_FINANCE_MCP_PORT</c> overrides it.</summary>
+    public const int DefaultPort = 47821;
+
+    public static string? FreeUrl()
+    {
+        var preferred = int.TryParse(Environment.GetEnvironmentVariable("PERSONAL_FINANCE_MCP_PORT"), out var p) && p > 0
+            ? p
+            : DefaultPort;
+        for (var port = preferred; port < preferred + 10; port++)
+        {
+            try
+            {
+                using var probe = new TcpListener(IPAddress.Loopback, port);
+                probe.Start();
+                return $"http://127.0.0.1:{port}";
+            }
+            catch (SocketException)
+            {
+                // Taken: try the next one.
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Smoke test: the MCP server is up (its health check answers) within half a minute.</summary>
+    public static async Task<bool> AnswersAsync(string url)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            try
+            {
+                if ((await http.GetAsync($"{url}/healthz")).IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"MCP OK: {url}/mcp");
+                    return true;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // Not listening yet.
+            }
+
+            await Task.Delay(1000);
+        }
+
+        Console.Error.WriteLine("MCP server did not answer.");
+        return false;
+    }
+
+    public static void Start(string url, string apiUrl)
+    {
+        var entry = typeof(mcp::Host.Mcp.GatewayClient).Assembly.EntryPoint
+                    ?? throw new InvalidOperationException("The MCP server has no entry point.");
+        // Command-line settings win over the API's environment variables (ASPNETCORE_URLS) in the same process.
+        string[] settings = ["--urls", url, "--Gateway:BaseUrl", apiUrl];
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (entry.Invoke(null, [settings]) is Task task)
+                {
+                    await task;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"MCP server stopped: {ex.GetBaseException().Message}");
+            }
+        });
+    }
 }

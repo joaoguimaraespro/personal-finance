@@ -1040,7 +1040,10 @@
    "all": "Tudo",
    "writes": "Escritas",
    "denied": "Recusados"
-  }
+  },
+  "claudeDesktop": "Claude Desktop (no claude_desktop_config.json; precisa do Node.js):",
+  "desktopMcpHint": "Os clientes de IA só chegam à app neste computador e enquanto ela está aberta.",
+  "copyConfig": "Copiar configuração do Claude Desktop"
  },
  "assistant": {
   "subtitle": "Pergunta sobre as tuas finanças. As respostas usam as mesmas ferramentas com permissões dos clientes MCP — só de leitura, salvo se deres ao assistente uma permissão de escrita em Acesso de IA.",

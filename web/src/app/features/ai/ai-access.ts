@@ -10,6 +10,7 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmTableImports } from '@spartan-ng/helm/table';
 import { Confirm } from '../../core/confirm';
+import { AuthService } from '../../core/auth';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBan,
@@ -638,7 +639,19 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
         <pre class="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{{
           claudeCommand()
         }}</pre>
-        <div class="flex justify-end gap-2">
+        @if (desktopMcp()) {
+          <p class="text-sm text-muted-foreground">{{ 'ai.claudeDesktop' | translate }}</p>
+          <pre class="max-h-48 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">{{
+            claudeDesktopConfig()
+          }}</pre>
+          <p class="text-xs text-muted-foreground">{{ 'ai.desktopMcpHint' | translate }}</p>
+        }
+        <div class="flex flex-wrap justify-end gap-2">
+          @if (desktopMcp()) {
+            <button hlmBtn variant="outline" (click)="copy(claudeDesktopConfig())">
+              {{ 'ai.copyConfig' | translate }}
+            </button>
+          }
           <button hlmBtn variant="outline" (click)="copy(claudeCommand())">
             {{ 'ai.copyCommand' | translate }}
           </button>
@@ -653,6 +666,7 @@ export class AiAccessComponent {
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
   private readonly confirm = inject(Confirm);
+  private readonly auth = inject(AuthService);
   private readonly refresh = signal(0);
 
   protected readonly catalog = liveResource({
@@ -723,9 +737,33 @@ export class AiAccessComponent {
   protected readonly hasWrite = computed(() =>
     [...this.selected()].some((s) => isWriteScope(this.scopes(), s)),
   );
+  /** The desktop app runs its own MCP server on a fixed local port; a server publishes it next to the app. */
+  protected readonly mcpUrl = computed(() => this.auth.me()?.mcpUrl ?? `${location.origin}/mcp`);
+  protected readonly desktopMcp = computed(() => !!this.auth.me()?.mcpUrl);
   protected readonly claudeCommand = computed(
     () =>
-      `claude mcp add --transport http personal-finance ${location.origin}/mcp --header "Authorization: Bearer ${this.newToken()}"`,
+      `claude mcp add --transport http personal-finance ${this.mcpUrl()} --header "Authorization: Bearer ${this.newToken()}"`,
+  );
+  /** Claude Desktop reaches a server on this computer through mcp-remote (in claude_desktop_config.json). */
+  protected readonly claudeDesktopConfig = computed(() =>
+    JSON.stringify(
+      {
+        mcpServers: {
+          'personal-finance': {
+            command: 'npx',
+            args: [
+              '-y',
+              'mcp-remote',
+              this.mcpUrl(),
+              '--header',
+              `Authorization: Bearer ${this.newToken()}`,
+            ],
+          },
+        },
+      },
+      null,
+      2,
+    ),
   );
 
   protected readonly daysLeft = daysLeft;
