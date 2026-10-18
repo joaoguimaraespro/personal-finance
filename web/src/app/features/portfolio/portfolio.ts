@@ -671,6 +671,101 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
             </table>
           </div>
         </section>
+
+        <!-- Dividends by calendar month, every position included: the thin months show where to allocate. -->
+        @if (calendar.value(); as cal) {
+          @if (cal.rows.length) {
+            <section class="card mt-6 overflow-x-auto !p-0" data-testid="dividend-calendar">
+              <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5">
+                <h2 class="card-title !mb-0">
+                  <ng-icon name="lucideCalendarDays" />{{ 'portfolio.calendar' | translate }}
+                </h2>
+                <label class="text-muted-foreground flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    [checked]="payersOnly()"
+                    (change)="payersOnly.set($any($event.target).checked)"
+                  />
+                  {{ 'portfolio.payersOnly' | translate }}
+                </label>
+              </div>
+              <p class="text-muted-foreground px-5 pt-1 text-xs">
+                {{
+                  'portfolio.calendarSummary'
+                    | translate
+                      : { average: (cal.monthlyAverage | money), total: (cal.total | money) }
+                }}
+                @if (thinMonths().length) {
+                  ·
+                  <span class="text-amber-700 dark:text-amber-300">{{
+                    'portfolio.thinMonths' | translate: { months: thinMonths().join(', ') }
+                  }}</span>
+                }
+              </p>
+              <table hlmTable class="mt-3 text-xs">
+                <thead hlmTHead>
+                  <tr hlmTr>
+                    <th hlmTh class="min-w-32"></th>
+                    @for (m of monthNames(); track $index) {
+                      <th hlmTh class="text-right font-medium">{{ m }}</th>
+                    }
+                    <th hlmTh class="text-right">{{ 'portfolio.calendarTotal' | translate }}</th>
+                    <th hlmTh class="text-right">{{ 'portfolio.yield' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody hlmTBody>
+                  @for (r of calendarRows(); track r.securityId) {
+                    <tr hlmTr [class.text-muted-foreground]="!r.total">
+                      <td hlmTd class="font-medium">
+                        <span [title]="r.name">{{ r.symbol }}</span>
+                        @if (!r.total) {
+                          <span class="badge bg-muted ml-1 !px-1.5 !py-0 text-[10px] font-normal">{{
+                            'portfolio.noDividends' | translate
+                          }}</span>
+                        }
+                      </td>
+                      @for (v of r.months; track $index) {
+                        <td
+                          hlmTd
+                          class="num text-right"
+                          [style.background-color]="v ? heat(v, cal) : null"
+                        >
+                          {{ v ? (v | money) : '·' }}
+                        </td>
+                      }
+                      <td hlmTd class="num text-right font-medium">
+                        {{ r.total ? (r.total | money) : '—' }}
+                      </td>
+                      <td hlmTd class="num text-right">
+                        {{ r.yield ? (r.yield | pct: 1) : '—' }}
+                      </td>
+                    </tr>
+                  }
+                  <tr hlmTr class="bg-muted/50 font-medium">
+                    <td hlmTd>{{ 'portfolio.calendarTotal' | translate }}</td>
+                    @for (v of cal.months; track $index) {
+                      <td
+                        hlmTd
+                        [class]="
+                          v < cal.monthlyAverage / 2
+                            ? 'num text-right text-amber-700 dark:text-amber-300'
+                            : 'num text-right'
+                        "
+                      >
+                        {{ v | money }}
+                      </td>
+                    }
+                    <td hlmTd class="num text-right">{{ cal.total | money }}</td>
+                    <td hlmTd></td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="text-muted-foreground px-5 py-3 text-[11px]">
+                {{ 'portfolio.calendarHint' | translate }}
+              </p>
+            </section>
+          }
+        }
       }
     }
 
@@ -766,6 +861,34 @@ export class PortfolioComponent {
     params: this.key,
     stream: ({ params }) => this.api.dividends(params.scope),
   });
+  protected readonly calendar = liveResource({
+    params: this.key,
+    stream: ({ params }) => this.api.dividendCalendar(params.scope),
+  });
+  protected readonly payersOnly = signal(false);
+  protected readonly calendarRows = computed(() =>
+    (this.calendar.value()?.rows ?? []).filter((r) => !this.payersOnly() || r.total > 0),
+  );
+  /** "jan", "fev", … in the display language. */
+  protected readonly monthNames = computed(() => {
+    const format = new Intl.DateTimeFormat(this.prefs.locale(), { month: 'short' });
+    return Array.from({ length: 12 }, (_, i) =>
+      format.format(new Date(2000, i, 1)).replace('.', ''),
+    );
+  });
+  /** Months under half the monthly average: where a payer would even out the income. */
+  protected readonly thinMonths = computed(() => {
+    const cal = this.calendar.value();
+    if (!cal || !cal.total) return [];
+    return cal.months
+      .map((v, i) => (v < cal.monthlyAverage / 2 ? this.monthNames()[i] : null))
+      .filter((m): m is string => !!m);
+  });
+  /** A cell's shade: stronger the more it pays, relative to the largest monthly payment. */
+  protected heat(value: number, cal: { rows: { months: number[] }[] }): string {
+    const max = Math.max(...cal.rows.flatMap((r) => r.months), 1);
+    return `color-mix(in oklch, var(--primary) ${Math.round(8 + (value / max) * 32)}%, transparent)`;
+  }
   protected readonly performance = liveResource({
     params: () => ({ ...this.key(), period: this.period() }),
     stream: ({ params }) => this.api.performance(params.scope, params.period),
