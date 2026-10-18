@@ -1406,5 +1406,17 @@
   "paidForMeHint": "Counts as your spending in that category; you owe it to them until you pay them back.",
   "noAccount": "No account (cash or outside the app)",
   "settleOutsideHint": "Not recorded in any account: only their balance changes."
+ },
+ "deletion": {
+  "ask": "Delete the account “{{name}}” for good?",
+  "askPerson": "Delete {{name}} for good?",
+  "alsoDeletes": "It also deletes {{what}}.",
+  "nothingElse": "Nothing else is linked to it.",
+  "transactions": "{{count}} movements",
+  "recurring": "{{count}} recurring items",
+  "sharedParts": "{{count}} shares people owe",
+  "loan": "its loan terms",
+  "cannotUndo": "This cannot be undone (archive it instead to keep the history).",
+  "done": "Deleted"
  }
 }

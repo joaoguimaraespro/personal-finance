@@ -79,6 +79,18 @@ export class Api {
   createAccount = (body: unknown) => this.http.post<{ id: string }>('/api/accounts', body);
   updateAccount = (id: string, body: unknown) => this.http.put<void>(`/api/accounts/${id}`, body);
   archiveAccount = (id: string) => this.http.post<void>(`/api/accounts/${id}/archive`, {});
+  /** What deleting an account (for good) takes with it. */
+  accountDeletion = (id: string) =>
+    this.http.get<{
+      id: string;
+      name: string;
+      kind: string;
+      transactions: number;
+      recurring: number;
+      sharedParts: number;
+      hasLoanTerms: boolean;
+    }>(`/api/accounts/${id}/deletion`);
+  deleteAccount = (id: string) => this.http.delete<void>(`/api/accounts/${id}`);
   restoreAccount = (id: string) => this.http.post<void>(`/api/accounts/${id}/restore`, {});
 
   // Interest (TANB) on savings accounts
