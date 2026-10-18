@@ -545,6 +545,8 @@ export interface Me {
   mfaSatisfied: boolean;
   /** The desktop app: no setup token, two-factor authentication optional. */
   desktop?: boolean;
+  /** The desktop app's MCP server for AI clients on this computer (while the app is open). */
+  mcpUrl?: string | null;
 }
 
 export interface ImportPreview {

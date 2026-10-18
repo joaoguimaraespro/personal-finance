@@ -1,7 +1,7 @@
 ; Windows installer for the desktop app (ADR-0010). Built by .github/workflows/desktop.yml:
 ;   iscc /DSourceDir=<published app> /DAppVersion=1.2.3 personal-finance.iss
-; Per-user install (no administrator rights), Start menu and optional desktop shortcut. Uninstalling keeps the data in
-; %LOCALAPPDATA%\PersonalFinanceApp\data unless the user deletes it.
+; Per-user install (no administrator rights), Start menu and optional desktop shortcut. Uninstalling asks whether to
+; delete the data in %LOCALAPPDATA%\PersonalFinanceApp too (kept by default).
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -46,3 +46,21 @@ Name: "{autodesktop}\Personal Finance"; Filename: "{app}\PersonalFinance.exe"; I
 
 [Run]
 Filename: "{app}\PersonalFinance.exe"; Description: "{cm:LaunchProgram,Personal Finance}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// Uninstalling asks whether to delete the data too (database, broker keys, logs); by default it is kept, so
+// reinstalling or updating finds everything as it was.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataDir: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    DataDir := ExpandConstant('{localappdata}\PersonalFinanceApp');
+    if DirExists(DataDir) and not UninstallSilent and
+       (MsgBox('Also delete your Personal Finance data (database, broker keys and logs) from this computer?' + #13#10#13#10 +
+               'Choose No to keep it for a later reinstall. Deleted data cannot be recovered without an export.',
+               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
+      DelTree(DataDir, True, True, True);
+  end;
+end;

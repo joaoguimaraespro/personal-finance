@@ -1040,7 +1040,10 @@
    "all": "All",
    "writes": "Writes",
    "denied": "Denied"
-  }
+  },
+  "claudeDesktop": "Claude Desktop (in claude_desktop_config.json; needs Node.js):",
+  "desktopMcpHint": "AI clients reach the app on this computer only, while it is open.",
+  "copyConfig": "Copy Claude Desktop config"
  },
  "assistant": {
   "subtitle": "Ask about your finances. Answers use the same permission-checked tools as MCP clients — read-only unless you grant the assistant a write permission under AI access.",
