@@ -96,6 +96,16 @@ public sealed class PortfolioTests(ApiFactory factory)
         var dividends = await api.GetJsonAsync("/api/portfolio/dividends");
         dividends.GetProperty("items")[0].GetProperty("withholdingTax").GetDecimal().ShouldBeGreaterThan(0);
 
+        // The calendar: every position, payers or not, by calendar month over the last 12 months.
+        var calendar = await api.GetJsonAsync("/api/portfolio/dividend-calendar");
+        var rows = calendar.GetProperty("rows").EnumerateArray().ToList();
+        rows.Count.ShouldBeGreaterThanOrEqualTo(positions.Count(p => p.GetProperty("assetClass").GetString() != "Crypto"));
+        rows.ShouldAllBe(r => r.GetProperty("months").GetArrayLength() == 12);
+        var months = calendar.GetProperty("months").EnumerateArray().Select(m => m.GetDecimal()).ToList();
+        months.Count.ShouldBe(12);
+        months.Sum().ShouldBe(calendar.GetProperty("total").GetDecimal());
+        rows.Sum(r => r.GetProperty("total").GetDecimal()).ShouldBe(calendar.GetProperty("total").GetDecimal());
+
         var netWorth = await api.GetJsonAsync("/api/net-worth");
         netWorth.GetProperty("current").GetProperty("investments").GetDecimal()
             .ShouldBe(summary.GetProperty("totalValue").GetDecimal());

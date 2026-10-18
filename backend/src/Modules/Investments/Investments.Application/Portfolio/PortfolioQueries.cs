@@ -123,6 +123,19 @@ public sealed record DividendSummary(decimal TotalNetBase, IReadOnlyList<PeriodA
 
 public sealed record PeriodAmount(string Period, decimal Amount);
 
+/// <summary>
+/// What each position paid in each calendar month over the last 12 months (net, EUR), including positions that paid
+/// nothing — to see which months are thin and where a payer would even out a monthly income.
+/// </summary>
+/// <param name="Months">Totals for January … December.</param>
+public sealed record DividendCalendar(DateOnly From, DateOnly To, IReadOnlyList<DividendCalendarRow> Rows,
+    IReadOnlyList<decimal> Months, decimal Total, decimal MonthlyAverage);
+
+/// <param name="Months">What it paid in January … December of the last 12 months (net, EUR).</param>
+/// <param name="Yield">The last 12 months' dividends over today's value; null when it is no longer held.</param>
+public sealed record DividendCalendarRow(Guid SecurityId, string Symbol, string Name, AssetClass AssetClass,
+    decimal MarketValueBase, decimal PortfolioWeight, IReadOnlyList<decimal> Months, decimal Total, decimal? Yield);
+
 public sealed record SecurityAmount(string Symbol, string Name, decimal Amount);
 
 /// <param name="ReconstructedBefore">History before this day was rebuilt from transactions and public closing
@@ -476,6 +489,59 @@ public sealed class PortfolioQueries(IInvestmentsDb db, IFinanceDb finance, FxRa
                 g.Sum(r => r.d.NetBaseAmount))).OrderByDescending(x => x.Amount).ToList(),
             rows.Take(500).Select(r => new DividendLine(r.d.PaidOn, r.s.Symbol, r.s.Name, r.d.Source, r.d.GrossAmount,
                 r.d.WithholdingTax, r.d.NetAmount, r.d.Currency, r.d.NetBaseAmount, r.d.WithholdingDerived)).ToList());
+    }
+
+    /// <summary>
+    /// The last 12 months of dividends (this month and the 11 before) by calendar month, for every position held
+    /// (crypto only when it paid) and anything that paid in that time.
+    /// </summary>
+    public async Task<DividendCalendar> DividendCalendarAsync(PortfolioScope scope, CancellationToken ct)
+    {
+        var end = Today;
+        var start = new DateOnly(end.Year, end.Month, 1).AddMonths(-11);
+        var ids = (await BrokerAccountsAsync(scope, ct)).Keys.ToList();
+        var paid = await (from d in db.Dividends.AsNoTracking()
+                join s in db.Securities.AsNoTracking() on d.SecurityId equals s.Id
+                where ids.Contains(d.AccountId) && d.PaidOn >= start && d.PaidOn <= end
+                select new { d.SecurityId, d.PaidOn.Month, d.NetBaseAmount, s.Symbol, s.Name, s.AssetClass })
+            .ToListAsync(ct);
+        var positions = await PositionsAsync(scope, ct);
+
+        decimal[] MonthsOf(Guid security)
+        {
+            var months = new decimal[12];
+            foreach (var p in paid.Where(p => p.SecurityId == security))
+            {
+                months[p.Month - 1] += p.NetBaseAmount;
+            }
+
+            return months.Select(m => decimal.Round(m, 2)).ToArray();
+        }
+
+        var rows = positions
+            .Where(p => p.AssetClass != AssetClass.Crypto || paid.Any(d => d.SecurityId == p.SecurityId))
+            .Select(p =>
+            {
+                var months = MonthsOf(p.SecurityId);
+                var total = months.Sum();
+                return new DividendCalendarRow(p.SecurityId, p.Symbol, p.Name, p.AssetClass, p.MarketValueBase,
+                    p.PortfolioWeight, months, total,
+                    p.MarketValueBase > 0 ? decimal.Round(total / p.MarketValueBase, 4) : null);
+            })
+            .Concat(paid.Where(d => positions.All(p => p.SecurityId != d.SecurityId))
+                .GroupBy(d => d.SecurityId)
+                .Select(g =>
+                {
+                    var months = MonthsOf(g.Key);
+                    return new DividendCalendarRow(g.Key, g.First().Symbol, g.First().Name, g.First().AssetClass, 0, 0,
+                        months, months.Sum(), null);
+                }))
+            .OrderByDescending(r => r.Total).ThenByDescending(r => r.MarketValueBase)
+            .ToList();
+
+        var totals = Enumerable.Range(0, 12).Select(i => rows.Sum(r => r.Months[i])).ToList();
+        var sum = totals.Sum();
+        return new DividendCalendar(start, end, rows, totals, sum, decimal.Round(sum / 12, 2));
     }
 
     public Task<PerformanceReport> PerformanceAsync(PortfolioScope scope, DateOnly? from, DateOnly? to,

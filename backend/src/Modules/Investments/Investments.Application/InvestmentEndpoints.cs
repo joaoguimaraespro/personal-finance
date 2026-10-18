@@ -57,6 +57,8 @@ public static class InvestmentEndpoints
             q.AllocationAsync(new PortfolioScope(broker, accountId), ct));
         portfolio.MapGet("/dividends", (PortfolioQueries q, DataSource? broker, Guid? accountId, DateOnly? from,
             DateOnly? to, CancellationToken ct) => q.DividendsAsync(new PortfolioScope(broker, accountId), from, to, ct));
+        portfolio.MapGet("/dividend-calendar", (PortfolioQueries q, DataSource? broker, Guid? accountId,
+            CancellationToken ct) => q.DividendCalendarAsync(new PortfolioScope(broker, accountId), ct));
         // Either a period (measured as the summary's, up to today's live value) or an explicit from/to range.
         portfolio.MapGet("/performance", (PortfolioQueries q, DataSource? broker, Guid? accountId, DateOnly? from,
             DateOnly? to, string? period, CancellationToken ct) =>
