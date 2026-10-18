@@ -102,10 +102,13 @@ public static class AccountEndpoints
     {
         var group = app.MapGroup("/accounts").WithTags("Accounts");
 
-        group.MapGet("/", async (IFinanceDb db, bool? includeArchived, TimeProvider clock, CancellationToken ct) =>
+        // People the owner shares costs with are accounts too, but they live on the Sharing page: listed only on request.
+        group.MapGet("/", async (IFinanceDb db, bool? includeArchived, bool? includePeople, TimeProvider clock,
+            CancellationToken ct) =>
         {
             var accounts = await db.Accounts.AsNoTracking()
                 .Where(a => includeArchived == true || a.ArchivedAtUtc == null)
+                .Where(a => includePeople == true || a.Kind != AccountKind.Person)
                 .OrderBy(a => a.Kind).ThenBy(a => a.Name)
                 .ToListAsync(ct);
             var balances = await AccountBalances.ComputeAsync(db, accounts, null, ct);

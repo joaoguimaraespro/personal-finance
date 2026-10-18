@@ -264,7 +264,8 @@ export interface SharingOverview {
 
 export interface SettleRequest {
   direction: 'received' | 'paid';
-  accountId: string;
+  /** Null: settled with money the app does not track (cash, an account not in the app). */
+  accountId: string | null;
   amount: number;
   on: string;
   description?: string | null;

@@ -986,6 +986,10 @@ namespace Finance.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("external_id");
 
+                    b.Property<bool>("FromOutside")
+                        .HasColumnType("boolean")
+                        .HasColumnName("from_outside");
+
                     b.Property<decimal>("FxRate")
                         .HasPrecision(19, 10)
                         .HasColumnType("numeric(19,10)")

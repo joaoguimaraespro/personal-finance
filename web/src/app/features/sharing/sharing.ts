@@ -18,6 +18,7 @@ import { ModalComponent } from '../../shared/modal';
 import { PageHeaderComponent } from '../../shared/page-header';
 import { parseAmount } from '../../shared/parse-amount';
 import { SelectComponent, SelectOption } from '../../shared/select';
+import { categoryLabel } from '../../shared/category-label';
 
 /**
  * People the owner shares costs with (ADR-0011): who owes what since when, which shared expenses are still open,
@@ -164,17 +165,26 @@ import { SelectComponent, SelectOption } from '../../shared/select';
               </details>
             }
 
-            <div class="mt-auto flex gap-2 pt-4">
-              @if (p.balance >= 0) {
-                <button hlmBtn size="sm" (click)="openSettle(p, 'received')">
-                  <ng-icon name="lucideArrowDownLeft" />{{ 'sharing.received' | translate }}
-                </button>
-              }
-              @if (p.balance <= 0) {
-                <button hlmBtn size="sm" variant="outline" (click)="openSettle(p, 'paid')">
-                  <ng-icon name="lucideArrowUpRight" />{{ 'sharing.paid' | translate }}
-                </button>
-              }
+            <div class="mt-auto flex flex-wrap gap-2 pt-4">
+              <button
+                hlmBtn
+                size="sm"
+                [variant]="p.balance > 0 ? 'default' : 'outline'"
+                (click)="openSettle(p, 'received')"
+              >
+                <ng-icon name="lucideArrowDownLeft" />{{ 'sharing.received' | translate }}
+              </button>
+              <button
+                hlmBtn
+                size="sm"
+                [variant]="p.balance < 0 ? 'default' : 'outline'"
+                (click)="openSettle(p, 'paid')"
+              >
+                <ng-icon name="lucideArrowUpRight" />{{ 'sharing.paid' | translate }}
+              </button>
+              <button hlmBtn size="sm" variant="ghost" (click)="openPaidForMe(p)">
+                <ng-icon name="lucideReceipt" />{{ 'sharing.paidForMe' | translate }}
+              </button>
             </div>
           </div>
         }
@@ -270,12 +280,73 @@ import { SelectComponent, SelectOption } from '../../shared/select';
             (valueChange)="settleAccount.set($event || null)"
           />
         </div>
-        <p class="text-muted-foreground text-xs">{{ 'sharing.settleHint' | translate }}</p>
+        <p class="text-muted-foreground text-xs">
+          {{ (settleAccount() ? 'sharing.settleHint' : 'sharing.settleOutsideHint') | translate }}
+        </p>
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="settling.set(null)">
             {{ 'common.cancel' | translate }}
           </button>
           <button hlmBtn [disabled]="!canSettle() || busy()">
+            {{ 'common.save' | translate }}
+          </button>
+        </div>
+      </form>
+    </app-modal>
+
+    <app-modal
+      [open]="!!paidForMe()"
+      [title]="'sharing.paidForMeTitle' | translate: { name: paidForMe()?.name }"
+      (closed)="paidForMe.set(null)"
+    >
+      <form class="space-y-3" (submit)="$event.preventDefault(); savePaidForMe()">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="label" for="pfm-amount">{{ 'tx.amount' | translate }}</label>
+            <input
+              id="pfm-amount"
+              hlmInput
+              class="num w-full"
+              inputmode="decimal"
+              [value]="pfmAmount()"
+              (input)="pfmAmount.set($any($event.target).value)"
+            />
+          </div>
+          <div>
+            <label class="label" for="pfm-date">{{ 'tx.date' | translate }}</label>
+            <app-date-field
+              inputId="pfm-date"
+              [value]="pfmOn()"
+              (valueChange)="pfmOn.set($event)"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="label" for="pfm-category">{{ 'tx.category' | translate }}</label>
+          <app-select
+            inputId="pfm-category"
+            [options]="categoryOptions()"
+            [value]="pfmCategory() ?? ''"
+            (valueChange)="pfmCategory.set($event || null)"
+          />
+        </div>
+        <div>
+          <label class="label" for="pfm-desc">{{ 'tx.description' | translate }}</label>
+          <input
+            id="pfm-desc"
+            hlmInput
+            class="w-full"
+            maxlength="200"
+            [value]="pfmDescription()"
+            (input)="pfmDescription.set($any($event.target).value)"
+          />
+        </div>
+        <p class="text-muted-foreground text-xs">{{ 'sharing.paidForMeHint' | translate }}</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" hlmBtn variant="outline" (click)="paidForMe.set(null)">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button hlmBtn [disabled]="!(parse(pfmAmount()) ?? 0) || !pfmCategory() || busy()">
             {{ 'common.save' | translate }}
           </button>
         </div>
@@ -299,12 +370,21 @@ export class SharingComponent {
     params: () => this.events.version(),
     stream: () => this.api.accounts(),
   });
-  /** Being paid back lands in, or paying back leaves from, one of the owner's own accounts. */
-  protected readonly accountOptions = computed<SelectOption[]>(() =>
-    (this.accounts.value() ?? [])
-      .filter((a) => a.isManual && !a.archived && a.kind !== 'Person' && a.kind !== 'Loan')
+  private readonly categories = liveResource({ stream: () => this.api.categories() });
+  /** Being paid back lands in, or paying back leaves from, one of the owner's own accounts — or none. */
+  protected readonly accountOptions = computed<SelectOption[]>(() => [
+    ...(this.accounts.value() ?? [])
+      .filter((a) => a.isManual && !a.archived && a.kind !== 'Loan')
       .map((a) => ({ value: a.id, label: a.name })),
-  );
+    { value: '', label: this.i18n.instant('sharing.noAccount') },
+  ]);
+  protected readonly categoryOptions = computed<SelectOption[]>(() => [
+    { value: '', label: '—' },
+    ...(this.categories.value() ?? [])
+      .filter((c) => c.type === 'Expense' && !c.archived)
+      .map((c) => ({ value: c.id, label: categoryLabel(this.i18n, c) })),
+  ]);
+  protected readonly parse = parseAmount;
 
   protected readonly busy = signal(false);
   protected readonly personOpen = signal(false);
@@ -314,9 +394,48 @@ export class SharingComponent {
   protected readonly settleAmount = signal('');
   protected readonly settleOn = signal(today());
   protected readonly settleAccount = signal<string | null>(null);
-  protected readonly canSettle = computed(
-    () => (parseAmount(this.settleAmount()) ?? 0) > 0 && !!this.settleAccount(),
-  );
+  protected readonly canSettle = computed(() => (parseAmount(this.settleAmount()) ?? 0) > 0);
+
+  /** Someone who paid for the owner: an expense of the owner's, paid from that person's account. */
+  protected readonly paidForMe = signal<SharedPerson | null>(null);
+  protected readonly pfmAmount = signal('');
+  protected readonly pfmOn = signal(today());
+  protected readonly pfmCategory = signal<string | null>(null);
+  protected readonly pfmDescription = signal('');
+
+  protected openPaidForMe(person: SharedPerson) {
+    this.paidForMe.set(person);
+    this.pfmAmount.set('');
+    this.pfmOn.set(today());
+    this.pfmCategory.set(null);
+    this.pfmDescription.set('');
+  }
+
+  protected async savePaidForMe() {
+    const person = this.paidForMe();
+    const amount = parseAmount(this.pfmAmount());
+    if (!person || !amount || !this.pfmCategory()) return;
+    this.busy.set(true);
+    try {
+      await firstValueFrom(
+        this.api.createTransaction({
+          type: 'Expense',
+          occurredOn: this.pfmOn(),
+          amount,
+          accountId: person.id,
+          categoryId: this.pfmCategory(),
+          description: this.pfmDescription() || null,
+        }),
+      );
+      this.paidForMe.set(null);
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('sharing.recorded'));
+    } catch (err) {
+      this.toasts.error(err);
+    } finally {
+      this.busy.set(false);
+    }
+  }
 
   protected abs = Math.abs;
 
@@ -367,19 +486,19 @@ export class SharingComponent {
     this.settleDirection.set(direction);
     this.settleAmount.set(person.balance ? String(Math.abs(person.balance)).replace('.', ',') : '');
     this.settleOn.set(today());
-    this.settleAccount.set(this.accountOptions()[0]?.value ?? null);
+    this.settleAccount.set(this.accountOptions()[0]?.value || null);
   }
 
   protected async settle() {
     const person = this.settling();
     const amount = parseAmount(this.settleAmount());
-    if (!person || !amount || !this.settleAccount()) return;
+    if (!person || !amount) return;
     this.busy.set(true);
     try {
       await firstValueFrom(
         this.api.settle(person.id, {
           direction: this.settleDirection(),
-          accountId: this.settleAccount()!,
+          accountId: this.settleAccount(),
           amount,
           on: this.settleOn(),
         }),
