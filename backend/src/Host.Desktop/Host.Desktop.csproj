@@ -15,6 +15,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Host.Api/Host.Api.csproj" />
+    <!-- The MCP server for AI clients runs in the same process too; aliased, since both hosts have a Program class. -->
+    <ProjectReference Include="../Host.Mcp/Host.Mcp.csproj" Aliases="mcp" />
   </ItemGroup>
   <ItemGroup>
     <!-- The API's defaults (logging levels, market data provider) when it runs inside the desktop app. -->

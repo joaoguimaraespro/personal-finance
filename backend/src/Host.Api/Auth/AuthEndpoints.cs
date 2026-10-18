@@ -30,7 +30,7 @@ public sealed record LoginResponse(string Status);
 
 /// <param name="Desktop">The desktop app: no setup token, two-factor authentication optional.</param>
 public sealed record MeResponse(bool Authenticated, bool SetupRequired, string? Email, bool MfaEnabled, bool MfaSatisfied,
-    bool Desktop = false);
+    bool Desktop = false, string? McpUrl = null);
 
 /// <summary>When the current session ends if nothing renews it, so the UI can warn before it does.</summary>
 public sealed record SessionResponse(DateTimeOffset ExpiresAtUtc, int IdleTimeoutMinutes, bool Persistent);
@@ -91,7 +91,7 @@ public static class AuthEndpoints
 
             // Desktop: signing in is enough (two-factor is optional); a server needs the MFA claim.
             return Results.Ok(new MeResponse(true, false, user.Email, await users.GetTwoFactorEnabledAsync(user),
-                desktop.Enabled || ctx.User.HasClaim("amr", "mfa"), desktop.Enabled));
+                desktop.Enabled || ctx.User.HasClaim("amr", "mfa"), desktop.Enabled, desktop.McpUrl));
         });
 
         // First-run bootstrap: only works while no user exists and requires the out-of-band setup token.

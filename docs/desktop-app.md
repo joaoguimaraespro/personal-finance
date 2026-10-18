@@ -41,15 +41,33 @@ and install it over the old one (close the app first). Your data is kept; the da
 | Windows | `%LOCALAPPDATA%\PersonalFinanceApp\data` |
 | macOS | `~/Library/Application Support/PersonalFinance` |
 
-It holds the database, the encryption keys for broker credentials and `app.log`. Uninstalling the app keeps it;
-delete the folder to remove everything. Back it up with *Import / Export → Complete JSON archive*, which also moves
+It holds the database, the encryption keys for broker credentials and `app.log`. The program itself is in
+`%LOCALAPPDATA%\Programs\PersonalFinanceApp` (Windows) or `/Applications` (macOS).
+
+**Removing everything:** on Windows, uninstall from *Settings → Apps* and answer *Yes* when asked whether to delete
+your data too (the default keeps it for a reinstall). On macOS, move the app to the Bin and delete
+`~/Library/Application Support/PersonalFinance`. To clear the data but keep the app, use *Settings → Start fresh*. Back it up with *Import / Export → Complete JSON archive*, which also moves
 your data to a server install or another computer (*Restore from JSON*); see [disaster recovery](disaster-recovery.md#desktop-app). Set `PERSONAL_FINANCE_DATA` to use another folder.
+
+## When it syncs
+
+Everything runs while the app is open. A minute after it opens it catches up on what it missed, then it checks every
+few minutes: Trading 212 and Binance every 4 hours, Interactive Brokers once a day (from 06:00 UTC), market prices
+every 30 minutes, recurring items and interest every hour. Closed for days? It catches up on the next start.
+
+## AI clients (MCP)
+
+The app also runs the MCP server for AI clients on this computer, at `http://127.0.0.1:47821/mcp` (the next free
+port if that one is taken; set `PERSONAL_FINANCE_MCP_PORT` to choose another). Create a client in *Settings → AI
+access*: the dialog shows the `claude mcp add` command for Claude Code and the `claude_desktop_config.json` entry
+for Claude Desktop (through `mcp-remote`, which needs Node.js). It works while the app is open, from this computer
+only; permissions, audit and revocation are the same as on a server ([docs/ai.md](ai.md)).
 
 ## What is different from the server install
 
 - Background jobs (broker syncs, recurring items, interest, snapshots) run while the app is open and catch up when it
   opens again.
-- No phone access: the app listens on this computer only. For phone access use the
+- No phone access: the app (and its MCP server) listens on this computer only. For phone access use the
   [server install](deployment.md) or an [everyday computer with Docker](desktop.md).
 - One copy at a time: opening it again brings up the running one.
 
