@@ -65,6 +65,7 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                     t.Id, t.Type, t.OccurredOn, t.OccurredAtUtc, t.TimeZone, t.AccountId, t.CounterAccountId, t.CategoryId,
                     t.Nature, t.BucketId, t.GoalId, t.OriginalAmount, t.OriginalCurrency, t.FxRate, t.BaseAmount, t.IsRefund,
                     t.BaseCurrency, t.Description, t.Notes, t.Source, t.ExternalId, t.CreatedAtUtc, t.UpdatedAtUtc,
+                    t.FromOutside,
                     t.AssetKind, t.AssetSymbol, t.AssetName, t.AssetIsin, t.AssetQuantity, t.AssetUnitPrice,
                     t.AssetPriceSource,
                     // A person's share of a shared expense: the expense it belongs to (ADR-0011).
@@ -295,7 +296,10 @@ public sealed class JsonArchive(IFinanceDb finance, IInvestmentsDb investments, 
                             Str(t, "assetIsin"), Dec(t, "assetQuantity"), Dec(t, "assetUnitPrice"), Str(t, "assetPriceSource"))
                         : null,
                     Splits: splits,
-                    IsRefund: t.TryGetProperty("isRefund", out var refund) && refund.ValueKind == JsonValueKind.True);
+                    IsRefund: t.TryGetProperty("isRefund", out var refund) && refund.ValueKind == JsonValueKind.True,
+                    // A person's balance settled outside the owner's accounts has no counter account.
+                    Outside: !t.TryGetProperty("counterAccountId", out var counter) || counter.ValueKind == JsonValueKind.Null,
+                    FromOutside: t.TryGetProperty("fromOutside", out var outside) && outside.ValueKind == JsonValueKind.True);
                 var created = Transaction.Create(draft, DataSource.Json, externalId: $"json:{originalId}");
                 if (created.IsSuccess)
                 {

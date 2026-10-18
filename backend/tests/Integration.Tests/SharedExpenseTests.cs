@@ -22,7 +22,7 @@ public sealed class SharedExpenseTests(ApiFactory factory)
             : 0m;
 
     private static async Task<decimal> BalanceAsync(ApiClient api, Guid account) =>
-        (await api.GetAsync<JsonElement[]>("/api/accounts")).Single(a => a.GetProperty("id").GetGuid() == account)
+        (await api.GetAsync<JsonElement[]>("/api/accounts?includePeople=true")).Single(a => a.GetProperty("id").GetGuid() == account)
         .GetProperty("balance").GetDecimal();
 
     private static async Task<JsonElement> PersonAsync(ApiClient api, Guid person) =>
@@ -221,6 +221,39 @@ public sealed class SharedExpenseTests(ApiFactory factory)
             startOn = today.ToString("yyyy-MM-dd"), categoryId = SystemCatalog.CategoryId("internet"),
             shares = new[] { new { personId = bank, percent = 50m } },
         })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task People_are_not_listed_as_accounts_and_can_settle_without_one()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Outside bank", kind = "Bank", currency = "EUR", openingBalance = 100m });
+        var eva = await api.CreateAsync("/api/accounts", new { name = "Eva (outside)", kind = "Person", currency = "EUR", openingBalance = 0m });
+        (await api.GetAsync<JsonElement[]>("/api/accounts")).ShouldNotContain(a => a.GetProperty("id").GetGuid() == eva);
+
+        await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = "2053-10-02", amount = 20m, accountId = bank, categoryId = Subscriptions,
+            shares = new[] { new { personId = eva, amount = 10m } },
+        });
+
+        // She paid in cash, which the app does not track: only her balance moves.
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/sharing/{eva}/settle", new
+        {
+            direction = "received", amount = 10m, on = "2053-10-03",
+        }));
+        (await PersonAsync(api, eva)).GetProperty("balance").GetDecimal().ShouldBe(0m);
+        (await BalanceAsync(api, bank)).ShouldBe(80m);
+        (await PersonAsync(api, eva)).GetProperty("recent").EnumerateArray()
+            .ShouldContain(m => m.GetProperty("kind").GetString() == "paidYou");
+
+        // Paid her 5 in cash (lent): she owes it.
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/sharing/{eva}/settle", new
+        {
+            direction = "paid", amount = 5m, on = "2053-10-04",
+        }));
+        (await PersonAsync(api, eva)).GetProperty("balance").GetDecimal().ShouldBe(5m);
+        (await SpentAsync(api, "2053-10")).ShouldBe(10m);
     }
 
     private static async Task<decimal> GetIncomeAsync(ApiClient api) =>

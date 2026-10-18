@@ -124,6 +124,12 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
 
     public bool IsShare => SharedFromId is not null;
 
+    /// <summary>
+    /// A transfer with no counter account settles a person's balance with money the app does not track (cash, an
+    /// account not in the app): it leaves <see cref="AccountId"/> or, when true, comes into it from outside.
+    /// </summary>
+    public bool FromOutside { get; private set; }
+
     /// <summary>Instrument details, only on investment entries and optional (older entries have none).</summary>
     public InvestmentAssetKind? AssetKind { get; private set; }
     public string? AssetSymbol { get; private set; }
@@ -221,6 +227,7 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
         // A split expense keeps only an explicit nature; otherwise each line carries its category's nature.
         Nature = d.Type == TransactionType.Expense ? split ? d.Nature : d.Nature ?? ExpenseNature.Variable : null;
         IsRefund = d.Type == TransactionType.Expense && d.IsRefund;
+        FromOutside = d.Type == TransactionType.Transfer && d.CounterAccountId is null && d.FromOutside;
         BucketId = d.Type == TransactionType.Savings || TransactionTypes.IsInvestment(d.Type) ? d.BucketId : null;
         GoalId = d.Type == TransactionType.Savings ? d.GoalId : null;
         ApplyAsset(TransactionTypes.IsInvestment(d.Type) ? d.Asset : null);
@@ -287,7 +294,10 @@ public sealed record TransactionDraft(
     string? TimeZone = null,
     InvestmentAsset? Asset = null,
     IReadOnlyList<SplitLine>? Splits = null,
-    bool IsRefund = false);
+    bool IsRefund = false,
+    // A transfer settled outside the owner's accounts: no counter account (see Transaction.FromOutside).
+    bool Outside = false,
+    bool FromOutside = false);
 
 public static class TransactionErrors
 {
@@ -380,7 +390,7 @@ internal static class TransactionRules
         {
             TransactionType.Expense or TransactionType.Income when d.CategoryId is null && d.Splits is not { Count: > 0 } =>
                 TransactionErrors.CategoryRequired,
-            TransactionType.Transfer when d.CounterAccountId is null => TransactionErrors.CounterAccountRequired,
+            TransactionType.Transfer when d.CounterAccountId is null && !d.Outside => TransactionErrors.CounterAccountRequired,
             TransactionType.Savings or TransactionType.InvestmentContribution or TransactionType.InvestmentSale
                 when d.BucketId is null => TransactionErrors.BucketRequired,
             _ when d.CounterAccountId == d.AccountId => TransactionErrors.SameAccount,

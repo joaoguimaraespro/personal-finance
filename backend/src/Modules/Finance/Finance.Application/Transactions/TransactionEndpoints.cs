@@ -338,7 +338,8 @@ public static class TransactionEndpoints
             c == null ? null : c.Key, c == null ? null : c.Name, t.Nature, t.BucketId, b == null ? null : b.Name,
             t.GoalId, t.Description, t.Notes, t.Source,
             t.Source != DataSource.Trading212 && t.Source != DataSource.InteractiveBrokers &&
-            t.Source != DataSource.InterestEstimate && t.SharedFromId == null,
+            t.Source != DataSource.InterestEstimate && t.SharedFromId == null &&
+            !(t.Type == TransactionType.Transfer && t.CounterAccountId == null),
             t.CreatedAtUtc, t.UpdatedAtUtc, TransactionTypes.FlowOf(t.Type),
             t.AssetKind == null || t.AssetSymbol == null
                 ? null

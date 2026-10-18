@@ -27,8 +27,11 @@ public sealed record PersonDto(Guid Id, string Name, decimal Balance, DateOnly? 
 
 public sealed record SharingOverviewDto(decimal OwedToYou, decimal YouOwe, IReadOnlyList<PersonDto> People);
 
-/// <summary>Being paid back (received) or paying a person back (paid), into or from one of the owner's accounts.</summary>
-public sealed record SettleRequest(string Direction, Guid AccountId, decimal Amount, DateOnly On, string? Description);
+/// <summary>
+/// Being paid back (received) or paying a person back (paid), into or from one of the owner's accounts — or, with no
+/// account, with money the app does not track (cash, an account not in the app).
+/// </summary>
+public sealed record SettleRequest(string Direction, Guid? AccountId, decimal Amount, DateOnly On, string? Description);
 
 public static class SharingErrors
 {
@@ -60,7 +63,7 @@ public static class SharingEndpoints
                 return ResultHttp.Problem(SharingErrors.NotAPerson);
             }
 
-            var own = await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == req.AccountId &&
+            var own = req.AccountId is null || await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == req.AccountId &&
                 a.Kind != AccountKind.Person && a.Kind != AccountKind.Broker && a.ArchivedAtUtc == null, ct);
             if (!own || req.Direction is not ("received" or "paid") || req.Amount <= 0)
             {
@@ -68,9 +71,14 @@ public static class SharingEndpoints
             }
 
             var received = req.Direction == "received";
-            var draft = new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency,
-                received ? person.Id : req.AccountId, CounterAccountId: received ? req.AccountId : person.Id,
-                Description: string.IsNullOrWhiteSpace(req.Description) ? person.Name : req.Description);
+            var description = string.IsNullOrWhiteSpace(req.Description) ? person.Name : req.Description;
+            var draft = req.AccountId is { } accountId
+                ? new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency,
+                    received ? person.Id : accountId, CounterAccountId: received ? accountId : person.Id,
+                    Description: description)
+                // Settled outside the owner's accounts: only the person's balance moves.
+                : new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency, person.Id,
+                    Description: description, Outside: true, FromOutside: !received);
             return (await TransactionCommands.CreateAsync(db, interest, draft, DataSource.Manual, ct))
                 .ToHttp(t => Results.Created($"/api/transactions/{t.Id}", new { t.Id }));
         });
@@ -102,7 +110,7 @@ public static class SharingEndpoints
                 orderby t.OccurredOn, t.CreatedAtUtc
                 select new
                 {
-                    t.Id, t.AccountId, t.CounterAccountId, t.Type, t.IsRefund, t.SharedFromId, t.OccurredOn,
+                    t.Id, t.AccountId, t.CounterAccountId, t.Type, t.IsRefund, t.FromOutside, t.SharedFromId, t.OccurredOn,
                     t.BaseAmount, t.Description, Category = c == null ? null : c.Name,
                     PaidFrom = ea == null ? null : ea.Name, ExpenseAmount = e == null ? (decimal?)null : e.BaseAmount,
                     Counter = oa == null ? null : oa.Name, Source = sa.Name,
@@ -118,6 +126,8 @@ public static class SharingEndpoints
                 var (kind, signed, other) = r switch
                 {
                     { SharedFromId: not null } => ("share", r.BaseAmount, r.PaidFrom),
+                    { Type: TransactionType.Transfer, CounterAccountId: null, FromOutside: true } => ("youPaid", r.BaseAmount, null),
+                    { Type: TransactionType.Transfer, CounterAccountId: null } => ("paidYou", -r.BaseAmount, null),
                     { Type: TransactionType.Transfer } when r.AccountId == person.Id => ("paidYou", -r.BaseAmount, r.Counter),
                     { Type: TransactionType.Transfer } => ("youPaid", r.BaseAmount, r.Source),
                     { Type: TransactionType.Expense, IsRefund: false } => ("theyPaid", -r.BaseAmount, null),

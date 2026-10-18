@@ -347,7 +347,6 @@
   "shareCustom": "Amounts",
   "yourPart": "Your part: {{amount}}",
   "eachPart": "{{amount}} each",
-  "paidByPerson": "{{name}} (paid for you)",
   "sharedWith": "Shared with {{names}}"
  },
  "recurring": {
@@ -1389,8 +1388,13 @@
   "settleHint": "Recorded as a transfer: neither income nor spending.",
   "recorded": "Payment recorded",
   "archiveOpen": "This person still has an open balance. Archive anyway?",
-  "howTo": "Share an expense when you record it (\"Share with people\"). Someone who paid for you: record the expense with their name as the account.",
+  "howTo": "Share an expense when you record it (\"Share with people\"). If someone paid for you, use \"Paid for me\" on their card.",
   "emptyTitle": "No one to share with yet",
-  "emptyText": "Add the people you split costs with — the streaming plan, the flat's bills, a supermarket run — and keep track of who owes what."
+  "emptyText": "Add the people you split costs with — the streaming plan, the flat's bills, a supermarket run — and keep track of who owes what.",
+  "paidForMe": "Paid for me",
+  "paidForMeTitle": "{{name}} paid for you",
+  "paidForMeHint": "Counts as your spending in that category; you owe it to them until you pay them back.",
+  "noAccount": "No account (cash or outside the app)",
+  "settleOutsideHint": "Not recorded in any account: only their balance changes."
  }
 }
