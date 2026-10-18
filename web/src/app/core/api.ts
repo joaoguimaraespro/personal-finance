@@ -12,6 +12,7 @@ import {
   Connection,
   SentCoins,
   DividendSummary,
+  DividendCalendar,
   CoinMatch,
   ManualAsset,
   ManualHoldingsView,
@@ -233,6 +234,10 @@ export class Api {
     this.http.get<PositionLine[]>('/api/portfolio/positions', { params: scopeParams(scope) });
   allocation = (scope: PortfolioScope = {}) =>
     this.http.get<AllocationLine[]>('/api/portfolio/allocation', { params: scopeParams(scope) });
+  dividendCalendar = (scope: PortfolioScope = {}) =>
+    this.http.get<DividendCalendar>('/api/portfolio/dividend-calendar', {
+      params: scopeParams(scope),
+    });
   dividends = (scope: PortfolioScope = {}) =>
     this.http.get<DividendSummary>('/api/portfolio/dividends', { params: scopeParams(scope) });
   /** The value chart and its returns over a period, measured as the summary's period return (up to the live value). */

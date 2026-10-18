@@ -658,7 +658,15 @@
   "change24h": "24h",
   "change24hHint": "Crypto trades around the clock: change over the last 24 hours, as exchanges show it.",
   "todayMixedHint": "Shares and ETFs since the previous close; crypto over the last 24 hours.",
-  "positionsNote": "Gain is since purchase, whatever the period. Today is since the previous close; crypto shows the last 24 hours."
+  "positionsNote": "Gain is since purchase, whatever the period. Today is since the previous close; crypto shows the last 24 hours.",
+  "calendar": "Dividend calendar · last 12 months",
+  "payersOnly": "Only positions that pay",
+  "calendarSummary": "{{average}} a month on average ({{total}} in 12 months)",
+  "thinMonths": "thin months: {{months}}",
+  "calendarTotal": "Total",
+  "yield": "Yield",
+  "noDividends": "no dividends",
+  "calendarHint": "Net dividends received in each calendar month over the last 12 months, in euros. Months under half the average are where a position paying then would even out a monthly income; positions without dividends are listed so you can weigh them too."
  },
  "netWorth": {
   "restricted": "Restricted use",

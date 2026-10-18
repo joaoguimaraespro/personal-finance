@@ -658,7 +658,15 @@
   "change24h": "24h",
   "change24hHint": "As criptomoedas negociam sem parar: variação nas últimas 24 horas, como nas corretoras.",
   "todayMixedHint": "Ações e ETFs desde o fecho anterior; cripto nas últimas 24 horas.",
-  "positionsNote": "O lucro é desde a compra, seja qual for o período. Hoje é desde o fecho anterior; cripto mostra as últimas 24 horas."
+  "positionsNote": "O lucro é desde a compra, seja qual for o período. Hoje é desde o fecho anterior; cripto mostra as últimas 24 horas.",
+  "calendar": "Calendário de dividendos · últimos 12 meses",
+  "payersOnly": "Só posições que pagam",
+  "calendarSummary": "{{average}} por mês em média ({{total}} em 12 meses)",
+  "thinMonths": "meses fracos: {{months}}",
+  "calendarTotal": "Total",
+  "yield": "Rendimento",
+  "noDividends": "sem dividendos",
+  "calendarHint": "Dividendos líquidos recebidos em cada mês do calendário nos últimos 12 meses, em euros. Os meses abaixo de metade da média são onde uma posição que pague nessa altura tornaria o rendimento mensal mais regular; as posições sem dividendos aparecem para as poderes pesar também."
  },
  "netWorth": {
   "restricted": "Uso restrito",

@@ -768,6 +768,28 @@ export interface DividendSummary {
   }[];
 }
 
+/** The last 12 months of dividends by calendar month, for every position (payers or not). */
+export interface DividendCalendar {
+  from: string;
+  to: string;
+  rows: {
+    securityId: string;
+    symbol: string;
+    name: string;
+    assetClass: AssetClass;
+    marketValueBase: number;
+    portfolioWeight: number;
+    /** January … December. */
+    months: number[];
+    total: number;
+    yield: number | null;
+  }[];
+  /** Totals for January … December. */
+  months: number[];
+  total: number;
+  monthlyAverage: number;
+}
+
 export interface PerformanceReport {
   from: string;
   to: string;
