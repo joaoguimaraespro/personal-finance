@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { accountOption } from '../../shared/account-option';
 import { Prefs } from '../../core/prefs';
 import { SelectComponent, SelectOption } from '../../shared/select';
 import { liveResource } from '../../core/resource';
@@ -265,7 +266,7 @@ export class GoalsComponent {
             a.currency === 'EUR' &&
             !a.archived,
         )
-        .map((a) => ({ value: a.id, label: a.name })),
+        .map(accountOption),
     ];
   });
 
