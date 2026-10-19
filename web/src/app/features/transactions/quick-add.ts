@@ -9,6 +9,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { accountOption } from '../../shared/account-option';
 import { liveResource } from '../../core/resource';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -759,7 +760,7 @@ export class QuickAddComponent {
     (this.type() === 'Transfer'
       ? (this.accounts.value() ?? []).filter((a) => !a.archived)
       : this.manualAccounts()
-    ).map((a) => ({ value: a.id, label: a.name })),
+    ).map(accountOption),
   );
   protected readonly counterAccountOptions = computed<SelectOption[]>(() => {
     this.prefs.translations();
@@ -768,7 +769,7 @@ export class QuickAddComponent {
       { value: '', label: none },
       ...(this.accounts.value() ?? [])
         .filter((a) => a.id !== this.accountId() && !a.archived)
-        .map((a) => ({ value: a.id, label: a.name })),
+        .map(accountOption),
     ];
   });
   protected readonly goalOptions = computed<SelectOption[]>(() => [

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { accountOption } from '../../shared/account-option';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -587,7 +588,7 @@ export class RecurringComponent {
     ];
   });
   protected readonly accountOptions = computed<SelectOption[]>(() =>
-    this.manualAccounts().map((a) => ({ value: a.id, label: a.name })),
+    this.manualAccounts().map(accountOption),
   );
 
   protected readonly schedule = scheduleLabel;

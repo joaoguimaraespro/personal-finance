@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { accountOption } from '../../shared/account-option';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { liveResource } from '../../core/resource';
@@ -527,7 +528,7 @@ export class TransactionsComponent {
     this.prefs.translations();
     return [
       { value: '', label: this.i18n.instant('tx.allAccounts') },
-      ...(this.accounts.value() ?? []).map((a) => ({ value: a.id, label: a.name })),
+      ...(this.accounts.value() ?? []).map(accountOption),
     ];
   });
   protected readonly categoryOptions = computed<SelectOption[]>(() => {
