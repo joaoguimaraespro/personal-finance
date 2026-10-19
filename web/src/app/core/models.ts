@@ -254,6 +254,9 @@ export interface SharedPerson {
   owedSince: string | null;
   open: OpenShare[];
   recent: PersonMovement[];
+  /** What was owed before the app (+ they owed the owner, − the owner owed them). */
+  openingBalance?: number;
+  openingBalanceOn?: string | null;
 }
 
 export interface SharingOverview {

@@ -1405,7 +1405,14 @@
   "paidForMeTitle": "{{name}} paid for you",
   "paidForMeHint": "Counts as your spending in that category; you owe it to them until you pay them back.",
   "noAccount": "No account (cash or outside the app)",
-  "settleOutsideHint": "Not recorded in any account: only their balance changes."
+  "settleOutsideHint": "Not recorded in any account: only their balance changes.",
+  "editPerson": "Edit person",
+  "before": "Before you started using the app",
+  "beforeNone": "Nothing owed",
+  "beforeOwesMe": "They owed me",
+  "beforeIOwe": "I owed them",
+  "beforeHint": "Their starting balance: when they pay it, record it with Received (or Paid) as usual. It is neither income nor spending.",
+  "sinceDate": "Since"
  },
  "deletion": {
   "ask": "Delete the account “{{name}}” for good?",
