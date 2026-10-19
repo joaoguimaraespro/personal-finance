@@ -114,6 +114,21 @@ export class Api {
   updateCategory = (id: string, body: unknown) =>
     this.http.put<void>(`/api/categories/${id}`, body);
   archiveCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/archive`, {});
+  /** What deleting a category (for good) touches; in use, it needs a category to move to. */
+  categoryDeletion = (id: string) =>
+    this.http.get<{
+      id: string;
+      name: string;
+      isSystem: boolean;
+      transactions: number;
+      recurring: number;
+      subcategories: number;
+      budgetLimits: number;
+    }>(`/api/categories/${id}/deletion`);
+  deleteCategory = (id: string, moveTo: string | null) =>
+    this.http.delete<void>(`/api/categories/${id}`, {
+      params: moveTo ? new HttpParams().set('moveTo', moveTo) : undefined,
+    });
   restoreCategory = (id: string) => this.http.post<void>(`/api/categories/${id}/restore`, {});
   resetCategoryName = (id: string) => this.http.post<void>(`/api/categories/${id}/reset-name`, {});
   buckets = () => this.http.get<Bucket[]>('/api/buckets');
@@ -205,6 +220,7 @@ export class Api {
   createGoal = (body: unknown) => this.http.post<{ id: string }>('/api/goals', body);
   updateGoal = (id: string, body: unknown) => this.http.put<void>(`/api/goals/${id}`, body);
   archiveGoal = (id: string) => this.http.post<void>(`/api/goals/${id}/archive`, {});
+  deleteGoal = (id: string) => this.http.delete<void>(`/api/goals/${id}`);
 
   // Reports
   overview = (year: number) => this.http.get<Overview>(`/api/reports/overview/${year}`);
@@ -297,6 +313,7 @@ export class Api {
   valueManualAsset = (id: string, value: number, on?: string) =>
     this.http.post<void>(`/api/assets/${id}/valuations`, { value, on });
   archiveManualAsset = (id: string) => this.http.post<void>(`/api/assets/${id}/archive`, {});
+  deleteManualAsset = (id: string) => this.http.delete<void>(`/api/assets/${id}`);
   fx = (currency: string, date?: string) =>
     this.http.get<{ currency: string; date: string; eurPerUnit: number }>(`/api/fx/${currency}`, {
       params: date ? { date } : {},

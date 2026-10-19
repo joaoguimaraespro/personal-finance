@@ -1417,6 +1417,12 @@
   "sharedParts": "{{count}} partes que outras pessoas devem",
   "loan": "os termos do empréstimo",
   "cannotUndo": "Não se pode desfazer (arquiva em vez disso para manter o histórico).",
-  "done": "Eliminado"
+  "done": "Eliminado",
+  "askGoal": "Eliminar de vez o objetivo “{{name}}”?",
+  "askAsset": "Eliminar de vez “{{name}}” e as suas avaliações?",
+  "askCategory": "Eliminar a categoria “{{name}}”?",
+  "categoryInUse": "Está em uso (movimentos: {{transactions}}, recorrentes: {{recurring}}): escolhe para que categoria passam.",
+  "moveTo": "Mover para",
+  "categoryHint": "As subcategorias sobem um nível e os limites de orçamento dela são removidos. Não se pode desfazer."
  }
 }

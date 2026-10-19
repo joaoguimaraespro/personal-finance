@@ -76,5 +76,8 @@ public sealed class Category : Entity
 
     public void Archive(DateTimeOffset now) => ArchivedAtUtc = now;
 
+    /// <summary>Its parent is being deleted: it moves up to the parent's parent (or the top level).</summary>
+    public void MoveUnder(Guid? parentId) => ParentId = parentId;
+
     public void Restore() => ArchivedAtUtc = null;
 }

@@ -81,6 +81,20 @@ public static class GoalEndpoints
                 ? ResultHttp.Problem(error)
                 : (await UpdateAsync(db, id, req, ct)).ToHttp(_ => Results.NoContent())).Validate<GoalRequest>();
 
+        // Deleting for good: savings entries that pointed at it simply no longer name a goal.
+        group.MapDelete("/{id:guid}", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+        {
+            var goal = await db.Goals.FirstOrDefaultAsync(g => g.Id == id, ct);
+            if (goal is null)
+            {
+                return ResultHttp.Problem(NotFound);
+            }
+
+            db.Goals.Remove(goal);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         group.MapPost("/{id:guid}/archive", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
         {
             var goal = await db.Goals.FindAsync([id], ct);

@@ -129,6 +129,20 @@ public static class InvestmentEndpoints
             (await ValueAssetAsync(db, id, req.Value, req.On ?? DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime),
                 false, ct)).ToHttp(_ => Results.NoContent()));
 
+        // Deleting for good, with its valuations (archiving keeps them).
+        assets.MapDelete("/{id:guid}", async (Guid id, IInvestmentsDb db, CancellationToken ct) =>
+        {
+            var asset = await db.ManualAssets.Include(a => a.Valuations).FirstOrDefaultAsync(a => a.Id == id, ct);
+            if (asset is null)
+            {
+                return ResultHttp.Problem(Error.NotFound("Asset.NotFound", "Asset not found."));
+            }
+
+            db.ManualAssets.Remove(asset);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         assets.MapPost("/{id:guid}/archive", async (Guid id, IInvestmentsDb db, TimeProvider clock, CancellationToken ct) =>
         {
             var asset = await db.ManualAssets.FindAsync([id], ct);

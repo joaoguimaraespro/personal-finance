@@ -46,6 +46,9 @@ public sealed class Budget : Entity, IAuditable
         return result.IsSuccess ? budget : Result.Failure<Budget>(result.Error);
     }
 
+    /// <summary>A category or bucket is being deleted: its limits and targets go (the rest of the plan stays).</summary>
+    public bool RemoveTargetsOf(Guid id) => _items.RemoveAll(i => i.CategoryId == id || i.BucketId == id) > 0;
+
     public Result ReplaceItems(IEnumerable<BudgetItemSpec> specs)
     {
         var list = specs.ToList();

@@ -24,6 +24,8 @@ public sealed class TransactionSplit
     public ExpenseNature? Nature { get; private set; }
     public string? Note { get; private set; }
 
+    internal void MoveTo(Guid categoryId) => CategoryId = categoryId;
+
     internal static TransactionSplit Create(int position, SplitLine line, decimal baseAmount, ExpenseNature? nature) => new()
     {
         Id = Guid.CreateVersion7(),

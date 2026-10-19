@@ -69,6 +69,12 @@ public static class BucketEndpoints
             return Results.NoContent();
         });
 
+        // Deleting for good: what it touches first, then the deletion (in use: moveTo another bucket of its group).
+        group.MapGet("/{id:guid}/deletion", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+            (await BucketDeletion.PreviewAsync(db, id, ct)).ToHttp(Results.Ok));
+        group.MapDelete("/{id:guid}", async (Guid id, Guid? moveTo, IFinanceDb db, CancellationToken ct) =>
+            (await BucketDeletion.DeleteAsync(db, id, moveTo, ct)).ToHttp(Results.Ok));
+
         group.MapPost("/{id:guid}/archive", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
         {
             var bucket = await db.Buckets.FindAsync([id], ct);
