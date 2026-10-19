@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { liveResource } from '../../core/resource';
 import { RouterLink } from '@angular/router';
@@ -75,6 +76,7 @@ export const canBeRestricted = (kind: AccountKind) =>
 @Component({
   selector: 'app-accounts',
   imports: [
+    ...FORM_ERRORS,
     BrokerLogoComponent,
     RouterLink,
     PageHeaderComponent,
@@ -383,7 +385,7 @@ export const canBeRestricted = (kind: AccountKind) =>
       [title]="(editingId() ? 'accounts.edit' : 'accounts.new') | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="form-grid" (submit)="$event.preventDefault(); save()">
+      <form novalidate class="form-grid" (submit)="$event.preventDefault(); save()">
         <div class="col-span-2">
           <label class="label" for="a-name">{{ 'common.name' | translate }}</label>
           <input
@@ -392,8 +394,10 @@ export const canBeRestricted = (kind: AccountKind) =>
             required
             maxlength="80"
             [value]="form().name"
-            (input)="patch({ name: $any($event.target).value })"
+            (input)="fs.touch('name'); patch({ name: $any($event.target).value })"
+            [attr.aria-invalid]="!!fs.errors().name || null"
           />
+          <app-field-error [error]="fs.errors().name" />
         </div>
         <div>
           <label class="label" for="a-kind">{{ 'accounts.kind' | translate }}</label>
@@ -414,8 +418,12 @@ export const canBeRestricted = (kind: AccountKind) =>
             maxlength="3"
             [disabled]="!!editingId()"
             [value]="form().currency"
-            (input)="patch({ currency: $any($event.target).value.toUpperCase() })"
+            (input)="
+              fs.touch('currency'); patch({ currency: $any($event.target).value.toUpperCase() })
+            "
+            [attr.aria-invalid]="!!fs.errors().currency || null"
           />
+          <app-field-error [error]="fs.errors().currency" />
         </div>
         <div>
           <label class="label" for="a-ob">{{ 'accounts.openingBalance' | translate }}</label>
@@ -425,8 +433,12 @@ export const canBeRestricted = (kind: AccountKind) =>
             class="num"
             inputmode="decimal"
             [value]="form().openingBalance"
-            (input)="patch({ openingBalance: $any($event.target).value })"
+            (input)="
+              fs.touch('openingBalance'); patch({ openingBalance: $any($event.target).value })
+            "
+            [attr.aria-invalid]="!!fs.errors().openingBalance || null"
           />
+          <app-field-error [error]="fs.errors().openingBalance" />
         </div>
         <div>
           <label class="label" for="a-obd">{{ 'accounts.openingBalanceOn' | translate }}</label>
@@ -517,8 +529,10 @@ export const canBeRestricted = (kind: AccountKind) =>
                 inputmode="decimal"
                 placeholder="2,25"
                 [value]="form().rate"
-                (input)="patch({ rate: $any($event.target).value })"
+                (input)="fs.touch('rate'); patch({ rate: $any($event.target).value })"
+                [attr.aria-invalid]="!!fs.errors().rate || null"
               />
+              <app-field-error [error]="fs.errors().rate" />
             </div>
             <div>
               <label class="label" for="a-rate-from">{{ 'interest.from' | translate }}</label>
@@ -588,6 +602,7 @@ export const canBeRestricted = (kind: AccountKind) =>
             }
           </fieldset>
         }
+        <app-form-alert class="col-span-2" [message]="fs.message()" />
         <div class="col-span-2 flex justify-end gap-2 pt-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -600,6 +615,7 @@ export const canBeRestricted = (kind: AccountKind) =>
 })
 export class AccountsComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fs = new FormState<'name' | 'currency' | 'openingBalance' | 'rate'>();
   protected readonly kindIcon: Record<AccountKind, string> = {
     Bank: 'lucideLandmark',
     Cash: 'lucideBanknote',
@@ -802,6 +818,7 @@ export class AccountsComponent {
   protected openNew() {
     this.editingId.set(null);
     this.form.set({ ...EMPTY, openingBalanceOn: today(), rateFrom: today() });
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
@@ -822,6 +839,7 @@ export class AccountsComponent {
       rateFrom: today(),
       withholding: String(a.interest?.withholdingPercent ?? DEFAULT_WITHHOLDING),
     });
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
@@ -842,10 +860,16 @@ export class AccountsComponent {
     const rate = earns && f.rate.trim() ? parseAmount(f.rate) : null;
     // Unticked on an account that paid interest: a 0 % rate from today stops the estimate (history stays).
     const stops = !earns && !!this.editingId() && (this.currentRate() ?? 0) > 0;
-    if (f.rate.trim() && earns && (rate === null || rate < 0 || rate > 100)) {
-      this.toasts.show(this.i18n.instant('interest.invalidRate'), 'error');
-      return;
-    }
+    const valid = this.fs.check({
+      name: rules.required(f.name),
+      currency: /^[A-Za-z]{3}$/.test(f.currency) ? undefined : 'validation.currency',
+      openingBalance: rules.number(f.openingBalance, parseAmount(f.openingBalance)),
+      rate:
+        f.rate.trim() && earns && (rate === null || rate < 0 || rate > 100)
+          ? 'validation.percent'
+          : undefined,
+    });
+    if (!valid) return;
     try {
       let id = this.editingId();
       if (id) await firstValueFrom(this.api.updateAccount(id, body));
@@ -873,7 +897,7 @@ export class AccountsComponent {
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
     } catch (err) {
-      this.toasts.error(err);
+      this.fs.fail(err);
     }
   }
 

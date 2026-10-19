@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { accountOption } from '../../shared/account-option';
 import { Prefs } from '../../core/prefs';
 import { SelectComponent, SelectOption } from '../../shared/select';
@@ -26,6 +27,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
 @Component({
   selector: 'app-goals',
   imports: [
+    ...FORM_ERRORS,
     SelectComponent,
     PageHeaderComponent,
     EmptyStateComponent,
@@ -153,7 +155,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
       [title]="(editing() ? 'goals.edit' : 'goals.new') | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="form-grid" (submit)="$event.preventDefault(); save()">
+      <form novalidate class="form-grid" (submit)="$event.preventDefault(); save()">
         <div class="col-span-2">
           <label class="label" for="g-name">{{ 'common.name' | translate }}</label>
           <input
@@ -162,9 +164,11 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             required
             maxlength="80"
             [value]="name()"
-            (input)="name.set($any($event.target).value)"
+            (input)="fs.touch('name'); name.set($any($event.target).value)"
             placeholder="Emergency fund"
+            [attr.aria-invalid]="!!fs.errors().name || null"
           />
+          <app-field-error [error]="fs.errors().name" />
         </div>
         <div>
           <label class="label" for="g-target">{{ 'goals.target' | translate }}</label>
@@ -175,8 +179,10 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             inputmode="decimal"
             required
             [value]="target()"
-            (input)="target.set($any($event.target).value)"
+            (input)="fs.touch('targetAmount'); target.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().targetAmount || null"
           />
+          <app-field-error [error]="fs.errors().targetAmount" />
         </div>
         <div>
           <label class="label" for="g-date">{{ 'goals.by' | translate }}</label>
@@ -205,8 +211,10 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
               class="num"
               inputmode="decimal"
               [value]="starting()"
-              (input)="starting.set($any($event.target).value)"
+              (input)="fs.touch('startingAmount'); starting.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fs.errors().startingAmount || null"
             />
+            <app-field-error [error]="fs.errors().startingAmount" />
           </div>
           <div>
             <label class="label" for="g-manual">{{ 'goals.manual' | translate }}</label>
@@ -216,13 +224,16 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
               class="num"
               inputmode="decimal"
               [value]="manual()"
-              (input)="manual.set($any($event.target).value)"
+              (input)="fs.touch('manualCurrentAmount'); manual.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fs.errors().manualCurrentAmount || null"
             />
+            <app-field-error [error]="fs.errors().manualCurrentAmount" />
           </div>
         }
         <p class="col-span-2 text-xs text-muted-foreground">
           {{ (accountId() ? 'goals.howProgressAccount' : 'goals.howProgress') | translate }}
         </p>
+        <app-form-alert class="col-span-2" [message]="fs.message()" />
         <div class="col-span-2 flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -235,6 +246,9 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
 })
 export class GoalsComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fs = new FormState<
+    'name' | 'targetAmount' | 'startingAmount' | 'manualCurrentAmount'
+  >();
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -278,10 +292,18 @@ export class GoalsComponent {
     this.starting.set(g ? String(g.startingAmount) : '');
     this.manual.set(g?.manualCurrentAmount != null ? String(g.manualCurrentAmount) : '');
     this.accountId.set(g?.accountId ?? '');
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
   protected async save() {
+    const valid = this.fs.check({
+      name: rules.required(this.name()),
+      targetAmount: rules.positive(parseAmount(this.target())),
+      startingAmount: rules.number(this.starting(), parseAmount(this.starting())),
+      manualCurrentAmount: rules.number(this.manual(), parseAmount(this.manual())),
+    });
+    if (!valid) return;
     const body = {
       name: this.name(),
       targetAmount: parseAmount(this.target()),
@@ -299,7 +321,7 @@ export class GoalsComponent {
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
     } catch (err) {
-      this.toasts.error(err);
+      this.fs.fail(err);
     }
   }
 

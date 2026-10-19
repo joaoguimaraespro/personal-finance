@@ -314,3 +314,21 @@ body {
     display: none;
   }
 }
+
+/* Form validation: the message under a field, and a form-level error (from the server) inside the dialog. */
+.field-error {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--destructive);
+}
+.form-alert {
+  border: 1px solid color-mix(in oklch, var(--destructive) 35%, transparent);
+  background: color-mix(in oklch, var(--destructive) 8%, transparent);
+  color: var(--destructive);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+}
+[aria-invalid='true'] {
+  border-color: var(--destructive) !important;
+}

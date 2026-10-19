@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
@@ -28,6 +29,7 @@ import { EmptyStateComponent } from '../../shared/empty-state';
 @Component({
   selector: 'app-net-worth',
   imports: [
+    ...FORM_ERRORS,
     PageHeaderComponent,
     EmptyStateComponent,
     NgIcon,
@@ -246,7 +248,7 @@ import { EmptyStateComponent } from '../../shared/empty-state';
       [title]="(editing() ? 'netWorth.update' : 'netWorth.addAsset') | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="form-grid" (submit)="$event.preventDefault(); save()">
+      <form novalidate class="form-grid" (submit)="$event.preventDefault(); save()">
         @if (!editing()) {
           <div class="col-span-2">
             <label class="label" for="m-name">{{ 'common.name' | translate }}</label>
@@ -255,8 +257,10 @@ import { EmptyStateComponent } from '../../shared/empty-state';
               hlmInput
               required
               maxlength="80"
-              (input)="name.set($any($event.target).value)"
+              (input)="fs.touch('name'); name.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fs.errors().name || null"
             />
+            <app-field-error [error]="fs.errors().name" />
           </div>
           <div>
             <label class="label" for="m-kind">{{ 'accounts.kind' | translate }}</label>
@@ -275,8 +279,10 @@ import { EmptyStateComponent } from '../../shared/empty-state';
               class="uppercase"
               maxlength="3"
               [value]="currency()"
-              (input)="currency.set($any($event.target).value.toUpperCase())"
+              (input)="fs.touch('currency'); currency.set($any($event.target).value.toUpperCase())"
+              [attr.aria-invalid]="!!fs.errors().currency || null"
             />
+            <app-field-error [error]="fs.errors().currency" />
           </div>
         }
         <div>
@@ -287,8 +293,10 @@ import { EmptyStateComponent } from '../../shared/empty-state';
             class="num"
             inputmode="decimal"
             required
-            (input)="value.set($any($event.target).value)"
+            (input)="fs.touch('value'); value.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().value || null"
           />
+          <app-field-error [error]="fs.errors().value" />
         </div>
         <div>
           <label class="label" for="m-on">{{ 'netWorth.valuedOn' | translate }}</label>
@@ -297,6 +305,7 @@ import { EmptyStateComponent } from '../../shared/empty-state';
         <p class="col-span-2 text-xs text-muted-foreground">
           {{ 'netWorth.liabilityHint' | translate }}
         </p>
+        <app-form-alert class="col-span-2" [message]="fs.message()" />
         <div class="col-span-2 flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -309,6 +318,7 @@ import { EmptyStateComponent } from '../../shared/empty-state';
 })
 export class NetWorthComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fs = new FormState<'name' | 'currency' | 'value'>();
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly prefs = inject(Prefs);
@@ -392,6 +402,7 @@ export class NetWorthComponent {
     this.name.set('');
     this.value.set('');
     this.on.set(today());
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
@@ -399,12 +410,19 @@ export class NetWorthComponent {
     this.editing.set(a);
     this.value.set('');
     this.on.set(today());
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
   protected async save() {
     const value = parseAmount(this.value());
-    if (value === null) return;
+    const valid = this.fs.check({
+      name: this.editing() ? undefined : rules.required(this.name()),
+      currency:
+        this.editing() || /^[A-Za-z]{3}$/.test(this.currency()) ? undefined : 'validation.currency',
+      value: value === null ? 'validation.number' : value < 0 ? 'validation.positive' : undefined,
+    });
+    if (!valid || value === null) return;
     try {
       const a = this.editing();
       if (a) await firstValueFrom(this.api.valueManualAsset(a.id, value, this.on()));
@@ -421,7 +439,7 @@ export class NetWorthComponent {
       this.formOpen.set(false);
       this.events.bump();
     } catch (err) {
-      this.toasts.error(err);
+      this.fs.fail(err);
     }
   }
 

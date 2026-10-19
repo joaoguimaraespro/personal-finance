@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { accountOption } from '../../shared/account-option';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -29,6 +30,7 @@ import { categoryLabel } from '../../shared/category-label';
 @Component({
   selector: 'app-sharing',
   imports: [
+    ...FORM_ERRORS,
     NgIcon,
     TranslatePipe,
     HlmButtonImports,
@@ -235,7 +237,7 @@ import { categoryLabel } from '../../shared/category-label';
       [title]="(editingPerson() ? 'sharing.editPerson' : 'sharing.addPerson') | translate"
       (closed)="personOpen.set(false)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); savePerson()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); savePerson()">
         <div>
           <label class="label" for="person-name">{{ 'common.name' | translate }}</label>
           <input
@@ -246,8 +248,10 @@ import { categoryLabel } from '../../shared/category-label';
             required
             [placeholder]="'sharing.namePlaceholder' | translate"
             [value]="personName()"
-            (input)="personName.set($any($event.target).value)"
+            (input)="fsPerson.touch('name'); personName.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fsPerson.errors().name || null"
           />
+          <app-field-error [error]="fsPerson.errors().name" />
         </div>
         <!-- Owed before the app: the person's opening balance (paying it later is a normal Received / Paid). -->
         <div>
@@ -289,8 +293,10 @@ import { categoryLabel } from '../../shared/category-label';
                   class="num w-full"
                   inputmode="decimal"
                   [value]="openingAmount()"
-                  (input)="openingAmount.set($any($event.target).value)"
+                  (input)="fsPerson.touch('amount'); openingAmount.set($any($event.target).value)"
+                  [attr.aria-invalid]="!!fsPerson.errors().amount || null"
                 />
+                <app-field-error [error]="fsPerson.errors().amount" />
               </div>
               <div>
                 <label class="label" for="person-opening-on">{{
@@ -306,11 +312,12 @@ import { categoryLabel } from '../../shared/category-label';
             <p class="text-muted-foreground mt-2 text-xs">{{ 'sharing.beforeHint' | translate }}</p>
           }
         </div>
+        <app-form-alert [message]="fsPerson.message()" />
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="personOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn [disabled]="!personName().trim() || busy()">
+          <button hlmBtn [disabled]="busy()">
             {{ 'common.save' | translate }}
           </button>
         </div>
@@ -325,7 +332,7 @@ import { categoryLabel } from '../../shared/category-label';
       "
       (closed)="settling.set(null)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); settle()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); settle()">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label class="label" for="settle-amount">{{ 'tx.amount' | translate }}</label>
@@ -335,8 +342,10 @@ import { categoryLabel } from '../../shared/category-label';
               class="num w-full"
               inputmode="decimal"
               [value]="settleAmount()"
-              (input)="settleAmount.set($any($event.target).value)"
+              (input)="fsSettle.touch('amount'); settleAmount.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fsSettle.errors().amount || null"
             />
+            <app-field-error [error]="fsSettle.errors().amount" />
           </div>
           <div>
             <label class="label" for="settle-date">{{ 'tx.date' | translate }}</label>
@@ -362,11 +371,12 @@ import { categoryLabel } from '../../shared/category-label';
         <p class="text-muted-foreground text-xs">
           {{ (settleAccount() ? 'sharing.settleHint' : 'sharing.settleOutsideHint') | translate }}
         </p>
+        <app-form-alert [message]="fsSettle.message()" />
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="settling.set(null)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn [disabled]="!canSettle() || busy()">
+          <button hlmBtn [disabled]="busy()">
             {{ 'common.save' | translate }}
           </button>
         </div>
@@ -378,7 +388,7 @@ import { categoryLabel } from '../../shared/category-label';
       [title]="'sharing.paidForMeTitle' | translate: { name: paidForMe()?.name }"
       (closed)="paidForMe.set(null)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); savePaidForMe()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); savePaidForMe()">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label class="label" for="pfm-amount">{{ 'tx.amount' | translate }}</label>
@@ -388,8 +398,10 @@ import { categoryLabel } from '../../shared/category-label';
               class="num w-full"
               inputmode="decimal"
               [value]="pfmAmount()"
-              (input)="pfmAmount.set($any($event.target).value)"
+              (input)="fsPfm.touch('amount'); pfmAmount.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fsPfm.errors().amount || null"
             />
+            <app-field-error [error]="fsPfm.errors().amount" />
           </div>
           <div>
             <label class="label" for="pfm-date">{{ 'tx.date' | translate }}</label>
@@ -406,8 +418,10 @@ import { categoryLabel } from '../../shared/category-label';
             inputId="pfm-category"
             [options]="categoryOptions()"
             [value]="pfmCategory() ?? ''"
-            (valueChange)="pfmCategory.set($event || null)"
+            (valueChange)="fsPfm.touch('category'); pfmCategory.set($event || null)"
+            [attr.aria-invalid]="!!fsPfm.errors().category || null"
           />
+          <app-field-error [error]="fsPfm.errors().category" />
         </div>
         <div>
           <label class="label" for="pfm-desc">{{ 'tx.description' | translate }}</label>
@@ -421,11 +435,12 @@ import { categoryLabel } from '../../shared/category-label';
           />
         </div>
         <p class="text-muted-foreground text-xs">{{ 'sharing.paidForMeHint' | translate }}</p>
+        <app-form-alert [message]="fsPfm.message()" />
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="paidForMe.set(null)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn [disabled]="!(parse(pfmAmount()) ?? 0) || !pfmCategory() || busy()">
+          <button hlmBtn [disabled]="busy()">
             {{ 'common.save' | translate }}
           </button>
         </div>
@@ -435,6 +450,9 @@ import { categoryLabel } from '../../shared/category-label';
 })
 export class SharingComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fsPerson = new FormState<'name' | 'amount'>();
+  protected readonly fsSettle = new FormState<'amount'>();
+  protected readonly fsPfm = new FormState<'amount' | 'category'>();
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -463,7 +481,6 @@ export class SharingComponent {
       .filter((c) => c.type === 'Expense' && !c.archived)
       .map((c) => ({ value: c.id, label: categoryLabel(this.i18n, c) })),
   ]);
-  protected readonly parse = parseAmount;
 
   protected readonly busy = signal(false);
   protected readonly personOpen = signal(false);
@@ -473,7 +490,6 @@ export class SharingComponent {
   protected readonly settleAmount = signal('');
   protected readonly settleOn = signal(today());
   protected readonly settleAccount = signal<string | null>(null);
-  protected readonly canSettle = computed(() => (parseAmount(this.settleAmount()) ?? 0) > 0);
 
   /** Someone who paid for the owner: an expense of the owner's, paid from that person's account. */
   protected readonly paidForMe = signal<SharedPerson | null>(null);
@@ -483,6 +499,7 @@ export class SharingComponent {
   protected readonly pfmDescription = signal('');
 
   protected openPaidForMe(person: SharedPerson) {
+    this.fsPfm.reset();
     this.paidForMe.set(person);
     this.pfmAmount.set('');
     this.pfmOn.set(today());
@@ -493,7 +510,11 @@ export class SharingComponent {
   protected async savePaidForMe() {
     const person = this.paidForMe();
     const amount = parseAmount(this.pfmAmount());
-    if (!person || !amount || !this.pfmCategory()) return;
+    const valid = this.fsPfm.check({
+      amount: rules.positive(amount),
+      category: rules.pick(this.pfmCategory()),
+    });
+    if (!person || !valid || !amount) return;
     this.busy.set(true);
     try {
       await firstValueFrom(
@@ -510,7 +531,7 @@ export class SharingComponent {
       this.events.bump();
       this.toasts.show(this.i18n.instant('sharing.recorded'));
     } catch (err) {
-      this.toasts.error(err);
+      this.fsPfm.fail(err);
     } finally {
       this.busy.set(false);
     }
@@ -545,6 +566,7 @@ export class SharingComponent {
     this.openingSide.set('none');
     this.openingAmount.set('');
     this.openingOn.set(today());
+    this.fsPerson.reset();
     this.personOpen.set(true);
   }
 
@@ -555,6 +577,7 @@ export class SharingComponent {
     this.openingSide.set(opening > 0 ? 'owesMe' : opening < 0 ? 'iOwe' : 'none');
     this.openingAmount.set(opening ? String(Math.abs(opening)).replace('.', ',') : '');
     this.openingOn.set(p.openingBalanceOn ?? today());
+    this.fsPerson.reset();
     this.personOpen.set(true);
   }
 
@@ -566,6 +589,14 @@ export class SharingComponent {
   }
 
   protected async savePerson() {
+    const valid = this.fsPerson.check({
+      name: rules.required(this.personName()),
+      amount:
+        this.openingSide() === 'none'
+          ? undefined
+          : rules.positive(parseAmount(this.openingAmount())),
+    });
+    if (!valid) return;
     this.busy.set(true);
     const body = {
       name: this.personName().trim(),
@@ -582,13 +613,14 @@ export class SharingComponent {
       this.personOpen.set(false);
       this.events.bump();
     } catch (err) {
-      this.toasts.error(err);
+      this.fsPerson.fail(err);
     } finally {
       this.busy.set(false);
     }
   }
 
   protected openSettle(person: SharedPerson, direction: 'received' | 'paid') {
+    this.fsSettle.reset();
     this.settling.set(person);
     this.settleDirection.set(direction);
     this.settleAmount.set(person.balance ? String(Math.abs(person.balance)).replace('.', ',') : '');
@@ -599,7 +631,7 @@ export class SharingComponent {
   protected async settle() {
     const person = this.settling();
     const amount = parseAmount(this.settleAmount());
-    if (!person || !amount) return;
+    if (!person || !this.fsSettle.check({ amount: rules.positive(amount) }) || !amount) return;
     this.busy.set(true);
     try {
       await firstValueFrom(
@@ -614,7 +646,7 @@ export class SharingComponent {
       this.events.bump();
       this.toasts.show(this.i18n.instant('sharing.recorded'));
     } catch (err) {
-      this.toasts.error(err);
+      this.fsSettle.fail(err);
     } finally {
       this.busy.set(false);
     }

@@ -1431,5 +1431,14 @@
   "categoryInUse": "Está em uso (movimentos: {{transactions}}, recorrentes: {{recurring}}): escolhe para que categoria passam.",
   "moveTo": "Mover para",
   "categoryHint": "As subcategorias sobem um nível e os limites de orçamento dela são removidos. Não se pode desfazer."
+ },
+ "validation": {
+  "required": "Obrigatório.",
+  "number": "Indica um número (ex.: 12,50).",
+  "positive": "Tem de ser maior que zero.",
+  "pick": "Escolhe uma opção.",
+  "currency": "Código de 3 letras, ex.: EUR.",
+  "percent": "Entre 0 e 100.",
+  "term": "Entre 1 e 720 meses."
  }
 }

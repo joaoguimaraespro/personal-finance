@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { accountOption } from '../../shared/account-option';
 import { RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
@@ -43,6 +44,7 @@ interface YearGroup {
 @Component({
   selector: 'app-loan',
   imports: [
+    ...FORM_ERRORS,
     RouterLink,
     NgIcon,
     TranslatePipe,
@@ -300,7 +302,7 @@ interface YearGroup {
             <h2 class="card-title !mb-0">
               <ng-icon name="lucidePercent" />{{ 'loans.rates' | translate }}
             </h2>
-            <button hlmBtn variant="ghost" size="sm" (click)="rateOpen.set(true)">
+            <button hlmBtn variant="ghost" size="sm" (click)="fsRate.reset(); rateOpen.set(true)">
               <ng-icon name="lucidePlus" />{{
                 (s.rateType === 'Variable' ? 'loans.addRevision' : 'loans.addRate') | translate
               }}
@@ -455,7 +457,11 @@ interface YearGroup {
       width="36rem"
       (closed)="termsOpen.set(false)"
     >
-      <form class="grid grid-cols-2 gap-3" (submit)="$event.preventDefault(); saveTerms()">
+      <form
+        novalidate
+        class="grid grid-cols-2 gap-3"
+        (submit)="$event.preventDefault(); saveTerms()"
+      >
         <div>
           <label class="label" for="ln-principal">{{ 'loans.principal' | translate }}</label>
           <input
@@ -464,8 +470,10 @@ interface YearGroup {
             class="num w-full"
             inputmode="decimal"
             [value]="fPrincipal()"
-            (input)="fPrincipal.set($any($event.target).value)"
+            (input)="fs.touch('principal'); fPrincipal.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().principal || null"
           />
+          <app-field-error [error]="fs.errors().principal" />
         </div>
         <div>
           <label class="label" for="ln-term">{{ 'loans.termMonths' | translate }}</label>
@@ -475,8 +483,10 @@ interface YearGroup {
             class="num w-full"
             inputmode="numeric"
             [value]="fTerm()"
-            (input)="fTerm.set($any($event.target).value)"
+            (input)="fs.touch('termMonths'); fTerm.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().termMonths || null"
           />
+          <app-field-error [error]="fs.errors().termMonths" />
           <p class="text-muted-foreground mt-1 text-[11px]">{{ duration(+fTerm() || 0) }}</p>
         </div>
         <div class="col-span-2">
@@ -528,8 +538,10 @@ interface YearGroup {
               class="num w-full"
               inputmode="decimal"
               [value]="fSpread()"
-              (input)="fSpread.set($any($event.target).value)"
+              (input)="fs.touch('spread'); fSpread.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fs.errors().spread || null"
             />
+            <app-field-error [error]="fs.errors().spread" />
           </div>
           <div>
             <label class="label" for="ln-index-value">{{ 'loans.indexStart' | translate }}</label>
@@ -539,8 +551,10 @@ interface YearGroup {
               class="num w-full"
               inputmode="decimal"
               [value]="fIndexValue()"
-              (input)="fIndexValue.set($any($event.target).value)"
+              (input)="fs.touch('indexValue'); fIndexValue.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fs.errors().indexValue || null"
             />
+            <app-field-error [error]="fs.errors().indexValue" />
           </div>
           <p class="text-muted-foreground col-span-2 text-xs">
             {{ 'loans.tanIs' | translate: { rate: (variableTan() / 100 | pct: 3) } }}
@@ -554,8 +568,10 @@ interface YearGroup {
               class="num w-full"
               inputmode="decimal"
               [value]="fRate()"
-              (input)="fRate.set($any($event.target).value)"
+              (input)="fs.touch('rate'); fRate.set($any($event.target).value)"
+              [attr.aria-invalid]="!!fs.errors().rate || null"
             />
+            <app-field-error [error]="fs.errors().rate" />
           </div>
         }
         <p class="col-span-2 mt-2 text-sm font-medium">{{ 'loans.chargesTitle' | translate }}</p>
@@ -568,8 +584,10 @@ interface YearGroup {
             inputmode="decimal"
             placeholder="0,00"
             [value]="fFee()"
-            (input)="fFee.set($any($event.target).value)"
+            (input)="fs.touch('fee'); fFee.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().fee || null"
           />
+          <app-field-error [error]="fs.errors().fee" />
         </div>
         <div>
           <label class="label" for="ln-insurance">{{ 'loans.monthlyInsurance' | translate }}</label>
@@ -580,8 +598,10 @@ interface YearGroup {
             inputmode="decimal"
             placeholder="0,00"
             [value]="fInsurance()"
-            (input)="fInsurance.set($any($event.target).value)"
+            (input)="fs.touch('insurance'); fInsurance.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().insurance || null"
           />
+          <app-field-error [error]="fs.errors().insurance" />
         </div>
         <label class="col-span-2 flex items-start gap-2 text-sm">
           <input
@@ -616,6 +636,7 @@ interface YearGroup {
             'loans.termsHint' | translate
           }}
         </p>
+        <app-form-alert class="col-span-2" [message]="fs.message()" />
         <div class="col-span-2 flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="termsOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -630,7 +651,7 @@ interface YearGroup {
       [title]="'loans.addRevision' | translate"
       (closed)="rateOpen.set(false)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); addRate()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); addRate()">
         <div>
           <label class="label" for="rt-from">{{ 'loans.from' | translate }}</label>
           <app-date-field inputId="rt-from" [value]="rFrom()" (valueChange)="rFrom.set($event)" />
@@ -645,12 +666,15 @@ interface YearGroup {
             class="num w-full"
             inputmode="decimal"
             [value]="rValue()"
-            (input)="rValue.set($any($event.target).value)"
+            (input)="fsRate.touch('value'); rValue.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fsRate.errors().value || null"
           />
+          <app-field-error [error]="fsRate.errors().value" />
           @if (isVariable()) {
             <p class="text-muted-foreground mt-1 text-xs">{{ 'loans.spreadAdded' | translate }}</p>
           }
         </div>
+        <app-form-alert [message]="fsRate.message()" />
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="rateOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -663,6 +687,10 @@ interface YearGroup {
 })
 export class LoanComponent {
   readonly accountId = input.required<string>();
+  protected readonly fs = new FormState<
+    'principal' | 'termMonths' | 'rate' | 'spread' | 'indexValue' | 'fee' | 'insurance'
+  >();
+  protected readonly fsRate = new FormState<'value'>();
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -866,11 +894,28 @@ export class LoanComponent {
     // New loans: Portuguese credit pays Imposto do Selo on interest, so it starts ticked.
     this.fStampDuty.set(s ? (s.stampDuty ?? false) : true);
     this.fActualDays.set(s?.dayCount === 'Actual360');
+    this.fs.reset();
     this.termsOpen.set(true);
   }
 
   protected async saveTerms() {
     const variable = this.fType() === 'Variable';
+    const term = Number(this.fTerm());
+    const percent = (text: string) => {
+      const v = parseAmount(text);
+      return v === null ? 'validation.number' : v < 0 || v > 100 ? 'validation.percent' : undefined;
+    };
+    const valid = this.fs.check({
+      principal: rules.positive(parseAmount(this.fPrincipal())),
+      termMonths:
+        Number.isInteger(term) && term >= 1 && term <= 720 ? undefined : 'validation.term',
+      rate: variable ? undefined : percent(this.fRate()),
+      spread: variable ? percent(this.fSpread()) : undefined,
+      indexValue: variable ? percent(this.fIndexValue()) : undefined,
+      fee: rules.number(this.fFee(), parseAmount(this.fFee())),
+      insurance: rules.number(this.fInsurance(), parseAmount(this.fInsurance())),
+    });
+    if (!valid) return;
     const body = {
       principal: parseAmount(this.fPrincipal()),
       firstPaymentOn: this.fFirst(),
@@ -886,16 +931,28 @@ export class LoanComponent {
       monthlyInsurance: parseAmount(this.fInsurance()) ?? 0,
       dayCount: this.fActualDays() ? 'Actual360' : 'Monthly',
     };
-    await this.run(this.api.saveLoan(this.accountId(), body), () => this.termsOpen.set(false));
+    await this.run(
+      this.api.saveLoan(this.accountId(), body),
+      () => this.termsOpen.set(false),
+      this.fs,
+    );
   }
 
   protected async addRate() {
     const value = parseAmount(this.rValue());
-    if (value === null) return;
+    if (
+      !this.fsRate.check({ value: value === null ? 'validation.number' : undefined }) ||
+      value === null
+    )
+      return;
     const body = this.isVariable()
       ? { effectiveFrom: this.rFrom(), indexRatePercent: value }
       : { effectiveFrom: this.rFrom(), annualRatePercent: value };
-    await this.run(this.api.addLoanRate(this.accountId(), body), () => this.rateOpen.set(false));
+    await this.run(
+      this.api.addLoanRate(this.accountId(), body),
+      () => this.rateOpen.set(false),
+      this.fsRate,
+    );
   }
 
   protected async removeRate(id: string) {
@@ -935,14 +992,16 @@ export class LoanComponent {
     );
   }
 
-  private async run(request: ReturnType<Api['saveLoan']>, after?: () => void) {
+  /** Saves; a refusal shows in the dialog's form when there is one (a toast would sit behind it). */
+  private async run(request: ReturnType<Api['saveLoan']>, after?: () => void, form?: FormState) {
     try {
       await firstValueFrom(request);
       after?.();
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
     } catch (err) {
-      this.toasts.error(err);
+      if (form) form.fail(err);
+      else this.toasts.error(err);
     }
   }
 }
