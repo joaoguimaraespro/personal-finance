@@ -1,4 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn, provideHttpClient, withFetch, withInterceptors, withXsrfConfiguration } from '@angular/common/http';
+import { OVERLAY_DEFAULT_CONFIG } from '@angular/cdk/overlay';
 import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
@@ -46,6 +47,9 @@ const requestTimeout: HttpInterceptorFn = (req, next) => {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // Dialogs, selects and tooltips stay in the CDK overlay container instead of the browser's top layer, which
+    // would draw them above everything — including the toasts, which then sat hidden behind an open dialog.
+    { provide: OVERLAY_DEFAULT_CONFIG, useValue: { usePopover: false } },
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(
       withFetch(),

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -21,6 +22,7 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 @Component({
   selector: 'app-categories',
   imports: [
+    ...FORM_ERRORS,
     PageHeaderComponent,
     HlmTooltipImports,
     NgIcon,
@@ -167,7 +169,7 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
       [title]="'categories.new' | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); create()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); create()">
         <div>
           <label class="label" for="c-name">{{ 'common.name' | translate }}</label>
           <input
@@ -175,8 +177,10 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
             hlmInput
             required
             maxlength="60"
-            (input)="name.set($any($event.target).value)"
+            (input)="fs.touch('name'); name.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().name || null"
           />
+          <app-field-error [error]="fs.errors().name" />
         </div>
         <div class="segmented">
           <button
@@ -233,6 +237,7 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
             (input)="color.set($any($event.target).value)"
           />
         </div>
+        <app-form-alert [message]="fs.message()" />
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -248,7 +253,7 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
       [title]="'deletion.askCategory' | translate: { name: deleting()?.name }"
       (closed)="deleting.set(null)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); confirmDelete()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); confirmDelete()">
         <p class="text-sm">
           {{
             'deletion.categoryInUse'
@@ -283,6 +288,7 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
 })
 export class CategoriesComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fs = new FormState<'name'>();
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -335,10 +341,12 @@ export class CategoriesComponent {
   protected openNew() {
     this.name.set('');
     this.parentId.set(null);
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
   protected async create() {
+    if (!this.fs.check({ name: rules.required(this.name()) })) return;
     try {
       await firstValueFrom(
         this.api.createCategory({
@@ -354,7 +362,7 @@ export class CategoriesComponent {
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
     } catch (err) {
-      this.toasts.error(err);
+      this.fs.fail(err);
     }
   }
 
