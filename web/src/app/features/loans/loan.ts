@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { accountOption } from '../../shared/account-option';
 import { RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -757,7 +758,7 @@ export class LoanComponent {
       { value: '', label: this.i18n.instant('loans.notTracked') },
       ...(this.accounts.value() ?? [])
         .filter((a) => ['Bank', 'Savings', 'Cash'].includes(a.kind) && !a.archived)
-        .map((a) => ({ value: a.id, label: a.name })),
+        .map(accountOption),
     ];
   });
 

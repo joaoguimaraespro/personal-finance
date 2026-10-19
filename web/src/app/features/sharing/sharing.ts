@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { accountOption } from '../../shared/account-option';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -387,7 +388,7 @@ export class SharingComponent {
   protected readonly accountOptions = computed<SelectOption[]>(() => [
     ...(this.accounts.value() ?? [])
       .filter((a) => a.isManual && !a.archived && a.kind !== 'Loan')
-      .map((a) => ({ value: a.id, label: a.name })),
+      .map(accountOption),
     { value: '', label: this.i18n.instant('sharing.noAccount') },
   ]);
   protected readonly categoryOptions = computed<SelectOption[]>(() => [

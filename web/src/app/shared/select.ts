@@ -16,6 +16,8 @@ let nextId = 0;
 export interface SelectOption {
   value: string;
   label: string;
+  /** Secondary text shown muted after the label (e.g. an account's bank). */
+  hint?: string;
   disabled?: boolean;
 }
 
@@ -51,9 +53,12 @@ export interface SelectOption {
       </hlm-select-trigger>
       <hlm-select-content *hlmSelectPortal class="max-h-80">
         @for (o of options(); track o.value) {
-          <hlm-select-item [value]="o.value" [disabled]="!!o.disabled">{{
-            o.label
-          }}</hlm-select-item>
+          <hlm-select-item [value]="o.value" [disabled]="!!o.disabled"
+            >{{ o.label }}
+            @if (o.hint) {
+              <span class="text-muted-foreground ml-1.5 text-xs">{{ o.hint }}</span>
+            }
+          </hlm-select-item>
         }
       </hlm-select-content>
     </hlm-select>
@@ -77,7 +82,9 @@ export class SelectComponent {
 
   protected readonly triggerClass = computed(() => ['w-full', this.userClass()]);
   protected readonly labelOf = computed(() => {
-    const labels = new Map(this.options().map((o) => [o.value, o.label]));
+    const labels = new Map(
+      this.options().map((o) => [o.value, o.hint ? `${o.label} · ${o.hint}` : o.label]),
+    );
     return (value: string) => labels.get(value) ?? '';
   });
 
