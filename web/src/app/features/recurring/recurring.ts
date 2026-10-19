@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { accountOption } from '../../shared/account-option';
 import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -65,6 +66,7 @@ interface Form {
 @Component({
   selector: 'app-recurring',
   imports: [
+    ...FORM_ERRORS,
     PageHeaderComponent,
     EmptyStateComponent,
     StatusBadgeComponent,
@@ -244,7 +246,7 @@ interface Form {
       [title]="(editingId() ? 'recurring.edit' : 'recurring.new') | translate"
       (closed)="formOpen.set(false)"
     >
-      <form class="form-grid" (submit)="$event.preventDefault(); save()">
+      <form novalidate class="form-grid" (submit)="$event.preventDefault(); save()">
         <div class="col-span-2">
           <label class="label" for="r-name">{{ 'common.name' | translate }}</label>
           <input
@@ -254,8 +256,10 @@ interface Form {
             maxlength="80"
             placeholder="Spotify"
             [value]="form().name"
-            (input)="patch({ name: $any($event.target).value })"
+            (input)="fs.touch('name'); patch({ name: $any($event.target).value })"
+            [attr.aria-invalid]="!!fs.errors().name || null"
           />
+          <app-field-error [error]="fs.errors().name" />
         </div>
         <div>
           <label class="label" for="r-type">{{ 'recurring.type' | translate }}</label>
@@ -277,8 +281,10 @@ interface Form {
             inputmode="decimal"
             required
             [value]="form().amount"
-            (input)="patch({ amount: $any($event.target).value })"
+            (input)="fs.touch('amount'); patch({ amount: $any($event.target).value })"
+            [attr.aria-invalid]="!!fs.errors().amount || null"
           />
+          <app-field-error [error]="fs.errors().amount" />
           <p class="mt-1 text-[11px] text-muted-foreground">
             {{ 'recurring.variableHint' | translate }}
           </p>
@@ -317,8 +323,10 @@ interface Form {
               inputId="r-cat"
               [options]="categorySelectOptions()"
               [value]="form().categoryId"
-              (valueChange)="patch({ categoryId: $event })"
+              (valueChange)="fs.touch('categoryId'); patch({ categoryId: $event })"
+              [attr.aria-invalid]="!!fs.errors().categoryId || null"
             />
+            <app-field-error [error]="fs.errors().categoryId" />
           </div>
         } @else if (form().type !== 'Transfer') {
           <div class="col-span-2">
@@ -327,8 +335,10 @@ interface Form {
               inputId="r-bucket"
               [options]="bucketSelectOptions()"
               [value]="form().bucketId"
-              (valueChange)="patch({ bucketId: $event })"
+              (valueChange)="fs.touch('bucketId'); patch({ bucketId: $event })"
+              [attr.aria-invalid]="!!fs.errors().bucketId || null"
             />
+            <app-field-error [error]="fs.errors().bucketId" />
           </div>
         }
         <div class="col-span-2">
@@ -337,8 +347,10 @@ interface Form {
             inputId="r-acc"
             [options]="accountOptions()"
             [value]="form().accountId"
-            (valueChange)="patch({ accountId: $event })"
+            (valueChange)="fs.touch('accountId'); patch({ accountId: $event })"
+            [attr.aria-invalid]="!!fs.errors().accountId || null"
           />
+          <app-field-error [error]="fs.errors().accountId" />
         </div>
         @if (canShare()) {
           <!-- Shared with people (ADR-0011): each confirmed occurrence owes them their part of what was paid. -->
@@ -419,8 +431,10 @@ interface Form {
               [max]="maxInterval(form().frequency)"
               aria-describedby="r-interval-hint"
               [value]="form().interval"
-              (input)="patch({ interval: $any($event.target).value })"
+              (input)="fs.touch('interval'); patch({ interval: $any($event.target).value })"
+              [attr.aria-invalid]="!!fs.errors().interval || null"
             />
+            <app-field-error [error]="fs.errors().interval" />
             <p id="r-interval-hint" class="mt-1 text-xs text-muted-foreground">
               {{ 'recurring.intervalDaysHint' | translate }}
             </p>
@@ -436,8 +450,10 @@ interface Form {
               min="1"
               max="31"
               [value]="form().dayOfMonth"
-              (input)="patch({ dayOfMonth: $any($event.target).value })"
+              (input)="fs.touch('dayOfMonth'); patch({ dayOfMonth: $any($event.target).value })"
+              [attr.aria-invalid]="!!fs.errors().dayOfMonth || null"
             />
+            <app-field-error [error]="fs.errors().dayOfMonth" />
           </div>
         }
         <div>
@@ -464,6 +480,7 @@ interface Form {
             clearable
           />
         </div>
+        <app-form-alert class="col-span-2" [message]="fs.message()" />
         <div class="col-span-2 flex justify-end gap-2 pt-2">
           <button type="button" hlmBtn variant="outline" (click)="formOpen.set(false)">
             {{ 'common.cancel' | translate }}
@@ -476,6 +493,9 @@ interface Form {
 })
 export class RecurringComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fs = new FormState<
+    'name' | 'amount' | 'accountId' | 'categoryId' | 'bucketId' | 'interval' | 'dayOfMonth'
+  >();
   protected tone(type: TransactionType) {
     return type === 'Income' ? 'tone-pos' : type === 'Expense' ? 'tone-neg' : '';
   }
@@ -631,6 +651,7 @@ export class RecurringComponent {
           }
         : { ...this.blank(), accountId: this.manualAccounts()[0]?.id ?? '' },
     );
+    this.fs.reset();
     this.formOpen.set(true);
   }
 
@@ -642,17 +663,36 @@ export class RecurringComponent {
   protected async save() {
     const f = this.form();
     const split = !!f.splits && (f.type === 'Expense' || f.type === 'Income');
+    const everyday = f.type === 'Expense' || f.type === 'Income';
+    const interval = Number(f.interval);
+    const day = f.dayOfMonth.trim() ? Number(f.dayOfMonth) : null;
+    const valid = this.fs.check({
+      name: rules.required(f.name),
+      amount: rules.positive(parseAmount(f.amount)),
+      accountId: rules.pick(f.accountId),
+      categoryId: everyday && !split ? rules.pick(f.categoryId) : undefined,
+      bucketId: !everyday && f.type !== 'Transfer' ? rules.pick(f.bucketId) : undefined,
+      interval:
+        Number.isInteger(interval) && interval >= 1 && interval <= maxInterval(f.frequency)
+          ? undefined
+          : 'validation.positive',
+      dayOfMonth:
+        day === null || (Number.isInteger(day) && day >= 1 && day <= 31)
+          ? undefined
+          : 'validation.number',
+    });
+    if (!valid) return;
     if (split) {
       const problem = splitError(parseAmount(f.amount), f.splits!);
       if (problem) {
-        this.toasts.show(this.i18n.instant('split.errors.' + problem), 'error');
+        this.fs.message.set(this.i18n.instant('split.errors.' + problem));
         return;
       }
     }
     const sharing = f.type === 'Expense' && !split && f.sharePeople.length > 0;
     const shares = sharing ? sharePercents(f) : null;
     if (sharing && !shares) {
-      this.toasts.show(this.i18n.instant('tx.errors.share.amount'), 'error');
+      this.fs.message.set(this.i18n.instant('tx.errors.share.amount'));
       return;
     }
     const body = {
@@ -677,7 +717,7 @@ export class RecurringComponent {
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
     } catch (err) {
-      this.toasts.error(err);
+      this.fs.fail(err);
     }
   }
 

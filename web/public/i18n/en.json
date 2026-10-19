@@ -1431,5 +1431,14 @@
   "categoryInUse": "In use (movements: {{transactions}}, recurring items: {{recurring}}): choose the category they move to.",
   "moveTo": "Move to",
   "categoryHint": "Its sub-categories move up a level and its budget limits are removed. This cannot be undone."
+ },
+ "validation": {
+  "required": "Required.",
+  "number": "Enter a number (e.g. 12,50).",
+  "positive": "Must be more than zero.",
+  "pick": "Choose one.",
+  "currency": "A 3-letter code, e.g. EUR.",
+  "percent": "Between 0 and 100.",
+  "term": "Between 1 and 720 months."
  }
 }

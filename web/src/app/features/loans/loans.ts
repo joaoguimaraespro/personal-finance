@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FORM_ERRORS, FormState, rules } from '../../shared/form-errors';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -23,6 +24,7 @@ import { ProgressComponent } from '../../shared/progress';
 @Component({
   selector: 'app-loans',
   imports: [
+    ...FORM_ERRORS,
     RouterLink,
     NgIcon,
     TranslatePipe,
@@ -44,7 +46,7 @@ import { ProgressComponent } from '../../shared/progress';
       [title]="'nav.loans' | translate"
       [subtitle]="'loans.listSubtitle' | translate"
     >
-      <button hlmBtn (click)="newOpen.set(true)">
+      <button hlmBtn (click)="fs.reset(); newOpen.set(true)">
         <ng-icon name="lucidePlus" />{{ 'loans.new' | translate }}
       </button>
     </app-page-header>
@@ -113,7 +115,7 @@ import { ProgressComponent } from '../../shared/progress';
           [title]="'loans.emptyTitle' | translate"
           [text]="'loans.emptyText' | translate"
         >
-          <button hlmBtn (click)="newOpen.set(true)">
+          <button hlmBtn (click)="fs.reset(); newOpen.set(true)">
             <ng-icon name="lucidePlus" />{{ 'loans.new' | translate }}
           </button>
         </app-empty-state>
@@ -121,7 +123,7 @@ import { ProgressComponent } from '../../shared/progress';
     }
 
     <app-modal [open]="newOpen()" [title]="'loans.new' | translate" (closed)="newOpen.set(false)">
-      <form class="space-y-3" (submit)="$event.preventDefault(); create()">
+      <form novalidate class="space-y-3" (submit)="$event.preventDefault(); create()">
         <div>
           <label class="label" for="loan-name">{{ 'common.name' | translate }}</label>
           <input
@@ -132,15 +134,18 @@ import { ProgressComponent } from '../../shared/progress';
             required
             [placeholder]="'loans.namePlaceholder' | translate"
             [value]="name()"
-            (input)="name.set($any($event.target).value)"
+            (input)="fs.touch('name'); name.set($any($event.target).value)"
+            [attr.aria-invalid]="!!fs.errors().name || null"
           />
+          <app-field-error [error]="fs.errors().name" />
           <p class="text-muted-foreground mt-1 text-xs">{{ 'loans.newHint' | translate }}</p>
         </div>
+        <app-form-alert [message]="fs.message()" />
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="newOpen.set(false)">
             {{ 'common.cancel' | translate }}
           </button>
-          <button hlmBtn [disabled]="!name().trim()">{{ 'loans.next' | translate }}</button>
+          <button hlmBtn>{{ 'loans.next' | translate }}</button>
         </div>
       </form>
     </app-modal>
@@ -148,6 +153,7 @@ import { ProgressComponent } from '../../shared/progress';
 })
 export class LoansComponent {
   protected readonly icons = PAGE_ICONS;
+  protected readonly fs = new FormState<'name'>();
   private readonly api = inject(Api);
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
@@ -184,6 +190,7 @@ export class LoansComponent {
 
   /** A loan is a debt account; its terms are filled in on the next screen. */
   protected async create() {
+    if (!this.fs.check({ name: rules.required(this.name()) })) return;
     try {
       const account = await firstValueFrom(
         this.api.createAccount({
@@ -199,7 +206,7 @@ export class LoansComponent {
       this.events.bump();
       await this.router.navigate(['/loans', account.id]);
     } catch (err) {
-      this.toasts.error(err);
+      this.fs.fail(err);
     }
   }
 }
