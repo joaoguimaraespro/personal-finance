@@ -22,8 +22,10 @@ public sealed record PersonMovementDto(Guid TransactionId, DateOnly On, string K
     string? OtherAccount);
 
 /// <summary>Balance: what the person owes the owner (positive) or the owner owes them (negative).</summary>
+/// <param name="OpeningBalance">What was owed before the app (+ they owed the owner, − the owner owed them).</param>
 public sealed record PersonDto(Guid Id, string Name, decimal Balance, DateOnly? OwedSince,
-    IReadOnlyList<OpenShareDto> Open, IReadOnlyList<PersonMovementDto> Recent);
+    IReadOnlyList<OpenShareDto> Open, IReadOnlyList<PersonMovementDto> Recent, decimal OpeningBalance = 0,
+    DateOnly? OpeningBalanceOn = null);
 
 public sealed record SharingOverviewDto(decimal OwedToYou, decimal YouOwe, IReadOnlyList<PersonDto> People);
 
@@ -165,7 +167,8 @@ public static class SharingEndpoints
 
             result.Add(new PersonDto(person.Id, person.Name, balance, balance > 0 ? since : null,
                 open.OrderByDescending(o => o.On).ToList(),
-                movements.Select(m => m.Movement).OrderByDescending(m => m.On).Take(RecentCount).ToList()));
+                movements.Select(m => m.Movement).OrderByDescending(m => m.On).Take(RecentCount).ToList(),
+                person.OpeningBalance, person.OpeningBalanceOn));
         }
 
         return new SharingOverviewDto(result.Where(p => p.Balance > 0).Sum(p => p.Balance),

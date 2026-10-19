@@ -256,6 +256,30 @@ public sealed class SharedExpenseTests(ApiFactory factory)
         (await SpentAsync(api, "2053-10")).ShouldBe(10m);
     }
 
+    [Fact]
+    public async Task What_was_owed_before_the_app_is_the_persons_opening_balance()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Opening bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var leo = await api.CreateAsync("/api/accounts", new
+        {
+            name = "Leo (opening)", kind = "Person", currency = "EUR", openingBalance = 25m, openingBalanceOn = "2053-11-01",
+        });
+        var person = await PersonAsync(api, leo);
+        person.GetProperty("balance").GetDecimal().ShouldBe(25m);
+        person.GetProperty("openingBalance").GetDecimal().ShouldBe(25m);
+        person.GetProperty("owedSince").GetString().ShouldBe("2053-11-01");
+
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/sharing/{leo}/settle", new
+        {
+            direction = "received", accountId = bank, amount = 25m, on = "2053-11-05",
+        }));
+        (await PersonAsync(api, leo)).GetProperty("balance").GetDecimal().ShouldBe(0m);
+        (await BalanceAsync(api, bank)).ShouldBe(25m);
+        (await api.GetJsonAsync("/api/reports/monthly/2053-11")).GetProperty("current").GetProperty("income")
+            .GetDecimal().ShouldBe(0m); // being paid back is not income
+    }
+
     private static async Task<decimal> GetIncomeAsync(ApiClient api) =>
         (await api.GetJsonAsync("/api/reports/monthly/2053-07")).GetProperty("current").GetProperty("income").GetDecimal();
 }
