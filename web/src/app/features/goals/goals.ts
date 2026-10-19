@@ -5,6 +5,7 @@ import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
+import { Confirm } from '../../core/confirm';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, PercentPipe } from '../../core/format';
 import { Goal } from '../../core/models';
@@ -119,6 +120,16 @@ import { StatusBadgeComponent } from '../../shared/status-badge';
             <button hlmBtn variant="ghost" size="sm" (click)="archive(g)">
               <ng-icon name="lucideArchive" />{{ 'common.archive' | translate }}
             </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="text-destructive ml-auto"
+              [attr.aria-label]="('common.delete' | translate) + ' · ' + g.name"
+              (click)="remove(g)"
+            >
+              <ng-icon name="lucideTrash2" />
+            </button>
           </div>
         </div>
       } @empty {
@@ -227,6 +238,7 @@ export class GoalsComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly confirm = inject(Confirm);
   private readonly prefs = inject(Prefs);
   protected readonly goals = liveResource({
     params: () => this.events.version(),
@@ -285,6 +297,23 @@ export class GoalsComponent {
       this.formOpen.set(false);
       this.events.bump();
       this.toasts.show(this.i18n.instant('common.saved'));
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async remove(g: Goal) {
+    const ok = await this.confirm.ask(
+      this.i18n.instant('deletion.askGoal', { name: g.name }) +
+        ' ' +
+        this.i18n.instant('deletion.cannotUndo'),
+      { destructive: true, confirmLabel: this.i18n.instant('common.delete') },
+    );
+    if (!ok) return;
+    try {
+      await firstValueFrom(this.api.deleteGoal(g.id));
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('deletion.done'));
     } catch (err) {
       this.toasts.error(err);
     }

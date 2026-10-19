@@ -206,6 +206,29 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
 
     public void SoftDelete(DateTimeOffset now) => DeletedAtUtc = now;
 
+    /// <summary>A category is being deleted: what was in it (whole or one split line) moves to <paramref name="to"/>.</summary>
+    public void MoveCategory(Guid from, Guid to)
+    {
+        if (CategoryId == from)
+        {
+            CategoryId = to;
+        }
+
+        foreach (var line in _splits.Where(l => l.CategoryId == from))
+        {
+            line.MoveTo(to);
+        }
+    }
+
+    /// <summary>An allocation bucket is being deleted: the entry counts towards <paramref name="to"/> instead.</summary>
+    public void MoveBucket(Guid from, Guid to)
+    {
+        if (BucketId == from)
+        {
+            BucketId = to;
+        }
+    }
+
     public void Restore() => DeletedAtUtc = null;
 
     private Result Apply(TransactionDraft d)

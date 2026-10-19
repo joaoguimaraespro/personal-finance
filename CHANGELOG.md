@@ -12,7 +12,8 @@ Notable changes for people who install the app. Every release, with its installe
 - **Sharing:** received / paid with no account (cash or outside the app), and "Paid for me" on a person's card.
 - **Desktop app:** the MCP server for AI clients (Claude Code, Claude Desktop) runs inside the app; uninstalling on
   Windows can delete the data too.
-- Accounts and people can be **deleted for good**, after showing what goes with them.
+- Accounts, people, custom categories, goals and manually valued assets can be **deleted for good**, after showing
+  what goes with them (a category in use moves its movements to another one first).
 
 ### Changed
 

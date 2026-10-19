@@ -116,6 +116,29 @@ public sealed class RecurringTransaction : Entity, IAuditable
 
     public void SetActive(bool active) => IsActive = active;
 
+    /// <summary>A category is being deleted: the template (or its split lines) uses <paramref name="to"/> instead.</summary>
+    public void MoveCategory(Guid from, Guid to)
+    {
+        if (CategoryId == from)
+        {
+            CategoryId = to;
+        }
+
+        foreach (var line in _splits.Where(l => l.CategoryId == from))
+        {
+            line.MoveTo(to);
+        }
+    }
+
+    /// <summary>An allocation bucket is being deleted: the template counts towards <paramref name="to"/> instead.</summary>
+    public void MoveBucket(Guid from, Guid to)
+    {
+        if (BucketId == from)
+        {
+            BucketId = to;
+        }
+    }
+
     /// <summary>A person no longer shares it (they were deleted): their part becomes the owner's.</summary>
     public bool RemoveShare(Guid personId) => _shares.RemoveAll(s => s.PersonId == personId) > 0;
 
@@ -286,6 +309,8 @@ public sealed class RecurringSplit
     public Guid CategoryId { get; private set; }
     public decimal Amount { get; private set; }
     public string? Note { get; private set; }
+
+    internal void MoveTo(Guid categoryId) => CategoryId = categoryId;
 
     internal static RecurringSplit Create(int position, SplitLine line) => new()
     {

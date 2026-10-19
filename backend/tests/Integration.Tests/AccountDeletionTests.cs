@@ -70,4 +70,59 @@ public sealed class AccountDeletionTests(ApiFactory factory)
             .ShouldNotContain(r => r.GetProperty("name").GetString() == "From the deleted bank");
         (await api.Http.DeleteAsync($"/api/accounts/{Guid.NewGuid()}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task A_category_in_use_moves_what_was_in_it_and_built_ins_stay()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Category delete bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var mine = await api.CreateAsync("/api/categories", new { name = "Comics (delete)", type = "Expense" });
+        var child = await api.CreateAsync("/api/categories", new { name = "Manga (delete)", type = "Expense", parentId = mine });
+        var expense = await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = "2054-04-02", amount = 12m, accountId = bank, categoryId = mine,
+        });
+
+        var preview = await api.GetJsonAsync($"/api/categories/{mine}/deletion");
+        preview.GetProperty("transactions").GetInt32().ShouldBe(1);
+        preview.GetProperty("subcategories").GetInt32().ShouldBe(1);
+        (await api.Http.DeleteAsync($"/api/categories/{mine}")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await api.Http.DeleteAsync($"/api/categories/{mine}?moveTo={SystemCatalog.CategoryId("salary")}"))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest); // an income category
+        (await api.Http.DeleteAsync($"/api/categories/{mine}?moveTo={Subscriptions}")).EnsureSuccessStatusCode();
+
+        (await api.GetJsonAsync($"/api/transactions/{expense}")).GetProperty("categoryId").GetGuid().ShouldBe(Subscriptions);
+        var categories = await api.GetAsync<JsonElement[]>("/api/categories");
+        categories.ShouldNotContain(c => c.GetProperty("id").GetGuid() == mine);
+        categories.Single(c => c.GetProperty("id").GetGuid() == child).GetProperty("parentId").ValueKind
+            .ShouldBe(JsonValueKind.Null);
+        (await api.Http.DeleteAsync($"/api/categories/{Subscriptions}")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Buckets_goals_and_assets_can_be_deleted()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Bucket delete bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var buckets = await api.GetAsync<JsonElement[]>("/api/buckets");
+        var savings = buckets.First(b => b.GetProperty("group").GetString() == "Savings" && b.GetProperty("isSystem").GetBoolean())
+            .GetProperty("id").GetGuid();
+        var mine = await api.CreateAsync("/api/buckets", new { name = "Bike fund (delete)", group = "Savings" });
+        var saved = await api.CreateAsync("/api/transactions", new
+        {
+            type = "Savings", occurredOn = "2054-05-02", amount = 50m, accountId = bank, bucketId = mine,
+        });
+        (await api.Http.DeleteAsync($"/api/buckets/{mine}")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await api.Http.DeleteAsync($"/api/buckets/{mine}?moveTo={savings}")).EnsureSuccessStatusCode();
+        (await api.GetJsonAsync($"/api/transactions/{saved}")).GetProperty("bucketId").GetGuid().ShouldBe(savings);
+        (await api.Http.DeleteAsync($"/api/buckets/{savings}")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var goal = await api.CreateAsync("/api/goals", new { name = "Delete me goal", targetAmount = 500m });
+        (await api.Http.DeleteAsync($"/api/goals/{goal}")).EnsureSuccessStatusCode();
+        (await api.GetAsync<JsonElement[]>("/api/goals")).ShouldNotContain(g => g.GetProperty("id").GetGuid() == goal);
+
+        var asset = await api.CreateAsync("/api/assets", new { name = "Old bike (delete)", kind = "Vehicle", value = 300m });
+        (await api.Http.DeleteAsync($"/api/assets/{asset}")).EnsureSuccessStatusCode();
+        (await api.GetAsync<JsonElement[]>("/api/assets")).ShouldNotContain(a => a.GetProperty("id").GetGuid() == asset);
+    }
 }
