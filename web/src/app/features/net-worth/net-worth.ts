@@ -4,6 +4,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
+import { Confirm } from '../../core/confirm';
 import { DataEvents } from '../../core/data-events';
 import { DayPipe, MoneyPipe, PercentPipe, today } from '../../core/format';
 import { ManualAsset, ManualAssetKind } from '../../core/models';
@@ -213,6 +214,16 @@ import { EmptyStateComponent } from '../../shared/empty-state';
                     >{{ 'common.archive' | translate }}</span
                   >
                 </button>
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  class="text-destructive"
+                  [attr.aria-label]="('common.delete' | translate) + ' · ' + a.name"
+                  (click)="remove(a)"
+                >
+                  <ng-icon name="lucideTrash2" aria-hidden="true" />
+                </button>
               </td>
             </tr>
           } @empty {
@@ -303,6 +314,7 @@ export class NetWorthComponent {
   private readonly prefs = inject(Prefs);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly confirm = inject(Confirm);
   protected readonly colors = SERIES_COLORS;
   protected readonly kinds: ManualAssetKind[] = [
     'RealEstate',
@@ -408,6 +420,23 @@ export class NetWorthComponent {
         );
       this.formOpen.set(false);
       this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async remove(a: ManualAsset) {
+    const ok = await this.confirm.ask(
+      this.i18n.instant('deletion.askAsset', { name: a.name }) +
+        ' ' +
+        this.i18n.instant('deletion.cannotUndo'),
+      { destructive: true, confirmLabel: this.i18n.instant('common.delete') },
+    );
+    if (!ok) return;
+    try {
+      await firstValueFrom(this.api.deleteManualAsset(a.id));
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('deletion.done'));
     } catch (err) {
       this.toasts.error(err);
     }

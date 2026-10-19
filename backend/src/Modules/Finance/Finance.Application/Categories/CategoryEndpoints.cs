@@ -116,6 +116,12 @@ public static class CategoryEndpoints
         });
 
         // Categories are archived rather than deleted so historical transactions keep their meaning.
+        // Deleting for good: what it touches first, then the deletion (in use: moveTo another category of its kind).
+        group.MapGet("/{id:guid}/deletion", async (Guid id, IFinanceDb db, CancellationToken ct) =>
+            (await CategoryDeletion.PreviewAsync(db, id, ct)).ToHttp(Results.Ok));
+        group.MapDelete("/{id:guid}", async (Guid id, Guid? moveTo, IFinanceDb db, CancellationToken ct) =>
+            (await CategoryDeletion.DeleteAsync(db, id, moveTo, ct)).ToHttp(Results.Ok));
+
         group.MapPost("/{id:guid}/archive", async (Guid id, IFinanceDb db, TimeProvider clock, CancellationToken ct) =>
         {
             var category = await db.Categories.FindAsync([id], ct);

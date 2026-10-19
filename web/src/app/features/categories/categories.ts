@@ -3,6 +3,7 @@ import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
+import { Confirm } from '../../core/confirm';
 import { DataEvents } from '../../core/data-events';
 import { Category, ExpenseNature } from '../../core/models';
 import { Prefs } from '../../core/prefs';
@@ -141,6 +142,19 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
                 >
                   <ng-icon [name]="c.archived ? 'lucideArchiveRestore' : 'lucideArchive'" />
                 </button>
+                @if (!c.isSystem) {
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-destructive"
+                    (click)="remove(c)"
+                    [attr.aria-label]="('common.delete' | translate) + ' · ' + c.name"
+                    [hlmTooltip]="'common.delete' | translate"
+                  >
+                    <ng-icon name="lucideTrash2" />
+                  </button>
+                }
               </li>
             }
           </ul>
@@ -227,6 +241,44 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
         </div>
       </form>
     </app-modal>
+
+    <!-- A category in use: what was in it moves to another one of the same kind before it is deleted. -->
+    <app-modal
+      [open]="!!deleting()"
+      [title]="'deletion.askCategory' | translate: { name: deleting()?.name }"
+      (closed)="deleting.set(null)"
+    >
+      <form class="space-y-3" (submit)="$event.preventDefault(); confirmDelete()">
+        <p class="text-sm">
+          {{
+            'deletion.categoryInUse'
+              | translate
+                : {
+                    transactions: deletingUsage()?.transactions ?? 0,
+                    recurring: deletingUsage()?.recurring ?? 0,
+                  }
+          }}
+        </p>
+        <div>
+          <label class="label" for="cat-move">{{ 'deletion.moveTo' | translate }}</label>
+          <app-select
+            inputId="cat-move"
+            [options]="moveOptions()"
+            [value]="moveTo() ?? ''"
+            (valueChange)="moveTo.set($event || null)"
+          />
+        </div>
+        <p class="text-muted-foreground text-xs">{{ 'deletion.categoryHint' | translate }}</p>
+        <div class="flex justify-end gap-2">
+          <button type="button" hlmBtn variant="outline" (click)="deleting.set(null)">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button hlmBtn variant="destructive" [disabled]="!moveTo()">
+            <ng-icon name="lucideTrash2" />{{ 'common.delete' | translate }}
+          </button>
+        </div>
+      </form>
+    </app-modal>
   `,
 })
 export class CategoriesComponent {
@@ -235,6 +287,7 @@ export class CategoriesComponent {
   private readonly events = inject(DataEvents);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
+  private readonly confirm = inject(Confirm);
   private readonly prefs = inject(Prefs);
   protected readonly categories = liveResource({
     params: () => this.events.version(),
@@ -352,6 +405,59 @@ export class CategoriesComponent {
     try {
       await firstValueFrom(this.api.resetCategoryName(c.id));
       this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected readonly deleting = signal<Category | null>(null);
+  protected readonly deletingUsage = signal<{ transactions: number; recurring: number } | null>(
+    null,
+  );
+  protected readonly moveTo = signal<string | null>(null);
+  protected readonly moveOptions = computed<SelectOption[]>(() => {
+    const c = this.deleting();
+    return [
+      { value: '', label: '—' },
+      ...(this.categories.value() ?? [])
+        .filter((o) => c && o.id !== c.id && o.type === c.type && !o.archived)
+        .map((o) => ({ value: o.id, label: categoryLabel(this.i18n, o) })),
+    ];
+  });
+
+  /** Deletes a custom category for good; in use, its movements move to another one first. */
+  protected async remove(c: Category) {
+    try {
+      const usage = await firstValueFrom(this.api.categoryDeletion(c.id));
+      if (usage.transactions || usage.recurring) {
+        this.deletingUsage.set(usage);
+        this.moveTo.set(null);
+        this.deleting.set(c);
+        return;
+      }
+      const ok = await this.confirm.ask(
+        this.i18n.instant('deletion.askCategory', { name: c.name }) +
+          ' ' +
+          this.i18n.instant('deletion.cannotUndo'),
+        { destructive: true, confirmLabel: this.i18n.instant('common.delete') },
+      );
+      if (!ok) return;
+      await firstValueFrom(this.api.deleteCategory(c.id, null));
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('deletion.done'));
+    } catch (err) {
+      this.toasts.error(err);
+    }
+  }
+
+  protected async confirmDelete() {
+    const c = this.deleting();
+    if (!c || !this.moveTo()) return;
+    try {
+      await firstValueFrom(this.api.deleteCategory(c.id, this.moveTo()));
+      this.deleting.set(null);
+      this.events.bump();
+      this.toasts.show(this.i18n.instant('deletion.done'));
     } catch (err) {
       this.toasts.error(err);
     }

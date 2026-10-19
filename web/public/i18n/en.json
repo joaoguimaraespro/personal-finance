@@ -1417,6 +1417,12 @@
   "sharedParts": "{{count}} shares people owe",
   "loan": "its loan terms",
   "cannotUndo": "This cannot be undone (archive it instead to keep the history).",
-  "done": "Deleted"
+  "done": "Deleted",
+  "askGoal": "Delete the goal “{{name}}” for good?",
+  "askAsset": "Delete “{{name}}” and its valuations for good?",
+  "askCategory": "Delete the category “{{name}}”?",
+  "categoryInUse": "In use (movements: {{transactions}}, recurring items: {{recurring}}): choose the category they move to.",
+  "moveTo": "Move to",
+  "categoryHint": "Its sub-categories move up a level and its budget limits are removed. This cannot be undone."
  }
 }
