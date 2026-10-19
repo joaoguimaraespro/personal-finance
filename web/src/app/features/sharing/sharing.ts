@@ -100,6 +100,15 @@ import { categoryLabel } from '../../shared/category-label';
                 <button
                   type="button"
                   class="text-muted-foreground hover:text-foreground"
+                  [attr.aria-label]="('common.edit' | translate) + ' · ' + p.name"
+                  [title]="'common.edit' | translate"
+                  (click)="editPerson(p)"
+                >
+                  <ng-icon name="lucidePencil" />
+                </button>
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground"
                   [attr.aria-label]="'common.archive' | translate"
                   [title]="'common.archive' | translate"
                   (click)="archive(p)"
@@ -223,10 +232,10 @@ import { categoryLabel } from '../../shared/category-label';
 
     <app-modal
       [open]="personOpen()"
-      [title]="'sharing.addPerson' | translate"
+      [title]="(editingPerson() ? 'sharing.editPerson' : 'sharing.addPerson') | translate"
       (closed)="personOpen.set(false)"
     >
-      <form class="space-y-3" (submit)="$event.preventDefault(); addPerson()">
+      <form class="space-y-3" (submit)="$event.preventDefault(); savePerson()">
         <div>
           <label class="label" for="person-name">{{ 'common.name' | translate }}</label>
           <input
@@ -239,6 +248,63 @@ import { categoryLabel } from '../../shared/category-label';
             [value]="personName()"
             (input)="personName.set($any($event.target).value)"
           />
+        </div>
+        <!-- Owed before the app: the person's opening balance (paying it later is a normal Received / Paid). -->
+        <div>
+          <p class="label">{{ 'sharing.before' | translate }}</p>
+          <div
+            class="segmented text-xs"
+            role="group"
+            [attr.aria-label]="'sharing.before' | translate"
+          >
+            <button
+              type="button"
+              [class.active]="openingSide() === 'none'"
+              (click)="openingSide.set('none')"
+            >
+              {{ 'sharing.beforeNone' | translate }}
+            </button>
+            <button
+              type="button"
+              [class.active]="openingSide() === 'owesMe'"
+              (click)="openingSide.set('owesMe')"
+            >
+              {{ 'sharing.beforeOwesMe' | translate }}
+            </button>
+            <button
+              type="button"
+              [class.active]="openingSide() === 'iOwe'"
+              (click)="openingSide.set('iOwe')"
+            >
+              {{ 'sharing.beforeIOwe' | translate }}
+            </button>
+          </div>
+          @if (openingSide() !== 'none') {
+            <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label class="label" for="person-opening">{{ 'tx.amount' | translate }}</label>
+                <input
+                  id="person-opening"
+                  hlmInput
+                  class="num w-full"
+                  inputmode="decimal"
+                  [value]="openingAmount()"
+                  (input)="openingAmount.set($any($event.target).value)"
+                />
+              </div>
+              <div>
+                <label class="label" for="person-opening-on">{{
+                  'sharing.sinceDate' | translate
+                }}</label>
+                <app-date-field
+                  inputId="person-opening-on"
+                  [value]="openingOn()"
+                  (valueChange)="openingOn.set($event)"
+                />
+              </div>
+            </div>
+            <p class="text-muted-foreground mt-2 text-xs">{{ 'sharing.beforeHint' | translate }}</p>
+          }
         </div>
         <div class="flex justify-end gap-2">
           <button type="button" hlmBtn variant="outline" (click)="personOpen.set(false)">
@@ -468,23 +534,51 @@ export class SharingComponent {
     return `oklch(0.58 0.13 ${hash % 360})`;
   }
 
+  protected readonly editingPerson = signal<SharedPerson | null>(null);
+  protected readonly openingSide = signal<'none' | 'owesMe' | 'iOwe'>('none');
+  protected readonly openingAmount = signal('');
+  protected readonly openingOn = signal(today());
+
   protected openPerson() {
+    this.editingPerson.set(null);
     this.personName.set('');
+    this.openingSide.set('none');
+    this.openingAmount.set('');
+    this.openingOn.set(today());
     this.personOpen.set(true);
   }
 
-  protected async addPerson() {
+  protected editPerson(p: SharedPerson) {
+    const opening = p.openingBalance ?? 0;
+    this.editingPerson.set(p);
+    this.personName.set(p.name);
+    this.openingSide.set(opening > 0 ? 'owesMe' : opening < 0 ? 'iOwe' : 'none');
+    this.openingAmount.set(opening ? String(Math.abs(opening)).replace('.', ',') : '');
+    this.openingOn.set(p.openingBalanceOn ?? today());
+    this.personOpen.set(true);
+  }
+
+  /** + they owed the owner before the app, − the owner owed them. */
+  private openingBalance(): number {
+    const amount = parseAmount(this.openingAmount()) ?? 0;
+    const side = this.openingSide();
+    return side === 'owesMe' ? amount : side === 'iOwe' ? -amount : 0;
+  }
+
+  protected async savePerson() {
     this.busy.set(true);
+    const body = {
+      name: this.personName().trim(),
+      openingBalance: this.openingBalance(),
+      openingBalanceOn: this.openingOn(),
+      institution: null,
+      identifier: null,
+    };
     try {
-      await firstValueFrom(
-        this.api.createAccount({
-          name: this.personName().trim(),
-          kind: 'Person',
-          currency: 'EUR',
-          openingBalance: 0,
-          institution: null,
-        }),
-      );
+      const editing = this.editingPerson();
+      if (editing) await firstValueFrom(this.api.updateAccount(editing.id, body));
+      else
+        await firstValueFrom(this.api.createAccount({ ...body, kind: 'Person', currency: 'EUR' }));
       this.personOpen.set(false);
       this.events.bump();
     } catch (err) {
