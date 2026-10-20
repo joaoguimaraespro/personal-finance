@@ -280,6 +280,26 @@ public sealed class SharedExpenseTests(ApiFactory factory)
             .GetDecimal().ShouldBe(0m); // being paid back is not income
     }
 
+    [Fact]
+    public async Task A_recurring_item_paid_by_someone_else_is_owed_to_them_each_time()
+    {
+        var api = await factory.OwnerAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var sara = await api.CreateAsync("/api/accounts", new { name = "Sara (pays the rent)", kind = "Person", currency = "EUR", openingBalance = 0m });
+        var recurringId = await api.CreateAsync("/api/recurring", new
+        {
+            name = "My part of the rent", type = "Expense", amount = 300m, accountId = sara, frequency = "Monthly",
+            startOn = today.ToString("yyyy-MM-dd"), dayOfMonth = today.Day, categoryId = SystemCatalog.CategoryId("housing"),
+        });
+        var proposal = (await api.GetAsync<JsonElement[]>("/api/expected"))
+            .Single(p => p.GetProperty("recurringTransactionId").GetGuid() == recurringId);
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/expected/{proposal.GetProperty("id").GetGuid()}/confirm", new { }));
+
+        var person = await PersonAsync(api, sara);
+        person.GetProperty("balance").GetDecimal().ShouldBe(-300m); // the owner owes it
+        person.GetProperty("recent").EnumerateArray().Single().GetProperty("kind").GetString().ShouldBe("theyPaid");
+    }
+
     private static async Task<decimal> GetIncomeAsync(ApiClient api) =>
         (await api.GetJsonAsync("/api/reports/monthly/2053-07")).GetProperty("current").GetProperty("income").GetDecimal();
 }
