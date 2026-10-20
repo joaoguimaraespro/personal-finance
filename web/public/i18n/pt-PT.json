@@ -384,7 +384,13 @@
   "active": "Ativo",
   "paused": "Em pausa",
   "shareHint": "Sempre que for confirmado, ficam a dever a parte deles do que foi pago — a divisão acompanha o valor quando a conta varia.",
-  "confirmValue": "{{name}}: quantia a confirmar"
+  "confirmValue": "{{name}}: quantia a confirmar",
+  "whoPays": "Quem paga",
+  "paidByMe": "Eu",
+  "paidByPerson": "Outra pessoa (fico a dever)",
+  "paidByWho": "Pago por",
+  "paidByHint": "Sempre que for confirmado ficas a dever-lhe este valor (a tua parte), até lhe pagares em Partilhas. Não sai dinheiro das tuas contas.",
+  "paidByName": "paga por {{name}}"
  },
  "budgets": {
   "subtitle": "Cada versão aplica-se a partir do seu mês — alterá-la nunca reescreve meses anteriores.",
