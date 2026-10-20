@@ -61,6 +61,8 @@ interface Form {
   sharePeople: string[];
   shareEqual: boolean;
   shareAmounts: Record<string, string>;
+  /** Paid by another person each time (the owner owes it to them): that person's id, '' when the owner pays. */
+  paidBy: string;
 }
 
 @Component({
@@ -156,6 +158,12 @@ interface Form {
                     {{ 'split.count' | translate: { count: r.splits.length } }}
                   } @else {
                     {{ categoryFor(r.categoryId) | categoryLabel }}
+                  }
+                  @if (paidByOf(r); as who) {
+                    ·
+                    <span class="text-violet-700 dark:text-violet-300">{{
+                      'recurring.paidByName' | translate: { name: who }
+                    }}</span>
                   }
                   @if (r.shares?.length) {
                     ·
@@ -341,17 +349,54 @@ interface Form {
             <app-field-error [error]="fs.errors().bucketId" />
           </div>
         }
-        <div class="col-span-2">
-          <label class="label" for="r-acc">{{ 'tx.account' | translate }}</label>
-          <app-select
-            inputId="r-acc"
-            [options]="accountOptions()"
-            [value]="form().accountId"
-            (valueChange)="fs.touch('accountId'); patch({ accountId: $event })"
-            [attr.aria-invalid]="!!fs.errors().accountId || null"
-          />
-          <app-field-error [error]="fs.errors().accountId" />
-        </div>
+        @if (form().type === 'Expense' && people().length) {
+          <!-- Someone else pays it each time (a flatmate pays the rent): the owner owes them, nothing leaves an account. -->
+          <div class="col-span-2">
+            <p class="label">{{ 'recurring.whoPays' | translate }}</p>
+            <div
+              class="segmented text-xs"
+              role="group"
+              [attr.aria-label]="'recurring.whoPays' | translate"
+            >
+              <button type="button" [class.active]="!form().paidBy" (click)="patch({ paidBy: '' })">
+                {{ 'recurring.paidByMe' | translate }}
+              </button>
+              <button
+                type="button"
+                [class.active]="!!form().paidBy"
+                (click)="patch({ paidBy: form().paidBy || people()[0].id, sharePeople: [] })"
+              >
+                {{ 'recurring.paidByPerson' | translate }}
+              </button>
+            </div>
+          </div>
+        }
+        @if (form().paidBy) {
+          <div class="col-span-2">
+            <label class="label" for="r-paid-by">{{ 'recurring.paidByWho' | translate }}</label>
+            <app-select
+              inputId="r-paid-by"
+              [options]="personOptions()"
+              [value]="form().paidBy"
+              (valueChange)="patch({ paidBy: $event })"
+            />
+            <p class="mt-1 text-xs text-muted-foreground">
+              {{ 'recurring.paidByHint' | translate }}
+            </p>
+          </div>
+        } @else {
+          <div class="col-span-2">
+            <label class="label" for="r-acc">{{ 'tx.account' | translate }}</label>
+            <app-select
+              inputId="r-acc"
+              [options]="accountOptions()"
+              [value]="form().accountId"
+              (valueChange)="fs.touch('accountId'); patch({ accountId: $event })"
+              [attr.aria-invalid]="!!fs.errors().accountId || null"
+            />
+            <app-field-error [error]="fs.errors().accountId" />
+          </div>
+        }
         @if (canShare()) {
           <!-- Shared with people (ADR-0011): each confirmed occurrence owes them their part of what was paid. -->
           <div class="col-span-2 rounded-lg border p-3">
@@ -535,8 +580,17 @@ export class RecurringComponent {
     this.people().filter((p) => this.form().sharePeople.includes(p.id)),
   );
   protected readonly canShare = computed(
-    () => this.form().type === 'Expense' && !this.form().splits && this.people().length > 0,
+    () =>
+      this.form().type === 'Expense' &&
+      !this.form().splits &&
+      !this.form().paidBy &&
+      this.people().length > 0,
   );
+  protected readonly personOptions = computed(() =>
+    this.people().map((p) => ({ value: p.id, label: p.name })),
+  );
+  /** The person who pays an item for the owner, when it is one of them. */
+  protected paidByOf = (r: Recurring) => this.people().find((p) => p.id === r.accountId)?.name;
   protected shareNames = (r: Recurring) =>
     (r.shares ?? [])
       .map((s) => this.people().find((p) => p.id === s.personId)?.name)
@@ -638,7 +692,10 @@ export class RecurringComponent {
             name: r.name,
             type: r.type,
             amount: String(r.amount),
-            accountId: r.accountId,
+            accountId: this.people().some((p) => p.id === r.accountId)
+              ? (this.manualAccounts()[0]?.id ?? '')
+              : r.accountId,
+            paidBy: this.people().some((p) => p.id === r.accountId) ? r.accountId : '',
             categoryId: r.categoryId ?? '',
             bucketId: r.bucketId ?? '',
             frequency: r.frequency,
@@ -669,7 +726,7 @@ export class RecurringComponent {
     const valid = this.fs.check({
       name: rules.required(f.name),
       amount: rules.positive(parseAmount(f.amount)),
-      accountId: rules.pick(f.accountId),
+      accountId: f.paidBy ? undefined : rules.pick(f.accountId),
       categoryId: everyday && !split ? rules.pick(f.categoryId) : undefined,
       bucketId: !everyday && f.type !== 'Transfer' ? rules.pick(f.bucketId) : undefined,
       interval:
@@ -700,7 +757,8 @@ export class RecurringComponent {
       type: f.type,
       amount: parseAmount(f.amount),
       currency: 'EUR',
-      accountId: f.accountId,
+      // Paid by someone else: the expense is booked in that person's account (the owner owes it to them).
+      accountId: f.type === 'Expense' && f.paidBy ? f.paidBy : f.accountId,
       ...scheduleBody(f),
       startOn: f.startOn,
       endOn: f.endOn || null,
@@ -771,6 +829,7 @@ export class RecurringComponent {
       sharePeople: [],
       shareEqual: true,
       shareAmounts: {},
+      paidBy: '',
     };
   }
 }

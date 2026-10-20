@@ -3,6 +3,13 @@
 Notable changes for people who install the app. Every release, with its installers, is on the
 [releases page](https://github.com/joaoguimaraespro/personal-finance/releases); the full history is in the [commits](https://github.com/joaoguimaraespro/personal-finance/commits/main).
 
+## [Unreleased]
+
+### Added
+
+- Recurring expenses paid by someone else (a flatmate pays the rent): choose *Someone else (I owe them)* and each
+  confirmed occurrence is owed to that person, until you pay them back in Sharing.
+
 ## [1.3.0] - 2026-10-20
 
 ### Changed
