@@ -57,11 +57,42 @@ every 30 minutes, recurring items and interest every hour. Closed for days? It c
 
 ## AI clients (MCP)
 
-The app also runs the MCP server for AI clients on this computer, at `http://127.0.0.1:47821/mcp` (the next free
-port if that one is taken; set `PERSONAL_FINANCE_MCP_PORT` to choose another). Create a client in *Settings → AI
-access*: the dialog shows the `claude mcp add` command for Claude Code and the `claude_desktop_config.json` entry
-for Claude Desktop (through `mcp-remote`, which needs Node.js). It works while the app is open, from this computer
-only; permissions, audit and revocation are the same as on a server ([docs/ai.md](ai.md)).
+The app runs the MCP server for AI clients on this computer, at `http://127.0.0.1:47821/mcp` (the next free port if
+that one is taken; set `PERSONAL_FINANCE_MCP_PORT` to choose another). It works while the app is open, from this
+computer only; permissions, audit and revocation are the same as on a server ([docs/ai.md](ai.md)).
+
+**1. Create a client in the app.** *Settings → AI access → New AI client*: give it a name (e.g. "Claude"), tick what it
+may read (and, only if you want, write), save. The dialog then shows the token **once**, the `claude mcp add` command
+and the Claude Desktop configuration — copy them before closing it.
+
+**2a. Claude Code** (terminal): paste the command it shows, for example
+
+```bash
+claude mcp add --transport http personal-finance http://127.0.0.1:47821/mcp --header "Authorization: Bearer pf_…"
+```
+
+**2b. Claude Desktop**: it reaches a server on this computer through `mcp-remote`, so install
+[Node.js](https://nodejs.org) (LTS) first. Then in Claude Desktop, *Settings → Developer → Edit Config* opens
+`claude_desktop_config.json` (Windows: `%APPDATA%\Claude\claude_desktop_config.json`; macOS:
+`~/Library/Application Support/Claude/claude_desktop_config.json`). Paste the entry the app showed inside
+`"mcpServers"` (merge it with any servers already there):
+
+```json
+{
+  "mcpServers": {
+    "personal-finance": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:47821/mcp", "--header", "Authorization: Bearer pf_…"]
+    }
+  }
+}
+```
+
+Save, quit Claude Desktop completely and open it again: *personal-finance* appears under the tools (🔌).
+
+**3. Use it** with Personal Finance open, e.g. "How much did I spend on restaurants this month?". If the client says
+it cannot connect, open the app first; if it says *unauthorized*, the token was revoked or mistyped — create a new
+client. To stop access, revoke the client in *AI access*.
 
 ## What is different from the server install
 

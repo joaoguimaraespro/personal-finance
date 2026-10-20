@@ -3,6 +3,22 @@
 Notable changes for people who install the app. Every release, with its installers, is on the
 [releases page](https://github.com/joaoguimaraespro/personal-finance/releases); the full history is in the [commits](https://github.com/joaoguimaraespro/personal-finance/commits/main).
 
+## [1.3.0] - 2026-10-20
+
+### Changed
+
+- **Monthly:** spending by category shows the month's total and the six biggest categories (the rest as Other) in a
+  ranked list; the allocation shows each bucket as a progress bar towards its target, and the expense budget as spent
+  of budget.
+- The month you started in, when it began after the 1st, is marked as your first month and left out of the 12-month
+  averages, with how to complete it.
+- Forms in dialogs check their fields and explain what is missing under each one; what the server refuses shows in
+  the dialog.
+
+### Fixed
+
+- Error messages were hidden behind open dialogs.
+
 ## [1.2.0] - 2026-10-19
 
 ### Added
@@ -43,5 +59,6 @@ First public release.
 - Optional AI access over MCP and an in-app assistant behind a policy gateway, with opt-in write tools.
 - English and Portuguese (Portugal), light and dark themes, phone layout.
 
+[1.3.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.3.0
 [1.2.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.2.0
 [1.1.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.1.0
