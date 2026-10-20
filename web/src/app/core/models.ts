@@ -384,6 +384,8 @@ export interface MonthlyComparison {
   current: MonthlySummary;
   previous: MonthlySummary;
   trailingAverage: MonthlyAverage;
+  /** The month tracking started in, part-way through: the day it started. */
+  partialFrom?: string | null;
 }
 
 export interface AnnualRow {

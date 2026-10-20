@@ -16,7 +16,7 @@ import type { EChartsOption } from 'echarts';
 import { firstValueFrom, map } from 'rxjs';
 import { Api } from '../../core/api';
 import { DataEvents } from '../../core/data-events';
-import { MoneyPipe, currentPeriod } from '../../core/format';
+import { DayPipe, MoneyPipe, PercentPipe, currentPeriod } from '../../core/format';
 import { AllocationStatus, BucketLine, MonthlySummary } from '../../core/models';
 import { QuickAdd } from '../../core/data-events';
 import { canRecord, effectiveStatus, remaining } from './allocation';
@@ -53,6 +53,8 @@ type Reference = 'previous' | 'average' | 'budget';
     StatusBadgeComponent,
     TranslatePipe,
     MoneyPipe,
+    DayPipe,
+    PercentPipe,
     CategoryLabelPipe,
     BucketLabelPipe,
     RouterLink,
@@ -74,6 +76,21 @@ type Reference = 'previous' | 'average' | 'budget';
     </app-page-header>
 
     @if (report.value(); as r) {
+      @if (r.partialFrom) {
+        <!-- The first month: only what happened since the start is here, so it is not compared with full months. -->
+        <div
+          class="mb-4 flex gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-100"
+          role="note"
+        >
+          <ng-icon name="lucideInfo" class="mt-0.5 shrink-0" aria-hidden="true" />
+          <div>
+            <p class="font-medium">
+              {{ 'monthly.partialTitle' | translate: { date: (r.partialFrom | day) } }}
+            </p>
+            <p class="mt-0.5 text-xs opacity-90">{{ 'monthly.partialText' | translate }}</p>
+          </div>
+        </div>
+      }
       <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
         <ng-icon name="lucideWallet" class="text-primary" aria-hidden="true" />{{
           'dashboard.everyday' | translate
@@ -171,118 +188,124 @@ type Reference = 'previous' | 'average' | 'budget';
               }}</a
             >
           </div>
-          <table hlmTable>
-            <thead hlmTHead>
-              <tr hlmTr>
-                <th hlmTh>{{ 'common.bucket' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'monthly.target' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'monthly.actual' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'monthly.difference' | translate }}</th>
-                <th hlmTh>{{ 'common.status' | translate }}</th>
-              </tr>
-            </thead>
-            <tbody hlmTBody>
-              @for (b of r.current.buckets; track b.bucketId) {
-                <tr hlmTr>
-                  <td hlmTd>
+          <!-- One row per bucket: how much of its target was set aside, with its status and what is left. -->
+          <ul class="space-y-4 px-5 pb-2">
+            @for (b of r.current.buckets; track b.bucketId) {
+              <li>
+                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <span class="flex min-w-0 items-center gap-2 text-sm font-medium">
                     <span
-                      class="mr-2 inline-block h-2 w-2 rounded-full"
+                      class="inline-block h-2 w-2 shrink-0 rounded-full"
                       [style.background]="b.isInvestment ? colors.invested : colors.saved"
                     ></span
-                    >{{ b.name | bucketLabel }}
-                  </td>
-                  <td hlmTd class="num text-right text-muted-foreground">{{ b.target | money }}</td>
-                  <td hlmTd class="num text-right font-medium">
-                    {{ b.actual | money }}
-                    @if (b.fromBrokers) {
-                      <div class="text-[11px] font-normal text-muted-foreground">
-                        {{ 'monthly.fromBrokers' | translate: { amount: (b.fromBrokers | money) } }}
-                      </div>
+                    ><span class="truncate">{{ b.name | bucketLabel }}</span>
+                  </span>
+                  <span class="num text-sm">
+                    <span class="font-semibold">{{ b.actual | money }}</span>
+                    <span class="text-muted-foreground"> / {{ b.target | money }}</span>
+                  </span>
+                </div>
+                <div class="bg-muted mt-1.5 h-2 overflow-hidden rounded-full">
+                  <div
+                    class="h-full rounded-full transition-[width]"
+                    [style.width.%]="share(b.actual, b.target) * 100"
+                    [style.background]="b.isInvestment ? colors.invested : colors.saved"
+                  ></div>
+                </div>
+                @if (b.fromBrokers) {
+                  <p class="text-muted-foreground mt-1 text-[11px]">
+                    {{ 'monthly.fromBrokers' | translate: { amount: (b.fromBrokers | money) } }}
+                  </p>
+                }
+                <div class="mt-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    @if (statusOf(b); as s) {
+                      <app-status-badge [tone]="toneOf(s)">{{
+                        'allocation.' + s | translate
+                      }}</app-status-badge>
                     }
-                  </td>
-                  <td
-                    hlmTd
-                    class="num text-right"
-                    [class.tone-neg]="(b.difference ?? 0) < 0"
-                    [class.tone-pos]="(b.difference ?? 0) >= 0"
-                  >
-                    {{ b.difference | money: 'EUR' : true }}
-                  </td>
-                  <td hlmTd>
-                    <!-- Like a recurring item: the status follows what was set aside, and one click records the rest. -->
-                    <div class="flex flex-wrap items-center gap-2">
-                      @if (statusOf(b); as s) {
-                        <app-status-badge [tone]="toneOf(s)">{{
-                          'allocation.' + s | translate
-                        }}</app-status-badge>
-                      }
-                      <!-- Only the exceptions are set by hand: the status otherwise follows what was set aside. -->
-                      @if (manualFor(b.bucketId)) {
-                        <button
-                          type="button"
-                          class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
-                          (click)="setCheck(b.bucketId, 'Auto')"
-                        >
-                          {{ 'common.undo' | translate }}
-                        </button>
-                      } @else if (statusOf(b) !== 'Done') {
-                        <button
-                          type="button"
-                          class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
-                          (click)="setCheck(b.bucketId, 'NotApplicable')"
-                        >
-                          {{ 'allocation.notThisMonth' | translate }}
-                        </button>
-                      }
-                      @if (recordable(b)) {
-                        <button
-                          hlmBtn
-                          size="sm"
-                          variant="outline"
-                          [attr.aria-label]="
-                            ('allocation.record' | translate) + ' · ' + (b.name | bucketLabel)
-                          "
-                          (click)="record(b)"
-                        >
-                          <ng-icon name="lucidePlus" aria-hidden="true" />{{
-                            'allocation.record' | translate
-                          }}
-                          <span class="num text-muted-foreground">{{ left(b) | money }}</span>
-                        </button>
-                      }
-                    </div>
-                  </td>
-                </tr>
-              } @empty {
-                <tr hlmTr>
-                  <td hlmTd colspan="5" class="py-6 text-center text-muted-foreground">
-                    <span class="inline-flex items-center gap-2"
-                      ><ng-icon name="lucideInfo" aria-hidden="true" />{{
-                        'monthly.noBudget' | translate
-                      }}</span
-                    >
-                  </td>
-                </tr>
-              }
-              <tr hlmTr class="bg-muted/50">
-                <td hlmTd class="font-medium">{{ 'kpi.expenseBudget' | translate }}</td>
-                <td hlmTd class="num text-right text-muted-foreground">
-                  {{ r.current.expenseBudget | money }}
-                </td>
-                <td hlmTd class="num text-right font-medium">
-                  {{ r.current.totalExpenses | money }}
-                </td>
-                <td
-                  hlmTd
-                  class="num text-right"
-                  [class.tone-neg]="(r.current.expenseBudgetBalance ?? 0) < 0"
+                    <!-- Only the exceptions are set by hand: the status otherwise follows what was set aside. -->
+                    @if (manualFor(b.bucketId)) {
+                      <button
+                        type="button"
+                        class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+                        (click)="setCheck(b.bucketId, 'Auto')"
+                      >
+                        {{ 'common.undo' | translate }}
+                      </button>
+                    } @else if (statusOf(b) !== 'Done') {
+                      <button
+                        type="button"
+                        class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+                        (click)="setCheck(b.bucketId, 'NotApplicable')"
+                      >
+                        {{ 'allocation.notThisMonth' | translate }}
+                      </button>
+                    }
+                    @if (recordable(b)) {
+                      <button
+                        hlmBtn
+                        size="sm"
+                        variant="outline"
+                        [attr.aria-label]="
+                          ('allocation.record' | translate) + ' · ' + (b.name | bucketLabel)
+                        "
+                        (click)="record(b)"
+                      >
+                        <ng-icon name="lucidePlus" aria-hidden="true" />{{
+                          'allocation.record' | translate
+                        }}
+                        <span class="num text-muted-foreground">{{ left(b) | money }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              </li>
+            } @empty {
+              <li class="text-muted-foreground py-4 text-center text-sm">
+                <span class="inline-flex items-center gap-2"
+                  ><ng-icon name="lucideInfo" aria-hidden="true" />{{
+                    'monthly.noBudget' | translate
+                  }}</span
                 >
-                  {{ r.current.expenseBudgetBalance | money: 'EUR' : true }}
-                </td>
-                <td hlmTd></td>
-              </tr>
-            </tbody>
-          </table>
+              </li>
+            }
+            <!-- The expense budget: what was spent against what is left for spending this month. -->
+            <li class="border-t pt-4">
+              <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <span class="text-sm font-medium">{{ 'kpi.expenseBudget' | translate }}</span>
+                <span class="num text-sm">
+                  <span class="font-semibold">{{ r.current.totalExpenses | money }}</span>
+                  <span class="text-muted-foreground">
+                    / {{ r.current.expenseBudget | money }}</span
+                  >
+                </span>
+              </div>
+              <div class="bg-muted mt-1.5 h-2 overflow-hidden rounded-full">
+                <div
+                  class="h-full rounded-full"
+                  [style.width.%]="share(r.current.totalExpenses, r.current.expenseBudget) * 100"
+                  [style.background]="
+                    (r.current.expenseBudgetBalance ?? 0) < 0
+                      ? colors.expenses
+                      : colors.expensesLight
+                  "
+                ></div>
+              </div>
+              <p
+                class="num mt-1 text-xs"
+                [class.tone-neg]="(r.current.expenseBudgetBalance ?? 0) < 0"
+                [class.text-muted-foreground]="(r.current.expenseBudgetBalance ?? 0) >= 0"
+              >
+                {{
+                  ((r.current.expenseBudgetBalance ?? 0) < 0
+                    ? 'monthly.overBudget'
+                    : 'monthly.leftToSpend'
+                  ) | translate: { amount: (abs(r.current.expenseBudgetBalance ?? 0) | money) }
+                }}
+              </p>
+            </li>
+          </ul>
           <dl class="grid grid-cols-2 gap-4 px-5 py-4 text-sm">
             <div>
               <dt class="text-xs text-muted-foreground">{{ 'monthly.unallocated' | translate }}</dt>
@@ -308,11 +331,58 @@ type Reference = 'previous' | 'average' | 'budget';
           </dl>
         </div>
 
-        <div class="card">
+        <!-- Where the month's spending went: the biggest categories, the rest together as "Other". -->
+        <div class="card flex flex-col">
           <h2 class="card-title">
             <ng-icon name="lucideChartPie" />{{ 'monthly.byCategory' | translate }}
           </h2>
-          <app-chart class="h-64" [option]="donut()" />
+          @if (spending().total > 0) {
+            <div
+              class="flex flex-1 flex-col items-center gap-5 sm:flex-row lg:flex-col 2xl:flex-row"
+            >
+              <div class="relative size-44 shrink-0">
+                <app-chart class="block size-44" [option]="donut()" />
+                <div
+                  class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+                >
+                  <span class="num text-lg font-semibold">{{ spending().total | money }}</span>
+                  <span class="text-muted-foreground text-[11px]">{{
+                    'monthly.spent' | translate
+                  }}</span>
+                </div>
+              </div>
+              <ul class="w-full min-w-0 flex-1 space-y-2.5">
+                @for (c of spending().items; track c.key) {
+                  <li>
+                    <div class="flex items-baseline justify-between gap-3 text-sm">
+                      <span class="flex min-w-0 items-center gap-2">
+                        <span
+                          class="inline-block h-2 w-2 shrink-0 rounded-full"
+                          [style.background]="c.color"
+                        ></span
+                        ><span class="truncate">{{ c.name }}</span>
+                      </span>
+                      <span class="num shrink-0">
+                        {{ c.amount | money }}
+                        <span class="text-muted-foreground text-xs">{{ c.share | pct: 0 }}</span>
+                      </span>
+                    </div>
+                    <div class="bg-muted mt-1 h-1.5 overflow-hidden rounded-full">
+                      <div
+                        class="h-full rounded-full"
+                        [style.width.%]="c.share * 100"
+                        [style.background]="c.color"
+                      ></div>
+                    </div>
+                  </li>
+                }
+              </ul>
+            </div>
+          } @else {
+            <p class="text-muted-foreground py-10 text-center text-sm">
+              {{ 'monthly.noSpending' | translate }}
+            </p>
+          }
         </div>
       </section>
 
@@ -461,42 +531,60 @@ export class MonthlyComponent {
     }
   }
 
-  protected readonly donut = computed<EChartsOption>(() => {
-    const lines = this.categories.value() ?? [];
+  /** The categories spent on most this month (up to 6), the rest together, with each one's share. */
+  protected readonly spending = computed(() => {
     this.prefs.translations();
-    return {
-      tooltip: {
-        trigger: 'item',
-        valueFormatter: (v: unknown) =>
-          typeof v === 'number' ? formatMoney(this.prefs.locale(), v) : '',
-      },
-      legend: {
-        type: 'scroll',
-        orient: 'horizontal',
-        left: 'center',
-        bottom: 0,
-        icon: 'circle',
-        itemWidth: 8,
-        textStyle: { color: '#a1a1aa', fontSize: 12 },
-      },
-      series: [
-        {
-          type: 'pie',
-          center: ['50%', '42%'],
-          radius: ['45%', '72%'],
-          itemStyle: { borderRadius: 4, borderWidth: 2, borderColor: 'transparent' },
-          label: { show: false },
-          data: lines
-            .filter((l) => l.actual > 0)
-            .map((l) => ({
-              name: categoryLabel(this.i18n, l),
-              value: l.actual,
-              itemStyle: { color: l.color ?? '#a1a1aa' },
-            })),
-        },
-      ],
-    };
+    const lines = (this.categories.value() ?? [])
+      .filter((l) => l.actual > 0)
+      .sort((a, b) => b.actual - a.actual);
+    const total = lines.reduce((sum, l) => sum + l.actual, 0);
+    const top = lines.slice(0, 6).map((l) => ({
+      key: l.categoryId,
+      name: categoryLabel(this.i18n, l),
+      amount: l.actual,
+      color: l.color ?? '#a1a1aa',
+    }));
+    const rest = lines.slice(6);
+    if (rest.length) {
+      top.push({
+        key: 'other',
+        name: this.i18n.instant('monthly.otherCategories', { count: rest.length }),
+        amount: rest.reduce((sum, l) => sum + l.actual, 0),
+        color: '#a1a1aa',
+      });
+    }
+    return { total, items: top.map((c) => ({ ...c, share: total ? c.amount / total : 0 })) };
   });
+
+  protected readonly donut = computed<EChartsOption>(() => ({
+    tooltip: {
+      trigger: 'item',
+      valueFormatter: (v: unknown) =>
+        typeof v === 'number' ? formatMoney(this.prefs.locale(), v) : '',
+    },
+    series: [
+      {
+        type: 'pie',
+        center: ['50%', '50%'],
+        radius: ['68%', '96%'],
+        padAngle: 1.5,
+        itemStyle: { borderRadius: 3 },
+        label: { show: false },
+        data: this.spending().items.map((c) => ({
+          name: c.name,
+          value: c.amount,
+          itemStyle: { color: c.color },
+        })),
+      },
+    ],
+  }));
+
+  /** How far an amount went towards a target (0 when there is none), at most 1 for a bar. */
+  protected share(actual: number, target: number | null | undefined): number {
+    return target && target > 0 ? Math.min(Math.max(actual / target, 0), 1) : actual > 0 ? 1 : 0;
+  }
+
+  protected readonly abs = Math.abs;
 
   /** The status picked by hand, if any; without one it follows the figures ("Automatic"). */
   protected manualFor(bucketId: string): AllocationStatus | undefined {
