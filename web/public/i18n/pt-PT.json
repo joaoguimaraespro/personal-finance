@@ -284,7 +284,14 @@
    "average": "vs média",
    "budget": "vs orçamento"
   },
-  "fromBrokers": "{{amount}} das corretoras"
+  "fromBrokers": "{{amount}} das corretoras",
+  "spent": "gastos",
+  "otherCategories": "Outras ({{count}})",
+  "noSpending": "Ainda sem gastos este mês.",
+  "overBudget": "{{amount}} acima do orçamento",
+  "leftToSpend": "{{amount}} ainda por gastar",
+  "partialTitle": "O teu primeiro mês: acompanhado desde {{date}}",
+  "partialText": "O rendimento, as metas de alocação e a taxa de poupança só contam os dias desde então, por isso este mês fica fora das médias. Para o veres completo, regista o salário e as despesas de antes e muda a data do saldo inicial das contas para o último dia do mês anterior."
  },
  "annual": {
   "title": "Resumo anual",

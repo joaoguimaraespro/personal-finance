@@ -17,6 +17,20 @@ namespace Reporting.Application.Queries;
 /// </summary>
 public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDeposits = null)
 {
+    /// <summary>
+    /// The first day the owner's money is tracked: the earliest opening balance of an everyday account (bank, savings,
+    /// cash, card) or the earliest movement, whichever comes first. Null before anything is set up.
+    /// </summary>
+    public async Task<DateOnly?> TrackingStartAsync(CancellationToken ct)
+    {
+        AccountKind[] everyday = [AccountKind.Bank, AccountKind.Savings, AccountKind.Cash, AccountKind.CreditCard,
+            AccountKind.Other];
+        var opened = await db.Accounts.AsNoTracking().Where(a => everyday.Contains(a.Kind))
+            .Select(a => (DateOnly?)a.OpeningBalanceOn).MinAsync(ct);
+        var first = await db.Transactions.AsNoTracking().Select(t => (DateOnly?)t.OccurredOn).MinAsync(ct);
+        return opened is null ? first : first is null || opened < first ? opened : first;
+    }
+
     public async Task<IReadOnlyList<MonthTotals>> MonthTotalsAsync(YearMonth from, YearMonth to, CancellationToken ct)
     {
         var start = from.FirstDay;

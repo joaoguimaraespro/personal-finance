@@ -11,10 +11,13 @@ using SharedKernel;
 
 namespace Reporting.Application;
 
+/// <param name="PartialFrom">The month tracking started in, part-way through: the day it started (its figures cover
+/// only that part, so they are not compared with full months). Null for a full month.</param>
 public sealed record MonthlyComparison(
     MonthlySummary Current,
     MonthlySummary Previous,
-    MonthlyAverage TrailingAverage);
+    MonthlyAverage TrailingAverage,
+    DateOnly? PartialFrom = null);
 
 /// <summary>Average of the months (up to 12, before the current one) that had any activity.</summary>
 public sealed record MonthlyAverage(int Months, decimal Income, decimal TotalExpenses, decimal FixedExpenses,
@@ -134,8 +137,13 @@ public static class ReportEndpoints
         var summaries = await ledger.MonthlySummariesAsync(start, ym, ct);
         var current = summaries[^1];
         var previous = summaries[^2];
-        var history = summaries.Take(summaries.Count - 1).Where(m => m.TransactionCount > 0).ToList();
-        return new MonthlyComparison(current, previous, Average(history));
+        // The month tracking started in, when it started after the 1st, only holds part of a month: it stays out of
+        // the averages the next months are compared with.
+        var tracking = await ledger.TrackingStartAsync(ct);
+        YearMonth? partial = tracking is { Day: > 1 } t ? YearMonth.From(t) : null;
+        var history = summaries.Take(summaries.Count - 1)
+            .Where(m => m.TransactionCount > 0 && m.Period != partial).ToList();
+        return new MonthlyComparison(current, previous, Average(history), partial == ym ? tracking : null);
     }
 
     public static async Task<IReadOnlyList<CategoryLine>> CategoryBreakdownAsync(LedgerAggregates ledger,
@@ -144,7 +152,10 @@ public static class ReportEndpoints
         var totals = await ledger.MonthTotalsAsync(YearMonth.From(ym.FirstDay.AddMonths(-12)), ym, ct);
         var current = totals[^1];
         var previous = totals[^2];
-        var history = totals.Take(totals.Count - 1).Where(t => t.TransactionCount > 0).ToList();
+        var tracking = await ledger.TrackingStartAsync(ct);
+        YearMonth? partial = tracking is { Day: > 1 } t ? YearMonth.From(t) : null;
+        var history = totals.Take(totals.Count - 1)
+            .Where(m => m.TransactionCount > 0 && m.Period != partial).ToList();
         var budget = await ledger.EffectiveBudgetAsync(ym, ct);
         var targets = BudgetTargets.Resolve(budget, current.Income);
 
