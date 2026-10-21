@@ -680,7 +680,12 @@
   "calendarTotal": "Total",
   "yield": "Rendimento",
   "noDividends": "sem dividendos",
-  "calendarHint": "Dividendos líquidos recebidos em cada mês do calendário nos últimos 12 meses, em euros. Os meses abaixo de metade da média são onde uma posição que pague nessa altura tornaria o rendimento mensal mais regular; as posições sem dividendos aparecem para as poderes pesar também."
+  "calendarHint": "Dividendos líquidos recebidos em cada mês do calendário nos últimos 12 meses, em euros. Os meses abaixo de metade da média são onde uma posição que pague nessa altura tornaria o rendimento mensal mais regular; as posições sem dividendos aparecem para as poderes pesar também.",
+  "cash": {
+   "title": "Dinheiro por investir",
+   "share": "{{share}} da carteira",
+   "hint": "O saldo em dinheiro nas corretoras, que ainda não está aplicado. Conta no valor total."
+  }
  },
  "netWorth": {
   "restricted": "Uso restrito",
