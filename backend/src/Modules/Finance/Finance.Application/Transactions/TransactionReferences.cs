@@ -10,8 +10,12 @@ namespace Finance.Application.Transactions;
 /// <summary>Cross-aggregate checks a transaction draft must pass before it touches the ledger.</summary>
 public static class TransactionReferences
 {
+    /// <param name="cardPayment">
+    /// An expense paid with a broker's card, linked to the withdrawal its sync reported (see BrokerMovements): the
+    /// one expense a broker account takes.
+    /// </param>
     public static async Task<Result<TransactionDraft>> ResolveAsync(IFinanceDb db, TransactionDraft draft,
-        CancellationToken ct)
+        CancellationToken ct, bool cardPayment = false)
     {
         var account = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == draft.AccountId, ct);
         if (account is null || account.ArchivedAtUtc is not null)
@@ -22,7 +26,9 @@ public static class TransactionReferences
         // A broker account's own records come from its sync. The one entry it may take by hand is money moved out of
         // it into an account of yours (a broker's spending pot or card, the bank): the broker's value already shows
         // it left, and broker accounts are valued from the portfolio, never from the ledger.
-        if (!account.IsManual && draft.Type != TransactionType.Transfer)
+        // A card payment (an expense linked to the broker's withdrawal) is money that left it too.
+        if (!account.IsManual && draft.Type != TransactionType.Transfer &&
+            !(cardPayment && draft.Type == TransactionType.Expense))
         {
             return Error.Validation("Transaction.Account", "Broker accounts are read-only.");
         }

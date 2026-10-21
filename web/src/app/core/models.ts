@@ -341,6 +341,8 @@ export interface BucketLine {
   difference: number | null;
   /** Part of `actual` that comes from deposits synced at a linked broker. */
   fromBrokers?: number;
+  /** Paid with a linked broker's card: already taken off `actual`. */
+  spent?: number;
   /** Deposits synced at a linked broker that wait to be recorded (not part of `actual`). */
   pending?: number;
 }
@@ -361,6 +363,39 @@ export interface BrokerMovement {
   kind: string | null;
   state: BrokerMovementState;
   transactionId: string | null;
+  /** Recorded as an expense paid with the broker's card. */
+  cardPayment?: boolean;
+}
+
+/** What a card payment out of a broker may be: a recurring item to confirm, or an expense already recorded. */
+export interface CardPaymentCandidates {
+  recurring: {
+    expectedId: string;
+    name: string;
+    dueOn: string;
+    amount: number;
+    currency: string;
+    shared: boolean;
+  }[];
+  expenses: {
+    transactionId: string;
+    on: string;
+    description: string | null;
+    categoryKey: string | null;
+    categoryName: string | null;
+    amount: number;
+    account: string;
+    recurring: boolean;
+    shared: boolean;
+  }[];
+}
+
+/** Exactly one of the three: the recurring occurrence, the existing expense, or a new expense's category. */
+export interface CardPaymentRequest {
+  expectedId?: string | null;
+  transactionId?: string | null;
+  categoryId?: string | null;
+  description?: string | null;
 }
 
 export interface MonthlySummary {

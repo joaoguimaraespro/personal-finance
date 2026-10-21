@@ -63,8 +63,9 @@ public static class RecurringCommands
     }
 
     /// <summary>Turns a pending proposal into a real transaction (source Recurring), optionally adjusted.</summary>
+    /// <param name="cardPayment">Paid with a broker's card, from that broker account (see BrokerMovements).</param>
     public static async Task<Result<Transaction>> ConfirmAsync(IFinanceDb db, Guid id, ConfirmExpectedRequest? req,
-        DateTimeOffset now, CancellationToken ct)
+        DateTimeOffset now, CancellationToken ct, bool cardPayment = false)
     {
         var item = await db.ExpectedTransactions.FindAsync([id], ct);
         if (item is null)
@@ -86,7 +87,7 @@ public static class RecurringCommands
             Notes = req?.Notes,
         };
 
-        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
+        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct, cardPayment);
         if (resolved.IsFailure)
         {
             return resolved.Error;

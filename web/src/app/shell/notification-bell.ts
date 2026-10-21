@@ -51,6 +51,7 @@ const KIND_ICONS: Record<NotificationKind, string> = {
 const ACTION_ICONS: Record<NotificationAction, string> = {
   confirm: 'lucideCheck',
   record: 'lucidePlus',
+  card: 'lucideCreditCard',
   skip: 'lucideSkipForward',
 };
 
@@ -385,7 +386,8 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                         [variant]="action === 'skip' ? 'outline' : 'default'"
                         [disabled]="n.busy().has(item.id)"
                         (click)="
-                          n.act(item, action, amountOf(item)); action === 'record' && close()
+                          n.act(item, action, amountOf(item));
+                          (action === 'record' || action === 'card') && close()
                         "
                         [attr.aria-label]="
                           (actionLabel(item, action) | translate) + ' · ' + title(item)
@@ -473,13 +475,15 @@ export class NotificationBellComponent {
   protected friendly = friendlyError;
   protected readonly actionIcon = ACTION_ICONS;
   protected actionLabel = (item: NotificationItem, action: NotificationAction) =>
-    action === 'record'
-      ? 'allocation.record'
-      : action === 'confirm'
-        ? 'recurring.confirm'
-        : item.kind === 'AllocationDue'
-          ? 'allocation.notThisMonth'
-          : 'recurring.skip';
+    action === 'card'
+      ? 'brokerMovements.cardPayment'
+      : action === 'record'
+        ? 'allocation.record'
+        : action === 'confirm'
+          ? 'recurring.confirm'
+          : item.kind === 'AllocationDue'
+            ? 'allocation.notThisMonth'
+            : 'recurring.skip';
 
   protected title(item: NotificationItem): string {
     this.prefs.translations(); // a language switch re-renders the titles

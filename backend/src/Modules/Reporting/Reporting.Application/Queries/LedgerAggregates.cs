@@ -119,6 +119,16 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
             : await db.Transactions.AsNoTracking().Where(t => linkedIds.Contains(t.Id))
                 .Select(t => new { t.OccurredOn, t.Type, t.BucketId, t.CounterAccountId, t.BaseAmount })
                 .ToListAsync(ct);
+        // Card payments: expenses paid from a broker account are money taken out of what was invested there.
+        var brokerIds = linked.Select(a => a.Id).ToList();
+        var cardSpending = brokerIds.Count == 0
+            ? []
+            : await db.Transactions.AsNoTracking()
+                .Where(t => t.OccurredOn >= start && t.OccurredOn <= end && t.Type == TransactionType.Expense &&
+                            brokerIds.Contains(t.AccountId))
+                .GroupBy(t => new { t.OccurredOn.Year, t.OccurredOn.Month, t.AccountId, t.IsRefund })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.AccountId, g.Key.IsRefund, Amount = g.Sum(t => t.BaseAmount) })
+                .ToListAsync(ct);
 
         var result = new List<MonthTotals>();
         for (var p = from; p <= to; p = p.Next())
@@ -129,6 +139,7 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
                 .ToDictionary(g => g.Key, g => g.Sum(Signed));
             var fromBrokers = new Dictionary<Guid, decimal>();
             var pendingFromBrokers = new Dictionary<Guid, decimal>();
+            var spentFromBrokers = new Dictionary<Guid, decimal>();
             foreach (var account in linked)
             {
                 var deposited = deposits.Where(d => d.AccountId == account.Id && d.Period == p).Sum(d => d.NetDeposits);
@@ -139,6 +150,14 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
                     .Sum(t => t.Type == TransactionType.InvestmentSale ? -t.BaseAmount : t.BaseAmount);
                 var pending = reviewed.Where(m => m.AccountId == account.Id && m.State == BrokerMovementState.Pending &&
                                                   YearMonth.From(m.On) == p).Sum(m => m.BaseAmount);
+                var spent = cardSpending.Where(c => c.AccountId == account.Id && c.Year == p.Year && c.Month == p.Month)
+                    .Sum(c => c.IsRefund ? -c.Amount : c.Amount);
+                if (spent != 0)
+                {
+                    spentFromBrokers[account.BucketId] = spentFromBrokers.GetValueOrDefault(account.BucketId) + spent;
+                    byBucket[account.BucketId] = byBucket.GetValueOrDefault(account.BucketId) - spent;
+                }
+
                 if (pending != 0)
                 {
                     pendingFromBrokers[account.BucketId] = pendingFromBrokers.GetValueOrDefault(account.BucketId) + pending;
@@ -167,7 +186,8 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
                 month.Where(r => r.Type == TransactionType.InvestmentSale).Sum(r => r.Amount),
                 fromBrokers,
                 repaid.Where(x => x.Year == p.Year && x.Month == p.Month).Sum(x => x.Amount),
-                pendingFromBrokers));
+                pendingFromBrokers,
+                spentFromBrokers));
         }
 
         return result;
