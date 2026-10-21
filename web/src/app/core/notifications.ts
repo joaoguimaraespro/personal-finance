@@ -4,6 +4,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { BACKGROUND } from './activity';
 import { Api } from './api';
+import { CardPayment } from './card-payment';
 import { DataEvents, QuickAdd, QuickAddPrefill } from './data-events';
 import { BrokerMovement } from './models';
 import { Toasts } from './toast';
@@ -25,7 +26,7 @@ export type NotificationKind =
 
 export type NotificationSeverity = 'Info' | 'Warning' | 'Error';
 
-export type NotificationAction = 'confirm' | 'skip' | 'record';
+export type NotificationAction = 'confirm' | 'skip' | 'record' | 'card';
 
 /** One thing that needs the owner's attention; computed by the server, gone once resolved. */
 export interface NotificationItem {
@@ -153,6 +154,7 @@ export class Notifications {
   private readonly i18n = inject(TranslateService);
   private readonly zone = inject(NgZone);
   private readonly quickAdd = inject(QuickAdd);
+  private readonly cardPayment = inject(CardPayment);
 
   readonly items = signal<NotificationItem[]>([]);
   readonly loaded = signal(false);
@@ -244,6 +246,15 @@ export class Notifications {
           this.i18n.instant('allocation.entryDescription', { bucket: item.args['bucket'] }),
         ),
       );
+      return;
+    }
+    if (item.kind === 'BrokerMovement' && action === 'card') {
+      this.cardPayment.open({
+        id: item.targetId,
+        broker: String(item.args['broker']),
+        amount: Number(item.args['baseAmount']),
+        on: String(item.args['on']),
+      });
       return;
     }
     if (item.kind === 'BrokerMovement' && action === 'record') {

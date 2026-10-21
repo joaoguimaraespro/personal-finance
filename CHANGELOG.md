@@ -7,6 +7,9 @@ Notable changes for people who install the app. Every release, with its installe
 
 ### Changed
 
+- **Card payments:** a withdrawal at a broker can be marked as a payment with its card, linked to a recurring item
+  still to confirm (a shared one keeps each person's part), to an expense already recorded, or as a new expense. It
+  is paid from the broker, counts as the month's expense and comes off what is invested.
 - **Portfolio:** the dividends (and rewards) by month chart follows the period chosen at the top and shows every
   month, the ones that paid nothing too; the dividend calendar lists the positions that pay by default.
 

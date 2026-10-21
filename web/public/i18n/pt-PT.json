@@ -293,7 +293,8 @@
   "partialTitle": "O teu primeiro mês: acompanhado desde {{date}}",
   "partialText": "O rendimento, as metas de alocação e a taxa de poupança só contam os dias desde então, por isso este mês fica fora das médias. Para o veres completo, regista o salário e as despesas de antes e muda a data do saldo inicial das contas para o último dia do mês anterior.",
   "pendingFromBrokers": "{{amount}} das corretoras por registar",
-  "averageShort": "média {{amount}}"
+  "averageShort": "média {{amount}}",
+  "spentFromBrokers": "−{{amount}} pagos com o cartão da corretora"
  },
  "annual": {
   "title": "Resumo anual",
@@ -1473,7 +1474,21 @@
   "state": {
    "Pending": "Por registar",
    "Recorded": "Registado",
-   "Ignored": "Ignorado"
-  }
+   "Ignored": "Ignorado",
+   "Card": "Pago com cartão"
+  },
+  "cardPayment": "Pagamento com cartão",
+  "cardTitle": "Pagamento com cartão",
+  "cardIntro": "{{amount}} saíram da {{broker}} a {{date}} pelo cartão. Que despesa foi?",
+  "dueRecurring": "Recorrentes por confirmar",
+  "recorded": "Despesas já registadas",
+  "newExpense": "Uma despesa nova",
+  "shared": "partilhada",
+  "recurringBadge": "recorrente",
+  "due": "vence a {{date}}",
+  "onAccount": "em {{account}}",
+  "cardEffect": "Fica paga pela {{broker}}: as outras contas não mudam, conta como despesa do mês e sai do que está investido. Uma recorrente partilhada mantém a parte de cada pessoa.",
+  "cardSaved": "Pagamento com cartão registado",
+  "pickCategory": "Escolhe a categoria da despesa."
  }
 }

@@ -212,6 +212,160 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
         }
     }
 
+    /// <summary>A broker account of its own, linked to a bucket, with what its sync recorded today.</summary>
+    private async Task<Guid> SeedBrokerAsync(ApiClient api, Guid bucket, params (decimal Amount, string Kind)[] movements)
+    {
+        var now = DateTimeOffset.UtcNow;
+        Guid broker;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var finance = scope.ServiceProvider.GetRequiredService<Finance.Application.Abstractions.IFinanceDb>();
+            var account = Finance.Domain.Accounts.Account.Create("Card broker", Finance.Domain.Accounts.AccountKind.Broker,
+                "EUR", 0m, DateOnly.FromDateTime(now.UtcDateTime).AddYears(-1));
+            finance.Accounts.Add(account);
+            await finance.SaveChangesAsync(CancellationToken.None);
+            broker = account.Id;
+            var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
+            foreach (var (amount, kind) in movements)
+            {
+                db.CashMovements.Add(CashMovement.Record(broker,
+                    amount > 0 ? CashMovementType.Deposit : CashMovementType.Withdrawal, amount, "EUR", amount, now, kind,
+                    DataSource.Demo, $"test:{kind}", now));
+            }
+
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+
+        await ApiClient.EnsureAsync(
+            await api.PutAsync($"/api/accounts/{broker}/allocation-bucket", new { bucketId = bucket }));
+        return broker;
+    }
+
+    /// <summary>Removes the seeded broker and everything recorded on it, so no other test sees it.</summary>
+    private async Task RemoveBrokerAsync(Guid broker)
+    {
+        using var scope = factory.Services.CreateScope();
+        var finance = scope.ServiceProvider.GetRequiredService<Finance.Application.Abstractions.IFinanceDb>();
+        var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
+        await db.CashMovements.Where(c => c.AccountId == broker).ExecuteDeleteAsync();
+        await db.PortfolioSnapshots.Where(c => c.AccountId == broker).ExecuteDeleteAsync();
+        var onBroker = finance.Transactions.IgnoreQueryFilters()
+            .Where(t => t.AccountId == broker || t.CounterAccountId == broker).Select(t => t.Id);
+        await finance.Transactions.IgnoreQueryFilters().Where(t => onBroker.Contains(t.SharedFromId!.Value))
+            .ExecuteDeleteAsync();
+        await finance.Transactions.IgnoreQueryFilters()
+            .Where(t => t.AccountId == broker || t.CounterAccountId == broker).ExecuteDeleteAsync();
+        await finance.Accounts.Where(a => a.Id == broker).ExecuteDeleteAsync();
+    }
+
+    [Fact]
+    public async Task A_card_payment_is_an_expense_paid_by_the_broker_and_comes_off_what_was_invested()
+    {
+        var api = await factory.OwnerAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var bucket = await api.CreateAsync("/api/buckets", new { name = $"Card ETFs {tag}", group = "Investment" });
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = $"Card test bank {tag}", kind = "Bank", currency = "EUR", openingBalance = 1000m });
+        var ana = await api.CreateAsync("/api/accounts",
+            new { name = $"Ana (streaming) {tag}", kind = "Person", currency = "EUR", openingBalance = 0m });
+        var broker = await SeedBrokerAsync(api, bucket,
+            (500m, $"DEPOSIT-{tag}"), (-12.99m, $"WITHDRAW-{tag}"), (-20m, $"WITHDRAW-B-{tag}"));
+        async Task<JsonElement> Movement(string kind) => (await api.GetAsync<JsonElement[]>("/api/broker-movements"))
+            .Single(m => m.GetProperty("kind").GetString() == kind);
+        async Task<decimal> Balance(Guid id) => (await api.GetAsync<JsonElement[]>("/api/accounts?includePeople=true"))
+            .Single(a => a.GetProperty("id").GetGuid() == id).GetProperty("balance").GetDecimal();
+        async Task<JsonElement> Line()
+        {
+            var report = await api.GetJsonAsync($"/api/reports/monthly/{today:yyyy-MM}");
+            return report.GetProperty("current").GetProperty("buckets").EnumerateArray()
+                .Single(b => b.GetProperty("bucketId").GetGuid() == bucket);
+        }
+
+        try
+        {
+            // The deposit came from the bank.
+            var deposit = (await Movement($"DEPOSIT-{tag}")).GetProperty("id").GetGuid();
+            await ApiClient.EnsureAsync(await api.PostAsync($"/api/broker-movements/{deposit}/record", new
+            {
+                type = "InvestmentContribution", occurredOn = $"{today:yyyy-MM-dd}", amount = 500m, accountId = bank,
+            }));
+
+            // A streaming bill shared half with Ana, due today, was paid with the broker's card.
+            var recurring = await api.CreateAsync("/api/recurring", new
+            {
+                name = $"Streaming {tag}", type = "Expense", amount = 12.99m, accountId = bank, frequency = "Monthly",
+                startOn = $"{today:yyyy-MM-dd}", dayOfMonth = today.Day,
+                categoryId = Finance.Domain.SystemCatalog.CategoryId("subscriptions"),
+                shares = new[] { new { personId = ana, percent = 50m } },
+            });
+            var card = await Movement($"WITHDRAW-{tag}");
+            card.GetProperty("state").GetString().ShouldBe("Pending");
+            var cardId = card.GetProperty("id").GetGuid();
+            var candidates = await api.GetJsonAsync($"/api/broker-movements/{cardId}/card-payment");
+            var due = candidates.GetProperty("recurring").EnumerateArray()
+                .Single(r => r.GetProperty("name").GetString() == $"Streaming {tag}");
+            due.GetProperty("shared").GetBoolean().ShouldBeTrue();
+            var expected = due.GetProperty("expectedId").GetGuid();
+
+            var response = await api.PostAsync($"/api/broker-movements/{cardId}/card-payment", new { expectedId = expected });
+            await ApiClient.EnsureAsync(response);
+            var expenseId = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+            // Paid from the broker: the bank only lost the deposit, Ana owes her half, and the month counts the
+            // expense and 12.99 less invested.
+            (await Balance(bank)).ShouldBe(500m);
+            (await Balance(ana)).ShouldBe(6.49m); // her half, the odd cent stays with the owner
+            var expense = await api.GetJsonAsync($"/api/transactions/{expenseId}");
+            expense.GetProperty("accountId").GetGuid().ShouldBe(broker);
+            var line = await Line();
+            line.GetProperty("actual").GetDecimal().ShouldBe(487.01m);
+            line.GetProperty("spent").GetDecimal().ShouldBe(12.99m);
+            card = await Movement($"WITHDRAW-{tag}");
+            card.GetProperty("state").GetString().ShouldBe("Recorded");
+            card.GetProperty("cardPayment").GetBoolean().ShouldBeTrue();
+            (await api.GetAsync<JsonElement[]>("/api/expected"))
+                .Any(p => p.GetProperty("id").GetGuid() == expected).ShouldBeFalse();
+
+            // An expense first booked on the bank was the other card payment: it moves to the broker.
+            var lunch = await api.CreateAsync("/api/transactions", new
+            {
+                type = "Expense", occurredOn = $"{today:yyyy-MM-dd}", amount = 20m, accountId = bank,
+                categoryId = Finance.Domain.SystemCatalog.CategoryId("restaurants"), description = $"Lunch {tag}",
+            });
+            (await Balance(bank)).ShouldBe(480m);
+            var second = (await Movement($"WITHDRAW-B-{tag}")).GetProperty("id").GetGuid();
+            (await api.GetJsonAsync($"/api/broker-movements/{second}/card-payment")).GetProperty("expenses")
+                .EnumerateArray().Any(e => e.GetProperty("transactionId").GetGuid() == lunch).ShouldBeTrue();
+            await ApiClient.EnsureAsync(
+                await api.PostAsync($"/api/broker-movements/{second}/card-payment", new { transactionId = lunch }));
+            (await Balance(bank)).ShouldBe(500m);
+            (await Line()).GetProperty("actual").GetDecimal().ShouldBe(467.01m);
+
+            // Still editable on the broker; but an expense typed in by hand on a broker stays refused.
+            await ApiClient.EnsureAsync(await api.PutAsync($"/api/transactions/{lunch}", new
+            {
+                type = "Expense", occurredOn = $"{today:yyyy-MM-dd}", amount = 20m, accountId = broker,
+                categoryId = Finance.Domain.SystemCatalog.CategoryId("groceries"), description = $"Lunch {tag}",
+            }));
+            (await api.PostAsync("/api/transactions", new
+            {
+                type = "Expense", occurredOn = $"{today:yyyy-MM-dd}", amount = 5m, accountId = broker,
+                categoryId = Finance.Domain.SystemCatalog.CategoryId("groceries"),
+            })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+            // A deposit is never a card payment.
+            (await api.PostAsync($"/api/broker-movements/{deposit}/card-payment",
+                new { categoryId = Finance.Domain.SystemCatalog.CategoryId("groceries") })).IsSuccessStatusCode
+                .ShouldBeFalse();
+            await api.Http.DeleteAsync($"/api/recurring/{recurring}");
+        }
+        finally
+        {
+            await RemoveBrokerAsync(broker);
+        }
+    }
+
     [Fact]
     public async Task Only_broker_accounts_can_be_linked()
     {

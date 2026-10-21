@@ -15,9 +15,10 @@ namespace Finance.Application.BrokerMovements;
 /// <param name="State">
 /// Pending also when it was recorded but that transaction has since been deleted: the question comes back.
 /// </param>
+/// <param name="CardPayment">Recorded as an expense paid with the broker's card, not money moved to an account.</param>
 public sealed record BrokerMovementDto(Guid Id, Guid AccountId, string Broker, Guid? BucketId, DateOnly On,
     decimal Amount, string Currency, decimal BaseAmount, string? Kind, BrokerMovementState State,
-    Guid? TransactionId);
+    Guid? TransactionId, bool CardPayment = false);
 
 public static class BrokerMovementErrors
 {
@@ -56,6 +57,8 @@ public static class BrokerMovementEndpoints
             .ToHttp(t => Results.Created($"/api/transactions/{t.Id}", new { t.Id })))
             .Validate<TransactionRequest>();
 
+        group.MapCardPayments();
+
         group.MapPost("/{id:guid}/ignore", async (Guid id, IBrokerDeposits deposits, CancellationToken ct) =>
             await deposits.ResolveAsync(id, null, ct)
                 ? Results.NoContent()
@@ -79,18 +82,19 @@ public static class BrokerMovementEndpoints
             .Select(m => m.RecordedTransactionId!.Value).ToList();
         var existing = txIds.Count == 0
             ? []
-            : (await db.Transactions.AsNoTracking().Where(t => txIds.Contains(t.Id)).Select(t => t.Id)
-                .ToListAsync(ct)).ToHashSet();
+            : await db.Transactions.AsNoTracking().Where(t => txIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, t => t.Type, ct);
 
         return movements.Where(m => accounts.ContainsKey(m.AccountId)).Select(m =>
         {
             var account = accounts[m.AccountId];
-            var state = m.State == BrokerMovementState.Recorded && !existing.Contains(m.RecordedTransactionId!.Value)
+            var state = m.State == BrokerMovementState.Recorded && !existing.ContainsKey(m.RecordedTransactionId!.Value)
                 ? BrokerMovementState.Pending
                 : m.State;
+            var recorded = state == BrokerMovementState.Recorded;
             return new BrokerMovementDto(m.Id, m.AccountId, account.Name, account.AllocationBucketId, m.OccurredOn,
-                m.Amount, m.Currency, m.BaseAmount, m.Kind, state,
-                state == BrokerMovementState.Recorded ? m.RecordedTransactionId : null);
+                m.Amount, m.Currency, m.BaseAmount, m.Kind, state, recorded ? m.RecordedTransactionId : null,
+                recorded && existing[m.RecordedTransactionId!.Value] == TransactionType.Expense);
         }).ToList();
     }
 

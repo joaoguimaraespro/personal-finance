@@ -79,6 +79,13 @@ between brokers, or already recorded by hand). Until then the month shows it apa
 lists them with the name the broker gives each one (for Trading 212, `DEPOSIT`, `WITHDRAW` or `TRANSFER`). Older
 history, such as a first sync, counts towards the bucket as it is.
 
+**Card payments.** Trading 212 reports a payment with its card as a `WITHDRAW`, like money sent to the bank (the
+list shows its reference next to the type). For a withdrawal that was a card payment choose *Card payment*: pick the
+recurring item still to confirm (a shared one keeps each person's part), the expense already recorded on another
+account, or a new expense. It is then paid from the broker account — your other accounts keep their balance — counts
+as the month's expense and comes off what is invested in the broker's bucket. Expenses cannot be typed in by hand on
+a broker account; they come only from a card payment, and stay editable there.
+
 **Endpoints used** (and nothing else):
 
 | Method | Path | Documented limit | Used for |

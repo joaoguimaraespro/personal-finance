@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api, PortfolioScope } from '../../core/api';
 import { DataEvents, QuickAdd } from '../../core/data-events';
 import { brokerMovementPrefill } from '../../core/notifications';
+import { CardPayment } from '../../core/card-payment';
 import { DayPipe, MoneyPipe, PercentPipe, PricePipe } from '../../core/format';
 import {
   AssetClass,
@@ -877,6 +878,25 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                   <button hlmBtn size="sm" (click)="recordMovement(m)">
                     <ng-icon name="lucidePlus" />{{ 'allocation.record' | translate }}
                   </button>
+                  @if (m.amount < 0) {
+                    <button
+                      hlmBtn
+                      size="sm"
+                      variant="outline"
+                      (click)="
+                        cardPayment.open({
+                          id: m.id,
+                          broker: m.broker,
+                          amount: -m.baseAmount,
+                          on: m.on,
+                        })
+                      "
+                    >
+                      <ng-icon name="lucideCreditCard" />{{
+                        'brokerMovements.cardPayment' | translate
+                      }}
+                    </button>
+                  }
                   <button
                     hlmBtn
                     size="sm"
@@ -889,7 +909,10 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                 </div>
               } @else {
                 <span class="badge bg-muted text-muted-foreground !px-1.5 !py-0 text-[10px]">{{
-                  'brokerMovements.state.' + m.state | translate
+                  (m.cardPayment
+                    ? 'brokerMovements.state.Card'
+                    : 'brokerMovements.state.' + m.state
+                  ) | translate
                 }}</span>
               }
             </li>
@@ -944,6 +967,7 @@ export class PortfolioComponent {
   private readonly api = inject(Api);
   protected readonly events = inject(DataEvents);
   private readonly quickAdd = inject(QuickAdd);
+  protected readonly cardPayment = inject(CardPayment);
   protected readonly prefs = inject(Prefs);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);

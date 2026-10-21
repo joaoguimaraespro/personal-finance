@@ -13,9 +13,10 @@ namespace Finance.Application.Transactions;
 public static class TransactionCommands
 {
     public static async Task<Result<Transaction>> CreateAsync(IFinanceDb db, InterestAccrualService interest,
-        TransactionDraft draft, DataSource source, CancellationToken ct, IReadOnlyList<ShareRequest>? shares = null)
+        TransactionDraft draft, DataSource source, CancellationToken ct, IReadOnlyList<ShareRequest>? shares = null,
+        bool cardPayment = false)
     {
-        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
+        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct, cardPayment);
         if (resolved.IsFailure)
         {
             return resolved.Error;
@@ -65,7 +66,9 @@ public static class TransactionCommands
         }
 
         Guid?[] before = [transaction.AccountId, transaction.CounterAccountId];
-        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct);
+        // A card payment already on its broker account stays editable there (category, description, shares…).
+        var cardPayment = transaction.Type == TransactionType.Expense && draft.AccountId == transaction.AccountId;
+        var resolved = await TransactionReferences.ResolveAsync(db, draft, ct, cardPayment);
         if (resolved.IsFailure)
         {
             return resolved.Error;

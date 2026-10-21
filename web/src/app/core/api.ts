@@ -10,6 +10,8 @@ import {
   AssetClass,
   Broker,
   BrokerMovement,
+  CardPaymentCandidates,
+  CardPaymentRequest,
   Connection,
   SentCoins,
   DividendSummary,
@@ -164,6 +166,10 @@ export class Api {
   brokerMovements = () => this.http.get<BrokerMovement[]>('/api/broker-movements');
   recordBrokerMovement = (id: string, body: TransactionRequest) =>
     this.http.post<{ id: string }>(`/api/broker-movements/${id}/record`, body);
+  cardPaymentCandidates = (id: string) =>
+    this.http.get<CardPaymentCandidates>(`/api/broker-movements/${id}/card-payment`);
+  recordCardPayment = (id: string, body: CardPaymentRequest) =>
+    this.http.post<{ id: string }>(`/api/broker-movements/${id}/card-payment`, body);
   ignoreBrokerMovement = (id: string) =>
     this.http.post<void>(`/api/broker-movements/${id}/ignore`, {});
   restoreTransaction = (id: string) => this.http.post<void>(`/api/transactions/${id}/restore`, {});
