@@ -4,6 +4,7 @@ using System.Text.Json;
 using Integration.Tests.Infrastructure;
 using Investments.Application.Abstractions;
 using Investments.Domain;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SharedKernel;
 
@@ -199,7 +200,15 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
         }
         finally
         {
-            await api.PutAsync($"/api/accounts/{broker}/allocation-bucket", new { bucketId = (Guid?)null });
+            // Gone again, so the portfolio tests see only their own brokers.
+            using var scope = factory.Services.CreateScope();
+            var finance = scope.ServiceProvider.GetRequiredService<Finance.Application.Abstractions.IFinanceDb>();
+            var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
+            await db.CashMovements.Where(c => c.AccountId == broker).ExecuteDeleteAsync();
+            await db.PortfolioSnapshots.Where(c => c.AccountId == broker).ExecuteDeleteAsync();
+            await finance.Transactions.IgnoreQueryFilters()
+                .Where(t => t.AccountId == broker || t.CounterAccountId == broker).ExecuteDeleteAsync();
+            await finance.Accounts.Where(a => a.Id == broker).ExecuteDeleteAsync();
         }
     }
 
