@@ -679,7 +679,12 @@
   "calendarTotal": "Total",
   "yield": "Yield",
   "noDividends": "no dividends",
-  "calendarHint": "Net dividends received in each calendar month over the last 12 months, in euros. Months under half the average are where a position paying then would even out a monthly income; positions without dividends are listed so you can weigh them too."
+  "calendarHint": "Net dividends received in each calendar month over the last 12 months, in euros. Months under half the average are where a position paying then would even out a monthly income; positions without dividends are listed so you can weigh them too.",
+  "cash": {
+   "title": "Cash to invest",
+   "share": "{{share}} of the portfolio",
+   "hint": "The cash balance at your brokers, not invested yet. It is part of the total value."
+  }
  },
  "netWorth": {
   "restricted": "Restricted use",
