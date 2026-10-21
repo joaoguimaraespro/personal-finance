@@ -846,6 +846,7 @@ export class QuickAddComponent {
           this.type.set(p.type);
           if (p.amount) this.amount.set(formatInput(Math.round(p.amount * 100) / 100));
           this.bucketId.set(p.bucketId ?? null);
+          this.counterAccountId.set(p.counterAccountId ?? null);
           if (p.occurredOn) this.date.set(p.occurredOn);
           this.description.set(p.description ?? '');
           this.amountTouched.set(!!p.amount);
@@ -1080,7 +1081,9 @@ export class QuickAddComponent {
     this.error.set('');
     try {
       const editing = this.quick.editing();
+      const movement = editing ? undefined : this.quick.prefill()?.brokerMovementId;
       if (editing) await firstValueFrom(this.api.updateTransaction(editing.id, body));
+      else if (movement) await firstValueFrom(this.api.recordBrokerMovement(movement, body));
       else await firstValueFrom(this.api.createTransaction(body));
       this.prefs.lastAccountId.set(body.accountId);
       this.events.bump();

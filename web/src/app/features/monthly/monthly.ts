@@ -217,6 +217,15 @@ type Reference = 'previous' | 'average' | 'budget';
                     {{ 'monthly.fromBrokers' | translate: { amount: (b.fromBrokers | money) } }}
                   </p>
                 }
+                @if (b.pending) {
+                  <a
+                    routerLink="/portfolio"
+                    fragment="broker-movements"
+                    class="mt-1 block text-[11px] text-amber-700 hover:underline dark:text-amber-300"
+                  >
+                    {{ 'monthly.pendingFromBrokers' | translate: { amount: (b.pending | money) } }}
+                  </a>
+                }
                 <div class="mt-2">
                   <div class="flex flex-wrap items-center gap-2">
                     @if (statusOf(b); as s) {

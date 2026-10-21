@@ -10,8 +10,11 @@ public enum BalanceStatus
 }
 
 /// <param name="FromBrokers">Part of <paramref name="Actual"/> that comes from deposits synced at linked brokers.</param>
+/// <param name="Pending">
+/// Deposits (net of withdrawals) synced at linked brokers that wait to be recorded: not part of <paramref name="Actual"/>.
+/// </param>
 public sealed record BucketLine(Guid BucketId, string Name, bool IsInvestment, decimal? Target, decimal Actual,
-    decimal? Difference, decimal FromBrokers = 0);
+    decimal? Difference, decimal FromBrokers = 0, decimal Pending = 0);
 
 public sealed record MonthlySummary(
     YearMonth Period,
@@ -53,13 +56,14 @@ public static class MonthlyCalculator
 
         var targets = BudgetTargets.Resolve(budget, t.Income);
         var lines = buckets
-            .Where(b => t.ByBucket.ContainsKey(b.Id) || targets.Buckets.ContainsKey(b.Id))
+            .Where(b => t.ByBucket.ContainsKey(b.Id) || targets.Buckets.ContainsKey(b.Id) ||
+                        t.PendingFromBrokers?.ContainsKey(b.Id) == true)
             .Select(b =>
             {
                 var actual = t.ByBucket.GetValueOrDefault(b.Id);
                 decimal? target = targets.Buckets.TryGetValue(b.Id, out var v) ? v : null;
                 return new BucketLine(b.Id, b.Name, b.IsInvestment, target, actual, actual - target, // E = D − C
-                    t.FromBrokers?.GetValueOrDefault(b.Id) ?? 0);
+                    t.FromBrokers?.GetValueOrDefault(b.Id) ?? 0, t.PendingFromBrokers?.GetValueOrDefault(b.Id) ?? 0);
             })
             .ToList();
 

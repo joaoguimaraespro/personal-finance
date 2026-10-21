@@ -13,10 +13,12 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
 import { firstValueFrom } from 'rxjs';
 import { Api, PortfolioScope } from '../../core/api';
-import { DataEvents } from '../../core/data-events';
+import { DataEvents, QuickAdd } from '../../core/data-events';
+import { brokerMovementPrefill } from '../../core/notifications';
 import { DayPipe, MoneyPipe, PercentPipe, PricePipe } from '../../core/format';
 import {
   AssetClass,
+  BrokerMovement,
   Broker,
   DayChangeBasis,
   ManualHolding,
@@ -769,6 +771,65 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
       }
     }
 
+    <!-- Synced deposits and withdrawals: which account the money came from, as the broker named each one. -->
+    @if (movements().length) {
+      <section class="card mt-6 !p-0" id="broker-movements" data-testid="broker-movements">
+        <h2 class="card-title px-5 pt-5 !mb-1">
+          <ng-icon name="lucideBanknote" />{{ 'brokerMovements.title' | translate }}
+        </h2>
+        <p class="text-muted-foreground px-5 text-xs">{{ 'brokerMovements.hint' | translate }}</p>
+        <ul class="divide-border mt-3 divide-y">
+          @for (m of movements(); track m.id) {
+            <li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium">
+                  {{
+                    (m.amount > 0 ? 'brokerMovements.depositTo' : 'brokerMovements.withdrawalFrom')
+                      | translate: { broker: m.broker }
+                  }}
+                </p>
+                <p class="text-muted-foreground text-xs">
+                  {{ m.on | day: 'short' }}
+                  @if (m.kind) {
+                    · <span class="font-mono text-[10px]">{{ m.kind }}</span>
+                  }
+                </p>
+              </div>
+              <span
+                class="num text-sm font-medium"
+                [class]="m.amount > 0 ? '' : 'text-rose-600 dark:text-rose-400'"
+                >{{ m.amount | money: m.currency : true }}</span
+              >
+              @if (m.state === 'Pending') {
+                <span
+                  class="badge bg-amber-500/10 !px-1.5 !py-0 text-[10px] text-amber-700 dark:text-amber-400"
+                  >{{ 'brokerMovements.state.Pending' | translate }}</span
+                >
+                <div class="flex w-full gap-2 sm:w-auto">
+                  <button hlmBtn size="sm" (click)="recordMovement(m)">
+                    <ng-icon name="lucidePlus" />{{ 'allocation.record' | translate }}
+                  </button>
+                  <button
+                    hlmBtn
+                    size="sm"
+                    variant="outline"
+                    [disabled]="ignoring() === m.id"
+                    (click)="ignoreMovement(m)"
+                  >
+                    {{ 'recurring.skip' | translate }}
+                  </button>
+                </div>
+              } @else {
+                <span class="badge bg-muted text-muted-foreground !px-1.5 !py-0 text-[10px]">{{
+                  'brokerMovements.state.' + m.state | translate
+                }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     <app-crypto-dialog
       [open]="cryptoOpen()"
       [holding]="editing()"
@@ -814,6 +875,7 @@ export class PortfolioComponent {
   protected readonly displayCurrency = () => displayFx().currency;
   private readonly api = inject(Api);
   protected readonly events = inject(DataEvents);
+  private readonly quickAdd = inject(QuickAdd);
   protected readonly prefs = inject(Prefs);
   private readonly toasts = inject(Toasts);
   private readonly i18n = inject(TranslateService);
@@ -865,6 +927,43 @@ export class PortfolioComponent {
     params: this.key,
     stream: ({ params }) => this.api.dividendCalendar(params.scope),
   });
+  private readonly brokerMovements = liveResource({
+    params: () => ({ v: this.events.version() }),
+    stream: () => this.api.brokerMovements(),
+  });
+  /** The selected wallet's movements, or every broker's. */
+  protected readonly movements = computed(() =>
+    (this.brokerMovements.value() ?? []).filter(
+      (m) => !this.walletId() || m.accountId === this.walletId(),
+    ),
+  );
+  protected readonly ignoring = signal<string | null>(null);
+
+  protected recordMovement(m: BrokerMovement) {
+    this.quickAdd.addWith(
+      brokerMovementPrefill(
+        m,
+        this.i18n.instant(
+          m.amount > 0 ? 'brokerMovements.depositTo' : 'brokerMovements.withdrawalFrom',
+          { broker: m.broker },
+        ),
+      ),
+    );
+  }
+
+  protected async ignoreMovement(m: BrokerMovement) {
+    this.ignoring.set(m.id);
+    try {
+      await firstValueFrom(this.api.ignoreBrokerMovement(m.id));
+      this.toasts.show(this.i18n.instant('notifications.skipped'));
+      this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    } finally {
+      this.ignoring.set(null);
+    }
+  }
+
   protected readonly payersOnly = signal(false);
   protected readonly calendarRows = computed(() =>
     (this.calendar.value()?.rows ?? []).filter((r) => !this.payersOnly() || r.total > 0),

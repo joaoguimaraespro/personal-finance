@@ -291,7 +291,8 @@
   "overBudget": "{{amount}} acima do orçamento",
   "leftToSpend": "{{amount}} ainda por gastar",
   "partialTitle": "O teu primeiro mês: acompanhado desde {{date}}",
-  "partialText": "O rendimento, as metas de alocação e a taxa de poupança só contam os dias desde então, por isso este mês fica fora das médias. Para o veres completo, regista o salário e as despesas de antes e muda a data do saldo inicial das contas para o último dia do mês anterior."
+  "partialText": "O rendimento, as metas de alocação e a taxa de poupança só contam os dias desde então, por isso este mês fica fora das médias. Para o veres completo, regista o salário e as despesas de antes e muda a data do saldo inicial das contas para o último dia do mês anterior.",
+  "pendingFromBrokers": "{{amount}} das corretoras por registar"
  },
  "annual": {
   "title": "Resumo anual",
@@ -1252,7 +1253,11 @@
   "sharedOwed": "{{name}} ainda não pagou a parte que deve",
   "sharedYouOwe": "Deves a {{name}}",
   "sharedDetail": "Regista em Partilhas quando for pago.",
-  "sharedSince": "desde {{date}}"
+  "sharedSince": "desde {{date}}",
+  "brokerDeposit": "Depósito na {{broker}}",
+  "brokerWithdrawal": "Levantamento da {{broker}}",
+  "brokerDepositDetail": "De que conta saiu o dinheiro?",
+  "brokerWithdrawalDetail": "Para que conta foi o dinheiro?"
  },
  "split": {
   "action": "Dividir por categorias",
@@ -1453,5 +1458,16 @@
   "currency": "Código de 3 letras, ex.: EUR.",
   "percent": "Entre 0 e 100.",
   "term": "Entre 1 e 720 meses."
+ },
+ "brokerMovements": {
+  "title": "Depósitos e levantamentos",
+  "hint": "O que as corretoras sincronizaram nos últimos meses, com o nome que cada uma lhe dá. Regista de que conta saiu (ou para onde foi) o dinheiro: só então conta na alocação do mês.",
+  "depositTo": "Depósito na {{broker}}",
+  "withdrawalFrom": "Levantamento da {{broker}}",
+  "state": {
+   "Pending": "Por registar",
+   "Recorded": "Registado",
+   "Ignored": "Ignorado"
+  }
  }
 }

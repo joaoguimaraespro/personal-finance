@@ -177,9 +177,34 @@ public enum CashMovementType
     Other = 6,
 }
 
+/// <summary>
+/// Where a synced deposit or withdrawal stands in the owner's ledger: the money came from (or went to) one of their
+/// accounts, and only they know which. Other cash movements (fees, interest) are always <see cref="Counted"/>.
+/// </summary>
+public enum CashMovementReview
+{
+    /// <summary>Counted towards the broker's bucket as it is, unless the ledger already records that money.</summary>
+    Counted = 0,
+
+    /// <summary>Waits for the owner to say which account the money came from (or went to).</summary>
+    Pending = 1,
+
+    /// <summary>Recorded in the ledger as <see cref="CashMovement.RecordedTransactionId"/>.</summary>
+    Recorded = 2,
+
+    /// <summary>The owner said it needs no entry (e.g. money moved between brokers, or already recorded).</summary>
+    Ignored = 3,
+}
+
 /// <summary>Cash flows on a broker account. Deposits/withdrawals are the external flows used by TWR/XIRR.</summary>
 public sealed class CashMovement : Entity
 {
+    /// <summary>
+    /// A deposit or withdrawal synced this recently asks where the money came from; older history (a first sync, a
+    /// re-sync) is counted as it is, so connecting a broker does not bring years of questions.
+    /// </summary>
+    public const int ReviewWindowDays = 35;
+
     private CashMovement() { }
 
     public Guid AccountId { get; private set; }
@@ -194,12 +219,21 @@ public sealed class CashMovement : Entity
     public DataSource Source { get; private set; }
     public string ExternalId { get; private set; } = null!;
 
+    public CashMovementReview Review { get; private set; }
+    public Guid? RecordedTransactionId { get; private set; }
+
     public bool IsExternalFlow => Type is CashMovementType.Deposit or CashMovementType.Withdrawal;
 
+    /// <param name="now">When the sync runs: a recent deposit or withdrawal waits for review (<see cref="ReviewWindowDays"/>).</param>
     public static CashMovement Record(Guid accountId, CashMovementType type, decimal amount, string currency,
-        decimal baseAmount, DateTimeOffset occurredAt, string? description, DataSource source, string externalId) =>
+        decimal baseAmount, DateTimeOffset occurredAt, string? description, DataSource source, string externalId,
+        DateTimeOffset? now = null) =>
         new()
         {
+            Review = source != DataSource.Manual && type is CashMovementType.Deposit or CashMovementType.Withdrawal &&
+                     now is { } n && occurredAt >= n.AddDays(-ReviewWindowDays)
+                ? CashMovementReview.Pending
+                : CashMovementReview.Counted,
             AccountId = accountId,
             Type = type,
             Amount = amount,
@@ -210,4 +244,16 @@ public sealed class CashMovement : Entity
             Source = source,
             ExternalId = externalId,
         };
+
+    public void MarkRecorded(Guid transactionId)
+    {
+        Review = CashMovementReview.Recorded;
+        RecordedTransactionId = transactionId;
+    }
+
+    public void Ignore()
+    {
+        Review = CashMovementReview.Ignored;
+        RecordedTransactionId = null;
+    }
 }

@@ -71,6 +71,14 @@ an investment loss or gain. To follow card spending, create a bank-type account 
 moved into it as a *transfer from the Trading 212 account* (the one entry a broker account accepts by hand), and
 book subscriptions (also as recurring items) and cashback (category *Cashback*) on that account.
 
+**Deposits and withdrawals.** A deposit or withdrawal synced in the last five weeks, at a broker linked to an
+allocation bucket, waits for you to say which account the money came from (or went to): a notification asks, and
+*Record* opens a purchase (or a sale) from that account with the broker on the other side, which you can correct —
+the account's balance and the month's allocation then follow it. *Ignore* it when it needs no entry (money moved
+between brokers, or already recorded by hand). Until then the month shows it apart, as *to record*. The portfolio
+lists them with the name the broker gives each one (for Trading 212, `DEPOSIT`, `WITHDRAW` or `TRANSFER`). Older
+history, such as a first sync, counts towards the bucket as it is.
+
 **Endpoints used** (and nothing else):
 
 | Method | Path | Documented limit | Used for |

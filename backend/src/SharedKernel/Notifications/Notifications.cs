@@ -41,6 +41,9 @@ public enum NotificationKind
 
     /// <summary>The owner owes someone who paid for them.</summary>
     SharedYouOwe = 11,
+
+    /// <summary>A broker sync found a deposit or withdrawal: which of the owner's accounts did the money come from?</summary>
+    BrokerMovement = 12,
 }
 
 public enum NotificationSeverity

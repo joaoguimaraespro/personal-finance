@@ -5,6 +5,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { BACKGROUND } from './activity';
 import { Api } from './api';
 import { DataEvents, QuickAdd, QuickAddPrefill } from './data-events';
+import { BrokerMovement } from './models';
 import { Toasts } from './toast';
 
 export type NotificationKind =
@@ -19,7 +20,8 @@ export type NotificationKind =
   | 'LoanInstalmentDue'
   | 'LoanRateRevision'
   | 'SharedOwed'
-  | 'SharedYouOwe';
+  | 'SharedYouOwe'
+  | 'BrokerMovement';
 
 export type NotificationSeverity = 'Info' | 'Warning' | 'Error';
 
@@ -71,6 +73,25 @@ export function allocationPrefill(
       ? `${y}-${String(m).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
       : `${month}-${String(last).padStart(2, '0')}`,
     description,
+  };
+}
+
+/**
+ * The entry that records a synced broker deposit (a purchase from the owner's account) or withdrawal (a sale back
+ * into it), with the broker as the other side; the owner picks the account and can correct the amount.
+ */
+export function brokerMovementPrefill(
+  m: Pick<BrokerMovement, 'id' | 'accountId' | 'bucketId' | 'on' | 'amount' | 'baseAmount'>,
+  description: string,
+): QuickAddPrefill {
+  return {
+    type: m.amount > 0 ? 'InvestmentContribution' : 'InvestmentSale',
+    amount: Math.abs(m.baseAmount),
+    bucketId: m.bucketId,
+    counterAccountId: m.accountId,
+    occurredOn: m.on,
+    description,
+    brokerMovementId: m.id,
   };
 }
 
@@ -225,6 +246,25 @@ export class Notifications {
       );
       return;
     }
+    if (item.kind === 'BrokerMovement' && action === 'record') {
+      this.quickAdd.addWith(
+        brokerMovementPrefill(
+          {
+            id: item.targetId,
+            accountId: String(item.args['brokerAccountId']),
+            bucketId: (item.args['bucketId'] as string | null) ?? null,
+            on: String(item.args['on']),
+            amount: item.args['deposit'] ? 1 : -1,
+            baseAmount: Number(item.args['baseAmount']),
+          },
+          this.i18n.instant(
+            item.args['deposit'] ? 'brokerMovements.depositTo' : 'brokerMovements.withdrawalFrom',
+            { broker: item.args['broker'] },
+          ),
+        ),
+      );
+      return;
+    }
     const number = Number(item.args['number']);
     const request: Observable<unknown> | null =
       item.kind === 'LoanInstalmentDue'
@@ -239,7 +279,9 @@ export class Notifications {
               : this.api.skipExpected(item.targetId)
             : item.kind === 'InterestToReconcile' && action === 'confirm'
               ? this.api.reconcileInterest(item.targetId)
-              : null;
+              : item.kind === 'BrokerMovement' && action === 'skip'
+                ? this.api.ignoreBrokerMovement(item.targetId)
+                : null;
     if (!request) return;
 
     const before = this.items();
@@ -334,6 +376,20 @@ export class Notifications {
         return [
           format('notifications.sharedYouOwe', { name: a['name'] }),
           format('notifications.sharedDetail'),
+        ];
+      case 'BrokerMovement':
+        return [
+          format(
+            item.args['deposit'] ? 'notifications.brokerDeposit' : 'notifications.brokerWithdrawal',
+            {
+              broker: a['broker'],
+            },
+          ),
+          format(
+            item.args['deposit']
+              ? 'notifications.brokerDepositDetail'
+              : 'notifications.brokerWithdrawalDetail',
+          ),
         ];
       case 'AllocationDue':
         return [

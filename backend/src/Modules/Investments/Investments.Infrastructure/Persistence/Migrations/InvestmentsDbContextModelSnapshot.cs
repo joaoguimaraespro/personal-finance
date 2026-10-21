@@ -18,7 +18,7 @@ namespace Investments.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("investments")
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -138,6 +138,16 @@ namespace Investments.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("OccurredAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at_utc");
+
+                    b.Property<Guid?>("RecordedTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_transaction_id");
+
+                    b.Property<string>("Review")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("review");
 
                     b.Property<string>("Source")
                         .IsRequired()
