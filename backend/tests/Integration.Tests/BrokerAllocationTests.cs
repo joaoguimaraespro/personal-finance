@@ -111,26 +111,26 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
     public async Task A_recent_deposit_waits_for_the_account_it_came_from()
     {
         var api = await factory.OwnerAsync();
-        // A broker of its own (a demo profile without history), so the deposit below touches no other test.
-        var connection = await api.CreateAsync("/api/integrations/connections", new
-        {
-            kind = "Demo", displayName = "Reviewed broker", credentials = new Dictionary<string, string> { ["profile"] = "c" },
-        });
-        await WaitForSyncAsync(api, connection);
-        var broker = (await api.GetAsync<JsonElement[]>("/api/integrations/connections"))
-            .Single(c => c.GetProperty("id").GetGuid() == connection).GetProperty("accountId").GetGuid();
         var bucket = await api.CreateAsync("/api/buckets", new { name = "Reviewed ETFs", group = "Investment" });
         var bank = await api.CreateAsync("/api/accounts",
             new { name = "Deposit source bank", kind = "Bank", currency = "EUR", openingBalance = 1000m });
         var now = DateTimeOffset.UtcNow;
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var kind = $"DEPOSIT-{Guid.NewGuid():N}"[..20];
+        Guid broker;
         using (var scope = factory.Services.CreateScope())
         {
-            // What a Trading 212 sync records for a deposit made today.
+            // A broker account of its own (as a connection creates it, without positions) and the deposit a sync
+            // records when the money arrives today: no other test sees either.
+            var finance = scope.ServiceProvider.GetRequiredService<Finance.Application.Abstractions.IFinanceDb>();
+            var account = Finance.Domain.Accounts.Account.Create("Reviewed broker", Finance.Domain.Accounts.AccountKind.Broker,
+                "EUR", 0m, today.AddYears(-1));
+            finance.Accounts.Add(account);
+            await finance.SaveChangesAsync(CancellationToken.None);
+            broker = account.Id;
             var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
             db.CashMovements.Add(CashMovement.Record(broker, CashMovementType.Deposit, 500m, "EUR", 500m, now, kind,
-                DataSource.Trading212, $"test:{kind}", now));
+                DataSource.Demo, $"test:{kind}", now));
             await db.SaveChangesAsync(CancellationToken.None);
         }
 
