@@ -1,5 +1,6 @@
 using FluentValidation;
 using Finance.Application.Accounts;
+using Finance.Application.BrokerMovements;
 using Finance.Application.Budgets;
 using Finance.Application.Buckets;
 using Finance.Application.Categories;
@@ -24,6 +25,7 @@ public static class FinanceModule
         services.AddScoped<InterestAccrualService>();
         services.AddScoped<Abstractions.ActorScope>();
         services.AddScoped<SharedKernel.Notifications.INotificationSource, FinanceNotificationSource>();
+        services.AddScoped<SharedKernel.Notifications.INotificationSource, BrokerMovementNotificationSource>();
         return services;
     }
 
@@ -39,6 +41,7 @@ public static class FinanceModule
         api.MapInterest();
         api.MapLoans();
         api.MapSharing();
+        api.MapBrokerMovements();
         return api;
     }
 }

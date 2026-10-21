@@ -341,6 +341,26 @@ export interface BucketLine {
   difference: number | null;
   /** Part of `actual` that comes from deposits synced at a linked broker. */
   fromBrokers?: number;
+  /** Deposits synced at a linked broker that wait to be recorded (not part of `actual`). */
+  pending?: number;
+}
+
+export type BrokerMovementState = 'Pending' | 'Recorded' | 'Ignored';
+
+/** A synced deposit (positive) or withdrawal (negative) on a broker account, as the owner reviews it. */
+export interface BrokerMovement {
+  id: string;
+  accountId: string;
+  broker: string;
+  bucketId: string | null;
+  on: string;
+  amount: number;
+  currency: string;
+  baseAmount: number;
+  /** What the broker called it (e.g. DEPOSIT, TRANSFER). */
+  kind: string | null;
+  state: BrokerMovementState;
+  transactionId: string | null;
 }
 
 export interface MonthlySummary {

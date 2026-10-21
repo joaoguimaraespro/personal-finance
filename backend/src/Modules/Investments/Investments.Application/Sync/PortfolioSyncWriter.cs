@@ -157,7 +157,8 @@ public sealed class PortfolioSyncWriter(IInvestmentsDb db, FxRates fx, TimeProvi
         {
             var factor = await fx.EurPerUnitAsync(r.Currency, DateOnly.FromDateTime(r.OccurredAt.UtcDateTime), ct) ?? 0m;
             db.CashMovements.Add(CashMovement.Record(accountId, r.Type, r.Amount, r.Currency,
-                decimal.Round(r.Amount * factor, 4), r.OccurredAt, Truncate(r.Description), source, r.ExternalId));
+                decimal.Round(r.Amount * factor, 4), r.OccurredAt, Truncate(r.Description), source, r.ExternalId,
+                clock.GetUtcNow()));
             imported++;
         }
 

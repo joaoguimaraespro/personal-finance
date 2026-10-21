@@ -17,6 +17,10 @@ export interface QuickAddPrefill {
   bucketId?: string | null;
   occurredOn?: string;
   description?: string;
+  /** The other side, e.g. the broker an investment went to. */
+  counterAccountId?: string | null;
+  /** Records this synced broker deposit or withdrawal (the entry is linked to it). */
+  brokerMovementId?: string;
 }
 
 /** Opens the global quick-add dialog, optionally to edit an existing transaction or prefilled. */
