@@ -45,6 +45,7 @@ const KIND_ICONS: Record<NotificationKind, string> = {
   LoanRateRevision: 'lucidePercent',
   SharedOwed: 'lucideUsers',
   SharedYouOwe: 'lucideUsers',
+  BrokerMovement: 'lucideBanknote',
 };
 
 const ACTION_ICONS: Record<NotificationAction, string> = {
@@ -324,6 +325,18 @@ const MOBILE_QUERY = '(max-width: 639.98px)';
                             'notifications.sharedSince' | translate: { date: (item.date | day) }
                           }}</span
                         >
+                      }
+                      @case ('BrokerMovement') {
+                        <span class="text-foreground num font-medium">{{
+                          $any(item.args['amount']) | money: $any(item.args['currency'])
+                        }}</span>
+                        · {{ item.date | day }} ·
+                        {{
+                          (item.args['deposit']
+                            ? 'notifications.brokerDepositDetail'
+                            : 'notifications.brokerWithdrawalDetail'
+                          ) | translate
+                        }}
                       }
                       @case ('SharedYouOwe') {
                         <span class="num">{{ $any(item.args['amount']) | money }}</span>

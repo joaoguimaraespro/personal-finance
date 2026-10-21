@@ -9,6 +9,7 @@ import {
   AllocationLine,
   AssetClass,
   Broker,
+  BrokerMovement,
   Connection,
   SentCoins,
   DividendSummary,
@@ -160,6 +161,11 @@ export class Api {
   updateTransaction = (id: string, body: TransactionRequest) =>
     this.http.put<void>(`/api/transactions/${id}`, body);
   deleteTransaction = (id: string) => this.http.delete<void>(`/api/transactions/${id}`);
+  brokerMovements = () => this.http.get<BrokerMovement[]>('/api/broker-movements');
+  recordBrokerMovement = (id: string, body: TransactionRequest) =>
+    this.http.post<{ id: string }>(`/api/broker-movements/${id}/record`, body);
+  ignoreBrokerMovement = (id: string) =>
+    this.http.post<void>(`/api/broker-movements/${id}/ignore`, {});
   restoreTransaction = (id: string) => this.http.post<void>(`/api/transactions/${id}/restore`, {});
   transactionHistory = (id: string) =>
     this.http.get<AuditEntry[]>(`/api/transactions/${id}/history`);

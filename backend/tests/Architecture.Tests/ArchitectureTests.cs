@@ -95,6 +95,7 @@ public sealed class ArchitectureTests
         sources.Select(t => $"{t.Assembly.GetName().Name}:{t.Name}").ShouldBe(
         [
             "Finance.Application:FinanceNotificationSource",
+            "Finance.Application:BrokerMovementNotificationSource",
             "Reporting.Application:BudgetNotificationSource",
             "Reporting.Application:AllocationNotificationSource",
             "Integrations.Application:ConnectionNotificationSource",
