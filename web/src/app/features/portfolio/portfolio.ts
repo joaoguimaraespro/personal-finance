@@ -659,8 +659,12 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                 <tr hlmTr>
                   <th hlmTh>{{ 'tx.date' | translate }}</th>
                   <th hlmTh></th>
-                  <th hlmTh class="text-right">{{ 'portfolio.gross' | translate }}</th>
-                  <th hlmTh class="text-right">{{ 'portfolio.withholding' | translate }}</th>
+                  <th hlmTh class="hidden text-right sm:table-cell">
+                    {{ 'portfolio.gross' | translate }}
+                  </th>
+                  <th hlmTh class="hidden text-right sm:table-cell">
+                    {{ 'portfolio.withholding' | translate }}
+                  </th>
                   <th hlmTh class="text-right">
                     {{ 'portfolio.net' | translate: { currency: displayCurrency() } }}
                   </th>
@@ -692,10 +696,12 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                         >
                       }
                     </td>
-                    <td hlmTd class="num text-right">{{ d.gross | money: d.currency }}</td>
+                    <td hlmTd class="num hidden text-right sm:table-cell">
+                      {{ d.gross | money: d.currency }}
+                    </td>
                     <td
                       hlmTd
-                      class="num text-right text-muted-foreground"
+                      class="num hidden text-right text-muted-foreground sm:table-cell"
                       [title]="d.withholdingDerived ? ('portfolio.derived' | translate) : ''"
                     >
                       {{ d.withholdingTax | money: d.currency
@@ -717,7 +723,7 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                 <h2 class="card-title !mb-0">
                   <ng-icon name="lucideCalendarDays" />{{ 'portfolio.calendar' | translate }}
                 </h2>
-                <label class="text-muted-foreground flex items-center gap-2 text-xs">
+                <label class="text-muted-foreground hidden items-center sm:flex gap-2 text-xs">
                   <input
                     type="checkbox"
                     [checked]="payersOnly()"
@@ -739,7 +745,33 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                   }}</span>
                 }
               </p>
-              <table hlmTable class="mt-3 text-xs">
+              <!-- Phones: one line per month, with who pays in it, instead of a 14-column grid. -->
+              <ul
+                class="divide-border mt-3 divide-y border-t sm:hidden"
+                data-testid="calendar-list"
+              >
+                @for (m of calendarByMonth(); track m.index) {
+                  <li class="px-5 py-2.5">
+                    <div class="flex items-baseline justify-between gap-3 text-sm">
+                      <span class="font-medium">{{ m.name }}</span>
+                      <span
+                        class="num font-medium"
+                        [class]="m.thin ? 'text-amber-700 dark:text-amber-300' : ''"
+                        >{{ m.total | money }}</span
+                      >
+                    </div>
+                    @if (m.payers.length) {
+                      <p class="text-muted-foreground mt-0.5 text-xs">
+                        @for (p of m.payers; track p.symbol; let last = $last) {
+                          {{ p.symbol }} <span class="num">{{ p.value | money }}</span
+                          >{{ last ? '' : ' · ' }}
+                        }
+                      </p>
+                    }
+                  </li>
+                }
+              </ul>
+              <table hlmTable class="mt-3 hidden text-xs sm:table">
                 <thead hlmTHead>
                   <tr hlmTr>
                     <th hlmTh class="min-w-32"></th>
@@ -1011,6 +1043,22 @@ export class PortfolioComponent {
     );
   });
   /** Months under half the monthly average: where a payer would even out the income. */
+  /** The calendar by month for phones: the total (thin when under half the average) and who pays, the most first. */
+  protected readonly calendarByMonth = computed(() => {
+    const cal = this.calendar.value();
+    if (!cal) return [];
+    const names = this.monthNames();
+    return cal.months.map((total, index) => ({
+      index,
+      name: names[index],
+      total,
+      thin: total < cal.monthlyAverage / 2,
+      payers: cal.rows
+        .filter((r) => r.months[index])
+        .map((r) => ({ symbol: r.symbol, value: r.months[index] }))
+        .sort((a, b) => b.value - a.value),
+    }));
+  });
   protected readonly thinMonths = computed(() => {
     const cal = this.calendar.value();
     if (!cal || !cal.total) return [];

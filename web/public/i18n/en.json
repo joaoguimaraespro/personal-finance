@@ -292,7 +292,8 @@
   "leftToSpend": "{{amount}} left to spend",
   "partialTitle": "Your first month: tracked from {{date}}",
   "partialText": "Income, the allocation targets and the savings rate only cover the days since then, so this month is left out of the averages. To see it complete, record its earlier salary and expenses and set the accounts’ opening balance date to the last day of the month before.",
-  "pendingFromBrokers": "{{amount}} from brokers to record"
+  "pendingFromBrokers": "{{amount}} from brokers to record",
+  "averageShort": "avg {{amount}}"
  },
  "annual": {
   "title": "Annual summary",

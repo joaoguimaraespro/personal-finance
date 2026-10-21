@@ -142,7 +142,7 @@ interface Form {
             <th hlmTh>{{ 'common.name' | translate }}</th>
             <th hlmTh class="hidden sm:table-cell">{{ 'recurring.schedule' | translate }}</th>
             <th hlmTh class="hidden sm:table-cell">{{ 'recurring.next' | translate }}</th>
-            <th hlmTh>{{ 'common.status' | translate }}</th>
+            <th hlmTh class="hidden sm:table-cell">{{ 'common.status' | translate }}</th>
             <th hlmTh class="text-right">{{ 'tx.amount' | translate }}</th>
             <th hlmTh></th>
           </tr>
@@ -176,6 +176,9 @@ interface Form {
                 <div class="text-xs text-muted-foreground sm:hidden">
                   {{ schedule(r).key | translate: schedule(r).params }} ·
                   {{ 'recurring.next' | translate }} {{ r.nextDueOn | day }}
+                  @if (!r.isActive) {
+                    · {{ 'recurring.paused' | translate }}
+                  }
                 </div>
               </td>
               <td hlmTd class="hidden text-sm text-muted-foreground sm:table-cell">
@@ -186,7 +189,7 @@ interface Form {
                 }
               </td>
               <td hlmTd class="hidden text-sm sm:table-cell">{{ r.nextDueOn | day }}</td>
-              <td hlmTd>
+              <td hlmTd class="hidden sm:table-cell">
                 @if (r.isActive) {
                   <app-status-badge tone="success">{{
                     'recurring.active' | translate
