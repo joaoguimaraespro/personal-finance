@@ -320,7 +320,7 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
             <thead hlmTHead>
               <tr hlmTr>
                 <th hlmTh>{{ 'ai.deletedAt' | translate }}</th>
-                <th hlmTh>{{ 'ai.client' | translate }}</th>
+                <th hlmTh class="hidden sm:table-cell">{{ 'ai.client' | translate }}</th>
                 <th hlmTh>{{ 'ai.item' | translate }}</th>
                 <th hlmTh class="text-right">{{ 'ai.purgeIn' | translate }}</th>
                 <th hlmTh></th>
@@ -332,8 +332,11 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
                   <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
                     {{ b.deletedAtUtc | dateTime }}
                   </td>
-                  <td hlmTd class="text-sm">{{ b.clientName }}</td>
-                  <td hlmTd class="text-sm whitespace-normal">{{ b.summary }}</td>
+                  <td hlmTd class="hidden text-sm sm:table-cell">{{ b.clientName }}</td>
+                  <td hlmTd class="text-sm whitespace-normal">
+                    {{ b.summary }}
+                    <p class="text-muted-foreground text-xs sm:hidden">{{ b.clientName }}</p>
+                  </td>
                   <td hlmTd class="num text-right text-sm">
                     {{ 'ai.days' | translate: { count: daysLeft(b.purgeAfterUtc) } }}
                   </td>
@@ -387,11 +390,13 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
             <thead hlmTHead>
               <tr hlmTr>
                 <th hlmTh>{{ 'tx.date' | translate }}</th>
-                <th hlmTh>{{ 'ai.client' | translate }}</th>
+                <th hlmTh class="hidden sm:table-cell">{{ 'ai.client' | translate }}</th>
                 <th hlmTh>{{ 'ai.tool' | translate }}</th>
                 <th hlmTh>{{ 'ai.arguments' | translate }}</th>
                 <th hlmTh>{{ 'ai.decision' | translate }}</th>
-                <th hlmTh class="text-right">{{ 'ai.records' | translate }}</th>
+                <th hlmTh class="hidden text-right sm:table-cell">
+                  {{ 'ai.records' | translate }}
+                </th>
               </tr>
             </thead>
             <tbody hlmTBody>
@@ -400,7 +405,7 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
                   <td hlmTd class="text-xs whitespace-nowrap text-muted-foreground">
                     {{ e.atUtc | day }} {{ e.atUtc.slice(11, 19) }}
                   </td>
-                  <td hlmTd class="text-sm">{{ e.clientName ?? '—' }}</td>
+                  <td hlmTd class="hidden text-sm sm:table-cell">{{ e.clientName ?? '—' }}</td>
                   <td hlmTd class="font-mono text-xs">
                     @if (e.write) {
                       <span
@@ -409,6 +414,9 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
                       >
                     }
                     {{ e.tool }}
+                    <p class="text-muted-foreground font-sans sm:hidden">
+                      {{ e.clientName ?? '—' }}
+                    </p>
                   </td>
                   <td
                     hlmTd
@@ -440,7 +448,9 @@ import { SettingsTabsComponent } from '../../shared/settings-tabs';
                       >{{ e.decision }}</span
                     >
                   </td>
-                  <td hlmTd class="num text-right text-sm">{{ e.recordCount }}</td>
+                  <td hlmTd class="num hidden text-right text-sm sm:table-cell">
+                    {{ e.recordCount }}
+                  </td>
                 </tr>
               } @empty {
                 <tr hlmTr>

@@ -403,11 +403,15 @@ type Reference = 'previous' | 'average' | 'budget';
           <thead hlmTHead>
             <tr hlmTr>
               <th hlmTh>{{ 'tx.category' | translate }}</th>
-              <th hlmTh>{{ 'tx.nature' | translate }}</th>
+              <th hlmTh class="hidden sm:table-cell">{{ 'tx.nature' | translate }}</th>
               <th hlmTh class="text-right">{{ 'monthly.actual' | translate }}</th>
-              <th hlmTh class="w-48">{{ 'monthly.budget' | translate }}</th>
-              <th hlmTh class="text-right">{{ 'monthly.vs.previous' | translate }}</th>
-              <th hlmTh class="text-right">{{ 'monthly.vs.average' | translate }}</th>
+              <th hlmTh class="w-32 sm:w-48">{{ 'monthly.budget' | translate }}</th>
+              <th hlmTh class="hidden text-right sm:table-cell">
+                {{ 'monthly.vs.previous' | translate }}
+              </th>
+              <th hlmTh class="hidden text-right sm:table-cell">
+                {{ 'monthly.vs.average' | translate }}
+              </th>
             </tr>
           </thead>
           <tbody hlmTBody>
@@ -430,10 +434,18 @@ type Reference = 'previous' | 'average' | 'budget';
                     >{{ c | categoryLabel }}
                   </a>
                 </td>
-                <td hlmTd class="text-xs text-muted-foreground">
+                <td hlmTd class="hidden text-xs text-muted-foreground sm:table-cell">
                   {{ c.nature ? ('nature.' + c.nature | translate) : '' }}
                 </td>
-                <td hlmTd class="num text-right font-medium">{{ c.actual | money }}</td>
+                <td hlmTd class="num text-right font-medium">
+                  {{ c.actual | money }}
+                  <!-- Phones: the 12-month average under the amount instead of its own column. -->
+                  <p class="text-muted-foreground text-[11px] font-normal sm:hidden">
+                    {{
+                      'monthly.averageShort' | translate: { amount: (c.trailingAverage | money) }
+                    }}
+                  </p>
+                </td>
                 <td hlmTd>
                   @if (c.budget !== null) {
                     <app-progress tone="auto" [value]="c.budget ? c.actual / c.budget : 1" />
@@ -446,10 +458,10 @@ type Reference = 'previous' | 'average' | 'budget';
                     </p>
                   }
                 </td>
-                <td hlmTd class="num text-right text-muted-foreground">
+                <td hlmTd class="num hidden text-right text-muted-foreground sm:table-cell">
                   {{ r.previous.transactionCount > 0 ? (c.previousMonth | money) : '—' }}
                 </td>
-                <td hlmTd class="num text-right text-muted-foreground">
+                <td hlmTd class="num hidden text-right text-muted-foreground sm:table-cell">
                   {{ c.trailingAverage | money }}
                 </td>
               </tr>

@@ -3,6 +3,7 @@ import { liveResource } from '../../core/resource';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import type { EChartsOption } from 'echarts';
 import { Api } from '../../core/api';
+import { AnnualRow } from '../../core/models';
 import { DataEvents } from '../../core/data-events';
 import { MoneyPipe, MonthNamePipe, PercentPipe } from '../../core/format';
 import { Prefs } from '../../core/prefs';
@@ -109,7 +110,58 @@ import { HlmTooltipImports } from '@spartan-ng/helm/tooltip';
         <h2 class="card-title px-5 pt-5">
           <ng-icon name="lucideCalendarDays" />{{ 'annual.title' | translate }} {{ a.year }}
         </h2>
-        <table hlmTable class="whitespace-nowrap">
+        <!-- Phones: one line per month (balance and savings rate); tap it for every figure. -->
+        <ul class="divide-border divide-y border-t sm:hidden" data-testid="annual-list">
+          <li
+            class="text-muted-foreground flex items-center gap-3 px-5 py-2 text-[11px] uppercase tracking-wide"
+            aria-hidden="true"
+          >
+            <span class="flex-1">{{ 'common.month' | translate }}</span>
+            <span>{{ 'kpi.netBalance' | translate }}</span>
+            <span class="w-12 text-right">{{ 'kpi.savingsRate' | translate }}</span>
+            <span class="w-4"></span>
+          </li>
+          @for (r of a.months; track r.month.period.month) {
+            <li [class.text-muted-foreground]="!r.month.transactionCount">
+              <details class="group">
+                <summary class="flex cursor-pointer list-none items-center gap-3 px-5 py-3">
+                  <span class="flex-1 font-medium">{{ r.month.period.month | monthName }}</span>
+                  <span
+                    class="num text-sm font-medium"
+                    [class.tone-neg]="r.month.netBalance < 0"
+                    [class.tone-pos]="r.month.transactionCount && r.month.netBalance > 0"
+                    >{{ r.month.netBalance | money }}</span
+                  >
+                  <span class="num text-muted-foreground w-12 text-right text-xs">{{
+                    r.month.savingsRate | pct
+                  }}</span>
+                  <ng-icon
+                    name="lucideChevronDown"
+                    class="text-muted-foreground shrink-0 transition-transform group-open:rotate-180"
+                    aria-hidden="true"
+                  />
+                </summary>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 px-5 pb-3 text-xs">
+                  @for (f of fields(r); track f.key) {
+                    <dt class="text-muted-foreground">{{ f.key | translate }}</dt>
+                    <dd class="num text-right">
+                      {{ f.pct ? (f.value | pct) : (f.value | money) }}
+                    </dd>
+                  }
+                </dl>
+              </details>
+            </li>
+          }
+          <li class="bg-muted flex items-center gap-3 px-5 py-3 font-semibold">
+            <span class="flex-1">{{ 'annual.total' | translate }}</span>
+            <span class="num text-sm">{{ a.totals.netBalance | money }}</span>
+            <span class="num w-12 text-right text-xs">{{
+              a.totals.averageMonthlySavingsRate | pct
+            }}</span>
+            <span class="w-4"></span>
+          </li>
+        </ul>
+        <table hlmTable class="hidden whitespace-nowrap sm:table">
           <thead hlmTHead>
             <tr hlmTr>
               <th hlmTh class="sticky left-0 z-10 bg-card">{{ 'common.month' | translate }}</th>
@@ -217,6 +269,28 @@ export class AnnualComponent {
   private readonly prefs = inject(Prefs);
   private readonly i18n = inject(TranslateService);
   protected readonly year = signal(new Date().getFullYear());
+
+  /** A month's figures, as the table's columns, for the phone layout. */
+  protected fields(r: AnnualRow): { key: string; value: number | null; pct?: boolean }[] {
+    const m = r.month;
+    return [
+      { key: 'kpi.income', value: m.income },
+      { key: 'kpi.expenseBudget', value: m.expenseBudget },
+      { key: 'kpi.fixedExpenses', value: m.fixedExpenses },
+      { key: 'kpi.variableExpenses', value: m.variableExpenses },
+      { key: 'kpi.expenses', value: m.totalExpenses },
+      { key: 'kpi.invested', value: m.invested },
+      { key: 'kpi.saved', value: m.saved },
+      ...(r.hasIncome
+        ? [
+            { key: 'annual.cumInvested', value: r.cumulativeInvested },
+            { key: 'annual.cumSaved', value: r.cumulativeSaved },
+          ]
+        : []),
+      { key: 'kpi.investedPct', value: m.investmentRate, pct: true },
+      { key: 'kpi.savedPct', value: m.savingsOnlyRate, pct: true },
+    ];
+  }
   protected readonly annual = liveResource({
     params: () => ({ year: this.year(), v: this.events.version() }),
     stream: ({ params }) => this.api.annual(params.year),
