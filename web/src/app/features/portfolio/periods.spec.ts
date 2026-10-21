@@ -3,6 +3,7 @@ import {
   RETURN_PERIODS,
   dayChangeHint,
   dayChangeLabel,
+  incomeMonths,
   monthYear,
   returnHint,
   returnLabel,
@@ -69,5 +70,44 @@ describe('return periods', () => {
     expect(dayChangeHint('Mixed')).toBe('portfolio.todayMixedHint');
     expect(dayChangeHint('Rolling24Hours')).toBe('portfolio.change24hHint');
     expect(dayChangeHint('PreviousClose')).toBeNull();
+  });
+});
+
+describe('incomeMonths', () => {
+  const today = new Date(2026, 9, 21); // October 2026
+  const paid = [
+    { period: '2025-03', amount: 4 },
+    { period: '2026-03', amount: 10 },
+    { period: '2026-09', amount: 13 },
+  ];
+
+  it('shows every month of the year so far, the empty ones as zero', () => {
+    const months = incomeMonths(paid, 'YTD', today);
+    expect(months.map((m) => m.period)).toEqual([
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      '2026-05',
+      '2026-06',
+      '2026-07',
+      '2026-08',
+      '2026-09',
+      '2026-10',
+    ]);
+    expect(months[2].amount).toBe(10);
+    expect(months[9].amount).toBe(0);
+  });
+
+  it('covers the last 12 months, this month and the last, or everything since the first payment', () => {
+    expect(incomeMonths(paid, '1Y', today)[0].period).toBe('2025-11');
+    expect(incomeMonths(paid, '1M', today).map((m) => m.period)).toEqual(['2026-09', '2026-10']);
+    const all = incomeMonths(paid, 'ALL', today);
+    expect(all[0]).toEqual({ period: '2025-03', amount: 4 });
+    expect(all).toHaveLength(20);
+  });
+
+  it('shows the last 12 months when nothing has paid yet', () => {
+    expect(incomeMonths([], 'ALL', today)).toHaveLength(12);
   });
 });

@@ -7,6 +7,9 @@ Notable changes for people who install the app. Every release, with its installe
 
 ### Changed
 
+- **Portfolio:** the dividends (and rewards) by month chart follows the period chosen at the top and shows every
+  month, the ones that paid nothing too; the dividend calendar lists the positions that pay by default.
+
 - **Broker deposits:** a new deposit or withdrawal at a broker asks which of your accounts the money came from (or
   went to). Recording it from the notification, or from the new *Deposits and withdrawals* list in Portfolio, takes
   the money out of that account and counts it in the month's allocation; until then the month shows it apart, as
