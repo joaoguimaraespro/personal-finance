@@ -57,6 +57,7 @@ import {
   dayChangeLabel,
   returnHint,
   returnLabel,
+  incomeMonths,
 } from './periods';
 import {
   lucideArrowDown,
@@ -1031,7 +1032,8 @@ export class PortfolioComponent {
     }
   }
 
-  protected readonly payersOnly = signal(false);
+  /** The calendar lists the positions that pay; the others (to weigh where to add) one tick away. */
+  protected readonly payersOnly = signal(true);
   protected readonly calendarRows = computed(() =>
     (this.calendar.value()?.rows ?? []).filter((r) => !this.payersOnly() || r.total > 0),
   );
@@ -1288,12 +1290,20 @@ export class PortfolioComponent {
   });
 
   protected readonly dividendChart = computed<EChartsOption>(() => {
-    const months = (this.dividends.value()?.byMonth ?? []).slice(-24);
+    // The period chosen at the top, every month shown (the empty ones too).
+    const months = incomeMonths(this.dividends.value()?.byMonth ?? [], this.period());
+    const locale = this.prefs.locale();
+    const label = new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit' });
     return {
       ...baseChart,
       legend: undefined,
-      tooltip: moneyTooltip(this.prefs.locale()),
-      xAxis: categoryAxis(months.map((m) => m.period)),
+      tooltip: moneyTooltip(locale),
+      xAxis: categoryAxis(
+        months.map((m) => {
+          const [y, mo] = m.period.split('-').map(Number);
+          return label.format(new Date(y, mo - 1, 1));
+        }),
+      ),
       yAxis: moneyAxis(this.prefs.locale()),
       series: [
         {

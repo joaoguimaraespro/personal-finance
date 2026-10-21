@@ -71,3 +71,36 @@ export function dayChangeHint(basis: DayChangeBasis | null | undefined): string 
       ? 'portfolio.change24hHint'
       : null;
 }
+
+/**
+ * Income by month over the period chosen at the top, every month included (those that paid nothing as zero), up to
+ * the current month: 1M covers this month and the last, YTD since January, 1Y the last 12 months and ALL since the
+ * first month that paid (the last 12 months when none has).
+ */
+export function incomeMonths(
+  byMonth: readonly { period: string; amount: number }[],
+  period: ReturnPeriod,
+  today = new Date(),
+): { period: string; amount: number }[] {
+  const key = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`;
+  const index = (p: string) => {
+    const [y, m] = p.split('-').map(Number);
+    return y * 12 + (m - 1);
+  };
+  const end = today.getFullYear() * 12 + today.getMonth();
+  const paid = byMonth.filter((m) => m.amount).map((m) => index(m.period));
+  const start =
+    period === '1M'
+      ? end - 1
+      : period === 'YTD'
+        ? today.getFullYear() * 12
+        : period === '1Y' || !paid.length
+          ? end - 11
+          : Math.min(...paid);
+  const amounts = new Map(byMonth.map((m) => [index(m.period), m.amount]));
+  const months: { period: string; amount: number }[] = [];
+  for (let i = start; i <= end; i++) {
+    months.push({ period: key(Math.floor(i / 12), (i % 12) + 1), amount: amounts.get(i) ?? 0 });
+  }
+  return months;
+}
