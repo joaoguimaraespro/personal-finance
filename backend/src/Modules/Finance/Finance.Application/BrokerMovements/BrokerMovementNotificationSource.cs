@@ -34,7 +34,8 @@ public sealed class BrokerMovementNotificationSource(IFinanceDb db, IBrokerDepos
                     ["deposit"] = m.Amount > 0, ["amount"] = Math.Abs(m.Amount), ["currency"] = m.Currency,
                     ["baseAmount"] = Math.Abs(m.BaseAmount), ["on"] = m.On.ToString("yyyy-MM-dd"),
                 },
-                ["record", "skip"]))
+                // Money out of a broker went to one of the owner's accounts, or was spent with its card.
+                m.Amount > 0 ? ["record", "skip"] : ["record", "card", "skip"]))
             .ToList();
     }
 }

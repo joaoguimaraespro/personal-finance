@@ -187,6 +187,12 @@ public sealed class Transaction : Entity, IAuditable, ISoftDeletable
 
     public Result Update(TransactionDraft draft) => Apply(draft);
 
+    /// <summary>
+    /// Paid from another of the owner's accounts, everything else as it is (shares included): e.g. an expense first
+    /// booked on the bank that was really a card payment out of a broker account.
+    /// </summary>
+    public void MoveTo(Guid accountId) => AccountId = accountId;
+
     /// <summary>A person's part of <paramref name="expense"/>, booked in their account (see <see cref="SharedFromId"/>).</summary>
     public static Result<Transaction> CreateShare(Transaction expense, Guid personAccountId, decimal amount,
         string? externalId = null)

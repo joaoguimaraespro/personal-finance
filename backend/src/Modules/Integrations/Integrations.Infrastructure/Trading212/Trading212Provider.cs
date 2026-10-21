@@ -83,8 +83,11 @@ internal sealed class Trading212Provider(Trading212Client client) : IInvestmentP
                 "INTEREST_ON_FREE_CASH" or "LENDING_INTEREST" => (CashMovementType.Interest, Math.Abs(t.Amount)),
                 _ => (CashMovementType.Other, t.Amount),
             };
+            // The type with Trading 212's reference, as the owner sees it when telling a card payment from a
+            // withdrawal to the bank (both are WITHDRAW).
+            var description = string.IsNullOrWhiteSpace(t.Reference) ? t.Type : $"{t.Type} · {t.Reference.Trim()}";
             result.Add(InvestmentTransaction.Of(new CashMovementReport(Trading212Keys.ForCash(type.ToString(), t.DateTime, amount),
-                type, amount, t.Currency ?? _accountCurrency, t.DateTime, t.Type)));
+                type, amount, t.Currency ?? _accountCurrency, t.DateTime, description)));
         }
 
         return result;

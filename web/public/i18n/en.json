@@ -293,7 +293,8 @@
   "partialTitle": "Your first month: tracked from {{date}}",
   "partialText": "Income, the allocation targets and the savings rate only cover the days since then, so this month is left out of the averages. To see it complete, record its earlier salary and expenses and set the accounts’ opening balance date to the last day of the month before.",
   "pendingFromBrokers": "{{amount}} from brokers to record",
-  "averageShort": "avg {{amount}}"
+  "averageShort": "avg {{amount}}",
+  "spentFromBrokers": "−{{amount}} paid with the broker card"
  },
  "annual": {
   "title": "Annual summary",
@@ -1473,7 +1474,21 @@
   "state": {
    "Pending": "To record",
    "Recorded": "Recorded",
-   "Ignored": "Ignored"
-  }
+   "Ignored": "Ignored",
+   "Card": "Card payment"
+  },
+  "cardPayment": "Card payment",
+  "cardTitle": "Card payment",
+  "cardIntro": "{{amount}} left {{broker}} on {{date}} through its card. Which expense was it?",
+  "dueRecurring": "Recurring items to confirm",
+  "recorded": "Expenses already recorded",
+  "newExpense": "A new expense",
+  "shared": "shared",
+  "recurringBadge": "recurring",
+  "due": "due {{date}}",
+  "onAccount": "on {{account}}",
+  "cardEffect": "It is paid from {{broker}}: your other accounts don't change, it counts as the month's expense and comes off what is invested. A shared recurring item keeps each person's part.",
+  "cardSaved": "Card payment recorded",
+  "pickCategory": "Choose the expense's category."
  }
 }

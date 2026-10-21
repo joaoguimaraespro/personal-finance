@@ -26,6 +26,7 @@ import { AuthService } from '../core/auth';
 import { QuickAdd } from '../core/data-events';
 import { Prefs } from '../core/prefs';
 import { QuickAddComponent } from '../features/transactions/quick-add';
+import { CardPaymentDialogComponent } from '../features/broker-movements/card-payment-dialog';
 import { Notifications } from '../core/notifications';
 import { NotificationBellComponent } from './notification-bell';
 import { APP_ICONS, PAGE_ICONS } from '../shared/icons';
@@ -48,6 +49,7 @@ interface NavItem {
     RouterLinkActive,
     TranslatePipe,
     QuickAddComponent,
+    CardPaymentDialogComponent,
     NotificationBellComponent,
     NgIcon,
     HlmButtonImports,
@@ -242,6 +244,7 @@ interface NavItem {
       </button>
     </nav>
     <app-quick-add />
+    <app-card-payment-dialog />
     @if (session.secondsLeft(); as left) {
       <div
         class="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm space-y-3 rounded-xl border bg-popover p-4 text-sm shadow-lg"

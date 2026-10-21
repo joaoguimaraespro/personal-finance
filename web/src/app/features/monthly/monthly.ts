@@ -217,6 +217,11 @@ type Reference = 'previous' | 'average' | 'budget';
                     {{ 'monthly.fromBrokers' | translate: { amount: (b.fromBrokers | money) } }}
                   </p>
                 }
+                @if (b.spent) {
+                  <p class="text-muted-foreground mt-1 text-[11px]">
+                    {{ 'monthly.spentFromBrokers' | translate: { amount: (b.spent | money) } }}
+                  </p>
+                }
                 @if (b.pending) {
                   <a
                     routerLink="/portfolio"
