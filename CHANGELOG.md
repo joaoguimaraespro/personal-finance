@@ -3,6 +3,15 @@
 Notable changes for people who install the app. Every release, with its installers, is on the
 [releases page](https://github.com/joaoguimaraespro/personal-finance/releases); the full history is in the [commits](https://github.com/joaoguimaraespro/personal-finance/commits/main).
 
+## [Unreleased]
+
+### Changed
+
+- **Broker deposits:** a new deposit or withdrawal at a broker asks which of your accounts the money came from (or
+  went to). Recording it from the notification, or from the new *Deposits and withdrawals* list in Portfolio, takes
+  the money out of that account and counts it in the month's allocation; until then the month shows it apart, as
+  *to record*. Before, it counted on its own, so the account it came from still showed the money.
+
 ## [1.3.0] - 2026-10-20
 
 ### Added

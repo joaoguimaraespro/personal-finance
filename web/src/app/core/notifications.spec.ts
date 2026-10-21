@@ -12,6 +12,7 @@ import {
   NotificationsResponse,
   allocationPrefill,
   arrivals,
+  brokerMovementPrefill,
   pruneSeen,
   unseenItems,
 } from './notifications';
@@ -75,6 +76,30 @@ describe('allocation prefill', () => {
     const p = allocationPrefill(due('2026-09', false), 'x', new Date(2026, 9, 6));
     expect(p.type).toBe('Savings');
     expect(p.occurredOn).toBe('2026-09-30');
+  });
+});
+
+describe('brokerMovementPrefill', () => {
+  const movement = { id: 'm1', accountId: 't212', bucketId: 'b1', on: '2026-10-14' };
+
+  it('records a deposit as a purchase from an account, the broker on the other side', () => {
+    expect(
+      brokerMovementPrefill({ ...movement, amount: 500, baseAmount: 500 }, 'Deposit to T212'),
+    ).toEqual({
+      type: 'InvestmentContribution',
+      amount: 500,
+      bucketId: 'b1',
+      counterAccountId: 't212',
+      occurredOn: '2026-10-14',
+      description: 'Deposit to T212',
+      brokerMovementId: 'm1',
+    });
+  });
+
+  it('records a withdrawal as a sale, in EUR', () => {
+    const p = brokerMovementPrefill({ ...movement, amount: -50, baseAmount: -46.2 }, 'x');
+    expect(p.type).toBe('InvestmentSale');
+    expect(p.amount).toBe(46.2);
   });
 });
 
