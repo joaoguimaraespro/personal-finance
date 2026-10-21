@@ -381,13 +381,21 @@ interface YearGroup {
             <tr hlmTr>
               <th hlmTh>{{ 'loans.year' | translate }}</th>
               <th hlmTh class="text-right">{{ 'loans.payments' | translate }}</th>
-              <th hlmTh class="text-right">{{ 'loans.interest' | translate }}</th>
+              <th hlmTh class="hidden text-right sm:table-cell">
+                {{ 'loans.interest' | translate }}
+              </th>
               @if (hasCharges()) {
-                <th hlmTh class="text-right" [title]="'loans.chargesHint' | translate">
+                <th
+                  hlmTh
+                  class="hidden text-right sm:table-cell"
+                  [title]="'loans.chargesHint' | translate"
+                >
                   {{ 'loans.chargesColumn' | translate }}
                 </th>
               }
-              <th hlmTh class="text-right">{{ 'loans.capital' | translate }}</th>
+              <th hlmTh class="hidden text-right sm:table-cell">
+                {{ 'loans.capital' | translate }}
+              </th>
               <th hlmTh class="text-right">{{ 'loans.balanceEnd' | translate }}</th>
             </tr>
           </thead>
@@ -412,12 +420,24 @@ interface YearGroup {
                     }}</span>
                   }
                 </td>
-                <td hlmTd class="num text-right">{{ y.payment | money }}</td>
-                <td hlmTd class="num text-right">{{ y.interest | money }}</td>
+                <td hlmTd class="num text-right">
+                  {{ y.payment | money }}
+                  <!-- Phones: how the payments split, under them instead of in their own columns. -->
+                  <p class="text-muted-foreground text-[11px] sm:hidden">
+                    {{
+                      'notifications.loanSplit'
+                        | translate
+                          : { interest: (y.interest | money), capital: (y.principal | money) }
+                    }}
+                  </p>
+                </td>
+                <td hlmTd class="num hidden text-right sm:table-cell">{{ y.interest | money }}</td>
                 @if (hasCharges()) {
-                  <td hlmTd class="num text-right">{{ y.charges | money }}</td>
+                  <td hlmTd class="num hidden text-right sm:table-cell">
+                    {{ y.charges | money }}
+                  </td>
                 }
-                <td hlmTd class="num text-right">{{ y.principal | money }}</td>
+                <td hlmTd class="num hidden text-right sm:table-cell">{{ y.principal | money }}</td>
                 <td hlmTd class="num text-right font-medium">{{ y.balance | money }}</td>
               </tr>
               @if (openYears().has(y.year)) {
@@ -435,12 +455,27 @@ interface YearGroup {
                         >
                       }
                     </td>
-                    <td hlmTd class="num text-right">{{ i.total ?? i.payment | money }}</td>
-                    <td hlmTd class="num text-right">{{ i.interest | money }}</td>
+                    <td hlmTd class="num text-right">
+                      {{ i.total ?? i.payment | money }}
+                      <p class="text-[11px] sm:hidden">
+                        {{
+                          'notifications.loanSplit'
+                            | translate
+                              : { interest: (i.interest | money), capital: (i.principal | money) }
+                        }}
+                      </p>
+                    </td>
+                    <td hlmTd class="num hidden text-right sm:table-cell">
+                      {{ i.interest | money }}
+                    </td>
                     @if (hasCharges()) {
-                      <td hlmTd class="num text-right">{{ charges(i) | money }}</td>
+                      <td hlmTd class="num hidden text-right sm:table-cell">
+                        {{ charges(i) | money }}
+                      </td>
                     }
-                    <td hlmTd class="num text-right">{{ i.principal | money }}</td>
+                    <td hlmTd class="num hidden text-right sm:table-cell">
+                      {{ i.principal | money }}
+                    </td>
                     <td hlmTd class="num text-right">{{ i.balance | money }}</td>
                   </tr>
                 }
