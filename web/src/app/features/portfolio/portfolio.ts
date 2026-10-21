@@ -282,6 +282,41 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
           />
         </section>
 
+        <!-- Money at the brokers not invested yet: the total, and where it sits. -->
+        @if (s.cash) {
+          <section class="card mt-4" data-testid="cash-card">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 class="card-title !mb-0">
+                <ng-icon name="lucideWallet" aria-hidden="true" />{{
+                  'portfolio.cash.title' | translate
+                }}
+              </h2>
+              <p class="num text-xl font-semibold">
+                {{ s.cash | money }}
+                @if (s.totalValue > 0) {
+                  <span class="text-muted-foreground text-xs font-normal">{{
+                    'portfolio.cash.share' | translate: { share: (s.cash / s.totalValue | pct: 0) }
+                  }}</span>
+                }
+              </p>
+            </div>
+            <p class="text-muted-foreground mt-1 text-xs">
+              {{ 'portfolio.cash.hint' | translate }}
+            </p>
+            @if (cashAccounts().length > 1) {
+              <ul class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                @for (a of cashAccounts(); track a.accountId) {
+                  <li class="border-border flex items-center gap-2 rounded-md border px-3 py-2">
+                    <app-broker-logo [broker]="a.broker" [name]="a.name" [size]="20" />
+                    <span class="min-w-0 flex-1 truncate text-sm">{{ a.name }}</span>
+                    <span class="num text-sm font-medium">{{ a.cash | money }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+        }
+
         <section class="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
           <!-- The chart takes whatever height the allocation card next to it needs. -->
           <div class="card flex flex-col">
@@ -959,6 +994,12 @@ export class PortfolioComponent {
     );
   }
 
+  /** Brokers holding cash, the most first (a wallet's own figure when one is selected). */
+  protected readonly cashAccounts = computed(() =>
+    (this.summary.value()?.accounts ?? [])
+      .filter((a) => a.cash !== 0)
+      .sort((a, b) => b.cash - a.cash),
+  );
   protected readonly selectedWallet = computed(() => {
     const id = this.walletId();
     return id ? (this.allAccounts.value()?.accounts.find((a) => a.accountId === id) ?? null) : null;
