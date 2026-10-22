@@ -249,6 +249,10 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
         await db.CashMovements.Where(c => c.AccountId == broker).ExecuteDeleteAsync();
         await db.PortfolioSnapshots.Where(c => c.AccountId == broker).ExecuteDeleteAsync();
+        var traded = db.Trades.Where(t => t.AccountId == broker).Select(t => t.SecurityId);
+        var securities = await traded.Distinct().ToListAsync();
+        await db.Trades.Where(t => t.AccountId == broker).ExecuteDeleteAsync();
+        await db.Securities.Where(x => securities.Contains(x.Id)).ExecuteDeleteAsync();
         var onBroker = finance.Transactions.IgnoreQueryFilters()
             .Where(t => t.AccountId == broker || t.CounterAccountId == broker).Select(t => t.Id);
         await finance.Transactions.IgnoreQueryFilters().Where(t => onBroker.Contains(t.SharedFromId!.Value))
@@ -359,6 +363,94 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
                 new { categoryId = Finance.Domain.SystemCatalog.CategoryId("groceries") })).IsSuccessStatusCode
                 .ShouldBeFalse();
             await api.Http.DeleteAsync($"/api/recurring/{recurring}");
+        }
+        finally
+        {
+            await RemoveBrokerAsync(broker);
+        }
+    }
+
+    [Fact]
+    public async Task Cash_transferred_to_a_broker_counts_as_invested_when_its_buys_spend_it()
+    {
+        var api = await factory.OwnerAsync();
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var bucket = await api.CreateAsync("/api/buckets", new { name = $"Cash ETFs {tag}", group = "Investment" });
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = $"Transfer test bank {tag}", kind = "Bank", currency = "EUR", openingBalance = 1000m });
+        var card = await api.CreateAsync("/api/accounts",
+            new { name = $"Broker card pot {tag}", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var broker = await SeedBrokerAsync(api, bucket, (500m, $"DEPOSIT-{tag}"), (-12.99m, $"WITHDRAW-{tag}"));
+        async Task<JsonElement> Movement(string kind) => (await api.GetAsync<JsonElement[]>("/api/broker-movements"))
+            .Single(m => m.GetProperty("kind").GetString() == kind);
+        async Task<decimal> Balance(Guid id) => (await api.GetAsync<JsonElement[]>("/api/accounts"))
+            .Single(a => a.GetProperty("id").GetGuid() == id).GetProperty("balance").GetDecimal();
+        async Task<(decimal Actual, decimal Pending)> Line()
+        {
+            var report = await api.GetJsonAsync($"/api/reports/monthly/{today:yyyy-MM}");
+            var line = report.GetProperty("current").GetProperty("buckets").EnumerateArray()
+                .Cast<JsonElement?>().SingleOrDefault(b => b!.Value.GetProperty("bucketId").GetGuid() == bucket);
+            return line is { } l
+                ? (l.GetProperty("actual").GetDecimal(), l.GetProperty("pending").GetDecimal())
+                : (0m, 0m);
+        }
+        async Task BuyAsync(decimal amount)
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
+            var security = Security.Create(null, $"T{Guid.NewGuid():N}"[..10], null, "Test ETF", "EUR", AssetClass.Etf);
+            db.Securities.Add(security);
+            db.Trades.Add(Trade.Record(broker, security.Id, TradeSide.Buy, 1m, amount, "EUR", 0m, 0m, 0m, -amount,
+                null, now, DataSource.Demo, $"test:{tag}:{Guid.NewGuid():N}"));
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+
+        try
+        {
+            // The deposit came from the bank, to wait at the broker as cash: the bank pays, nothing invested yet.
+            var deposit = (await Movement($"DEPOSIT-{tag}")).GetProperty("id").GetGuid();
+            await ApiClient.EnsureAsync(await api.PostAsync($"/api/broker-movements/{deposit}/record", new
+            {
+                type = "Transfer", occurredOn = $"{today:yyyy-MM-dd}", amount = 500m, accountId = bank,
+                counterAccountId = broker,
+            }));
+            (await Balance(bank)).ShouldBe(500m);
+            var recorded = await Movement($"DEPOSIT-{tag}");
+            recorded.GetProperty("state").GetString().ShouldBe("Recorded");
+            recorded.GetProperty("recordedAs").GetString().ShouldBe("Transfer");
+
+            // The withdrawal went to the card's own account; the form may name it on either side.
+            var withdrawal = (await Movement($"WITHDRAW-{tag}")).GetProperty("id").GetGuid();
+            await ApiClient.EnsureAsync(await api.PostAsync($"/api/broker-movements/{withdrawal}/record", new
+            {
+                type = "Transfer", occurredOn = $"{today:yyyy-MM-dd}", amount = 12.99m, accountId = card,
+                counterAccountId = broker,
+            }));
+            (await Balance(card)).ShouldBe(12.99m);
+            (await Line()).ShouldBe((0m, 0m));
+
+            // Buys spend the cash waiting there, and only up to it.
+            await BuyAsync(300m);
+            (await Line()).ShouldBe((300m, 0m));
+            await BuyAsync(250m);
+            (await Line()).ShouldBe((487.01m, 0m));
+
+            // A transfer needs the owner's own account.
+            await ApiClient.EnsureAsync(await api.PostAsync($"/api/broker-movements/{withdrawal}/reopen", new { }));
+            (await api.PostAsync($"/api/broker-movements/{withdrawal}/record", new
+            {
+                type = "Transfer", occurredOn = $"{today:yyyy-MM-dd}", amount = 12.99m, accountId = broker,
+            })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+            // Undone: asked again, while the transfer it was recorded as stays in the ledger.
+            await ApiClient.EnsureAsync(await api.PostAsync($"/api/broker-movements/{deposit}/reopen", new { }));
+            var reopened = await Movement($"DEPOSIT-{tag}");
+            reopened.GetProperty("state").GetString().ShouldBe("Pending");
+            reopened.GetProperty("transactionId").ValueKind.ShouldBe(JsonValueKind.Null);
+            (await Balance(bank)).ShouldBe(500m);
+            (await Line()).ShouldBe((0m, 487.01m));
         }
         finally
         {

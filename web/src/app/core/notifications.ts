@@ -78,21 +78,26 @@ export function allocationPrefill(
 }
 
 /**
- * The entry that records a synced broker deposit (a purchase from the owner's account) or withdrawal (a sale back
- * into it), with the broker as the other side; the owner picks the account and can correct the amount.
+ * The entry that records a synced broker deposit or withdrawal: by default a transfer between the owner's account
+ * and the broker (cash waiting there, invested when its buys spend it), or else a purchase or sale. The broker is
+ * the other side; the owner picks the account and can correct the amount.
  */
 export function brokerMovementPrefill(
-  m: Pick<BrokerMovement, 'id' | 'accountId' | 'bucketId' | 'on' | 'amount' | 'baseAmount'>,
+  m: Pick<
+    BrokerMovement,
+    'id' | 'accountId' | 'broker' | 'bucketId' | 'on' | 'amount' | 'baseAmount'
+  >,
   description: string,
 ): QuickAddPrefill {
   return {
-    type: m.amount > 0 ? 'InvestmentContribution' : 'InvestmentSale',
+    type: 'Transfer',
     amount: Math.abs(m.baseAmount),
     bucketId: m.bucketId,
     counterAccountId: m.accountId,
     occurredOn: m.on,
     description,
     brokerMovementId: m.id,
+    broker: { accountId: m.accountId, name: m.broker, withdrawal: m.amount < 0 },
   };
 }
 
@@ -263,6 +268,7 @@ export class Notifications {
           {
             id: item.targetId,
             accountId: String(item.args['brokerAccountId']),
+            broker: String(item.args['broker']),
             bucketId: (item.args['bucketId'] as string | null) ?? null,
             on: String(item.args['on']),
             amount: item.args['deposit'] ? 1 : -1,

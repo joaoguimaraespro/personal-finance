@@ -911,9 +911,21 @@ type RecentIncome = DividendSummary['items'][number] & { month: boolean; count: 
                 <span class="badge bg-muted text-muted-foreground !px-1.5 !py-0 text-[10px]">{{
                   (m.cardPayment
                     ? 'brokerMovements.state.Card'
-                    : 'brokerMovements.state.' + m.state
+                    : m.recordedAs === 'Transfer'
+                      ? 'brokerMovements.state.Transfer'
+                      : 'brokerMovements.state.' + m.state
                   ) | translate
                 }}</span>
+                <button
+                  hlmBtn
+                  size="sm"
+                  variant="ghost"
+                  [disabled]="ignoring() === m.id"
+                  [title]="'brokerMovements.undoHint' | translate"
+                  (click)="reopenMovement(m)"
+                >
+                  <ng-icon name="lucideUndo2" />{{ 'brokerMovements.undo' | translate }}
+                </button>
               }
             </li>
           }
@@ -1048,6 +1060,24 @@ export class PortfolioComponent {
     try {
       await firstValueFrom(this.api.ignoreBrokerMovement(m.id));
       this.toasts.show(this.i18n.instant('notifications.skipped'));
+      this.events.bump();
+    } catch (err) {
+      this.toasts.error(err);
+    } finally {
+      this.ignoring.set(null);
+    }
+  }
+
+  /** Asks again; a transaction it was recorded as stays (deleted from the list if it was wrong). */
+  protected async reopenMovement(m: BrokerMovement) {
+    this.ignoring.set(m.id);
+    try {
+      await firstValueFrom(this.api.reopenBrokerMovement(m.id));
+      this.toasts.show(
+        this.i18n.instant(
+          m.transactionId ? 'brokerMovements.reopenedKept' : 'brokerMovements.reopened',
+        ),
+      );
       this.events.bump();
     } catch (err) {
       this.toasts.error(err);

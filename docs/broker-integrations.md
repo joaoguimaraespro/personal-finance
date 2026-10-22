@@ -73,11 +73,15 @@ book subscriptions (also as recurring items) and cashback (category *Cashback*) 
 
 **Deposits and withdrawals.** A deposit or withdrawal synced in the last five weeks, at a broker linked to an
 allocation bucket, waits for you to say which account the money came from (or went to): a notification asks, and
-*Record* opens a purchase (or a sale) from that account with the broker on the other side, which you can correct —
-the account's balance and the month's allocation then follow it. *Ignore* it when it needs no entry (money moved
-between brokers, or already recorded by hand). Until then the month shows it apart, as *to record*. The portfolio
-lists them with the name the broker gives each one (for Trading 212, `DEPOSIT`, `WITHDRAW` or `TRANSFER`). Older
-history, such as a first sync, counts towards the bucket as it is.
+*Record* opens a transfer between that account and the broker, which you can correct. The account's balance follows
+it; the money then waits at the broker as cash and counts as invested in the bucket when the broker's synced buys
+spend it (a buy counts up to the cash transferred and not yet spent, so money that was already there and sale
+proceeds bought again are not counted twice). A withdrawal moved to an account of yours (the bank, the card's
+account) is a transfer the other way and leaves what is invested as it is. Choose a purchase (or a sale) instead to
+count it as invested at once. *Ignore* it when it needs no entry (money moved between brokers, or already recorded by
+hand), and *Undo* asks again (a transaction it was recorded as stays in the list). Until then the month shows it
+apart, as *to record*. The portfolio lists them with the name the broker gives each one (for Trading 212, `DEPOSIT`,
+`WITHDRAW` or `TRANSFER`). Older history, such as a first sync, counts towards the bucket as it is.
 
 **Card payments.** Trading 212 reports a payment with its card as a `WITHDRAW`, like money sent to the bank (the
 list shows its reference next to the type). For a withdrawal that was a card payment choose *Card payment*: pick the

@@ -21,6 +21,8 @@ export interface QuickAddPrefill {
   counterAccountId?: string | null;
   /** Records this synced broker deposit or withdrawal (the entry is linked to it). */
   brokerMovementId?: string;
+  /** The broker of that movement: it stays the other side whatever the type (first for a withdrawal moved out). */
+  broker?: { accountId: string; name: string; withdrawal: boolean };
 }
 
 /** Opens the global quick-add dialog, optionally to edit an existing transaction or prefilled. */
