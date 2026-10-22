@@ -1488,7 +1488,7 @@
   "recurringBadge": "recurring",
   "due": "due {{date}}",
   "onAccount": "on {{account}}",
-  "cardEffect": "It is paid from {{broker}}: your other accounts don't change, it counts as the month's expense and comes off what is invested. A shared recurring item keeps each person's part.",
+  "cardEffect": "It is paid from {{broker}}: your other accounts don't change, and it counts as the month's expense. It spends cash waiting there; only money already counted as invested comes off that. A shared recurring item keeps each person's part.",
   "cardSaved": "Card payment recorded",
   "pickCategory": "Choose the expense's category.",
   "undo": "Undo",

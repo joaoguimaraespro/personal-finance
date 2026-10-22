@@ -1488,7 +1488,7 @@
   "recurringBadge": "recorrente",
   "due": "vence a {{date}}",
   "onAccount": "em {{account}}",
-  "cardEffect": "Fica paga pela {{broker}}: as outras contas não mudam, conta como despesa do mês e sai do que está investido. Uma recorrente partilhada mantém a parte de cada pessoa.",
+  "cardEffect": "Fica paga pela {{broker}}: as outras contas não mudam e conta como despesa do mês. Gasta o dinheiro que estava à espera; só o que já contava como investido sai desse valor. Uma recorrente partilhada mantém a parte de cada pessoa.",
   "cardSaved": "Pagamento com cartão registado",
   "pickCategory": "Escolhe a categoria da despesa.",
   "undo": "Desfazer",
