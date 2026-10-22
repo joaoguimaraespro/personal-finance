@@ -10,7 +10,16 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HlmInputImports } from '@spartan-ng/helm/input';
-import { Subject, catchError, debounceTime, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
+import {
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  map,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { Api } from '../../core/api';
 import { InstrumentMatch, InstrumentSearchResult } from '../../core/models';
 
@@ -49,7 +58,9 @@ import { InstrumentMatch, InstrumentSearchResult } from '../../core/models';
           class="bg-popover text-popover-foreground absolute inset-x-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border p-1 shadow-md"
         >
           @if (loading()) {
-            <li class="text-muted-foreground px-3 py-2 text-sm">{{ 'asset.searching' | translate }}</li>
+            <li class="text-muted-foreground px-3 py-2 text-sm">
+              {{ 'asset.searching' | translate }}
+            </li>
           } @else {
             @for (m of items(); track m.provider + m.brokerSymbol; let i = $index) {
               <li
@@ -64,7 +75,8 @@ import { InstrumentMatch, InstrumentSearchResult } from '../../core/models';
                 <span class="min-w-0 flex-1">
                   <span class="block truncate font-medium">{{ m.symbol }}</span>
                   <span class="text-muted-foreground block truncate text-xs">
-                    {{ m.name }}@if (m.isin) {
+                    {{ m.name }}
+                    @if (m.isin) {
                       · {{ m.isin }}
                     }
                   </span>
@@ -119,7 +131,9 @@ export class InstrumentSearchComponent {
         switchMap((q) =>
           q.length === 0
             ? of(null)
-            : this.api.searchInstruments(q).pipe(catchError(() => of({ items: [], providers: [] }))),
+            : this.api
+                .searchInstruments(q)
+                .pipe(catchError(() => of({ items: [], providers: [] }))),
         ),
         takeUntilDestroyed(inject(DestroyRef)),
       )
