@@ -40,4 +40,29 @@ public sealed class BrokerTopUpTests
             [new YearMonth(2026, 10)] = 272.27m,
         });
     }
+
+    [Fact]
+    public void A_card_payment_spends_cash_waiting_and_is_not_taken_off_the_buy()
+    {
+        var broker = Guid.NewGuid();
+        var on = new DateOnly(2026, 10, 21);
+        // 500 transferred, 12.99 spent on the card, then a buy of what is left.
+        var allocation = LedgerAggregates.AllocateBrokerCash(
+            [(on, 500m)],
+            [(on, 12.99m)],
+            [new BrokerTradeDay(broker, on, 487.01m)]);
+
+        allocation.Invested.ShouldBe(new Dictionary<YearMonth, decimal> { [new YearMonth(2026, 10)] = 487.01m });
+        allocation.AgainstInvested.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_card_payment_with_nothing_waiting_comes_off_what_was_invested_once()
+    {
+        var on = new DateOnly(2026, 10, 21);
+        var allocation = LedgerAggregates.AllocateBrokerCash([], [(on, 12.99m)], []);
+
+        allocation.Invested.ShouldBeEmpty();
+        allocation.AgainstInvested.ShouldBe(new Dictionary<YearMonth, decimal> { [new YearMonth(2026, 10)] = 12.99m });
+    }
 }

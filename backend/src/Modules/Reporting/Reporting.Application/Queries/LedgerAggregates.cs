@@ -15,7 +15,7 @@ namespace Reporting.Application.Queries;
 /// <summary>
 /// Single grouped query over the ledger; every report is computed in memory from its result. Buckets also count the
 /// deposits broker syncs report into accounts linked to them (<see cref="BrokerTopUp"/>), and the synced buys that
-/// spend cash transferred there (<see cref="BrokerCashInvested"/>).
+/// spend cash transferred there (<see cref="AllocateBrokerCash"/>).
 /// </summary>
 public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDeposits = null)
 {
@@ -116,28 +116,29 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
             : [];
         var reviewed = everReviewed.Where(m => m.On >= start).ToList();
         // Money transferred to a broker waits there as cash: it counts as invested when the synced buys spend it.
+        // A card payment spends that waiting cash first. Only what was already counted as invested comes off the
+        // bucket, and only once. The expense itself is already the month's spending.
         var transfers = everReviewed.Where(m => m.RecordedAs == TransactionType.Transfer).ToList();
         var buys = transfers.Count > 0
             ? await brokerDeposits!.NetBuysAsync(transfers.Min(m => m.On), end, ct)
             : [];
-        var investedCash = linked.ToDictionary(a => a.Id, a => BrokerCashInvested(
+        var brokerIds = linked.Select(a => a.Id).ToList();
+        var cardSpend = brokerIds.Count == 0
+            ? []
+            : await db.Transactions.AsNoTracking()
+                .Where(t => t.OccurredOn <= end && t.Type == TransactionType.Expense && brokerIds.Contains(t.AccountId))
+                .Select(t => new { t.OccurredOn, t.AccountId, t.BaseAmount, t.IsRefund })
+                .ToListAsync(ct);
+        var allocated = linked.ToDictionary(a => a.Id, a => AllocateBrokerCash(
             transfers.Where(m => m.AccountId == a.Id).Select(m => (m.On, m.BaseAmount)),
+            cardSpend.Where(c => c.AccountId == a.Id)
+                .Select(c => (c.OccurredOn, Amount: c.IsRefund ? -c.BaseAmount : c.BaseAmount)),
             buys.Where(b => b.AccountId == a.Id)));
         var linkedIds = reviewed.Where(m => m.TransactionId is not null).Select(m => m.TransactionId!.Value).ToList();
         var linkedEntries = linkedIds.Count == 0
             ? []
             : await db.Transactions.AsNoTracking().Where(t => linkedIds.Contains(t.Id))
                 .Select(t => new { t.OccurredOn, t.Type, t.BucketId, t.CounterAccountId, t.BaseAmount })
-                .ToListAsync(ct);
-        // Card payments: expenses paid from a broker account are money taken out of what was invested there.
-        var brokerIds = linked.Select(a => a.Id).ToList();
-        var cardSpending = brokerIds.Count == 0
-            ? []
-            : await db.Transactions.AsNoTracking()
-                .Where(t => t.OccurredOn >= start && t.OccurredOn <= end && t.Type == TransactionType.Expense &&
-                            brokerIds.Contains(t.AccountId))
-                .GroupBy(t => new { t.OccurredOn.Year, t.OccurredOn.Month, t.AccountId, t.IsRefund })
-                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.AccountId, g.Key.IsRefund, Amount = g.Sum(t => t.BaseAmount) })
                 .ToListAsync(ct);
 
         var result = new List<MonthTotals>();
@@ -152,8 +153,9 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
             var spentFromBrokers = new Dictionary<Guid, decimal>();
             foreach (var account in linked)
             {
+                var cash = allocated[account.Id];
                 var deposited = deposits.Where(d => d.AccountId == account.Id && d.Period == p).Sum(d => d.NetDeposits) +
-                                investedCash[account.Id].GetValueOrDefault(p);
+                                cash.Invested.GetValueOrDefault(p);
                 var recorded = month.Where(r => r.BucketId == account.BucketId && r.CounterAccountId == account.Id)
                     .Sum(Signed) - linkedEntries
                     .Where(t => YearMonth.From(t.OccurredOn) == p && t.BucketId == account.BucketId &&
@@ -161,8 +163,7 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
                     .Sum(t => t.Type == TransactionType.InvestmentSale ? -t.BaseAmount : t.BaseAmount);
                 var pending = reviewed.Where(m => m.AccountId == account.Id && m.State == BrokerMovementState.Pending &&
                                                   YearMonth.From(m.On) == p).Sum(m => m.BaseAmount);
-                var spent = cardSpending.Where(c => c.AccountId == account.Id && c.Year == p.Year && c.Month == p.Month)
-                    .Sum(c => c.IsRefund ? -c.Amount : c.Amount);
+                var spent = cash.AgainstInvested.GetValueOrDefault(p);
                 if (spent != 0)
                 {
                     spentFromBrokers[account.BucketId] = spentFromBrokers.GetValueOrDefault(account.BucketId) + spent;
@@ -217,34 +218,74 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
     /// What a broker's synced buys invested, per month, out of the cash transferred to it: each transfer in adds to
     /// the cash waiting there and each transfer out takes from it; a day's buys (net of sells) count up to what is
     /// waiting. Money that was there before (already counted as its deposit) and sale proceeds bought again are not
-    /// counted twice.
+    /// counted twice. Card spending is not part of this; <see cref="AllocateBrokerCash"/> applies it.
     /// </summary>
     public static Dictionary<YearMonth, decimal> BrokerCashInvested(
-        IEnumerable<(DateOnly On, decimal Amount)> transfers, IEnumerable<BrokerTradeDay> buys)
+        IEnumerable<(DateOnly On, decimal Amount)> transfers, IEnumerable<BrokerTradeDay> buys) =>
+        AllocateBrokerCash(transfers, [], buys).Invested;
+
+    /// <summary>
+    /// How cash transferred to a broker is spent. Transfers change what is waiting. Card spending (positive leaves,
+    /// negative is a refund) takes from that waiting cash first; what waiting cash does not cover was already
+    /// counted as invested and is <see cref="BrokerCashAllocation.AgainstInvested"/> for the card's month. Buys
+    /// then count up to what is still waiting, in the month of the buy. A transfer on the same day is available
+    /// to the card and then to the buys.
+    /// </summary>
+    public static BrokerCashAllocation AllocateBrokerCash(
+        IEnumerable<(DateOnly On, decimal Amount)> transfers,
+        IEnumerable<(DateOnly On, decimal Amount)> cardSpend,
+        IEnumerable<BrokerTradeDay> buys)
     {
         var steps = transfers.Select(t => (t.On, Order: 0, t.Amount))
-            .Concat(buys.Select(b => (b.On, Order: 1, Amount: b.NetBought)))
+            .Concat(cardSpend.Select(c => (c.On, Order: 1, c.Amount)))
+            .Concat(buys.Select(b => (b.On, Order: 2, Amount: b.NetBought)))
             .OrderBy(x => x.On).ThenBy(x => x.Order);
         var waiting = 0m;
+        var charged = 0m;
         var invested = new Dictionary<YearMonth, decimal>();
+        var against = new Dictionary<YearMonth, decimal>();
         foreach (var (on, order, amount) in steps)
         {
+            var month = YearMonth.From(on);
             if (order == 0)
             {
                 waiting = Math.Max(waiting + amount, 0);
-                continue;
             }
-
-            var spent = Math.Min(Math.Max(amount, 0), waiting);
-            if (spent > 0)
+            else if (order == 1 && amount > 0)
             {
-                waiting -= spent;
-                var month = YearMonth.From(on);
-                invested[month] = invested.GetValueOrDefault(month) + spent;
+                var fromWaiting = Math.Min(amount, waiting);
+                waiting -= fromWaiting;
+                var unabsorbed = amount - fromWaiting;
+                if (unabsorbed > 0)
+                {
+                    charged += unabsorbed;
+                    against[month] = against.GetValueOrDefault(month) + unabsorbed;
+                }
+            }
+            else if (order == 1)
+            {
+                var refund = -amount;
+                var restore = Math.Min(refund, charged);
+                charged -= restore;
+                if (restore > 0)
+                {
+                    against[month] = against.GetValueOrDefault(month) - restore;
+                }
+
+                waiting += refund - restore;
+            }
+            else
+            {
+                var spent = Math.Min(Math.Max(amount, 0), waiting);
+                if (spent > 0)
+                {
+                    waiting -= spent;
+                    invested[month] = invested.GetValueOrDefault(month) + spent;
+                }
             }
         }
 
-        return invested;
+        return new BrokerCashAllocation(invested, against);
     }
 
     public async Task<IReadOnlyList<BucketInfo>> BucketsAsync(CancellationToken ct) =>
@@ -275,6 +316,17 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
     public Task<Budget?> EffectiveBudgetAsync(YearMonth period, CancellationToken ct) =>
         BudgetEndpoints.FindEffectiveAsync(db, period, ct);
 }
+
+/// <summary>
+/// Cash transferred to one broker: what its buys invested, and the card spending that waiting cash did not cover.
+/// </summary>
+/// <param name="Invested">Synced buys, capped at transferred cash not yet spent, by the month of the buy.</param>
+/// <param name="AgainstInvested">
+/// Card spending (net of refunds) that was already counted as invested. Waiting cash is not in here.
+/// </param>
+public sealed record BrokerCashAllocation(
+    Dictionary<YearMonth, decimal> Invested,
+    Dictionary<YearMonth, decimal> AgainstInvested);
 
 /// <summary>One grouped slice of the ledger: a group of whole transactions, of split lines, or only a count.</summary>
 internal sealed record LedgerRow(int Year, int Month, TransactionType Type, ExpenseNature? Nature, Guid? CategoryId,

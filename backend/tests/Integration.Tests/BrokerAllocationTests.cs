@@ -459,6 +459,149 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task A_card_payment_spends_transferred_cash_and_the_buy_counts_in_full()
+    {
+        var api = await factory.OwnerAsync();
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var bucket = await api.CreateAsync("/api/buckets", new { name = $"Card cash ETFs {tag}", group = "Investment" });
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = $"Card cash bank {tag}", kind = "Bank", currency = "EUR", openingBalance = 1000m });
+        var broker = await SeedBrokerAsync(api, bucket, (500m, $"DEPOSIT-{tag}"), (-12.99m, $"WITHDRAW-{tag}"));
+        async Task<JsonElement> Movement(string kind) => (await api.GetAsync<JsonElement[]>("/api/broker-movements"))
+            .Single(m => m.GetProperty("kind").GetString() == kind);
+        async Task<decimal> BankBalance() => (await api.GetAsync<JsonElement[]>("/api/accounts"))
+            .Single(a => a.GetProperty("id").GetGuid() == bank).GetProperty("balance").GetDecimal();
+        async Task<JsonElement> Report() => await api.GetJsonAsync($"/api/reports/monthly/{today:yyyy-MM}");
+        async Task<(decimal Actual, decimal Spent)> Line()
+        {
+            var line = (await Report()).GetProperty("current").GetProperty("buckets").EnumerateArray()
+                .Single(b => b.GetProperty("bucketId").GetGuid() == bucket);
+            return (line.GetProperty("actual").GetDecimal(), line.GetProperty("spent").GetDecimal());
+        }
+        async Task BuyAsync(decimal amount)
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<IInvestmentsDb>();
+            var security = Security.Create(null, $"T{Guid.NewGuid():N}"[..10], null, "Test ETF", "EUR", AssetClass.Etf);
+            db.Securities.Add(security);
+            db.Trades.Add(Trade.Record(broker, security.Id, TradeSide.Buy, 1m, amount, "EUR", 0m, 0m, 0m, -amount,
+                null, now, DataSource.Demo, $"test:{tag}:{Guid.NewGuid():N}"));
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+
+        try
+        {
+            var deposit = (await Movement($"DEPOSIT-{tag}")).GetProperty("id").GetGuid();
+            await ApiClient.EnsureAsync(await api.PostAsync($"/api/broker-movements/{deposit}/record", new
+            {
+                type = "Transfer", occurredOn = $"{today:yyyy-MM-dd}", amount = 500m, accountId = bank,
+                counterAccountId = broker,
+            }));
+            (await BankBalance()).ShouldBe(500m);
+            (await Line()).ShouldBe((0m, 0m));
+
+            // The card charge is spending. It uses cash waiting at the broker, so invested stays 0 — not −12.99.
+            var before = (await Report()).GetProperty("current").GetProperty("totalExpenses").GetDecimal();
+            var cardId = (await Movement($"WITHDRAW-{tag}")).GetProperty("id").GetGuid();
+            var response = await api.PostAsync($"/api/broker-movements/{cardId}/card-payment", new
+            {
+                categoryId = Finance.Domain.SystemCatalog.CategoryId("subscriptions"),
+                description = $"Netflix {tag}",
+            });
+            await ApiClient.EnsureAsync(response);
+            var expenseId = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+            var expense = await api.GetJsonAsync($"/api/transactions/{expenseId}");
+            expense.GetProperty("accountId").GetGuid().ShouldBe(broker);
+            expense.GetProperty("amount").GetDecimal().ShouldBe(12.99m);
+            (await BankBalance()).ShouldBe(500m);
+            (await Line()).ShouldBe((0m, 0m));
+            ((await Report()).GetProperty("current").GetProperty("totalExpenses").GetDecimal()).ShouldBe(before + 12.99m);
+
+            // The buy of what is left counts in full. The card is not taken off that figure a second time.
+            await BuyAsync(487.01m);
+            (await Line()).ShouldBe((487.01m, 0m));
+            ((await Report()).GetProperty("current").GetProperty("totalExpenses").GetDecimal()).ShouldBe(before + 12.99m);
+        }
+        finally
+        {
+            await RemoveBrokerAsync(broker);
+        }
+    }
+
+    [Fact]
+    public async Task A_recurring_bill_far_from_the_card_charge_is_not_that_payment()
+    {
+        var api = await factory.OwnerAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var bucket = await api.CreateAsync("/api/buckets", new { name = $"Card match ETFs {tag}", group = "Investment" });
+        var bank = await api.CreateAsync("/api/accounts",
+            new { name = $"Card match bank {tag}", kind = "Bank", currency = "EUR", openingBalance = 1000m });
+        var broker = await SeedBrokerAsync(api, bucket, (-12.99m, $"WITHDRAW-{tag}"));
+        var rent = await api.CreateAsync("/api/recurring", new
+        {
+            name = $"Rent {tag}", type = "Expense", amount = 900m, accountId = bank, frequency = "Monthly",
+            startOn = $"{today:yyyy-MM-dd}", dayOfMonth = today.Day,
+            categoryId = Finance.Domain.SystemCatalog.CategoryId("housing"),
+        });
+        var near = await api.CreateAsync("/api/recurring", new
+        {
+            name = $"Near bill {tag}", type = "Expense", amount = 12m, accountId = bank, frequency = "Monthly",
+            startOn = $"{today:yyyy-MM-dd}", dayOfMonth = today.Day,
+            categoryId = Finance.Domain.SystemCatalog.CategoryId("subscriptions"),
+        });
+        async Task<(Guid Id, decimal Amount, string Status)> Occurrence(Guid recurringId)
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<Finance.Application.Abstractions.IFinanceDb>();
+            var row = await db.ExpectedTransactions.AsNoTracking()
+                .Where(e => e.RecurringTransactionId == recurringId)
+                .Select(e => new { e.Id, e.Amount, e.Status })
+                .SingleAsync();
+            return (row.Id, row.Amount, row.Status.ToString());
+        }
+
+        try
+        {
+            var cardId = (await api.GetAsync<JsonElement[]>("/api/broker-movements"))
+                .Single(m => m.GetProperty("kind").GetString() == $"WITHDRAW-{tag}").GetProperty("id").GetGuid();
+            var candidates = await api.GetJsonAsync($"/api/broker-movements/{cardId}/card-payment");
+            var recurring = candidates.GetProperty("recurring").EnumerateArray().ToList();
+            recurring.ShouldNotContain(r => r.GetProperty("name").GetString() == $"Rent {tag}");
+            var offered = recurring.Single(r => r.GetProperty("name").GetString() == $"Near bill {tag}");
+            offered.GetProperty("amount").GetDecimal().ShouldBe(12m);
+
+            var rentDue = await Occurrence(rent);
+            rentDue.Amount.ShouldBe(900m);
+            rentDue.Status.ShouldBe("Pending");
+            var refused = await api.PostAsync($"/api/broker-movements/{cardId}/card-payment",
+                new { expectedId = rentDue.Id });
+            refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+            (await Occurrence(rent)).Status.ShouldBe("Pending");
+            (await Occurrence(rent)).Amount.ShouldBe(900m);
+
+            // Close enough: confirmed at the bill's 12.00, not rewritten to the card's 12.99.
+            var response = await api.PostAsync($"/api/broker-movements/{cardId}/card-payment",
+                new { expectedId = offered.GetProperty("expectedId").GetGuid() });
+            await ApiClient.EnsureAsync(response);
+            var expenseId = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+            (await api.GetJsonAsync($"/api/transactions/{expenseId}")).GetProperty("amount").GetDecimal().ShouldBe(12m);
+            (await Occurrence(near)).Status.ShouldBe("Confirmed");
+            (await Occurrence(near)).Amount.ShouldBe(12m);
+            (await Occurrence(rent)).Status.ShouldBe("Pending");
+            (await Occurrence(rent)).Amount.ShouldBe(900m);
+        }
+        finally
+        {
+            await api.Http.DeleteAsync($"/api/recurring/{rent}");
+            await api.Http.DeleteAsync($"/api/recurring/{near}");
+            await RemoveBrokerAsync(broker);
+        }
+    }
+
+    [Fact]
     public async Task Only_broker_accounts_can_be_linked()
     {
         var api = await factory.OwnerAsync();

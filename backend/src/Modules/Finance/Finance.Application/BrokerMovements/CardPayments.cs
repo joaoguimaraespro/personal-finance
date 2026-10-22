@@ -41,12 +41,16 @@ public static class CardPaymentErrors
 
     public static readonly Error NotAnExpense = Error.Validation("CardPayment.Transaction",
         "Only an expense can be a card payment.");
+
+    public static readonly Error AmountMismatch = Error.Validation("CardPayment.Amount",
+        "That bill is too far from what the card paid.");
 }
 
 /// <summary>
 /// A withdrawal a broker sync reported can be money spent with the broker's card. The expense is then paid from the
 /// broker account (the other accounts keep their balance) and linked to the withdrawal; the month counts it as an
-/// expense and, being money that left the broker, as that much less invested. A recurring item keeps its shares.
+/// expense. It spends cash waiting at the broker, and only the part already counted as invested comes off that
+/// figure. A recurring bill keeps its own amount and its shares.
 /// </summary>
 public static class CardPayments
 {
@@ -67,11 +71,15 @@ public static class CardPayments
             .ToHttp(t => Results.Ok(new { t.Id })));
     }
 
-    /// <summary>The closest in amount first, then in date.</summary>
+    /// <summary>
+    /// The closest in amount first, then in date. A recurring bill is offered only in euros and within 20% of what
+    /// the card paid, the same band as an expense already recorded.
+    /// </summary>
     public static async Task<CardPaymentCandidatesDto> CandidatesAsync(IFinanceDb db, BrokerMovement m,
         CancellationToken ct)
     {
         var amount = Math.Abs(m.BaseAmount);
+        var (low, high) = (amount * 0.8m, amount * 1.2m);
         var (first, last) = (m.OccurredOn.AddDays(-WindowDays), m.OccurredOn.AddDays(WindowDays));
         double Distance(decimal a, DateOnly on) =>
             (double)Math.Abs(a - amount) * 100 + Math.Abs(on.DayNumber - m.OccurredOn.DayNumber);
@@ -80,7 +88,8 @@ public static class CardPayments
                 from e in db.ExpectedTransactions.AsNoTracking()
                 join r in db.RecurringTransactions.AsNoTracking() on e.RecurringTransactionId equals r.Id
                 where e.Status == ExpectedStatus.Pending && r.Type == TransactionType.Expense &&
-                      e.DueOn >= first && e.DueOn <= last
+                      e.DueOn >= first && e.DueOn <= last && e.Currency == Currency.Base &&
+                      e.Amount >= low && e.Amount <= high
                 select new { e.Id, r.Name, e.DueOn, e.Amount, e.Currency, Shared = r.Shares.Any() })
             .ToListAsync(ct);
 
@@ -90,7 +99,7 @@ public static class CardPayments
                 join a in db.Accounts.AsNoTracking() on t.AccountId equals a.Id
                 where t.Type == TransactionType.Expense && t.SharedFromId == null && !t.IsRefund &&
                       !brokers.Contains(t.AccountId) && t.OccurredOn >= first && t.OccurredOn <= last &&
-                      t.BaseAmount >= amount * 0.8m && t.BaseAmount <= amount * 1.2m
+                      t.BaseAmount >= low && t.BaseAmount <= high
                 select new
                 {
                     t.Id, t.OccurredOn, t.Description, t.CategoryId, t.BaseAmount, Account = a.Name,
@@ -142,9 +151,21 @@ public static class CardPayments
         Result<Transaction> result;
         if (req.ExpectedId is { } expected)
         {
-            // What the card actually paid, on its day, from the broker; the people sharing it owe their part of that.
+            var bill = await db.ExpectedTransactions.AsNoTracking().Where(e => e.Id == expected)
+                .Select(e => new { e.Amount, e.Currency }).FirstOrDefaultAsync(ct);
+            if (bill is null)
+            {
+                return RecurringEndpoints.ExpectedNotFound;
+            }
+
+            // Same band as the candidates. The bill keeps its amount; the card only places the payment.
+            if (bill.Currency != Currency.Base || bill.Amount < amount * 0.8m || bill.Amount > amount * 1.2m)
+            {
+                return CardPaymentErrors.AmountMismatch;
+            }
+
             result = await RecurringCommands.ConfirmAsync(db, expected,
-                new ConfirmExpectedRequest(amount, movement.OccurredOn, movement.AccountId, null, null), now, ct,
+                new ConfirmExpectedRequest(null, movement.OccurredOn, movement.AccountId, null, null), now, ct,
                 cardPayment: true);
         }
         else if (req.TransactionId is { } existing)
