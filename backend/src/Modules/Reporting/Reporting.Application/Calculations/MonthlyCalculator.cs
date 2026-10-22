@@ -13,7 +13,10 @@ public enum BalanceStatus
 /// <param name="Pending">
 /// Deposits (net of withdrawals) synced at linked brokers that wait to be recorded: not part of <paramref name="Actual"/>.
 /// </param>
-/// <param name="Spent">Paid with linked brokers' cards: already taken off <paramref name="Actual"/>.</param>
+/// <param name="Spent">
+/// Card spending already counted as invested, so already taken off <paramref name="Actual"/>. Cash that was still
+/// waiting at the broker is not included: it was never part of <paramref name="Actual"/>.
+/// </param>
 public sealed record BucketLine(Guid BucketId, string Name, bool IsInvestment, decimal? Target, decimal Actual,
     decimal? Difference, decimal FromBrokers = 0, decimal Pending = 0, decimal Spent = 0);
 
