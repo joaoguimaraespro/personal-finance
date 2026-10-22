@@ -1,4 +1,11 @@
-import { HttpErrorResponse, HttpInterceptorFn, provideHttpClient, withFetch, withInterceptors, withXsrfConfiguration } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  HttpInterceptorFn,
+  provideHttpClient,
+  withFetch,
+  withInterceptors,
+  withXsrfConfiguration,
+} from '@angular/common/http';
 import { OVERLAY_DEFAULT_CONFIG } from '@angular/cdk/overlay';
 import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
@@ -15,7 +22,11 @@ const sessionExpired: HttpInterceptorFn = (req, next) => {
   const session = inject(SessionMonitor);
   return next(req).pipe(
     catchError((err: unknown) => {
-      if (err instanceof HttpErrorResponse && err.status === 401 && !req.url.startsWith('/api/auth/')) {
+      if (
+        err instanceof HttpErrorResponse &&
+        err.status === 401 &&
+        !req.url.startsWith('/api/auth/')
+      ) {
         session.expired();
       }
       return throwError(() => err);
@@ -36,7 +47,8 @@ const requestTimeout: HttpInterceptorFn = (req, next) => {
     timeout({ first: ms }),
     catchError((err: unknown) => {
       if (!(err instanceof TimeoutError)) return throwError(() => err);
-      if (!req.context.get(BACKGROUND)) toasts.show(i18n.instant('session.timeout'), 'error', undefined, 8000);
+      if (!req.context.get(BACKGROUND))
+        toasts.show(i18n.instant('session.timeout'), 'error', undefined, 8000);
       return throwError(
         () => new HttpErrorResponse({ status: 0, statusText: 'Timeout', url: req.url, error: err }),
       );
@@ -59,7 +71,11 @@ export const appConfig: ApplicationConfig = {
     ),
     provideTranslateService({
       // Translation files keep a stable name: fetched fresh on every load, so a release never shows stale labels.
-      loader: provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json', enforceLoading: true }),
+      loader: provideTranslateHttpLoader({
+        prefix: '/i18n/',
+        suffix: '.json',
+        enforceLoading: true,
+      }),
       fallbackLang: 'en',
     }),
   ],
