@@ -474,11 +474,14 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
         async Task<decimal> BankBalance() => (await api.GetAsync<JsonElement[]>("/api/accounts"))
             .Single(a => a.GetProperty("id").GetGuid() == bank).GetProperty("balance").GetDecimal();
         async Task<JsonElement> Report() => await api.GetJsonAsync($"/api/reports/monthly/{today:yyyy-MM}");
+        // A bucket with nothing invested, nothing taken off that, and nothing left to record is left out of the month.
         async Task<(decimal Actual, decimal Spent)> Line()
         {
             var line = (await Report()).GetProperty("current").GetProperty("buckets").EnumerateArray()
-                .Single(b => b.GetProperty("bucketId").GetGuid() == bucket);
-            return (line.GetProperty("actual").GetDecimal(), line.GetProperty("spent").GetDecimal());
+                .Cast<JsonElement?>().SingleOrDefault(b => b!.Value.GetProperty("bucketId").GetGuid() == bucket);
+            return line is { } l
+                ? (l.GetProperty("actual").GetDecimal(), l.GetProperty("spent").GetDecimal())
+                : (0m, 0m);
         }
         async Task BuyAsync(decimal amount)
         {
@@ -502,7 +505,7 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
             (await BankBalance()).ShouldBe(500m);
             (await Line()).ShouldBe((0m, 0m));
 
-            // The card charge is spending. It uses cash waiting at the broker, so invested stays 0 — not −12.99.
+            // The card charge is an expense. With nothing invested yet, it only reduces cash still waiting.
             var before = (await Report()).GetProperty("current").GetProperty("totalExpenses").GetDecimal();
             var cardId = (await Movement($"WITHDRAW-{tag}")).GetProperty("id").GetGuid();
             var response = await api.PostAsync($"/api/broker-movements/{cardId}/card-payment", new
@@ -513,9 +516,12 @@ public sealed class BrokerAllocationTests(ApiFactory factory)
             await ApiClient.EnsureAsync(response);
             var expenseId = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
             var expense = await api.GetJsonAsync($"/api/transactions/{expenseId}");
+            expense.GetProperty("type").GetString().ShouldBe("Expense");
             expense.GetProperty("accountId").GetGuid().ShouldBe(broker);
             expense.GetProperty("amount").GetDecimal().ShouldBe(12.99m);
             (await BankBalance()).ShouldBe(500m);
+            // Nothing is invested yet. The charge is the expense above; it only reduces cash still waiting,
+            // so the allocation does not show it as spent.
             (await Line()).ShouldBe((0m, 0m));
             ((await Report()).GetProperty("current").GetProperty("totalExpenses").GetDecimal()).ShouldBe(before + 12.99m);
 

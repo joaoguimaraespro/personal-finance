@@ -3,24 +3,23 @@
 Notable changes for people who install the app. Every release, with its installers, is on the
 [releases page](https://github.com/joaoguimaraespro/personal-finance/releases); the full history is in the [commits](https://github.com/joaoguimaraespro/personal-finance/commits/main).
 
-## [Unreleased]
+## [1.4.0] - 2026-10-22
 
 ### Changed
 
-- **Broker deposits as cash:** a broker deposit is now recorded as a transfer by default: the money leaves your
-  account and waits at the broker, counting as invested when the synced buys spend it. A withdrawal to the bank or the
-  card's account is a transfer the other way. *Undo* puts a recorded or ignored movement back to be recorded.
-
-- **Card payments:** a withdrawal at a broker can be marked as a payment with its card, linked to a recurring item
-  still to confirm (a shared one keeps each person's part), to an expense already recorded, or as a new expense. It
-  is paid from the broker, counts as the month's expense and comes off what is invested.
-- **Portfolio:** the dividends (and rewards) by month chart follows the period chosen at the top and shows every
-  month, the ones that paid nothing too; the dividend calendar lists the positions that pay by default.
-
-- **Broker deposits:** a new deposit or withdrawal at a broker asks which of your accounts the money came from (or
-  went to). Recording it from the notification, or from the new *Deposits and withdrawals* list in Portfolio, takes
-  the money out of that account and counts it in the month's allocation; until then the month shows it apart, as
-  *to record*. Before, it counted on its own, so the account it came from still showed the money.
+- **Broker deposits as cash:** a deposit at a broker is recorded as a transfer. The money leaves your account and
+  waits at the broker. It counts as invested in the month a synced buy spends it, and only up to the cash still
+  waiting. A withdrawal to the bank or the card's account is a transfer the other way, and it is not invested.
+  *Undo* puts a recorded or ignored movement back to be recorded; the transaction stays in the list.
+- **Card payments:** a withdrawal can be a payment with the broker's card, linked to a recurring bill still to
+  confirm (a shared one keeps each person's part), to an expense already recorded, or as a new expense. It is paid
+  from the broker and counts as the month's expense. It spends cash waiting at the broker. Only money already
+  counted as invested comes off that figure. A recurring bill is offered only when its amount is close to the card,
+  and confirming it keeps the bill's amount.
+- **Portfolio:** the cash sitting at each broker has its own card. Dividends (and rewards) by month follow the
+  period chosen at the top and show every month, including the ones that paid nothing. The dividend calendar lists
+  the positions that pay by default.
+- Tables on a phone fit the screen without scrolling sideways.
 
 ## [1.3.0] - 2026-10-20
 
@@ -83,6 +82,7 @@ First public release.
 - Optional AI access over MCP and an in-app assistant behind a policy gateway, with opt-in write tools.
 - English and Portuguese (Portugal), light and dark themes, phone layout.
 
+[1.4.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.4.0
 [1.3.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.3.0
 [1.2.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.2.0
 [1.1.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.1.0
