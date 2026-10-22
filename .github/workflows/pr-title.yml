@@ -1,0 +1,26 @@
+name: PR title
+
+# Pull requests are squash-merged, so the title becomes the commit on main: it must follow Conventional Commits
+# (CONTRIBUTING.md). Dependabot titles get the same shape through `commit-message` in dependabot.yml.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  conventional-title:
+    name: Conventional Commits title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|refactor|perf|test|docs|style|chore|ci|build|revert)(\([a-z0-9./-]+\))?!?: [^ ].*'
+          if [[ "$TITLE" =~ $pattern ]]; then
+            echo "OK: $TITLE"
+          else
+            echo "::error::PR title must follow Conventional Commits, e.g. 'feat(web): add income chart' — got: $TITLE"
+            exit 1
+          fi
