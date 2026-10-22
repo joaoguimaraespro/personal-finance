@@ -256,4 +256,11 @@ public sealed class CashMovement : Entity
         Review = CashMovementReview.Ignored;
         RecordedTransactionId = null;
     }
+
+    /// <summary>Asks again: whatever recorded it stays in the ledger, it is just no longer linked.</summary>
+    public void Reopen()
+    {
+        Review = CashMovementReview.Pending;
+        RecordedTransactionId = null;
+    }
 }

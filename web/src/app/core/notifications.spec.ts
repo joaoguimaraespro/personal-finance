@@ -80,26 +80,34 @@ describe('allocation prefill', () => {
 });
 
 describe('brokerMovementPrefill', () => {
-  const movement = { id: 'm1', accountId: 't212', bucketId: 'b1', on: '2026-10-14' };
+  const movement = {
+    id: 'm1',
+    accountId: 't212',
+    broker: 'Trading 212',
+    bucketId: 'b1',
+    on: '2026-10-14',
+  };
 
-  it('records a deposit as a purchase from an account, the broker on the other side', () => {
+  it('records a deposit as a transfer from an account, the broker on the other side', () => {
     expect(
       brokerMovementPrefill({ ...movement, amount: 500, baseAmount: 500 }, 'Deposit to T212'),
     ).toEqual({
-      type: 'InvestmentContribution',
+      type: 'Transfer',
       amount: 500,
       bucketId: 'b1',
       counterAccountId: 't212',
       occurredOn: '2026-10-14',
       description: 'Deposit to T212',
       brokerMovementId: 'm1',
+      broker: { accountId: 't212', name: 'Trading 212', withdrawal: false },
     });
   });
 
-  it('records a withdrawal as a sale, in EUR', () => {
+  it('records a withdrawal as money moved out of the broker, in EUR', () => {
     const p = brokerMovementPrefill({ ...movement, amount: -50, baseAmount: -46.2 }, 'x');
-    expect(p.type).toBe('InvestmentSale');
+    expect(p.type).toBe('Transfer');
     expect(p.amount).toBe(46.2);
+    expect(p.broker?.withdrawal).toBe(true);
   });
 });
 

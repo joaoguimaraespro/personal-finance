@@ -16,9 +16,10 @@ namespace Finance.Application.BrokerMovements;
 /// Pending also when it was recorded but that transaction has since been deleted: the question comes back.
 /// </param>
 /// <param name="CardPayment">Recorded as an expense paid with the broker's card, not money moved to an account.</param>
+/// <param name="RecordedAs">The type of the transaction that records it, while it does.</param>
 public sealed record BrokerMovementDto(Guid Id, Guid AccountId, string Broker, Guid? BucketId, DateOnly On,
     decimal Amount, string Currency, decimal BaseAmount, string? Kind, BrokerMovementState State,
-    Guid? TransactionId, bool CardPayment = false);
+    Guid? TransactionId, bool CardPayment = false, TransactionType? RecordedAs = null);
 
 public static class BrokerMovementErrors
 {
@@ -28,13 +29,17 @@ public static class BrokerMovementErrors
         "This deposit or withdrawal is already recorded.");
 
     public static readonly Error InvestmentOnly = Error.Validation("BrokerMovement.Type",
-        "A broker deposit is recorded as an investment (a purchase), a withdrawal as a sale.");
+        "A broker deposit or withdrawal is recorded as a transfer, a purchase or a sale.");
+
+    public static readonly Error OwnAccount = Error.Validation("BrokerMovement.Account",
+        "Choose the account the money came from (or went to).");
 }
 
 /// <summary>
 /// Synced broker deposits and withdrawals wait for the owner to say which of their accounts the money came from (or
-/// went to): recording one creates that investment entry, with the broker as its counter account, so the source
-/// account's balance and the month's allocation both reflect it. Until then the month shows it as pending.
+/// went to). Recording one as a transfer moves the money between that account and the broker: cash waiting there,
+/// counted as invested when the broker's synced buys spend it. Recording it as a purchase (or sale) counts it as
+/// invested at once. Either way the source account's balance reflects it; until then the month shows it as pending.
 /// </summary>
 public static class BrokerMovementEndpoints
 {
@@ -61,6 +66,12 @@ public static class BrokerMovementEndpoints
 
         group.MapPost("/{id:guid}/ignore", async (Guid id, IBrokerDeposits deposits, CancellationToken ct) =>
             await deposits.ResolveAsync(id, null, ct)
+                ? Results.NoContent()
+                : ResultHttp.Problem(BrokerMovementErrors.NotFound));
+
+        // Undo: the question comes back. A transaction it was recorded as stays (delete it from the list if wrong).
+        group.MapPost("/{id:guid}/reopen", async (Guid id, IBrokerDeposits deposits, CancellationToken ct) =>
+            await deposits.ReopenAsync(id, ct)
                 ? Results.NoContent()
                 : ResultHttp.Problem(BrokerMovementErrors.NotFound));
     }
@@ -91,10 +102,10 @@ public static class BrokerMovementEndpoints
             var state = m.State == BrokerMovementState.Recorded && !existing.ContainsKey(m.RecordedTransactionId!.Value)
                 ? BrokerMovementState.Pending
                 : m.State;
-            var recorded = state == BrokerMovementState.Recorded;
+            TransactionType? type = state == BrokerMovementState.Recorded ? existing[m.RecordedTransactionId!.Value] : null;
             return new BrokerMovementDto(m.Id, m.AccountId, account.Name, account.AllocationBucketId, m.OccurredOn,
-                m.Amount, m.Currency, m.BaseAmount, m.Kind, state, recorded ? m.RecordedTransactionId : null,
-                recorded && existing[m.RecordedTransactionId!.Value] == TransactionType.Expense);
+                m.Amount, m.Currency, m.BaseAmount, m.Kind, state, type is null ? null : m.RecordedTransactionId,
+                type == TransactionType.Expense, type);
         }).ToList();
     }
 
@@ -113,15 +124,35 @@ public static class BrokerMovementEndpoints
             return BrokerMovementErrors.AlreadyRecorded;
         }
 
-        if (!TransactionTypes.IsInvestment(req.Type))
+        var isTransfer = req.Type == TransactionType.Transfer;
+        if (!isTransfer && !TransactionTypes.IsInvestment(req.Type))
         {
             return BrokerMovementErrors.InvestmentOnly;
         }
 
-        // The broker is always the other side; the bucket defaults to the one the broker counts towards.
-        var bucket = req.BucketId ?? await db.Accounts.AsNoTracking().Where(a => a.Id == movement.AccountId)
-            .Select(a => a.AllocationBucketId).FirstOrDefaultAsync(ct);
-        var draft = req.ToDraft() with { CounterAccountId = movement.AccountId, BucketId = bucket };
+        // The owner's side is whichever account they picked that is not the broker: the form may show it either way.
+        var own = req.AccountId != movement.AccountId ? req.AccountId : req.CounterAccountId;
+        if (own is not { } ownId || ownId == Guid.Empty || ownId == movement.AccountId)
+        {
+            return BrokerMovementErrors.OwnAccount;
+        }
+
+        var draft = req.ToDraft();
+        if (isTransfer)
+        {
+            // Money moved between the owner's account and the broker, in the direction the broker reported.
+            draft = movement.Amount > 0
+                ? draft with { AccountId = ownId, CounterAccountId = movement.AccountId, BucketId = null }
+                : draft with { AccountId = movement.AccountId, CounterAccountId = ownId, BucketId = null };
+        }
+        else
+        {
+            // The broker is always the other side; the bucket defaults to the one the broker counts towards.
+            var bucket = req.BucketId ?? await db.Accounts.AsNoTracking().Where(a => a.Id == movement.AccountId)
+                .Select(a => a.AllocationBucketId).FirstOrDefaultAsync(ct);
+            draft = draft with { AccountId = ownId, CounterAccountId = movement.AccountId, BucketId = bucket };
+        }
+
         var created = await TransactionCommands.CreateAsync(db, interest, draft, DataSource.Manual, ct);
         if (created.IsSuccess)
         {

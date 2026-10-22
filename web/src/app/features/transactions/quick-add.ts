@@ -127,6 +127,20 @@ const BUCKET_FOR_KIND: Record<InvestmentAssetKind, string> = {
           </div>
         </div>
 
+        @if (broker(); as b) {
+          <!-- Recording a broker's deposit or withdrawal: what each type means for what counts as invested. -->
+          <p class="text-muted-foreground text-xs" data-testid="broker-movement-hint">
+            {{
+              (type() !== 'Transfer'
+                ? 'brokerMovements.investHint'
+                : b.withdrawal
+                  ? 'brokerMovements.transferOutHint'
+                  : 'brokerMovements.transferInHint'
+              ) | translate: { broker: b.name }
+            }}
+          </p>
+        }
+
         @if (isInvestment()) {
           <section class="space-y-3 rounded-xl border border-dashed p-3">
             <div>
@@ -850,6 +864,11 @@ export class QuickAddComponent {
           if (p.occurredOn) this.date.set(p.occurredOn);
           this.description.set(p.description ?? '');
           this.amountTouched.set(!!p.amount);
+          const b = p.broker;
+          if (b)
+            untracked(() =>
+              this.placeBroker(this.accountId() === b.accountId ? null : this.accountId()),
+            );
         }
       }
       setTimeout(() => this.amountInput()?.nativeElement.focus(), 50);
@@ -880,6 +899,7 @@ export class QuickAddComponent {
   }
 
   protected setType(t: TransactionType) {
+    const own = this.ownSide();
     const wasInvestment = this.isInvestment();
     this.type.set(t);
     this.categoryId.set(null);
@@ -892,6 +912,33 @@ export class QuickAddComponent {
       this.resetAsset();
     }
     if (this.isInvestment()) this.defaultBucket();
+    this.placeBroker(own);
+  }
+
+  /** Recording a synced broker deposit or withdrawal: the broker stays on its side whatever the type. */
+  protected readonly broker = computed(() =>
+    this.quick.editing() ? null : (this.quick.prefill()?.broker ?? null),
+  );
+
+  /** The owner's side of that movement, wherever the form shows it. */
+  private ownSide() {
+    const b = this.broker();
+    if (!b) return null;
+    return this.accountId() === b.accountId ? this.counterAccountId() : this.accountId();
+  }
+
+  /** A withdrawal moved out starts at the broker; anything else goes from the owner's account to it. */
+  private placeBroker(own: string | null) {
+    const b = this.broker();
+    if (!b) return;
+    if (this.type() === 'Transfer' && b.withdrawal) {
+      this.accountId.set(b.accountId);
+      this.counterAccountId.set(own);
+    } else {
+      // Empty: the usual default account fills it.
+      this.accountId.set(own);
+      this.counterAccountId.set(b.accountId);
+    }
   }
 
   protected setAssetKind(kind: InvestmentAssetKind) {

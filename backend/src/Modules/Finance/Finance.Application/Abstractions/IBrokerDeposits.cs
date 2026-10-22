@@ -25,6 +25,9 @@ public enum BrokerMovementState
 public sealed record BrokerMovement(Guid Id, Guid AccountId, decimal Amount, string Currency, decimal BaseAmount,
     DateOnly OccurredOn, string? Kind, BrokerMovementState State, Guid? RecordedTransactionId);
 
+/// <summary>What one broker account's synced trades took out of its cash on one day, in EUR: buys net of sells.</summary>
+public sealed record BrokerTradeDay(Guid AccountId, DateOnly On, decimal NetBought);
+
 /// <summary>
 /// Deposits and withdrawals that broker syncs recorded (Trading 212, IBKR, Binance). Defined here so the ledger can
 /// count them towards the monthly allocation and ask where recent ones came from; implemented by the investments
@@ -41,4 +44,10 @@ public interface IBrokerDeposits
 
     /// <summary>Links the movement to the transaction that records it, or marks it as needing none (null).</summary>
     Task<bool> ResolveAsync(Guid id, Guid? transactionId, CancellationToken ct);
+
+    /// <summary>Puts a recorded or ignored movement back to pending (its transaction, if any, stays).</summary>
+    Task<bool> ReopenAsync(Guid id, CancellationToken ct);
+
+    /// <summary>Synced buys net of sells per broker account and day, between the two days.</summary>
+    Task<IReadOnlyList<BrokerTradeDay>> NetBuysAsync(DateOnly from, DateOnly to, CancellationToken ct);
 }

@@ -172,6 +172,8 @@ export class Api {
     this.http.post<{ id: string }>(`/api/broker-movements/${id}/card-payment`, body);
   ignoreBrokerMovement = (id: string) =>
     this.http.post<void>(`/api/broker-movements/${id}/ignore`, {});
+  reopenBrokerMovement = (id: string) =>
+    this.http.post<void>(`/api/broker-movements/${id}/reopen`, {});
   restoreTransaction = (id: string) => this.http.post<void>(`/api/transactions/${id}/restore`, {});
   transactionHistory = (id: string) =>
     this.http.get<AuditEntry[]>(`/api/transactions/${id}/history`);

@@ -14,7 +14,8 @@ namespace Reporting.Application.Queries;
 
 /// <summary>
 /// Single grouped query over the ledger; every report is computed in memory from its result. Buckets also count the
-/// deposits broker syncs report into accounts linked to them (<see cref="BrokerTopUp"/>).
+/// deposits broker syncs report into accounts linked to them (<see cref="BrokerTopUp"/>), and the synced buys that
+/// spend cash transferred there (<see cref="BrokerCashInvested"/>).
 /// </summary>
 public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDeposits = null)
 {
@@ -110,9 +111,18 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
             : [];
         // Deposits and withdrawals the owner reviews: pending ones are shown apart, recorded ones are already in the
         // ledger as their transaction (which must not shrink the synced deposits still counted as they are).
-        var reviewed = linked.Count > 0 && brokerDeposits is not null
-            ? await BrokerMovementEndpoints.ListAsync(db, brokerDeposits, start, end, ct)
+        var everReviewed = linked.Count > 0 && brokerDeposits is not null
+            ? await BrokerMovementEndpoints.ListAsync(db, brokerDeposits, DateOnly.MinValue, end, ct)
             : [];
+        var reviewed = everReviewed.Where(m => m.On >= start).ToList();
+        // Money transferred to a broker waits there as cash: it counts as invested when the synced buys spend it.
+        var transfers = everReviewed.Where(m => m.RecordedAs == TransactionType.Transfer).ToList();
+        var buys = transfers.Count > 0
+            ? await brokerDeposits!.NetBuysAsync(transfers.Min(m => m.On), end, ct)
+            : [];
+        var investedCash = linked.ToDictionary(a => a.Id, a => BrokerCashInvested(
+            transfers.Where(m => m.AccountId == a.Id).Select(m => (m.On, m.BaseAmount)),
+            buys.Where(b => b.AccountId == a.Id)));
         var linkedIds = reviewed.Where(m => m.TransactionId is not null).Select(m => m.TransactionId!.Value).ToList();
         var linkedEntries = linkedIds.Count == 0
             ? []
@@ -142,7 +152,8 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
             var spentFromBrokers = new Dictionary<Guid, decimal>();
             foreach (var account in linked)
             {
-                var deposited = deposits.Where(d => d.AccountId == account.Id && d.Period == p).Sum(d => d.NetDeposits);
+                var deposited = deposits.Where(d => d.AccountId == account.Id && d.Period == p).Sum(d => d.NetDeposits) +
+                                investedCash[account.Id].GetValueOrDefault(p);
                 var recorded = month.Where(r => r.BucketId == account.BucketId && r.CounterAccountId == account.Id)
                     .Sum(Signed) - linkedEntries
                     .Where(t => YearMonth.From(t.OccurredOn) == p && t.BucketId == account.BucketId &&
@@ -201,6 +212,40 @@ public sealed class LedgerAggregates(IFinanceDb db, IBrokerDeposits? brokerDepos
     /// </summary>
     public static decimal BrokerTopUp(decimal deposited, decimal recordedToBroker) =>
         Math.Max(deposited - Math.Max(recordedToBroker, 0), 0);
+
+    /// <summary>
+    /// What a broker's synced buys invested, per month, out of the cash transferred to it: each transfer in adds to
+    /// the cash waiting there and each transfer out takes from it; a day's buys (net of sells) count up to what is
+    /// waiting. Money that was there before (already counted as its deposit) and sale proceeds bought again are not
+    /// counted twice.
+    /// </summary>
+    public static Dictionary<YearMonth, decimal> BrokerCashInvested(
+        IEnumerable<(DateOnly On, decimal Amount)> transfers, IEnumerable<BrokerTradeDay> buys)
+    {
+        var steps = transfers.Select(t => (t.On, Order: 0, t.Amount))
+            .Concat(buys.Select(b => (b.On, Order: 1, Amount: b.NetBought)))
+            .OrderBy(x => x.On).ThenBy(x => x.Order);
+        var waiting = 0m;
+        var invested = new Dictionary<YearMonth, decimal>();
+        foreach (var (on, order, amount) in steps)
+        {
+            if (order == 0)
+            {
+                waiting = Math.Max(waiting + amount, 0);
+                continue;
+            }
+
+            var spent = Math.Min(Math.Max(amount, 0), waiting);
+            if (spent > 0)
+            {
+                waiting -= spent;
+                var month = YearMonth.From(on);
+                invested[month] = invested.GetValueOrDefault(month) + spent;
+            }
+        }
+
+        return invested;
+    }
 
     public async Task<IReadOnlyList<BucketInfo>> BucketsAsync(CancellationToken ct) =>
         await db.Buckets.AsNoTracking().OrderBy(b => b.Group).ThenBy(b => b.SortOrder)

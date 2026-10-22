@@ -365,6 +365,8 @@ export interface BrokerMovement {
   transactionId: string | null;
   /** Recorded as an expense paid with the broker's card. */
   cardPayment?: boolean;
+  /** The type of the transaction that records it, while it does. */
+  recordedAs?: TransactionType | null;
 }
 
 /** What a card payment out of a broker may be: a recurring item to confirm, or an expense already recorded. */
