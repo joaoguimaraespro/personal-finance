@@ -7,6 +7,10 @@ Notable changes for people who install the app. Every release, with its installe
 
 ### Changed
 
+- **Broker deposits as cash:** a broker deposit is now recorded as a transfer by default: the money leaves your
+  account and waits at the broker, counting as invested when the synced buys spend it. A withdrawal to the bank or the
+  card's account is a transfer the other way. *Undo* puts a recorded or ignored movement back to be recorded.
+
 - **Card payments:** a withdrawal at a broker can be marked as a payment with its card, linked to a recurring item
   still to confirm (a shared one keeps each person's part), to an expense already recorded, or as a new expense. It
   is paid from the broker, counts as the month's expense and comes off what is invested.

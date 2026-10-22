@@ -1468,14 +1468,15 @@
  },
  "brokerMovements": {
   "title": "Depósitos e levantamentos",
-  "hint": "O que as corretoras sincronizaram nos últimos meses, com o nome que cada uma lhe dá. Regista de que conta saiu (ou para onde foi) o dinheiro: só então conta na alocação do mês.",
+  "hint": "O que as corretoras sincronizaram nos últimos meses, com o nome que cada uma lhe dá. Regista de que conta saiu (ou para onde foi) o dinheiro: uma transferência fica como dinheiro na corretora e conta como investido quando as compras o gastarem.",
   "depositTo": "Depósito na {{broker}}",
   "withdrawalFrom": "Levantamento da {{broker}}",
   "state": {
    "Pending": "Por registar",
    "Recorded": "Registado",
    "Ignored": "Ignorado",
-   "Card": "Pago com cartão"
+   "Card": "Pago com cartão",
+   "Transfer": "Transferido"
   },
   "cardPayment": "Pagamento com cartão",
   "cardTitle": "Pagamento com cartão",
@@ -1489,6 +1490,13 @@
   "onAccount": "em {{account}}",
   "cardEffect": "Fica paga pela {{broker}}: as outras contas não mudam, conta como despesa do mês e sai do que está investido. Uma recorrente partilhada mantém a parte de cada pessoa.",
   "cardSaved": "Pagamento com cartão registado",
-  "pickCategory": "Escolhe a categoria da despesa."
+  "pickCategory": "Escolhe a categoria da despesa.",
+  "undo": "Desfazer",
+  "undoHint": "Volta a perguntar. A transação que o registou fica na lista.",
+  "reopened": "Volta a estar por registar",
+  "reopenedKept": "Volta a estar por registar. A transação que o registou continua na lista: apaga-a se estava errada.",
+  "investHint": "Conta já como investido no balde da {{broker}}. Se o dinheiro ficou à espera na corretora, escolhe Transferência.",
+  "transferInHint": "Fica como dinheiro na {{broker}}: conta como investido quando as compras sincronizadas o gastarem.",
+  "transferOutHint": "Dinheiro que saiu da {{broker}} para uma conta tua (o banco, a conta do cartão). Não mexe no que está investido."
  }
 }

@@ -1,5 +1,7 @@
 using System.Globalization;
+using Finance.Application.Abstractions;
 using Reporting.Application.Queries;
+using SharedKernel;
 
 namespace Reporting.Tests;
 
@@ -17,4 +19,25 @@ public sealed class BrokerTopUpTests
         LedgerAggregates.BrokerTopUp(D(deposited), D(recorded)).ShouldBe(D(expected));
 
     private static decimal D(string s) => decimal.Parse(s, CultureInfo.InvariantCulture);
+
+    [Fact]
+    public void Buys_count_as_invested_up_to_the_cash_transferred()
+    {
+        var broker = Guid.NewGuid();
+        var invested = LedgerAggregates.BrokerCashInvested(
+            [(new DateOnly(2026, 9, 19), 500m), (new DateOnly(2026, 9, 26), -47.73m), (new DateOnly(2026, 10, 21), 500m)],
+            [
+                new BrokerTradeDay(broker, new DateOnly(2026, 9, 1), 900m),    // before any transfer: its own deposit
+                new BrokerTradeDay(broker, new DateOnly(2026, 9, 20), 300m),
+                new BrokerTradeDay(broker, new DateOnly(2026, 9, 30), -100m),  // a sale: proceeds bought again don't count
+                new BrokerTradeDay(broker, new DateOnly(2026, 10, 2), 200m),   // only 152.27 left
+                new BrokerTradeDay(broker, new DateOnly(2026, 10, 22), 120m),
+            ]);
+
+        invested.ShouldBe(new Dictionary<YearMonth, decimal>
+        {
+            [new YearMonth(2026, 9)] = 300m,
+            [new YearMonth(2026, 10)] = 272.27m,
+        });
+    }
 }

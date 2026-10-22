@@ -1468,14 +1468,15 @@
  },
  "brokerMovements": {
   "title": "Deposits and withdrawals",
-  "hint": "What your brokers synced in recent months, named as each broker names it. Record which account the money came from (or went to): only then does it count in the month's allocation.",
+  "hint": "What the brokers synced in recent months, named as each one calls it. Record which account the money came from (or went to): a transfer stays as cash at the broker and counts as invested when buys spend it.",
   "depositTo": "Deposit to {{broker}}",
   "withdrawalFrom": "Withdrawal from {{broker}}",
   "state": {
    "Pending": "To record",
    "Recorded": "Recorded",
    "Ignored": "Ignored",
-   "Card": "Card payment"
+   "Card": "Card payment",
+   "Transfer": "Transferred"
   },
   "cardPayment": "Card payment",
   "cardTitle": "Card payment",
@@ -1489,6 +1490,13 @@
   "onAccount": "on {{account}}",
   "cardEffect": "It is paid from {{broker}}: your other accounts don't change, it counts as the month's expense and comes off what is invested. A shared recurring item keeps each person's part.",
   "cardSaved": "Card payment recorded",
-  "pickCategory": "Choose the expense's category."
+  "pickCategory": "Choose the expense's category.",
+  "undo": "Undo",
+  "undoHint": "Asks again. The transaction that recorded it stays in the list.",
+  "reopened": "Back to be recorded",
+  "reopenedKept": "Back to be recorded. The transaction that recorded it is still in the list: delete it if it was wrong.",
+  "investHint": "Counts as invested in {{broker}}'s bucket right away. If the money is waiting at the broker, pick Transfer.",
+  "transferInHint": "Stays as cash at {{broker}}: it counts as invested when synced buys spend it.",
+  "transferOutHint": "Money that left {{broker}} for an account of yours (the bank, the card's account). What is invested does not change."
  }
 }

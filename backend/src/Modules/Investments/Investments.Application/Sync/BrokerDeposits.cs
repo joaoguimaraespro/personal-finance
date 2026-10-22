@@ -62,6 +62,33 @@ public sealed class BrokerDeposits(IInvestmentsDb db) : IBrokerDeposits
         return true;
     }
 
+    public async Task<bool> ReopenAsync(Guid id, CancellationToken ct)
+    {
+        var movement = await db.CashMovements.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (movement is null || movement.Review == CashMovementReview.Counted)
+        {
+            return false;
+        }
+
+        movement.Reopen();
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<BrokerTradeDay>> NetBuysAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var start = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var end = new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        // A trade's BaseAmount is its cash impact: negative for buys, so the money invested is its opposite.
+        var rows = await db.Trades.AsNoTracking()
+            .Where(t => t.Source != DataSource.Manual && t.ExecutedAtUtc >= start && t.ExecutedAtUtc < end)
+            .Select(t => new { t.AccountId, t.ExecutedAtUtc, t.BaseAmount })
+            .ToListAsync(ct);
+        return rows.GroupBy(r => (r.AccountId, On: DateOnly.FromDateTime(r.ExecutedAtUtc.UtcDateTime)))
+            .Select(g => new BrokerTradeDay(g.Key.AccountId, g.Key.On, -g.Sum(r => r.BaseAmount)))
+            .ToList();
+    }
+
     private IQueryable<CashMovement> Synced() => db.CashMovements.AsNoTracking()
         .Where(c => c.Source != DataSource.Manual &&
                     (c.Type == CashMovementType.Deposit || c.Type == CashMovementType.Withdrawal));
