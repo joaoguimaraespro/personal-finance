@@ -34,7 +34,9 @@ internal sealed class AnthropicAssistantModel(IConfiguration config, ILogger<Ant
 
         var client = new AnthropicClient { ApiKey = _apiKey };
         var messages = conversation
-            .Select(t => new BetaMessageParam { Role = t.Role == "assistant" ? Role.Assistant : Role.User, Content = t.Text })
+            .Select(t => t.Role == "assistant"
+                ? (BetaMessageParam)new BetaAssistantMessageParam { Content = t.Text }
+                : new BetaUserMessageParam { Content = t.Text })
             .ToList();
         var toolDefs = tools.Select(ToBetaTool).ToList();
 
@@ -93,8 +95,8 @@ internal sealed class AnthropicAssistantModel(IConfiguration config, ILogger<Ant
                 return new AssistantAnswer(string.Join("\n\n", text).Trim(), [], response.StopReason?.ToString());
             }
 
-            messages.Add(new BetaMessageParam { Role = Role.Assistant, Content = assistantContent });
-            messages.Add(new BetaMessageParam { Role = Role.User, Content = toolResults });
+            messages.Add(new BetaAssistantMessageParam { Content = assistantContent });
+            messages.Add(new BetaUserMessageParam { Content = toolResults });
         }
 
         logger.LogWarning("Assistant stopped after {Rounds} tool rounds", MaxRounds);
