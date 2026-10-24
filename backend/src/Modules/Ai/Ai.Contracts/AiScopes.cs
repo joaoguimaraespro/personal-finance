@@ -24,6 +24,7 @@ public static class AiScopes
     public const string Recurring = "recurring.read";
     public const string Transactions = "transactions.read";
     public const string Loans = "loans.read";
+    public const string Sharing = "sharing.read";
 
     // Sensitive — never granted by default.
     public const string AccountIdentifiers = "accounts.identifiers.read";
@@ -36,10 +37,11 @@ public static class AiScopes
     public const string RecurringWrite = "recurring.write";
     public const string PlanningWrite = "planning.write";
     public const string HoldingsWrite = "holdings.write";
+    public const string SharingWrite = "sharing.write";
 
     /// <summary>The only scopes a write tool may declare. Adding one is a reviewed change (architecture test).</summary>
     public static readonly IReadOnlySet<string> WriteScopes =
-        new HashSet<string>(StringComparer.Ordinal) { TransactionsWrite, RecurringWrite, PlanningWrite, HoldingsWrite };
+        new HashSet<string>(StringComparer.Ordinal) { TransactionsWrite, RecurringWrite, PlanningWrite, HoldingsWrite, SharingWrite };
 
     public static readonly IReadOnlyList<ScopeInfo> All =
     [
@@ -58,6 +60,7 @@ public static class AiScopes
         new(Recurring, "Recurring items (salary, rent, subscriptions): amount, frequency, category, monthly fixed costs and what is due soon.", false),
         new(Transactions, "Individual transactions of any type (expense, income, investment, transfer, savings): date, amount, category and description (no account, no notes).", false),
         new(Loans, "Loans: amount borrowed, capital still owed, rate, instalment with its charges, payments left and end date.", false),
+        new(Sharing, "People you share costs with: what each owes you or you owe them, their open shares and recent paybacks; who shares each expense and recurring item. Names only with the account-names permission.", false),
         new(AccountNames, "Account names (e.g. \"Holiday vault\") in account answers, without IBAN or account numbers.", true),
         new(AccountIdentifiers, "Account names and IBAN / account numbers in net-worth and account answers.", true),
         new(RawTransactions, "Adds the account and source of each transaction.", true),
@@ -66,6 +69,7 @@ public static class AiScopes
         new(RecurringWrite, "Confirm or skip pending recurring items; create and edit recurring expenses and income.", true, true),
         new(PlanningWrite, "Change category budget limits; create and update goals and add money to a goal.", true, true),
         new(HoldingsWrite, "Update hand-entered crypto (quantity, average price), add crypto rewards and record the value of manually valued assets and liabilities.", true, true),
+        new(SharingWrite, "Split a hand-entered expense with people, set who shares a recurring expense, and record being paid back or paying someone back (into or from one of your accounts, or outside the app).", true, true),
     ];
 
     public static readonly IReadOnlySet<string> Names = All.Select(s => s.Name).ToHashSet(StringComparer.Ordinal);
