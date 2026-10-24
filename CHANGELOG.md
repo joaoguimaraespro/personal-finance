@@ -3,15 +3,15 @@
 Notable changes for people who install the app. Every release, with its installers, is on the
 [releases page](https://github.com/joaoguimaraespro/personal-finance/releases); the full history is in the [commits](https://github.com/joaoguimaraespro/personal-finance/commits/main).
 
-## [Unreleased]
+## [1.5.0] - 2026-10-24
 
 ### Added
 
-- **Sharing for AI clients:** a new *sharing* permission lets an AI client answer who owes
-  you what (open shares, what is still unpaid, recent paybacks) and see who shares each expense and recurring bill.
-  With the opt-in *sharing* write permission it can split an expense with people, set who shares a recurring bill and
-  record being paid back or paying someone back, from one of your accounts or in cash. People's names appear only
-  with the account-names permission.
+- **Sharing for AI clients:** a new *sharing* permission lets an AI client answer who owes you what (open shares,
+  what is still unpaid, recent paybacks) and see who shares each expense and recurring bill. With the opt-in
+  *sharing* write permission it can split an expense with people, set who shares a recurring bill and record being
+  paid back or paying someone back, from one of your accounts or in cash. People's names appear only with the
+  account-names permission.
 
 ## [1.4.0] - 2026-10-22
 
@@ -92,6 +92,7 @@ First public release.
 - Optional AI access over MCP and an in-app assistant behind a policy gateway, with opt-in write tools.
 - English and Portuguese (Portugal), light and dark themes, phone layout.
 
+[1.5.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.5.0
 [1.4.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.4.0
 [1.3.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.3.0
 [1.2.0]: https://github.com/joaoguimaraespro/personal-finance/releases/tag/v1.2.0
