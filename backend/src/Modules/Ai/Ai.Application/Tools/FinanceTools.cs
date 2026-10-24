@@ -4,6 +4,7 @@ using Finance.Application.Abstractions;
 using Finance.Application.Accounts;
 using Finance.Application.Goals;
 using Finance.Application.Loans;
+using Finance.Application.Sharing;
 using Finance.Domain.Accounts;
 using Finance.Domain.Categories;
 using Finance.Domain.Interest;
@@ -58,6 +59,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         "get_budget_status" => BudgetAsync(ctx, ct),
         "get_goals" => GoalsAsync(ctx, ct),
         "get_loans" => LoansAsync(ctx, ct),
+        "get_sharing" => SharingAsync(ctx, ct),
         _ => throw new ToolArgumentException("Unknown tool."),
     };
 
@@ -561,6 +563,10 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         var withAccount = ctx.Has(AiScopes.RawTransactions);
         var withNotes = ctx.Has(AiScopes.PersonalNotes);
         var withIds = ctx.Has(AiScopes.TransactionsWrite);
+        // Clients that may share expenses also see the ids of the expenses they could share.
+        var withShareIds = ctx.Has(AiScopes.SharingWrite);
+        var shares = await SharesOfAsync(ctx,
+            rows.Where(r => r.Type == TransactionType.Expense && !r.IsRefund).Select(r => r.Id).ToList(), ct);
         var matched = totals.Sum(x => x.Count);
         return new(new
         {
@@ -571,8 +577,10 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
             totalsByType = totals.OrderBy(x => x.Type).Select(x => new { type = TypeName(x.Type), count = x.Count, totalEur = x.Total }),
             items = rows.Select(r => new
             {
-                // Only clients that may edit transactions see ids, and only of the rows they may edit.
-                id = withIds && AiWritePolicy.IsEditable(r.Source, r.Type) ? r.Id : (Guid?)null,
+                // Only clients that may edit (or share) transactions see ids, and only of the rows they may change.
+                id = AiWritePolicy.IsEditable(r.Source, r.Type) && (withIds || (withShareIds && r.Type == TransactionType.Expense && !r.IsRefund))
+                    ? r.Id
+                    : (Guid?)null,
                 date = r.OccurredOn,
                 type = TypeName(r.Type),
                 refund = r.IsRefund ? true : (bool?)null,
@@ -582,6 +590,7 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 category = r.Category,
                 nature = r.Nature?.ToString(),
                 splits = Shape(r.Splits),
+                shares = ShapeShares(ctx, shares.GetValueOrDefault(r.Id), percent: false),
                 description = UntrustedText.From(r.Description),
                 asset = r.AssetSymbol is null
                     ? null
@@ -721,11 +730,16 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
         decimal MonthlyEur(IEnumerable<RecurringTransaction> items) =>
             decimal.Round(items.Sum(r => Eur(PerMonth(r), r.Currency)), 2);
 
-        // Ids only for clients that may confirm, skip or edit recurring items.
+        // Ids only for clients that may confirm, skip or edit recurring items (or, item ids, share them).
         var withIds = ctx.Has(AiScopes.RecurringWrite);
+        var withItemIds = withIds || ctx.Has(AiScopes.SharingWrite);
+        var people = ctx.Has(AiScopes.Sharing) && templates.Any(r => r.Shares.Count > 0)
+            ? await finance.Accounts.AsNoTracking().Where(a => a.Kind == AccountKind.Person)
+                .ToDictionaryAsync(a => a.Id, a => a.Name, ct)
+            : [];
         var items = templates.Take(50).Select(r => new
         {
-            id = withIds && r.Type is TransactionType.Expense or TransactionType.Income ? r.Id : (Guid?)null,
+            id = withItemIds && r.Type is TransactionType.Expense or TransactionType.Income ? r.Id : (Guid?)null,
             name = UntrustedText.From(r.Name),
             type = TypeName(r.Type),
             amount = r.Amount,
@@ -739,6 +753,10 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
                 ? null
                 : r.Splits.OrderBy(sp => sp.Position)
                     .Select(sp => new { category = categories.GetValueOrDefault(sp.CategoryId), amount = sp.Amount }),
+            shares = people.Count == 0
+                ? null
+                : ShapeShares(ctx, r.Shares.Select(sh => new ShareRow(sh.PersonId, people.GetValueOrDefault(sh.PersonId, ""), sh.Percent)).ToList(),
+                    percent: true),
             monthlyEquivalentEur = decimal.Round(Eur(PerMonth(r), r.Currency), 2),
             nextDueOn = r.NextOccurrenceOnOrAfter(ctx.Today) ?? r.NextDueOn,
             active = r.IsActive && (r.EndOn is null || r.EndOn >= ctx.Today),
@@ -779,6 +797,96 @@ public sealed class FinanceTools(IFinanceDb finance, IInvestmentsDb investments,
             upcomingDays = days,
             upcoming,
         }, items.Count + upcoming.Count);
+    }
+
+    private async Task<ToolOutput> SharingAsync(ToolContext ctx, CancellationToken ct)
+    {
+        var overview = await SharingEndpoints.OverviewAsync(finance, ct);
+        // People are accounts (ADR-0011): their names, and the owner's accounts, follow the account-names permission.
+        var withNames = ctx.Has(AiScopes.AccountNames) || ctx.Has(AiScopes.AccountIdentifiers);
+        var withIds = ctx.Has(AiScopes.SharingWrite);
+        var currencies = await finance.Accounts.AsNoTracking().Where(a => a.Kind == AccountKind.Person)
+            .ToDictionaryAsync(a => a.Id, a => a.Currency, ct);
+        var people = overview.People.Select(p => new
+        {
+            id = withIds ? p.Id : (Guid?)null,
+            name = withNames ? UntrustedText.From(p.Name) : null,
+            currency = currencies.GetValueOrDefault(p.Id, Currency.Base),
+            balance = p.Balance,
+            owedSince = p.OwedSince,
+            openingBalance = p.OpeningBalance == 0 ? (decimal?)null : p.OpeningBalance,
+            openingBalanceOn = p.OpeningBalance == 0 ? null : p.OpeningBalanceOn,
+            open = p.Open.Take(20).Select(o => new
+            {
+                expenseId = withIds ? o.ExpenseId : (Guid?)null,
+                date = o.On,
+                description = UntrustedText.From(o.Description),
+                category = o.CategoryName,
+                paidFrom = withNames ? UntrustedText.From(o.PaidFrom) : null,
+                expenseAmount = o.ExpenseAmount,
+                amount = o.Amount,
+                outstanding = o.Outstanding,
+            }),
+            openCount = p.Open.Count,
+            recent = p.Recent.Select(m => new
+            {
+                date = m.On,
+                kind = m.Kind,
+                amount = m.Amount,
+                description = UntrustedText.From(m.Description),
+                otherAccount = withNames ? UntrustedText.From(m.OtherAccount) : null,
+            }),
+        }).ToList();
+
+        return new(new
+        {
+            baseCurrency = Currency.Base,
+            owedToYou = overview.OwedToYou,
+            youOwe = overview.YouOwe,
+            people,
+            note = "balance > 0: the person owes the owner; < 0: the owner owes them. Recent kinds: share (their part of an expense the owner paid), " +
+                   "paidYou (they paid the owner back), youPaid (the owner paid them), theyPaid (they paid an expense for the owner).",
+        }, people.Count);
+    }
+
+    /// <summary>Who shares each of these expenses (ADR-0011), for clients allowed to see sharing.</summary>
+    private async Task<Dictionary<Guid, List<ShareRow>>> SharesOfAsync(ToolContext ctx, List<Guid> expenseIds,
+        CancellationToken ct)
+    {
+        if (!ctx.Has(AiScopes.Sharing) || expenseIds.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await (from s in finance.Transactions.AsNoTracking()
+                where s.SharedFromId != null && expenseIds.Contains(s.SharedFromId.Value)
+                join p in finance.Accounts on s.AccountId equals p.Id
+                orderby s.CreatedAtUtc
+                select new { ExpenseId = s.SharedFromId!.Value, PersonId = p.Id, p.Name, s.OriginalAmount })
+            .ToListAsync(ct);
+        return rows.GroupBy(r => r.ExpenseId).ToDictionary(g => g.Key,
+            g => g.Select(r => new ShareRow(r.PersonId, r.Name, r.OriginalAmount)).ToList());
+    }
+
+    private sealed record ShareRow(Guid PersonId, string Name, decimal Value);
+
+    /// <summary>Share lines as shown to the client: the person's id only to writers, the name only with names.</summary>
+    private static IEnumerable<object>? ShapeShares(ToolContext ctx, List<ShareRow>? shares, bool percent)
+    {
+        if (shares is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var withIds = ctx.Has(AiScopes.SharingWrite);
+        var withNames = ctx.Has(AiScopes.AccountNames) || ctx.Has(AiScopes.AccountIdentifiers);
+        return shares.Select(s => new
+        {
+            personId = withIds ? s.PersonId : (Guid?)null,
+            person = withNames ? UntrustedText.From(s.Name) : null,
+            amount = percent ? (decimal?)null : s.Value,
+            percent = percent ? s.Value : (decimal?)null,
+        });
     }
 
     private async Task<ToolOutput> AllocationAsync(ToolContext ctx, CancellationToken ct)

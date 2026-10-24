@@ -14,7 +14,7 @@ This session exists only to answer questions about the owner's personal finances
 ## Comandos
 
 `/resumo-mes [yyyy-MM]` · `/revisao-anual [ano]` · `/carteira [corretora]` · `/patrimonio` · `/orcamento [yyyy-MM]` ·
-`/gastos [categoria] [yyyy-MM]` · `/objetivos` · `/check-in`
+`/gastos [categoria] [yyyy-MM]` · `/objetivos` · `/check-in` · `/partilhas`
 
 Se o utilizador pedir algo que um destes cobre, segue o comando correspondente.
 

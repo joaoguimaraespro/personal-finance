@@ -8,6 +8,7 @@ using Finance.Application.Budgets;
 using Finance.Application.Goals;
 using Finance.Application.Interest;
 using Finance.Application.Recurring;
+using Finance.Application.Sharing;
 using Finance.Application.Transactions;
 using Finance.Domain.Accounts;
 using Finance.Domain.Budgets;
@@ -67,6 +68,9 @@ public sealed class WriteTools(
         "update_crypto_holding" => UpdateCryptoHoldingAsync(ctx, ct),
         "add_crypto_reward" => AddCryptoRewardAsync(ctx, ct),
         "update_asset_value" => UpdateAssetValueAsync(ctx, ct),
+        "set_expense_shares" => SetExpenseSharesAsync(ctx, ct),
+        "set_recurring_shares" => SetRecurringSharesAsync(ctx, ct),
+        "create_settlement" => CreateSettlementAsync(ctx, ct),
         _ => throw new ToolArgumentException("Unknown tool."),
     };
 
@@ -566,6 +570,135 @@ public sealed class WriteTools(
             new { name = UntrustedText.From(asset.Name) }),
             id, previous is null ? null : new { value = previous.Value, on = previous.Date }, new { value, on });
     }
+
+    // ---------------------------------------------------------------- sharing with people (ADR-0011, ADR-0013)
+
+    private async Task<WriteOutput> SetExpenseSharesAsync(WriteContext ctx, CancellationToken ct)
+    {
+        var a = ctx.Args;
+        var id = ToolArgs.Required("transaction_id", a.Id("transaction_id"));
+        var wanted = a.Shares(MaxAmount) ?? throw new ToolArgumentException("shares is required (or none).");
+        a.IdempotencyKey();
+
+        var current = await EditableTransactionAsync(id, ct);
+        if (current.IsShare)
+        {
+            throw ToolRefusedException.From(ShareErrors.EditTheExpense);
+        }
+
+        if (current.Type != TransactionType.Expense || current.IsRefund || current.IsSplit)
+        {
+            throw ToolRefusedException.From(ShareErrors.NotShareable);
+        }
+
+        await WritableAccountAsync(current.AccountId, "the expense's account", ct);
+        foreach (var (personId, _) in wanted)
+        {
+            await PersonAsync(personId, ct);
+        }
+
+        var before = await SharesSnapshotAsync(id, ct);
+        // The expense itself stays exactly as it is; only its shares change.
+        var draft = new TransactionDraft(current.Type, current.OccurredOn, current.OriginalAmount, current.OriginalCurrency,
+            current.AccountId, current.CategoryId, current.Nature, BucketId: current.BucketId, GoalId: current.GoalId,
+            FxRate: current.OriginalCurrency == Currency.Base ? null : current.FxRate, Description: current.Description,
+            Notes: current.Notes, OccurredAtUtc: current.OccurredAtUtc, TimeZone: current.TimeZone);
+        Ok(await TransactionCommands.UpdateAsync(finance, interest, id, draft, ct,
+            wanted.Select(w => new ShareRequest(w.PersonId, w.Value)).ToList()));
+        var after = await SharesSnapshotAsync(id, ct);
+        return new(Result(id, "transaction",
+            wanted.Count == 0
+                ? $"The expense of {Day(current.OccurredOn)} ({Money(current.OriginalAmount, current.OriginalCurrency)}) is no longer shared: the owner takes it all on."
+                : $"Shared the expense of {Day(current.OccurredOn)} ({Money(current.OriginalAmount, current.OriginalCurrency)}) with {People(wanted.Count)}: they owe {Money(wanted.Sum(w => w.Value), current.OriginalCurrency)}; the owner's part is {Money(current.OriginalAmount - wanted.Sum(w => w.Value), current.OriginalCurrency)}.",
+            new { description = UntrustedText.From(current.Description) }),
+            id, new { shares = before }, new { shares = after });
+    }
+
+    private async Task<WriteOutput> SetRecurringSharesAsync(WriteContext ctx, CancellationToken ct)
+    {
+        var a = ctx.Args;
+        var id = ToolArgs.Required("recurring_id", a.Id("recurring_id"));
+        var wanted = a.Shares(100m, 4) ?? throw new ToolArgumentException("shares is required (or none).");
+        a.IdempotencyKey();
+
+        var existing = await finance.RecurringTransactions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct)
+                       ?? throw new ToolRefusedException(404, "Recurring item not found.");
+        if (existing.Type != TransactionType.Expense || existing.Splits.Count > 0)
+        {
+            throw ToolRefusedException.From(ShareErrors.NotShareable);
+        }
+
+        await WritableAccountAsync(existing.AccountId, "the recurring item's account", ct);
+        foreach (var (personId, _) in wanted)
+        {
+            await PersonAsync(personId, ct);
+        }
+
+        // Everything but who shares it stays as it is.
+        var request = new RecurringRequest(existing.Name, existing.Type, existing.Amount, existing.Currency,
+            existing.AccountId, existing.Frequency, existing.StartOn, existing.Interval, existing.DayOfMonth, existing.EndOn,
+            existing.CategoryId, existing.Nature, existing.CounterAccountId, existing.BucketId, existing.Description, null,
+            wanted.Select(w => new RecurringShareDto(w.PersonId, w.Value)).ToList());
+        await CheckAsync(recurringValidator, request, ct);
+        var saved = Ok(await RecurringCommands.UpdateAsync(finance, proposer, id, request.ToDefinition(), ct));
+        return new(Result(id, "recurring",
+            wanted.Count == 0
+                ? "The recurring expense is no longer shared."
+                : $"Each occurrence of the recurring expense is now shared with {People(wanted.Count)} ({wanted.Sum(w => w.Value).ToString(CultureInfo.InvariantCulture)}% in all).",
+            new { name = UntrustedText.From(saved.Name) }),
+            id,
+            new { shares = existing.Shares.Select(sh => new { personId = sh.PersonId, percent = sh.Percent }).ToList() },
+            new { shares = saved.Shares.Select(sh => new { personId = sh.PersonId, percent = sh.Percent }).ToList() });
+    }
+
+    private async Task<WriteOutput> CreateSettlementAsync(WriteContext ctx, CancellationToken ct)
+    {
+        var a = ctx.Args;
+        var personId = ToolArgs.Required("person_id", a.Id("person_id"));
+        var direction = Required("direction", a.OneOf("direction", "received", "paid"));
+        var amount = ToolArgs.Required("amount", a.Decimal("amount", 0.01m, MaxAmount, 2));
+        var date = a.Date("date") ?? ctx.Today;
+        var accountId = a.Id("account_id");
+        var description = a.Text("description", 120);
+        a.IdempotencyKey();
+
+        var person = await PersonAsync(personId, ct);
+        if (accountId is { } own)
+        {
+            var account = await WritableAccountAsync(own, "account_id", ct);
+            if (account.IsPerson)
+            {
+                throw new ToolArgumentException("account_id must be one of the owner's accounts, not a person.");
+            }
+        }
+
+        var created = Ok(await SharingEndpoints.SettleAsync(finance, interest, personId,
+            new SettleRequest(direction, accountId, amount, date, description), ct));
+        var where = accountId is null ? "outside the app's accounts" : direction == "received" ? "into the account" : "from the account";
+        return new(Result(created.Id, "transaction",
+            direction == "received"
+                ? $"Recorded {Money(amount, person.Currency)} received from the person on {Day(date)}, {where}."
+                : $"Recorded {Money(amount, person.Currency)} paid to the person on {Day(date)}, {where}.",
+            new { description = UntrustedText.From(created.Description) }),
+            created.Id, null, TransactionSnapshot(created, null));
+    }
+
+    /// <summary>A person the owner shares costs with: it exists and is not archived.</summary>
+    private async Task<Account> PersonAsync(Guid id, CancellationToken ct)
+    {
+        var person = await finance.Accounts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.Kind == AccountKind.Person, ct)
+                     ?? throw ToolRefusedException.From(SharingErrors.NotAPerson);
+        return person.ArchivedAtUtc is null
+            ? person
+            : throw new ToolRefusedException(403, "This person is archived; restore them in the app first.");
+    }
+
+    private async Task<List<object>> SharesSnapshotAsync(Guid expenseId, CancellationToken ct) =>
+        (await finance.Transactions.AsNoTracking().Where(t => t.SharedFromId == expenseId)
+            .OrderBy(t => t.CreatedAtUtc).Select(t => new { personId = t.AccountId, amount = t.OriginalAmount })
+            .ToListAsync(ct)).Cast<object>().ToList();
+
+    private static string People(int count) => count == 1 ? "1 person" : $"{count} people";
 
     // ---------------------------------------------------------------- guards and helpers
 

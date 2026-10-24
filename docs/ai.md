@@ -61,6 +61,7 @@ Desktop when a client is created. Details: [desktop-app.md](desktop-app.md#ai-cl
 | `portfolio.positions.read` | `get_positions` (asset class, day change — 24 h for coins; hand-entered crypto marked `source: manual` with its location) |
 | `portfolio.performance.read` | `get_portfolio_performance` |
 | `dividends.read` | `get_dividend_summary` (dividends and crypto rewards, each total separately) |
+| `sharing.read` | `get_sharing`: people the owner shares costs with ([ADR-0011](adr/0011-shared-expenses.md)) — each balance (positive: they owe the owner), since when, what was owed before the app, open shares (expense, the person's part, what is still unpaid; first 20 plus `openCount`), the last 10 movements (`share`, `paidYou`, `youPaid`, `theyPaid`) and the totals owed both ways. Also adds `shares` (who shares and how much) to expenses in `get_transactions` and to items in `get_recurring` (percentages). Names only with `accounts.names.read` ([ADR-0013](adr/0013-ai-sharing-access.md)) |
 | **`accounts.names.read`** (sensitive) | adds account names (not IBANs) to `get_accounts` and `get_loans` |
 | **`accounts.identifiers.read`** (sensitive) | adds account names and IBANs to `get_net_worth` and `get_accounts` |
 | **`raw.transactions.read`** (sensitive) | adds account and source to transactions |
@@ -74,6 +75,7 @@ Write scopes — all **sensitive**, never granted by default ([ADR-0008](adr/000
 | **`recurring.write`** | `confirm_expected`, `skip_expected` (pending recurring items), `upsert_recurring` (create or edit a recurring expense or income) |
 | **`planning.write`** | `set_budget_limit` (one category's monthly limit from a month onwards), `upsert_goal`, `add_to_goal` |
 | **`holdings.write`** | `update_crypto_holding` (quantity, average price), `add_crypto_reward`, `update_asset_value` (manually valued assets and liabilities) |
+| **`sharing.write`** | `set_expense_shares` (people's parts of one hand-entered expense, or `none`), `set_recurring_shares` (percentages of one recurring expense, or `none`), `create_settlement` (money received from or paid to a person, into or from one of your accounts or outside the app) — [ADR-0013](adr/0013-ai-sharing-access.md) |
 
 **Day change of crypto.** `dayChange` in `get_portfolio_summary` and `get_positions` comes with `dayChangeBasis`:
 `previousClose` (shares and ETFs: since the previous trading day's close, a weekend shows Friday's move),
@@ -145,6 +147,16 @@ Tick one or more write scopes on the AI access page (group *Escrita / Write*; ea
 - *"Set the restaurants budget to 150 € from next month"* → `set_budget_limit(category: "restaurants", amount: 150, from_period)`.
 - *"I now have 0.3 BTC on Binance"* → `get_positions(broker: "Manual")` (`holdingId`), then
   `update_crypto_holding(holding_id, quantity: 0.3)`.
+- *"I paid 36 € of internet; Ana and Rui owe 12 € each"* → `get_transactions` (the expense's `id`) and `get_sharing`
+  (the people's `id`), then `set_expense_shares(transaction_id, shares: "<ana id>: 12; <rui id>: 12")`. Spending
+  counts only your 12 €; `shares: "none"` takes it all back on.
+- *"Ana paid me back 12 € by bank transfer"* → `create_settlement(person_id, direction: "received", amount: 12, account_id)`;
+  *"I gave Rui 5 € in cash"* → `create_settlement(person_id, direction: "paid", amount: 5)` (no account: settled
+  outside the app, only his balance moves).
+- *"Split the flat's internet with Ana, 50 %"* → `get_recurring` (`id`), then
+  `set_recurring_shares(recurring_id, shares: "<ana id>: 50")`. Each confirmed bill then owes her half.
+- *"Ana paid dinner for me, 20 €"* → `create_transaction(type: "expense", account_id: <Ana's id>, …)` (`transactions.write`):
+  an expense paid by a person is owed to them.
 
 Rules the gateway enforces:
 
@@ -160,8 +172,8 @@ Rules the gateway enforces:
   arguments returns the first result (`replayed: true`) without writing again; the same key with different arguments
   is refused. Keys are remembered for 24 hours, per client.
 - **Ids only for writers**: read tools add the ids needed to write (transactions you may edit, accounts that accept
-  entries, recurring items and pending items, goals, hand-entered holdings, manual assets) only for clients holding
-  the matching write scope; read-only clients get exactly the answers they got before.
+  entries, recurring items and pending items, goals, hand-entered holdings, manual assets, people and the expenses
+  they could share) only for clients holding the matching write scope; read-only clients get exactly the answers they got before.
 - **Audit**: the audit log shows writes distinctly, with the record and a before/after summary; the transaction's
   own history names the AI client.
 
@@ -180,7 +192,9 @@ the AI access page, where one click restores it. Thirty days after deletion a ba
       "mcp__personal-finance__skip_expected", "mcp__personal-finance__upsert_recurring",
       "mcp__personal-finance__set_budget_limit", "mcp__personal-finance__upsert_goal",
       "mcp__personal-finance__add_to_goal", "mcp__personal-finance__update_crypto_holding",
-      "mcp__personal-finance__add_crypto_reward", "mcp__personal-finance__update_asset_value"
+      "mcp__personal-finance__add_crypto_reward", "mcp__personal-finance__update_asset_value",
+      "mcp__personal-finance__set_expense_shares", "mcp__personal-finance__set_recurring_shares",
+      "mcp__personal-finance__create_settlement"
     ]
   }
 }
@@ -223,7 +237,7 @@ loginctl enable-linger "$USER"                        # keep it running after lo
 
 Then open the Claude app → **Code** → the **Finance** session. The session ships commands as project skills
 (`deploy/remote-control/.claude/skills/`): `/resumo-mes`, `/revisao-anual`, `/carteira`, `/patrimonio`, `/orcamento`,
-`/gastos`, `/objetivos` and `/check-in`. Only these skills are allowed (`Skill(name)` rules); every other tool except
+`/gastos`, `/objetivos`, `/check-in` and `/partilhas`. Only these skills are allowed (`Skill(name)` rules); every other tool except
 the finance MCP tools stays denied. Revoking the client on the AI access page cuts access immediately. The audit log records each call as for any other client.
 
 ## In-app assistant
