@@ -68,6 +68,29 @@ public sealed class AiWriteUnitTests
     }
 
     [Fact]
+    public void Shares_are_person_ids_with_bounded_values_or_none()
+    {
+        var ana = Guid.NewGuid();
+        var rui = Guid.NewGuid();
+        var args = Args(new { shares = $"{ana}: 6.50; {rui}: 6" }, "shares");
+        args.Shares(100m).ShouldBe([(ana, 6.5m), (rui, 6m)]);
+        args.Used["shares"].ShouldBe($"{ana}: 6.50; {rui}: 6");
+        Args(new { shares = $"{ana}: 33.3333" }, "shares").Shares(100m, 4).ShouldBe([(ana, 33.3333m)]);
+        Args(new { shares = " none " }, "shares").Shares(100m).ShouldBeEmpty();
+        Args(new { }, "shares").Shares(100m).ShouldBeNull();
+
+        foreach (var bad in new[]
+                 {
+                     "", "Ana: 5", $"{ana}", $"{ana}: 0", $"{ana}: -1", $"{ana}: 1.234", $"{ana}: 101", $"{ana}: 1e2",
+                     $"{ana}: 5; {ana}: 5", $"{Guid.Empty}: 5",
+                     string.Join("; ", Enumerable.Range(0, 21).Select(_ => $"{Guid.NewGuid()}: 1")),
+                 })
+        {
+            Should.Throw<ToolArgumentException>(() => Args(new { shares = bad }, "shares").Shares(100m), bad);
+        }
+    }
+
+    [Fact]
     public void The_write_budget_is_per_client_over_a_rolling_hour()
     {
         var clock = new ManualClock(new DateTimeOffset(2041, 4, 10, 12, 0, 0, TimeSpan.Zero));

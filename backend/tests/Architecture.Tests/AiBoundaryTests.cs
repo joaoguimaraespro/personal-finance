@@ -19,9 +19,9 @@ public sealed class AiBoundaryTests
     private static readonly Assembly Mcp = typeof(FinanceMcpTools).Assembly;
     private static readonly Assembly AiApplication = typeof(AiGateway).Assembly;
 
-    /// <summary>The explicit allow-list of write scopes. Adding one is a deliberate edit here and in ADR-0008.</summary>
+    /// <summary>The explicit allow-list of write scopes. Adding one is a deliberate edit here and in an ADR (0008, 0013).</summary>
     private static readonly string[] AllowedWriteScopes =
-        ["transactions.write", "recurring.write", "planning.write", "holdings.write"];
+        ["transactions.write", "recurring.write", "planning.write", "holdings.write", "sharing.write"];
 
     [Fact]
     public void Mcp_host_has_no_path_to_the_database()
@@ -187,6 +187,7 @@ public sealed class AiBoundaryTests
             "get_dividend_summary -> dividends.read",
             "get_budget_status -> budget.read",
             "get_goals -> goals.read", "get_loans -> loans.read",
+            "get_sharing -> sharing.read",
             "create_transaction -> transactions.write",
             "update_transaction -> transactions.write",
             "delete_transaction -> transactions.write",
@@ -199,6 +200,9 @@ public sealed class AiBoundaryTests
             "update_crypto_holding -> holdings.write",
             "add_crypto_reward -> holdings.write",
             "update_asset_value -> holdings.write",
+            "set_expense_shares -> sharing.write",
+            "set_recurring_shares -> sharing.write",
+            "create_settlement -> sharing.write",
         ], ignoreOrder: true);
     }
 

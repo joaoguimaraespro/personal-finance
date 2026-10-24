@@ -11,7 +11,8 @@
       "Skill(orcamento)",
       "Skill(gastos)",
       "Skill(objetivos)",
-      "Skill(check-in)"
+      "Skill(check-in)",
+      "Skill(partilhas)"
     ],
     "ask": [
       "mcp__personal-finance__create_transaction",
@@ -25,7 +26,10 @@
       "mcp__personal-finance__add_to_goal",
       "mcp__personal-finance__update_crypto_holding",
       "mcp__personal-finance__add_crypto_reward",
-      "mcp__personal-finance__update_asset_value"
+      "mcp__personal-finance__update_asset_value",
+      "mcp__personal-finance__set_expense_shares",
+      "mcp__personal-finance__set_recurring_shares",
+      "mcp__personal-finance__create_settlement"
     ],
     "deny": [
       "Bash", "Edit", "Write", "NotebookEdit", "Read", "Glob", "Grep",

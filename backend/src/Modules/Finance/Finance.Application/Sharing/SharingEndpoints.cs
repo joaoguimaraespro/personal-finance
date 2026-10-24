@@ -56,34 +56,43 @@ public static class SharingEndpoints
         group.MapGet("/", async (IFinanceDb db, CancellationToken ct) => Results.Ok(await OverviewAsync(db, ct)));
 
         group.MapPost("/{personId:guid}/settle", async (Guid personId, SettleRequest req, IFinanceDb db,
-            InterestAccrualService interest, CancellationToken ct) =>
+                InterestAccrualService interest, CancellationToken ct) =>
+            (await SettleAsync(db, interest, personId, req, ct))
+            .ToHttp(t => Results.Created($"/api/transactions/{t.Id}", new { t.Id })));
+    }
+
+    /// <summary>
+    /// Records being paid back or paying a person back: a transfer between the person and one of the owner's
+    /// accounts, or — with no account — settled outside the app, so only the person's balance moves. Shared by the
+    /// endpoint and the AI write tools.
+    /// </summary>
+    public static async Task<Result<Transaction>> SettleAsync(IFinanceDb db, InterestAccrualService interest,
+        Guid personId, SettleRequest req, CancellationToken ct)
+    {
+        var person = await db.Accounts.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == personId && a.Kind == AccountKind.Person, ct);
+        if (person is null)
         {
-            var person = await db.Accounts.AsNoTracking()
-                .FirstOrDefaultAsync(a => a.Id == personId && a.Kind == AccountKind.Person, ct);
-            if (person is null)
-            {
-                return ResultHttp.Problem(SharingErrors.NotAPerson);
-            }
+            return SharingErrors.NotAPerson;
+        }
 
-            var own = req.AccountId is null || await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == req.AccountId &&
-                a.Kind != AccountKind.Person && a.Kind != AccountKind.Broker && a.ArchivedAtUtc == null, ct);
-            if (!own || req.Direction is not ("received" or "paid") || req.Amount <= 0)
-            {
-                return ResultHttp.Problem(SharingErrors.InvalidSettlement);
-            }
+        var own = req.AccountId is null || await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == req.AccountId &&
+            a.Kind != AccountKind.Person && a.Kind != AccountKind.Broker && a.ArchivedAtUtc == null, ct);
+        if (!own || req.Direction is not ("received" or "paid") || req.Amount <= 0)
+        {
+            return SharingErrors.InvalidSettlement;
+        }
 
-            var received = req.Direction == "received";
-            var description = string.IsNullOrWhiteSpace(req.Description) ? person.Name : req.Description;
-            var draft = req.AccountId is { } accountId
-                ? new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency,
-                    received ? person.Id : accountId, CounterAccountId: received ? accountId : person.Id,
-                    Description: description)
-                // Settled outside the owner's accounts: only the person's balance moves.
-                : new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency, person.Id,
-                    Description: description, Outside: true, FromOutside: !received);
-            return (await TransactionCommands.CreateAsync(db, interest, draft, DataSource.Manual, ct))
-                .ToHttp(t => Results.Created($"/api/transactions/{t.Id}", new { t.Id }));
-        });
+        var received = req.Direction == "received";
+        var description = string.IsNullOrWhiteSpace(req.Description) ? person.Name : req.Description;
+        var draft = req.AccountId is { } accountId
+            ? new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency,
+                received ? person.Id : accountId, CounterAccountId: received ? accountId : person.Id,
+                Description: description)
+            // Settled outside the owner's accounts: only the person's balance moves.
+            : new TransactionDraft(TransactionType.Transfer, req.On, req.Amount, person.Currency, person.Id,
+                Description: description, Outside: true, FromOutside: !received);
+        return await TransactionCommands.CreateAsync(db, interest, draft, DataSource.Manual, ct);
     }
 
     public static async Task<SharingOverviewDto> OverviewAsync(IFinanceDb db, CancellationToken ct)

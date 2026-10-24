@@ -227,6 +227,57 @@ public sealed partial class ToolArgs
         return lines;
     }
 
+    /// <summary>
+    /// People's parts as "person_id: value; person_id: value" (1-20 lines, each person once, positive values up to
+    /// <paramref name="maxValue"/> with at most <paramref name="maxDecimals"/> decimals), or "none" for no one.
+    /// People are named by id only: their names are user data.
+    /// </summary>
+    public IReadOnlyList<(Guid PersonId, decimal Value)>? Shares(decimal maxValue, int maxDecimals = 2)
+    {
+        var raw = String("shares", 1200);
+        if (raw is null)
+        {
+            return null;
+        }
+
+        if (raw.Trim().Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            _used["shares"] = "none";
+            return [];
+        }
+
+        var parts = raw.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is < 1 or > 20)
+        {
+            throw Invalid("shares", "shares needs 1-20 lines as \"person_id: value; person_id: value\", or none.");
+        }
+
+        var lines = new List<(Guid, decimal)>();
+        foreach (var part in parts)
+        {
+            var colon = part.IndexOf(':', StringComparison.Ordinal);
+            var idText = colon > 0 ? part[..colon].Trim() : "";
+            var valueText = colon > 0 ? part[(colon + 1)..].Trim() : "";
+            if (!Guid.TryParseExact(idText, "D", out var id) || id == Guid.Empty ||
+                !decimal.TryParse(valueText, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value) ||
+                value <= 0 || value > maxValue || decimal.Round(value, maxDecimals) != value)
+            {
+                throw Invalid("shares",
+                    $"Each share line is \"person_id: value\" with a person's id (get_sharing \"id\") and a positive value (at most {maxDecimals} decimals, dot as decimal separator).");
+            }
+
+            if (lines.Any(l => l.Item1 == id))
+            {
+                throw Invalid("shares", "Each person can appear only once in shares.");
+            }
+
+            lines.Add((id, value));
+        }
+
+        _used["shares"] = string.Join("; ", lines.Select(l => $"{l.Item1}: {l.Item2.ToString(CultureInfo.InvariantCulture)}"));
+        return lines;
+    }
+
     /// <summary>An optional month, yyyy-MM.</summary>
     public YearMonth? Month(string name)
     {
