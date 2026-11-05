@@ -33,8 +33,9 @@ public static class ShareErrors
 /// </summary>
 public static class TransactionShares
 {
+    /// <param name="expenseId">The expense being edited: people archived since it was shared can keep their part.</param>
     public static async Task<Error?> ValidateAsync(IFinanceDb db, TransactionDraft expense,
-        IReadOnlyList<ShareRequest> shares, CancellationToken ct)
+        IReadOnlyList<ShareRequest> shares, CancellationToken ct, Guid? expenseId = null)
     {
         if (shares.Count == 0)
         {
@@ -54,7 +55,8 @@ public static class TransactionShares
 
         var ids = shares.Select(s => s.PersonId).ToList();
         var people = await db.Accounts.AsNoTracking()
-            .CountAsync(a => ids.Contains(a.Id) && a.Kind == AccountKind.Person && a.ArchivedAtUtc == null, ct);
+            .CountAsync(a => ids.Contains(a.Id) && a.Kind == AccountKind.Person && (a.ArchivedAtUtc == null ||
+                expenseId != null && db.Transactions.Any(t => t.SharedFromId == expenseId && t.AccountId == a.Id)), ct);
         if (ids.Distinct().Count() != ids.Count || people != ids.Count)
         {
             return ShareErrors.InvalidPerson;
