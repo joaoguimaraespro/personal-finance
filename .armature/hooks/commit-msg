@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+# armature-hook: commit-msg (installed by the core plugin's bin/install-hooks.sh; safe to overwrite)
+"""commit-msg hook: Conventional Commits subject, and no co-author or AI/agent attribution.
+
+Subject: type(scope)!: subject  (scope and ! optional), at most 72 characters, no trailing period.
+The repo's .armature/config.json can change the limit and exempt a task-id prefix from it:
+  {"commit_msg": {"max_subject": 100, "task_prefix": "^[a-z]+\\([0-9]{3}-[a-z0-9-]+\\)!?: T[0-9]{3,4} "}}
+  max_subject   the subject length limit (default 72)
+  task_prefix   a regex matched at the start of the subject; the matched text does not count toward the limit
+                (e.g. "feat(003-mvp-ship): T407 " in a Spec Kit task commit)
+An unreadable config or a bad regex is reported on stderr and the defaults are used.
+Types: feat fix docs style refactor perf test build ci chore revert.
+Git's own "Merge ..." and "Revert ..." subjects and fixup!/squash!/amend! commits are accepted as they are.
+Rejected anywhere in the message: Co-Authored-By trailers and AI/agent attribution lines.
+
+Usage: commit-msg <message-file>
+Output: JSON {"ok", "errors"} on stdout, hints on stderr. Exit: 0 ok, 1 rejected, 2 usage error.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+DEFAULT_MAX_SUBJECT = 72
+CONFIG_REL = os.path.join(".armature", "config.json")
+
+TYPES = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+SUBJECT = re.compile(rf"^(?:{TYPES})(?:\([a-z0-9][a-z0-9._/-]*\))?!?: \S.*$")
+GIT_GENERATED = re.compile(r"^(Merge |Revert \"|(fixup|squash|amend)! )")
+ATTRIBUTION = [
+    (re.compile(r"^\s*co-authored-by\s*:", re.I | re.M), "Co-Authored-By trailer"),
+    (re.compile(r"generated (with|by|using)\b.*\b(ai|claude|chatgpt|gpt|copilot|codex|cursor|gemini|llm|agent)\b", re.I),
+     "AI attribution ('Generated with ...')"),
+    (re.compile(r"\U0001F916"), "robot emoji attribution"),
+    (re.compile(r"noreply@anthropic\.com|claude\.ai/code|claude\.com/claude-code", re.I), "AI attribution link"),
+    (re.compile(r"^\s*(assisted|written|authored)[- ]by\s*:?\s*(ai|claude|chatgpt|gpt|copilot|codex|cursor|gemini|an? (ai|llm|agent))\b",
+                re.I | re.M), "AI attribution line"),
+]
+
+
+def strip_message(text):
+    lines = []
+    for line in text.splitlines():
+        if line.startswith("# ------------------------ >8 ------------------------"):
+            break
+        if line.startswith("#"):
+            continue
+        lines.append(line)
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    return lines
+
+
+def load_config(root):
+    """(max_subject, task_prefix regex or None) from <root>/.armature/config.json; defaults when absent or bad."""
+    path = os.path.join(root, CONFIG_REL) if root else None
+    if not path or not os.path.isfile(path):
+        return DEFAULT_MAX_SUBJECT, None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            cfg = (json.load(fh) or {}).get("commit_msg") or {}
+        limit = cfg.get("max_subject", DEFAULT_MAX_SUBJECT)
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 20:
+            raise ValueError(f"commit_msg.max_subject must be an integer of at least 20, not {limit!r}")
+        prefix = cfg.get("task_prefix")
+        return limit, re.compile(prefix) if prefix else None
+    except (OSError, ValueError, AttributeError, re.error) as e:
+        print(f"commit-msg: ignoring {CONFIG_REL}: {e}", file=sys.stderr)
+        return DEFAULT_MAX_SUBJECT, None
+
+
+def repo_root():
+    try:
+        r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    except OSError:
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def check(text, max_subject=DEFAULT_MAX_SUBJECT, task_prefix=None):
+    errors = []
+    lines = strip_message(text)
+    if not lines:
+        return ["empty commit message"]
+    subject = lines[0].rstrip()
+    body = "\n".join(lines)
+    if not GIT_GENERATED.match(subject):
+        if not SUBJECT.match(subject):
+            errors.append(f"subject is not a Conventional Commit: '{subject}' (expected type(scope)!: subject, "
+                          f"type one of {TYPES.replace('|', ', ')})")
+        m = task_prefix.match(subject) if task_prefix else None
+        counted = len(subject) - (m.end() if m else 0)
+        if counted > max_subject:
+            extra = f", not counting the task prefix '{m.group(0)}'" if m else ""
+            errors.append(f"subject is {counted} characters{extra} (max {max_subject})")
+        if subject.endswith("."):
+            errors.append("subject ends with a period")
+        if len(lines) > 1 and lines[1].strip():
+            errors.append("leave a blank line between the subject and the body")
+    for rx, label in ATTRIBUTION:
+        if rx.search(body):
+            errors.append(f"remove the {label}: commits carry no co-author or AI/agent attribution")
+    return errors
+
+
+def main(argv):
+    if len(argv) != 2:
+        print("usage: commit-msg <message-file>", file=sys.stderr)
+        return 2
+    try:
+        with open(argv[1], encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError as e:
+        print(f"commit-msg: {e}", file=sys.stderr)
+        return 2
+    max_subject, task_prefix = load_config(repo_root())
+    errors = check(text, max_subject, task_prefix)
+    print(json.dumps({"ok": not errors, "errors": errors}))
+    for e in errors:
+        print(f"commit-msg: {e}", file=sys.stderr)
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

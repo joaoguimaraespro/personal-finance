@@ -1,0 +1,62 @@
+---
+description: TypeScript patterns: typed API client, result shapes, repository and adapter boundaries, discriminated unions
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.mts"
+  - "**/*.js"
+  - "**/*.jsx"
+---
+# TypeScript patterns
+
+## One typed API client
+
+All calls to a backend go through one typed client module (a package in a monorepo). It sets headers, parses the
+response with a schema, maps non-2xx responses to one error class, and handles `204 No Content`. Components and pages
+never build URLs or parse responses themselves.
+
+```typescript
+export class ApiError extends Error {
+  constructor(readonly status: number, readonly code: string, message: string) {
+    super(message)
+  }
+}
+```
+
+## Discriminated unions for state
+
+Model states that exclude each other as a union, not as a bag of optional flags.
+
+```typescript
+type Load<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; data: T }
+  | { status: 'error'; error: ApiError }
+```
+
+Switch on the discriminant and let the compiler check exhaustiveness (`const _never: never = state`).
+
+## Adapters around third-party libraries
+
+A library that may be replaced (chat SDK, charting, analytics, auth client) is used only inside one adapter folder.
+The rest of the code depends on our own types, so a switch touches one folder.
+
+## Repository interface for data access
+
+```typescript
+interface Repository<T, Id = string> {
+  findById(id: Id): Promise<T | null>
+  list(filter?: Partial<T>): Promise<T[]>
+  create(input: Omit<T, 'id'>): Promise<T>
+  update(id: Id, patch: Partial<T>): Promise<T>
+  delete(id: Id): Promise<void>
+}
+```
+
+## Shared types live once
+
+Types shared by several apps or packages live in one types package (or are generated from the API's OpenAPI
+document) and are imported, never copied.
+
+<!-- Adapted from affaan-m/ECC rules/typescript/patterns.md (MIT) at d2ef268; merged with the owner's conventions (ordo-frontend api-client and types packages, ai-industry adapter folder rule). -->

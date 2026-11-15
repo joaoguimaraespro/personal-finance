@@ -1,0 +1,33 @@
+---
+description: C#/.NET security: secrets, SQL injection, validation, JWT auth and authorisation, safe errors
+paths:
+  - "**/*.cs"
+  - "**/*.csproj"
+  - "**/appsettings*.json"
+---
+# C# security
+
+Extends [common/security.md](../common/security.md).
+
+## Secrets
+- No keys, tokens or connection strings in source or `appsettings*.json`. User secrets locally, environment or a
+  secret manager deployed. Read required settings with a fail-fast check at startup.
+
+## Input
+- Validate requests at the boundary (FluentValidation in a pipeline behaviour, or explicit guards) before business
+  logic runs. Validate sort fields and filter operators against an allow-list before composing dynamic queries.
+- Parameterised SQL only (EF Core, Dapper parameters, ADO.NET parameters).
+
+## Authentication and authorisation
+- Use the framework handlers (`AddAuthentication().AddJwtBearer(...)`), never hand-parsed tokens.
+- JWT bearer: validate issuer, audience (the service's own client id, never `account`), lifetime and signing key;
+  `MapInboundClaims = false` so claim names stay as issued.
+- Authorise at the endpoint or handler with policies; tenant and roles come from validated token claims, not from
+  headers, query strings or routes.
+- SignalR over WebSockets reads the token from `access_token` only on hub paths.
+
+## Errors
+- Clients get Problem Details with a safe message and an error code; logs get the exception with structured
+  context. Never return stack traces, SQL or file paths. Never log raw tokens, passwords or personal data.
+
+<!-- Adapted from affaan-m/ECC rules/csharp/security.md (MIT) at d2ef268 (identical to the Ordo frozen copy); merged with NEXUS knowledge/keycloak (audience per service, realm roles) and knowledge/dotnet/signalr. -->

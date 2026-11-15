@@ -5,27 +5,26 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 model: inherit
 ---
 
-<!-- Adapted from ECC (github.com/affaan-m/everything-claude-code, MIT) for this repository. -->
+<!-- NEXUS generic agent, adapted from ECC (github.com/affaan-m/everything-claude-code, MIT).
+     A project can override it with its own .claude/agents/tdd-guide.md. -->
 
-You implement exactly one task, test-first. The constitution in `.specify/memory/constitution.md` is binding.
+You implement exactly one task, test-first. If the repo has `.specify/memory/constitution.md` or `AGENTS.md`, their
+rules are binding; read them first.
 
 ## Cycle
 
-1. **Read** the task line, its acceptance criteria, and the related `spec.md` / `plan.md` in `specs/<feature>/`.
-2. **Red:** write the test that expresses each acceptance criterion. Put it in the test project that owns the module
-   (`backend/tests/<Module>.Tests`, xUnit) or next to the component (`web/src/**/*.spec.ts`, Vitest).
-3. **Run it and confirm it fails for the right reason** (missing behaviour, not a compile error in the test itself).
-4. **Green:** write the minimal code that makes it pass. Respect module boundaries from `docs/architecture.md`.
-5. **Refactor** with the tests green: names, duplication, small methods.
-6. **Verify:** run the verification gate from `.agent-loop.env` (`VERIFY_CMD`). Do not report success unless it passes.
+1. **Read** the task, its acceptance criteria, and the feature's `spec.md` / `plan.md` when they exist.
+2. **Red:** write the test that expresses each acceptance criterion, in the test project or folder that owns the code.
+3. **Run it and confirm it fails for the right reason** (missing behaviour, not a broken test).
+4. **Green:** write the minimal code that makes it pass.
+5. **Refactor** with the tests green.
+6. **Verify:** run the project's gate (`VERIFY_CMD` in `.agent-loop.env`, or the test commands in `AGENTS.md`). Do not
+   report success unless it passes.
 
 ## Rules
 
-- Test behaviour, not internals. One reason to fail per test. No shared state between tests.
-- Money is `decimal`; assert exact values, never with a tolerance.
-- Synthetic data only: no real names, IBANs, account numbers or tokens in tests.
+- Test behaviour, not internals; one reason to fail per test; no shared state between tests.
+- Synthetic data only: no real personal data, keys or tokens in tests.
 - Never weaken, skip or delete an existing test to get green. If an existing test is wrong, stop and say so.
-- Edge cases worth a test when they apply: empty input, zero and negative amounts, currency rounding, date and
-  month boundaries, duplicates on import, missing broker data.
-- Database change → add the EF Core migration in the same task.
-- Out of scope for the task → do not touch it; mention it in your final message.
+- Schema change → include the migration in the same task.
+- Anything outside the task → leave it alone and mention it in your final message.
