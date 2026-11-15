@@ -1,0 +1,4 @@
+# Data files the pre-commit hook allows: synthetic fixtures and vendored skill data (mirrors .gitignore)
+.agents/skills/ui-ux-pro-max/data/
+tools/fixtures/
+backend/tests/*/Fixtures/*

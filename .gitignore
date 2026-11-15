@@ -42,6 +42,8 @@ browser-profile/
 !backend/tests/**/Fixtures/**/*.csv
 !backend/tests/**/Fixtures/**/*.xlsx
 !backend/tests/**/Fixtures/**/*.xml
+# Vendored skill data (Armature design pack), not personal data
+!.agents/skills/ui-ux-pro-max/data/**/*.csv
 
 # IDE / OS
 .idea/

@@ -1,0 +1,41 @@
+---
+description: Language-independent coding style: simplicity, immutability, small files, explicit errors, validation at boundaries
+alwaysApply: true
+---
+# Coding style (all languages)
+
+Language rules in `.claude/rules/<language>/` win where they differ.
+
+## Principles
+- Explicit over implicit. Correctness first, then performance, then elegance.
+- KISS: the simplest solution that works. YAGNI: no abstraction before the need is real. DRY: extract repetition
+  once it is real (three times), not speculatively.
+- Prefer immutable data: return a new value instead of changing the input in place, unless the language idiom or a
+  measured performance need says otherwise.
+- Start from the data model, then the domain logic, then the interface.
+
+## Size and structure
+- Organise by feature or domain, not by technical type.
+- Functions do one thing; around 50 lines is a signal to split. Source files of 200-400 lines are typical; 800 is a
+  soft ceiling (tests, generated and vendored files may exceed it for a stated reason).
+- Nesting deeper than 4 levels: use early returns.
+- No magic numbers: name thresholds, delays and limits, or read them from configuration.
+
+## Errors and input
+- Handle errors explicitly at the level that can act on them. Never swallow an error silently.
+- Validate all external input (user input, API responses, files, messages) at the system boundary with a schema
+  where one exists. Fail fast with a clear message.
+- User-facing messages are plain and leak nothing internal; logs carry the detail (never secrets or personal data).
+
+## Naming
+- Names say what the thing holds or does, without a comment. Booleans read as claims (`isActive`, `has_access`).
+- Casing follows the language rule. Files and folders that are not code: lowercase `kebab-case`. Tool entry points
+  keep their exact names (`AGENTS.md`, `CLAUDE.md`, `README.md`, `LICENSE`, `SKILL.md`).
+
+## Before calling it done
+- [ ] Readable, well named, no dead code or debug output
+- [ ] Errors handled, input validated at the boundary
+- [ ] No hardcoded secrets or environment-specific values
+- [ ] Tests cover the change and the project gate passes
+
+<!-- Adapted from affaan-m/ECC rules/common/coding-style.md and patterns.md (MIT) at d2ef268; merged with the owner's engineering rules (NEXUS ME.md) and Ordo's naming-convention.md (generic parts). -->

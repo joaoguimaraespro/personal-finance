@@ -1,0 +1,51 @@
+---
+description: .NET application patterns: modular monolith boundaries, CQRS naming, Result/Error, options, DI lifetimes
+paths:
+  - "**/*.cs"
+---
+# C# patterns
+
+Extends [common/coding-style.md](../common/coding-style.md). A repo's own architecture doc (`docs/architecture.md`,
+ADRs) wins where it differs.
+
+## Modular monolith
+- Each module owns its `Domain`, `Application`, `Infrastructure` and `Api` projects, its own `DbContext`, its own
+  database schema and its own migrations.
+- A module never reads or writes another module's `DbContext`, entities or tables. Cross-module calls go through a
+  public module API interface (e.g. `IContactsApi`) or a command/query sent through the mediator.
+- `SharedKernel` holds only what every module needs (base entity, `Result`, `Error`, `IDomainEvent`). Add to it
+  rarely.
+- Architecture tests (e.g. NetArchTest) enforce the layering where the repo has them; keep them green.
+
+## CQRS
+- Commands change state, queries never do. Naming: `<Verb><Entity>Command` / `<Verb><Entity>CommandHandler` /
+  `<Verb><Entity>CommandValidator`; `<Verb><Entity>Query` / `<Verb><Entity>QueryHandler`
+  (`CreateInvoiceCommand`, `GetInvoiceByIdQuery`, `ListInvoicesQuery`).
+- Folder per use case: `Application/<Entity>/<Verb>/` with the request, handler, validator and response together.
+- Handlers are single-purpose and return `Result` or `Result<T>`. Controllers and endpoints inject `ISender`, not
+  `IMediator`.
+- Cross-cutting concerns (validation, logging, exception handling) are pipeline behaviours, not handler code.
+- Queries use `AsNoTracking()` and project to the response (`Select(...)`) instead of loading entities.
+
+## Result and Error
+- `Result` / `Result<T>` with an `Error(Code, Description, ErrorType)`; error codes `<Entity>.<Reason>`, defined as
+  static members in `<Entity>Errors`.
+- Map business-rule failures to the right type: `Error.Validation`/`Error.Problem` (400), `Error.NotFound` (404),
+  `Error.Conflict` (409), `Error.Forbidden` (403). Reserve `Error.Failure` (500) for genuinely unexpected faults; it
+  hides the error code from the client.
+- Endpoints turn a `Result` into an RFC 7807 Problem Details response in one place (`result.Match(Ok, Problem)`).
+
+## Domain
+- Entities: private setters, a private parameterless constructor for EF Core, a static `Create(...)` factory that
+  validates and returns `Result<T>`, and intention-revealing methods for state changes.
+- Domain events implement `IDomainEvent`, are raised inside the aggregate and dispatched after `SaveChangesAsync`
+  (centrally, not by each handler, when the repo supports it).
+- Public identifiers: never expose an internal database key in an API when the repo defines a separate public id.
+
+## Configuration and DI
+- Strongly typed options (`IOptions<T>`, `SectionName` constant, `required` + `init` properties, validated on start).
+- Depend on interfaces at boundaries. Too many constructor dependencies means the class does too much.
+- Lifetimes on purpose: singleton for stateless shared services, scoped for request data and `DbContext`, transient
+  for light pure workers. Never capture a scoped service in a singleton.
+
+<!-- Adapted from affaan-m/ECC rules/csharp/patterns.md (MIT) at d2ef268 (identical to the Ordo frozen copy); ECC's ApiResponse envelope and generic repository dropped in favour of the owner's Result/Error and CQRS conventions (ordo-api CLAUDE.md best practices, NEXUS knowledge/dotnet cqrs, result-pattern, modular-monolith-phase1, domain-events). -->
