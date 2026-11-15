@@ -6,3 +6,7 @@ backend/tests/*/Fixtures/*
 # armature: data files in vendored skills (managed)
 .agents/skills/ui-ux-pro-max/data/*.csv
 .agents/skills/ui-ux-pro-max/data/stacks/*.csv
+.claude/skills/ui-ux-pro-max/data/*.csv
+.claude/skills/ui-ux-pro-max/data/stacks/*.csv
+.cursor/skills/ui-ux-pro-max/data/*.csv
+.cursor/skills/ui-ux-pro-max/data/stacks/*.csv
