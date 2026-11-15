@@ -108,7 +108,8 @@ and test files.
 Armature defaults. Where this repo's rules (`.claude/rules/project/`, other rules Armature does not manage, or
 AGENTS.md outside the Armature sections) differ, the repo wins.
 
-Rules: `.claude/rules/angular/` (Cursor: `.cursor/rules/angular-*.mdc`), plus the TypeScript rules.
+Rules: `.claude/rules/angular/` (Cursor: `.cursor/rules/angular-*.mdc`), plus the TypeScript rules. Skill:
+`angular-guide` (the official angular/skills `angular-developer` skill, renamed so it does not clash with the agent).
 
 - Check the installed Angular version first; follow the CLI conventions the repo already uses.
 - Defaults for new code: standalone components, `OnPush`, `inject()`, signal inputs/outputs, `resource`/`rxResource`

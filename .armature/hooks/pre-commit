@@ -12,10 +12,16 @@ Blocks staged (added, copied, modified or renamed) files that are:
                matched case-insensitively as a whole word. Unset: skipped. The file must live outside the repo.
                Findings name the denylist line number, never the name itself.
 
+Files Armature manages (vendored skills, rules, agents) were vetted when they were vendored: a staged file listed in
+.armature/lock.json whose staged content still has the lock's sha256 skips the secret and data_file checks (the
+env_file and denylist checks still run). A managed file that was edited (hash mismatch) is scanned like any other.
+The lock is read from the index when it is staged or tracked, else from the work tree.
+
 Output: JSON {"ok", "violations": [{"file", "line", "kind", "detail"}]} on stdout, hints on stderr.
 Exit: 0 ok, 1 blocked, 2 usage or setup error.
 """
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -45,8 +51,60 @@ SECRETS = [
 URL_SAFE_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "example.com", "example.org")
 
 
-def git(*args):
-    return subprocess.run(["git", *args], capture_output=True, check=True).stdout
+LOCK = ".armature/lock.json"
+
+
+def git(*args, input=None):
+    return subprocess.run(["git", *args], capture_output=True, check=True, input=input).stdout
+
+
+def managed_hashes():
+    """{path: sha256} of the regular files .armature/lock.json records (links and sections are left out)."""
+    try:
+        raw = git("show", ":" + LOCK)
+    except subprocess.CalledProcessError:
+        try:
+            with open(LOCK, "rb") as fh:
+                raw = fh.read()
+        except OSError:
+            return {}
+    try:
+        files = json.loads(raw.decode("utf-8")).get("files") or {}
+    except (ValueError, AttributeError):
+        return {}
+    return {p: e["sha256"] for p, e in files.items()
+            if isinstance(e, dict) and isinstance(e.get("sha256"), str) and not e["sha256"].startswith("link:")}
+
+
+def vetted(paths, hashes):
+    """The staged paths that Armature manages and whose staged content still matches the lock's sha256."""
+    candidates = [p for p in paths if p in hashes]
+    if not candidates:
+        return set()
+    out = git("ls-files", "-s", "-z", "--", *candidates).decode("utf-8", "replace")
+    blobs = {}
+    for rec in out.split("\0"):
+        meta, _, path = rec.partition("\t")
+        parts = meta.split()
+        if path and len(parts) == 3 and parts[2] == "0" and not parts[0].startswith("120"):
+            blobs[path] = parts[1]
+    if not blobs:
+        return set()
+    order = sorted(blobs)
+    data = git("cat-file", "--batch", input="".join(blobs[p] + "\n" for p in order).encode())
+    ok, pos = set(), 0
+    for path in order:
+        nl = data.index(b"\n", pos)
+        header = data[pos:nl].split()
+        if len(header) != 3:   # "<oid> missing"
+            pos = nl + 1
+            continue
+        size = int(header[2])
+        body = data[nl + 1:nl + 1 + size]
+        pos = nl + 1 + size + 1
+        if hashlib.sha256(body).hexdigest() == hashes[path]:
+            ok.add(path)
+    return ok
 
 
 def staged_files():
@@ -141,19 +199,22 @@ def main(argv):
         print(f"pre-commit: {err}", file=sys.stderr)
         return 2
     allow = allow_list(root)
+    trusted = vetted(files, managed_hashes())
     violations = []
     for path in files:
         if is_env_file(path):
             violations.append({"file": path, "line": 0, "kind": "env_file", "detail": "env files stay out of git"})
             continue
-        if path.lower().endswith(DATA_EXT) and not data_allowed(path, allow):
+        if path.lower().endswith(DATA_EXT) and path not in trusted and not data_allowed(path, allow):
             violations.append({"file": path, "line": 0, "kind": "data_file",
                                "detail": "data file outside mock/, tests/fixtures/ and .armature/allow-data"})
         for i, rx in deny:
             if rx.search(path):
                 violations.append({"file": path, "line": 0, "kind": "denylist", "detail": f"denylist entry {i} in path"})
+        if path in trusted and not deny:
+            continue
         for ln, text in added_lines(path):
-            label = secret_hit(text)
+            label = None if path in trusted else secret_hit(text)
             if label:
                 violations.append({"file": path, "line": ln, "kind": "secret", "detail": label})
             for i, rx in deny:
