@@ -13,6 +13,10 @@ The binding rules are in [.specify/memory/constitution.md](.specify/memory/const
 - **No personal data** anywhere: synthetic data and the demo broker only.
 - Architecture, security or data decisions get a new ADR in `docs/adr/`; merged ADRs are never edited.
 
+Project rules that add to or override the generic stack rules below live in `.claude/rules/project/` (Cursor:
+`.cursor/rules/project-*.mdc`): `backend.md`, `web.md`, `testing.md`, `security.md`. Where they differ from a pack
+rule, the project rule wins.
+
 ## Workflow
 
 | Size | Process |
@@ -28,16 +32,25 @@ counts as done only when the verification gate in [.agent-loop.env](.agent-loop.
 
 ```bash
 cd backend && dotnet build                                   # .NET 10 (see backend/global.json)
+cd backend && dotnet format --verify-no-changes --include <files>   # C# format check on the files you touch
 cd backend && dotnet test --project tests/Finance.Tests      # one test project (Microsoft.Testing.Platform)
+cd web && npm run build                                      # Angular build and type check
 cd web && npm test && npm run lint:format                    # Vitest + Prettier
 ```
 
 `Integration.Tests` need Docker; CI runs them on every pull request.
+The whole backend is not `dotnet format` clean yet, so check only the files you change.
 
 ## Subagents (Claude Code)
 
-`.claude/agents/`: `tdd-guide` (implements one task test-first), `csharp-reviewer`, `typescript-reviewer`,
-`security-reviewer` (report only), `build-error-resolver` (minimal fixes to a broken build).
+One version of each generic agent, from Armature; the project context they need is in the rules above, not in
+copies of the agents.
+
+- Armature `core` plugin (user level): `tdd-guide` (implements one task test-first), `security-reviewer` (report
+  only), `build-error-resolver` (minimal fixes to a broken build).
+- Written into `.claude/agents/` by the Armature packs (managed: `armature sync`, never edited here):
+  `csharp-reviewer`, `typescript-reviewer` (report only), `dotnet-developer`, `angular-developer`,
+  `design-system-guard`.
 
 ## Never
 

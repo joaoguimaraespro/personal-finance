@@ -1,0 +1,32 @@
+---
+description: Personal Finance web app: the UI only displays backend figures, both language files, spartan/ui components, Prettier, and where this repo differs from the typescript and design pack rules
+paths:
+  - "web/**/*.ts"
+  - "web/**/*.html"
+  - "web/**/*.css"
+  - "web/public/i18n/*.json"
+  - "web/package.json"
+---
+# Web app (project rules)
+
+These win over the generic `typescript/`, `angular/` and `design/` pack rules. A reviewer reports any break of the
+first three as **HIGH** or worse.
+
+- **No money math in the browser.** The UI only displays figures the backend calculated.
+- **Translations:** every new UI string exists in both `web/public/i18n/en.json` and `web/public/i18n/pt-PT.json`
+  (ngx-translate), in the same change.
+- **No personal data** in code, fixtures or screenshots.
+- **Components** ([ADR-0007](../../../docs/adr/0007-ui-component-library.md)): spartan/ui. The shared UI package is
+  `web/src/app/ui` (helm components owned by this repo, regenerated deliberately with `@spartan-ng/cli`); merge classes
+  with `hlm()` from `web/src/app/ui/utils` (the design rule's `cn()`). Theme tokens are the shadcn CSS variables in
+  `web/src/styles.css`. Native `<select>` with the `uiSelect` directive where the platform picker is better on mobile;
+  icons are lucide via `@ng-icons`. No new UI library without an ADR.
+- **Formatter:** Prettier (`npm run lint:format`), not Biome; do not add a second formatter or linter.
+- Manual subscriptions use `takeUntilDestroyed()`.
+
+## Commands
+
+```bash
+cd web && npm run build && npm test && npm run lint:format
+cd web && npm run e2e        # Playwright
+```

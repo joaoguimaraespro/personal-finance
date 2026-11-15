@@ -1,0 +1,20 @@
+---
+description: Personal Finance tests: where tests live, exact money assertions, the edge cases this domain needs, synthetic data only
+paths:
+  - "backend/tests/**"
+  - "web/src/**/*.spec.ts"
+  - "web/e2e/**"
+---
+# Tests (project rules)
+
+Test-first is binding (constitution, principle III). These add to the `common/testing.md` and stack testing rules.
+
+- **Where tests go:** the test project that owns the module, `backend/tests/<Module>.Tests` (xUnit, Microsoft.Testing
+  Platform: `dotnet test --project tests/<Module>.Tests`); Vitest specs next to the code, `web/src/**/*.spec.ts`;
+  Playwright flows in `web/e2e`. `Integration.Tests` use a real PostgreSQL through Testcontainers (Docker).
+- **Money:** assert exact `decimal` values, never with a tolerance. Every workbook formula has a test with concrete
+  numbers in `Reporting.Tests`.
+- **Edge cases worth a test when they apply:** empty input, zero and negative amounts, currency rounding, date and
+  month boundaries, duplicates on import, missing broker data.
+- **Synthetic data only:** no real names, IBANs, account numbers, keys or tokens; use the demo broker.
+- The local gate is `VERIFY_CMD` in [.agent-loop.env](../../../.agent-loop.env); a task is done only when it passes.

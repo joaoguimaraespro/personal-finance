@@ -705,6 +705,10 @@
       "sha256": "7db46df9e3849074e95811de2a1ba2b342d87f35d68007e85675703033a2eb0b",
       "pack": "stack-angular"
     },
+    ".claude/agents/csharp-reviewer.md": {
+      "sha256": "ed07ae357200156901c5be966a9d6e5349e91a2fa7b0d4042a6d265bf8137dbe",
+      "pack": "stack-dotnet"
+    },
     ".claude/agents/design-system-guard.md": {
       "sha256": "672a25d70c44e12d53292242a88e1872b39b80f8a11ad643e625b9b7a12f67ed",
       "pack": "design"
@@ -712,6 +716,10 @@
     ".claude/agents/dotnet-developer.md": {
       "sha256": "60349ce2ea1082a458ba4232b8e61928a45fef2e95d4334f05f7a68a6484f7d7",
       "pack": "stack-dotnet"
+    },
+    ".claude/agents/typescript-reviewer.md": {
+      "sha256": "59661b81e2f96e11096054f0c60d3722b02df2a1baee56ce4ad69b5067f334d6",
+      "pack": "stack-typescript"
     },
     ".claude/rules/angular/coding-style.md": {
       "sha256": "bb3d6f731b1718d198a32ae8b3ad4683f9a260da76abe0c726a28b6faa8385ce",

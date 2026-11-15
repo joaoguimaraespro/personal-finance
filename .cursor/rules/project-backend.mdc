@@ -1,0 +1,43 @@
+---
+description: "Personal Finance backend: read-only brokers, decimal money, module boundaries, migrations, and where this repo differs from the csharp pack rules"
+globs: backend/**/*.cs,backend/**/*.csproj,backend/**/appsettings*.json,backend/Directory.*.props
+alwaysApply: false
+---
+<!-- Rendered from .claude/rules/project/backend.md in the Armature rule format. Edit the source rule and re-render this file. -->
+# Backend (project rules)
+
+Binding source: [.specify/memory/constitution.md](../../../.specify/memory/constitution.md), then
+[docs/architecture.md](../../../docs/architecture.md) and the ADRs in `docs/adr/`. These rules win over the generic
+`csharp/` pack rules. A reviewer reports any break below as **CRITICAL**.
+
+## Non-negotiable
+
+- **Read-only brokers** ([ADR-0005](../../../docs/adr/0005-read-only-broker-integrations.md),
+  [ADR-0009](../../../docs/adr/0009-binance-read-only-key.md)). No code places orders, moves money or withdraws.
+  Broker access goes only through `IInvestmentProvider` and the allow-list `DelegatingHandler` of read endpoints; a new
+  endpoint is added to the allow-list, never around it. No method is named like a trading or money-movement operation
+  (`PlaceOrder`, `Buy`, `Sell`, `Transfer`, `Withdraw`, `Deposit`, ...): `Architecture.Tests` fails the build.
+- **Money is `decimal`**, never `double`/`float`. The backend computes every figure; the web app only displays.
+- **Reporting never writes**: no `SaveChanges` in `Reporting`.
+- **No raw SQL** (`FromSqlRaw`, `ExecuteSqlRaw`, ...) in application code.
+- **Module boundaries** as in `docs/architecture.md`: `Finance.Domain` depends only on `SharedKernel`; application
+  layers never reference Npgsql, infrastructure projects or a host. `Host.Mcp` references only the AI contracts, never
+  the database.
+- **Schema change → EF Core migration** in the same change (`dotnet ef migrations add ...`).
+
+## Where this repo differs from the csharp pack
+
+- **Feature slices, no mediator.** `*.Application` holds feature folders with request DTOs, validators, minimal-API
+  endpoints (`*Endpoints.cs`) and queries that use the module's DbContext interface (e.g. `IFinanceDb`) directly. There
+  is no MediatR/`ISender` and no `<Verb><Entity>Command`/`Query` naming requirement: follow the slice the change sits in.
+- **`var`** follows `.editorconfig` (`csharp_style_var_for_built_in_types = true`): `var` is fine for built-in types;
+  match the surrounding code.
+- `Result`/`Error`, `YearMonth`, `Currency` and `DataSource` come from `SharedKernel`; reuse them.
+
+## Commands
+
+```bash
+cd backend && dotnet build
+cd backend && dotnet format --verify-no-changes --include <files you changed>   # the whole solution is not clean yet
+cd backend && dotnet test --project tests/<Module>.Tests        # Integration.Tests need Docker
+```
