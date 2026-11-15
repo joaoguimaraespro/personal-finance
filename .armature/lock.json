@@ -12,6 +12,11 @@
     "typescript",
     "angular"
   ],
+  "options": {
+    "core_agents": true,
+    "copy_links": false,
+    "hooks": "off"
+  },
   "files": {
     ".agents/skills/angular-developer/LICENSE.txt": {
       "sha256": "15e77c4692114f87c2020353626c868472c23954a4ed37ecc4c1522d14be1eb7",
@@ -705,21 +710,61 @@
       "sha256": "7db46df9e3849074e95811de2a1ba2b342d87f35d68007e85675703033a2eb0b",
       "pack": "stack-angular"
     },
+    ".claude/agents/build-error-resolver.md": {
+      "sha256": "5877d014090dece2165f2fbae9a3d96715c842380faace3f09ccd0cb65fd24a8",
+      "pack": "core"
+    },
     ".claude/agents/csharp-reviewer.md": {
       "sha256": "ed07ae357200156901c5be966a9d6e5349e91a2fa7b0d4042a6d265bf8137dbe",
       "pack": "stack-dotnet"
+    },
+    ".claude/agents/database-engineer.md": {
+      "sha256": "fc786b0fb2db9c439334c79968e19ce8fa7edc6d4cbd786192cdb51e7bc56637",
+      "pack": "core"
     },
     ".claude/agents/design-system-guard.md": {
       "sha256": "672a25d70c44e12d53292242a88e1872b39b80f8a11ad643e625b9b7a12f67ed",
       "pack": "design"
     },
+    ".claude/agents/devops-engineer.md": {
+      "sha256": "76a076d971f5d6bf6b0405f0297599d7a3a3893fdc25076e5b0b8970575013d0",
+      "pack": "core"
+    },
     ".claude/agents/dotnet-developer.md": {
       "sha256": "60349ce2ea1082a458ba4232b8e61928a45fef2e95d4334f05f7a68a6484f7d7",
       "pack": "stack-dotnet"
     },
+    ".claude/agents/lead-engineer.md": {
+      "sha256": "1ef857d17705bae1c2633400cc4bcaeb28fc3b0a25f9edbf0a2087f67a11702c",
+      "pack": "core"
+    },
+    ".claude/agents/product-manager.md": {
+      "sha256": "de4617980ea1e7738d7cddeed548c97609efcab6168da05e60b8d07a9efedfe5",
+      "pack": "core"
+    },
+    ".claude/agents/researcher.md": {
+      "sha256": "b7ed44fc5c134a627b24815e039e9132c631e44c96fce48b3fe4a388a3fe282a",
+      "pack": "core"
+    },
+    ".claude/agents/security-reviewer.md": {
+      "sha256": "8e75ef7e4b05fe31a58535e49cee3f65d677c60aabcbe3b40e8407b4c78ffe72",
+      "pack": "core"
+    },
+    ".claude/agents/software-architect.md": {
+      "sha256": "c3cd9af349259f29d3afdbf38e3ba1d4ffbcd9141c2cd94fa25e3ba16522dd77",
+      "pack": "core"
+    },
+    ".claude/agents/tdd-guide.md": {
+      "sha256": "5f84a00723eb8f6f47aad396ba643c868897361b6b1024e2c1f2c523d0d4b4e8",
+      "pack": "core"
+    },
     ".claude/agents/typescript-reviewer.md": {
       "sha256": "59661b81e2f96e11096054f0c60d3722b02df2a1baee56ce4ad69b5067f334d6",
       "pack": "stack-typescript"
+    },
+    ".claude/agents/ux-designer.md": {
+      "sha256": "c9ef9a2ee3c7b9c41047750e3fed3f2f690ad0d9f07a15d09b5a77ba657ab288",
+      "pack": "core"
     },
     ".claude/rules/angular/coding-style.md": {
       "sha256": "bb3d6f731b1718d198a32ae8b3ad4683f9a260da76abe0c726a28b6faa8385ce",
@@ -758,7 +803,7 @@
       "pack": "core"
     },
     ".claude/rules/csharp/coding-style.md": {
-      "sha256": "f644ca90b305acfe25e94e39b8ab66e986b77243faae25e350885307bd4462f5",
+      "sha256": "221bbaece44b256ac6a947fe215b94a1e85a79dfffd781941b45a56b78869a83",
       "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/data-access.md": {
@@ -766,7 +811,7 @@
       "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/patterns.md": {
-      "sha256": "0d93ad83dd47225a1c770379a3c2e2e6aa1951a63f571e12a520be4c01a12204",
+      "sha256": "077f943c5ab816688dc8511b786de26baae46283d2dd4b32a6da1e782210ea85",
       "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/security.md": {
@@ -878,7 +923,7 @@
       "pack": "core"
     },
     ".cursor/rules/csharp-coding-style.mdc": {
-      "sha256": "e1d7b47c0d7b8b73b4ae19abe827f66c6a5cc60fc4e81e7a9e97c7763d8a142f",
+      "sha256": "d06668b18f5fd3761966f103fcf9d332044f89243bc2c39de86ad1b912ab6e0f",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-data-access.mdc": {
@@ -886,20 +931,40 @@
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-patterns.mdc": {
-      "sha256": "5b1b75b9145d24d5498babf0eb655299e338018fcc49e37297336d1326107989",
+      "sha256": "264212aa04386297dceeacc2c1790e2598a64080f1b8f6baa6863442613ad48f",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-security.mdc": {
-      "sha256": "0b1b004230eb34ff6a6b27f92af4263769feee6073027beabfe62a2a466be9ad",
+      "sha256": "b739a093495c67be3c53520fa45a76ad4c81f5898c744a8d72d237cb56276b67",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-testing.mdc": {
-      "sha256": "9f20ce3f50afd8b0514e15a66a5816515ad63e460b41b3015d475a0057b20c7f",
+      "sha256": "72d47aa0efb5ec4c831972dbc71cd7a3b2cfa8177f38a5558be438d2caab0038",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/design-design-system.mdc": {
       "sha256": "c56547a873f8e61f883cdd2cad100f96baed6eed497c6941ca1a2c7b9b9dab5f",
       "pack": "design"
+    },
+    ".cursor/rules/project-backend.mdc": {
+      "sha256": "508e091ded10d66da3602b46330b3af824678113363d619862d0af3206bb629a",
+      "pack": "repo",
+      "source": ".claude/rules/project/backend.md"
+    },
+    ".cursor/rules/project-security.mdc": {
+      "sha256": "c22ba877943e058c7e81550e78d244c898140e304ce6e7ea5285c92dd3ae70a9",
+      "pack": "repo",
+      "source": ".claude/rules/project/security.md"
+    },
+    ".cursor/rules/project-testing.mdc": {
+      "sha256": "e39a45c5c9bd292df7ff7782e3650bfff88e49821ee5d987911a3e2b4f6c0fbb",
+      "pack": "repo",
+      "source": ".claude/rules/project/testing.md"
+    },
+    ".cursor/rules/project-web.mdc": {
+      "sha256": "f568b6ce5f56f47b2bf94781551418a077a9a93bee9ba01ca8d7bea851d5d46c",
+      "pack": "repo",
+      "source": ".claude/rules/project/web.md"
     },
     ".cursor/rules/typescript-coding-style.mdc": {
       "sha256": "fe31f3a294ee23b359e16a908e27d851fcb5678049efd426578bbfae446ea047",
@@ -963,11 +1028,12 @@
     }
   },
   "sections": {
-    "design": "734f860b39eb72d52f8a2f79320121332fdb53ae867539d1aa1f7db6c250fba0",
-    "security": "340c201357462a2733f29514bb0076be4f7159985438cb02bc1209cc47bf1d2f",
-    "stack-angular": "715458d45053e26de80792a6f19491c6265c5c0259a80a324b83e47ffc5df6f5",
-    "stack-dotnet": "8a212f31511d12bc714f859ae162d4e2d507da65609750bfb1791d7269ba7f87",
-    "stack-typescript": "fa658bdf8659ad9f8cabd710976f5c090bf715e5fbfb6ae046d36ff5e0f22dde"
+    "core": "3a7015c1888a1c6713939a2202370f256e5ca5c3ef60a902705408c4cb25789e",
+    "design": "8708803ca6f6226ab9bec3dea345e4c75867ed48a7b7f27e74ec69ee0db51403",
+    "security": "fffb190476f4484d19c6102519c18c40c0b406cfff129a487e6647e451a20994",
+    "stack-angular": "22873177af795a0bef7a439de44ed8d77584864893b77a23eceeab02acf808b2",
+    "stack-dotnet": "cb8ab9481d6583d6773d198c712eb4149359d35bfd6a3035cadc79a8037c0cc7",
+    "stack-typescript": "6b0357e362fd5d80aa2a8d8d7feabc4e76248395a1b19e1a42ef9486fa5d4809"
   },
   "settings": {
     "marketplaces": [

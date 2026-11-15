@@ -18,6 +18,8 @@ ADRs) wins where it differs.
 - Architecture tests (e.g. NetArchTest) enforce the layering where the repo has them; keep them green.
 
 ## CQRS
+For repos that use CQRS with a mediator. A repo built on feature slices with minimal APIs (or controllers calling
+services) keeps its own structure; do not introduce a mediator in a single change.
 - Commands change state, queries never do. Naming: `<Verb><Entity>Command` / `<Verb><Entity>CommandHandler` /
   `<Verb><Entity>CommandValidator`; `<Verb><Entity>Query` / `<Verb><Entity>QueryHandler`
   (`CreateInvoiceCommand`, `GetInvoiceByIdQuery`, `ListInvoicesQuery`).

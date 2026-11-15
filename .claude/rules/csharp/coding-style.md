@@ -18,8 +18,10 @@ Extends [common/coding-style.md](../common/coding-style.md). `.editorconfig` enf
 - No `dynamic` in application code.
 
 ## `var`
-- Never `var` for built-in types: `int count = 10;`, `string name = "x";`, `Guid id = Guid.NewGuid();`.
-- Never `var` when the right side does not make the type obvious (repository calls, LINQ pipelines ending in
+The repo's `.editorconfig` (`csharp_style_var_*`) decides (some repos use `var` throughout). When the
+repo sets nothing, the default is:
+- No `var` for built-in types: `int count = 10;`, `string name = "x";`, `Guid id = Guid.NewGuid();`.
+- No `var` when the right side does not make the type obvious (repository calls, LINQ pipelines ending in
   `ToListAsync`, method results): `List<Order> orders = await ...;`, `Order? order = await repo.GetAsync(id, ct);`.
 - `var` is fine when the type is apparent: `new Order(...)`, `TimeSpan.FromMinutes(5)`, `Result.Success(x)`.
 
