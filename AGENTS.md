@@ -25,7 +25,7 @@ rule, the project rule wins.
 | Feature | `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → human review of spec and tasks → implement |
 
 Features live in `specs/<NNN-feature>/` (`spec.md`, `plan.md`, `tasks.md`). Implement tasks with
-`~/Development/nexus/scripts/agent-loop.sh specs/<NNN-feature>/tasks.md`: one fresh agent session per task, and a task
+`task-loop specs/<NNN-feature>/tasks.md`: one fresh agent session per task, and a task
 counts as done only when the verification gate in [.agent-loop.env](.agent-loop.env) passes.
 
 ## Commands
