@@ -27,6 +27,7 @@ import {
   InvestmentAssetKind,
   TransactionFlow,
   TransactionRequest,
+  TransactionShare,
   TransactionType,
   flowOf,
 } from '../../core/models';
@@ -51,7 +52,7 @@ import {
   startSplit,
   toSplitRequests,
 } from '../../shared/split-lines';
-import { equalShares, ownerPart, shareError } from '../../shared/share-lines';
+import { equalShares, ownerPart, shareError, shareablePeople } from '../../shared/share-lines';
 
 export { parseAmount, parseDecimal } from '../../shared/parse-amount';
 
@@ -677,7 +678,11 @@ export class QuickAddComponent {
     params: () => this.active() || undefined,
     stream: () => this.api.sharing(),
   });
-  protected readonly people = computed(() => this.sharing.value()?.people ?? []);
+  /** The people sharing the expense being edited, kept even if archived or the list is still loading. */
+  private readonly expensePeople = signal<TransactionShare[]>([]);
+  protected readonly people = computed(() =>
+    shareablePeople(this.sharing.value()?.people ?? [], this.expensePeople()),
+  );
   protected readonly selectedPeople = computed(() =>
     this.people().filter((p) => this.sharePeople().includes(p.id)),
   );
@@ -830,6 +835,7 @@ export class QuickAddComponent {
             shares.map((x) => x.personId),
           ).every((e, i) => e.amount === shares[i].amount);
         this.hadShares.set(shares.length > 0);
+        this.expensePeople.set(shares);
         this.shareMode.set(shares.length > 0);
         this.sharePeople.set(shares.map((x) => x.personId));
         this.shareEqual.set(shares.length === 0 || equal);
@@ -1186,6 +1192,7 @@ export class QuickAddComponent {
     this.shareEqual.set(true);
     this.shareAmounts.set({});
     this.hadShares.set(false);
+    this.expensePeople.set([]);
     this.splitMode.set(false);
     this.splitLines.set([]);
     // untracked: reset runs inside the open/edit effect, which must not re-run when the nature changes.

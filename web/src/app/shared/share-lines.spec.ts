@@ -1,4 +1,4 @@
-import { equalShares, ownerPart, shareError } from './share-lines';
+import { equalShares, ownerPart, shareError, shareablePeople } from './share-lines';
 
 describe('share lines', () => {
   it('splits equally between the owner and the people, the owner keeping the rounding', () => {
@@ -20,5 +20,22 @@ describe('share lines', () => {
     expect(shareError(10, [{ personId: 'ana', amount: 0 }])).toBe('amount');
     expect(shareError(10, [{ personId: 'ana', amount: 10.01 }])).toBe('amount');
     expect(shareError(10, [{ personId: 'ana', amount: 10 }])).toBeNull();
+  });
+
+  it('keeps the people already sharing an edited expense, even if archived or not loaded yet', () => {
+    const active = [{ id: 'ana', name: 'Ana' }];
+    const onExpense = [
+      { personId: 'ana', personName: 'Ana' },
+      { personId: 'rui', personName: 'Rui' },
+    ];
+    expect(shareablePeople(active, onExpense)).toEqual([
+      { id: 'ana', name: 'Ana' },
+      { id: 'rui', name: 'Rui' },
+    ]);
+    expect(shareablePeople([], onExpense)).toEqual([
+      { id: 'ana', name: 'Ana' },
+      { id: 'rui', name: 'Rui' },
+    ]);
+    expect(shareablePeople(active, [])).toEqual(active);
   });
 });

@@ -1,0 +1,31 @@
+---
+description: TypeScript and JavaScript security: secrets, env vars exposed to the browser, tokens, untrusted input
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/.env.example"
+---
+# TypeScript security
+
+- **No secrets in source.** Read them from the environment at startup and fail fast when they are missing.
+
+  ```typescript
+  const apiKey = process.env.API_KEY
+  if (!apiKey) throw new Error('API_KEY not configured')
+  ```
+
+- **Public prefixes are public.** Anything with `NEXT_PUBLIC_`, `VITE_`, `PUBLIC_` or in an Angular `environment.ts`
+  ships in the browser bundle. Backend URLs, tokens and keys never get such a prefix.
+- **Tokens never live in the browser's script-readable storage**: not in `localStorage`, `sessionStorage` or a
+  non-httpOnly cookie. Sessions are httpOnly, `Secure`, `SameSite=Lax` (or stricter) cookies.
+- **Authorisation happens on the server.** Hiding a button is not access control; the API enforces every rule.
+- **Untrusted input is parsed with a schema** before use, including tool and model output.
+- **No HTML from strings** (`innerHTML`, `dangerouslySetInnerHTML`, `bypassSecurityTrust*`) unless sanitised at the
+  same call site with an allow-list sanitiser (DOMPurify).
+- **URLs from users** are checked for scheme (`http:`, `https:`, `mailto:` only) before going into `href` or `src`.
+- **Dependencies:** pin exact versions for anything security-relevant; read the changelog before a major upgrade.
+- Use the `security-reviewer` agent before a pull request that touches auth, input handling or dependencies.
+
+<!-- Adapted from affaan-m/ECC rules/typescript/security.md and rules/react/security.md (MIT) at d2ef268; merged with the owner's conventions (ordo-frontend: server-only BACKEND_URL, tokens only in the server session). -->

@@ -1,0 +1,24 @@
+---
+description: Schema changes, migrations, constraints, indexes, backfills and tenant isolation, for any stack
+paths:
+  - "**/*.sql"
+  - "**/migrations/**"
+  - "**/Migrations/**"
+  - "**/alembic/**"
+  - "**/*DbContext*.cs"
+  - "**/*Configuration.cs"
+---
+# Database changes
+
+- Migrations go through the repo's tool (EF Core migrations, Alembic, plain SQL files). Never hand-edit a migration
+  that has already been applied anywhere.
+- Invariants live in the database too: NOT NULL, CHECK, UNIQUE and foreign keys, not only in code. Name things as the
+  repo does (e.g. snake_case through the Npgsql conventions).
+- Migrations are reversible where possible. A destructive change goes expand → migrate data → contract, across
+  separate deployments; state any data-loss risk that remains.
+- Index for the queries the feature runs, checked with `EXPLAIN (ANALYZE, BUFFERS)` on realistic synthetic volumes
+  when performance is in the acceptance criteria. No speculative indexes.
+- Multi-tenant data: every query path is filtered by tenant, and a test proves cross-tenant isolation.
+- Backfills run in batches, idempotent and resumable.
+- Tests run against a real PostgreSQL (Testcontainers or the repo's test database), never an in-memory substitute.
+- Never run anything against a production or shared database.

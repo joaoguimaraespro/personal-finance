@@ -74,7 +74,8 @@ public static class TransactionCommands
             return resolved.Error;
         }
 
-        if (shares is { Count: > 0 } && await TransactionShares.ValidateAsync(db, resolved.Value, shares, ct) is { } invalid)
+        if (shares is { Count: > 0 } &&
+            await TransactionShares.ValidateAsync(db, resolved.Value, shares, ct, transaction.Id) is { } invalid)
         {
             return invalid;
         }

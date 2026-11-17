@@ -1,0 +1,38 @@
+---
+description: When to review, the review checklist, severity levels and which Armature reviewer agent to use
+alwaysApply: true
+---
+# Code review (all languages)
+
+## When
+- After writing or changing code, before a pull request.
+- Always when the change touches authentication, authorisation, user input, database queries, file system access,
+  external calls, cryptography or money.
+- Request review only when the gate and CI are green and the branch is up to date with its base.
+
+## Checklist
+- [ ] Does what the task or spec asked, no more and no less
+- [ ] Readable, well named, functions focused, no deep nesting
+- [ ] Errors handled explicitly; input validated at the boundary
+- [ ] No secrets, debug output or commented-out code
+- [ ] Tests exist for the new behaviour and none were removed or skipped
+- [ ] No N+1 queries, unbounded queries or missing pagination
+
+## Severity
+| Level | Meaning | Action |
+|---|---|---|
+| CRITICAL | Security hole or data loss | Block: fix before merge |
+| HIGH | Bug or significant quality issue | Fix before merge |
+| MEDIUM | Maintainability concern | Consider fixing |
+| LOW | Style or minor suggestion | Optional |
+
+## Agents
+| Agent | Use for |
+|---|---|
+| `security-reviewer` | Auth, input handling, injection, secrets, personal data, dependencies |
+| `csharp-reviewer` | C#/.NET changes (stack-dotnet pack) |
+| `typescript-reviewer` | TypeScript, Angular, React/Next.js changes (stack-typescript pack) |
+
+Reviewers report findings; they do not edit code. A person merges; nothing merges automatically.
+
+<!-- Adapted from affaan-m/ECC rules/common/code-review.md and agents.md (MIT) at d2ef268; agents rewritten to Armature's. -->

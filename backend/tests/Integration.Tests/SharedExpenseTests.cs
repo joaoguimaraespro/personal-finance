@@ -121,6 +121,41 @@ public sealed class SharedExpenseTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Editing_an_expense_keeps_the_share_of_a_person_archived_since()
+    {
+        var api = await factory.OwnerAsync();
+        var bank = await api.CreateAsync("/api/accounts", new { name = "Archived share bank", kind = "Bank", currency = "EUR", openingBalance = 0m });
+        var ana = await api.CreateAsync("/api/accounts", new { name = "Ana (archived share)", kind = "Person", currency = "EUR", openingBalance = 0m });
+        var rui = await api.CreateAsync("/api/accounts", new { name = "Rui (archived share)", kind = "Person", currency = "EUR", openingBalance = 0m });
+        var expense = await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = "2053-08-10", amount = 18m, accountId = bank, categoryId = Subscriptions,
+            shares = new[] { new { personId = ana, amount = 6m }, new { personId = rui, amount = 6m } },
+        });
+        await ApiClient.EnsureAsync(await api.PostAsync($"/api/accounts/{rui}/archive", new { }));
+
+        // Fixing the description sends the shares as they are, Rui's included.
+        await ApiClient.EnsureAsync(await api.PutAsync($"/api/transactions/{expense}", new
+        {
+            type = "Expense", occurredOn = "2053-08-10", amount = 18m, accountId = bank, categoryId = Subscriptions,
+            description = "Streaming", shares = new[] { new { personId = ana, amount = 6m }, new { personId = rui, amount = 6m } },
+        }));
+        (await api.GetJsonAsync($"/api/transactions/{expense}")).GetProperty("shares").EnumerateArray()
+            .Select(s => s.GetProperty("personId").GetGuid()).ShouldBe([ana, rui], ignoreOrder: true);
+
+        // An archived person still can't be added to an expense they were not part of.
+        var other = await api.CreateAsync("/api/transactions", new
+        {
+            type = "Expense", occurredOn = "2053-08-11", amount = 10m, accountId = bank, categoryId = Subscriptions,
+        });
+        (await api.PutAsync($"/api/transactions/{other}", new
+        {
+            type = "Expense", occurredOn = "2053-08-11", amount = 10m, accountId = bank, categoryId = Subscriptions,
+            shares = new[] { new { personId = rui, amount = 5m } },
+        })).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task A_friend_who_paid_for_the_owner_is_owed_until_paid_back()
     {
         var api = await factory.OwnerAsync();

@@ -42,6 +42,8 @@ browser-profile/
 !backend/tests/**/Fixtures/**/*.csv
 !backend/tests/**/Fixtures/**/*.xlsx
 !backend/tests/**/Fixtures/**/*.xml
+# Vendored skill data (Armature design pack), not personal data
+!.agents/skills/ui-ux-pro-max/data/**/*.csv
 
 # IDE / OS
 .idea/
@@ -51,3 +53,9 @@ browser-profile/
 .dev-keys/
 web/test-results/
 web/playwright-report/
+
+# armature: managed files the rules above would ignore
+!/.claude/skills/ui-ux-pro-max/data/*.csv
+!/.claude/skills/ui-ux-pro-max/data/stacks/*.csv
+!/.cursor/skills/ui-ux-pro-max/data/*.csv
+!/.cursor/skills/ui-ux-pro-max/data/stacks/*.csv

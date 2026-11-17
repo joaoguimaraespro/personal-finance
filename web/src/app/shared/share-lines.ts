@@ -1,4 +1,4 @@
-import { ShareRequest } from '../core/models';
+import { ShareRequest, TransactionShare } from '../core/models';
 
 /**
  * Splits `amount` equally between the owner and `people` (in cents): each person gets the same part, rounded down,
@@ -23,4 +23,18 @@ export function shareError(amount: number, shares: ShareRequest[]): 'none' | 'am
   if (shares.length === 0) return 'none';
   if (shares.some((s) => !(s.amount > 0)) || ownerPart(amount, shares) < 0) return 'amount';
   return null;
+}
+
+/**
+ * Who an expense can be shared with: the active people, plus anyone already sharing the expense being edited — archived
+ * since, or not loaded yet — so saving the expense never drops their part.
+ */
+export function shareablePeople(
+  active: { id: string; name: string }[],
+  onExpense: Pick<TransactionShare, 'personId' | 'personName'>[],
+): { id: string; name: string }[] {
+  const missing = onExpense
+    .filter((s) => !active.some((p) => p.id === s.personId))
+    .map((s) => ({ id: s.personId, name: s.personName }));
+  return [...active.map((p) => ({ id: p.id, name: p.name })), ...missing];
 }

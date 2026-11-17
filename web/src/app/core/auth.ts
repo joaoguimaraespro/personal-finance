@@ -23,6 +23,9 @@ export class AuthService {
   }
 
   async login(email: string, password: string, rememberMe: boolean): Promise<string> {
+    // The login page can still hold the pair minted while signed in. After the session ticket dies the
+    // POST is anonymous and that pair is rejected, so replace it before sending the password.
+    await firstValueFrom(this.http.get('/api/auth/antiforgery'));
     const res = await firstValueFrom(
       this.http.post<{ status: string }>('/api/auth/login', { email, password, rememberMe }),
     );
