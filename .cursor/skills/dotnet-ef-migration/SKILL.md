@@ -18,7 +18,7 @@ Never write or edit migration files by hand; the tool generates them.
    ```bash
    dotnet ef migrations add <Name> \
      --project src/Modules/<Module>/<Module>.Infrastructure/<Module>.Infrastructure.csproj \
-     --startup-project src/<Host>/<Host>.csproj \
+     --startup-project src/Web.Api/Web.Api.csproj \
      --context <Module>DbContext \
      --output-dir Database/Migrations
    ```

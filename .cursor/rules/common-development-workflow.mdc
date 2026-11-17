@@ -10,7 +10,8 @@ The repo's `AGENTS.md` is the source for its workflow; this rule is the default.
 
 ## Pick the lane
 - **Fix Lane** (a fix, debt, one change): acceptance criteria in the issue, a failing test, the smallest fix, the
-  gate, a pull request.
+  gate, a pull request. For a bug, the `fix` skill (`/fix <issue or description>`) runs it: reproduce with a red
+  test, name the root cause, the smallest fix, then propose the check that would have caught the bug class.
 - **Spec Lane** (a feature, more than one change): spec, plan and tasks with Spec Kit in `specs/<NNN-slug>/`, citing
   requirement IDs. Open a draft pull request with the spec and stop until a person approves it. Then the Task Loop
   runs one fresh session per task, test first, until each task's gate passes.

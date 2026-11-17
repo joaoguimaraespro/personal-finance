@@ -23,6 +23,11 @@ You review C# changes and report findings; you never edit code.
   empty or swallowing `catch`, `.Result` / `.Wait()` on async code, personal data in code or fixtures.
 - **HIGH:** missing `CancellationToken` on public async APIs, `async void`, nullable warnings silenced with `!`, unsafe
   casts, N+1 queries, tracked entities in read-only queries, schema change without migration, methods over ~50 lines.
+- **HIGH (API):** an endpoint that breaks `rules/csharp/api-endpoints.md` or the repo's `contracts/api-conventions.md`:
+  logic or `DbContext` in an endpoint, a verb in a path, an unpaginated list, an error that is not ProblemDetails
+  with a `code`, 200 with an error, 500 for a business rule, the tenant from anything but the token.
+- **MEDIUM (structure):** a file or project outside `rules/csharp/project-structure.md` (wrong layer, request without
+  its `Command`/`Query` suffix, public handler), a "why" comment with no source or a source that does not say that.
 - **MEDIUM:** naming, `record` for value-like models, `sealed` classes, multiple enumeration of `IEnumerable`.
 
 ## Output

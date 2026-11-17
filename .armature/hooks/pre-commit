@@ -11,20 +11,36 @@ Blocks staged (added, copied, modified or renamed) files that are:
   denylist     a name from the file in $ARMATURE_DENYLIST (one per line, '#' comments) in a path or added line,
                matched case-insensitively as a whole word. Unset: skipped. The file must live outside the repo.
                Findings name the denylist line number, never the name itself.
+  secret       also gitleaks (`gitleaks git --staged --redact`) when it is on PATH (or $ARMATURE_GITLEAKS_BIN):
+               its rules catch far more than the patterns above. Not installed: a hint, never a failure.
+               .gitleaksignore and `gitleaks:allow` work as usual; 'pragma: allowlist secret' is honoured too.
+  unknown_package
+               a package newly added to a staged manifest (package.json, pyproject.toml, requirements*.txt,
+               *.csproj, Directory.Packages.props) that does not exist on its registry: a hallucinated or mistyped
+               name (slopsquatting). A very young or thin package, or a registry that cannot be reached (no
+               network), only prints a warning. Uses deps_check.py: $ARMATURE_HOME/plugins/core/review/, else the
+               armature-deps-check.py copy next to this hook, else ../review/ beside it.
+
+This hook is the fast path. It can be skipped (git commit --no-verify), so PR Validation in CI runs every check
+again (review/validate.py, review/quality.py) as a required check; dead code and duplication are only checked there.
 
 Files Armature manages (vendored skills, rules, agents) were vetted when they were vendored: a staged file listed in
 .armature/lock.json whose staged content still has the lock's sha256 skips the secret and data_file checks (the
 env_file and denylist checks still run). A managed file that was edited (hash mismatch) is scanned like any other.
-The lock is read from the index when it is staged or tracked, else from the work tree.
+The lock is read from the index when it is staged or tracked, else from the work tree. A gitleaks hit on a lock
+line that is only a name and a sha256 is a false positive and is dropped.
 
-Output: JSON {"ok", "violations": [{"file", "line", "kind", "detail"}]} on stdout, hints on stderr.
+Output: JSON {"ok", "violations": [{"file", "line", "kind", "detail"}], "warnings": [...]} on stdout, hints on
+stderr.
 Exit: 0 ok, 1 blocked, 2 usage or setup error.
 """
 import fnmatch
 import hashlib
+import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -52,6 +68,12 @@ URL_SAFE_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "example.com", "example.o
 
 
 LOCK = ".armature/lock.json"
+# A lock line is a path or section name and its sha256; gitleaks reads some as keys ("stack-auth": "<hex>").
+LOCK_HASH_LINE = re.compile(r'^\s*"[^"]+":\s*"[0-9a-f]{64}",?\s*$')
+GITLEAKS_TIMEOUT_S = 120
+DEPS_HELPER = "armature-deps-check.py"
+MANIFEST_RE = re.compile(r"(^|/)(package\.json|pyproject\.toml|requirements[\w.-]*\.txt|[^/]+\.(cs|fs|vb)proj|"
+                         r"Directory\.Packages\.props)$")
 
 
 def git(*args, input=None):
@@ -182,6 +204,63 @@ def secret_hit(text):
     return None
 
 
+def gitleaks_findings(root):
+    """[(file, line, rule)] from gitleaks on the staged changes; None when gitleaks is missing or failed."""
+    exe = shutil.which(os.environ.get("ARMATURE_GITLEAKS_BIN") or "gitleaks")
+    if exe is None:
+        print("pre-commit: gitleaks is not installed: only the built-in secret patterns ran "
+              "(setup-tools.py --install --only gitleaks)", file=sys.stderr)
+        return None
+    try:
+        p = subprocess.run([exe, "git", "--staged", "--redact", "--no-banner", "--report-format", "json",
+                            "--report-path", "-", "--exit-code", "0", "--log-level", "error", "."],
+                           cwd=root, capture_output=True, text=True, timeout=GITLEAKS_TIMEOUT_S)
+        leaks = json.loads(p.stdout) if p.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        leaks = None
+    if not isinstance(leaks, list):
+        print("pre-commit: gitleaks failed; only the built-in secret patterns ran", file=sys.stderr)
+        return None
+    return [(x.get("File", ""), int(x.get("StartLine") or 0), x.get("RuleID", "?")) for x in leaks]
+
+
+def deps_helper():
+    """The deps_check module (see the doc above), or None."""
+    here = os.path.dirname(os.path.realpath(__file__))
+    candidates = [os.path.join(here, DEPS_HELPER), os.path.join(here, "..", "review", "deps_check.py")]
+    if os.environ.get("ARMATURE_HOME"):
+        candidates.insert(0, os.path.join(os.environ["ARMATURE_HOME"], "plugins", "core", "review", "deps_check.py"))
+    for path in candidates:
+        if os.path.isfile(path):
+            spec = importlib.util.spec_from_file_location("armature_deps_check", path)
+            mod = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(mod)
+            except Exception as e:   # a broken helper must not block commits; say so
+                print(f"pre-commit: cannot load {path}: {e}", file=sys.stderr)
+                return None
+            return mod
+    return None
+
+
+def dependency_findings(root, files):
+    """(violations, warnings) for packages newly added to the staged manifests."""
+    if not any(MANIFEST_RE.search(p) for p in files):
+        return [], []
+    mod = deps_helper()
+    if mod is None:
+        return [], ["new packages not checked: deps_check.py not found (set ARMATURE_HOME or re-run install-hooks.sh)"]
+    result = mod.check_packages(mod.staged_changes(root), config=mod.load_config(root))
+    violations, warnings = [], []
+    for p in result["packages"]:
+        if p["status"] == "fail":
+            violations.append({"file": p["file"], "line": 0, "kind": "unknown_package",
+                               "detail": f"{p['ecosystem']} {p['name']}: {p['detail']}"})
+        elif p["status"] in ("warn", "unknown"):
+            warnings.append(f"{p['ecosystem']} {p['name']} ({p['file']}): {p['detail']}")
+    return violations, warnings
+
+
 def main(argv):
     if len(argv) > 1:
         print("usage: pre-commit (run by git, no arguments)", file=sys.stderr)
@@ -220,7 +299,22 @@ def main(argv):
             for i, rx in deny:
                 if rx.search(text):
                     violations.append({"file": path, "line": ln, "kind": "denylist", "detail": f"denylist entry {i}"})
-    print(json.dumps({"ok": not violations, "violations": violations}))
+    lines_of = {}
+    for file, line, rule in gitleaks_findings(root) or []:
+        if file in trusted or any(v["kind"] == "secret" and (v["file"], v["line"]) == (file, line)
+                                  for v in violations):
+            continue
+        if file not in lines_of:
+            lines_of[file] = dict(added_lines(file)) if file in files else {}
+        text = lines_of[file].get(line, "")
+        if ALLOW_SECRET in text or (file == LOCK and LOCK_HASH_LINE.match(text)):
+            continue
+        violations.append({"file": file, "line": line, "kind": "secret", "detail": f"gitleaks: {rule}"})
+    dep_violations, warnings = dependency_findings(root, files)
+    violations += dep_violations
+    print(json.dumps({"ok": not violations, "violations": violations, "warnings": warnings}))
+    for w in warnings:
+        print(f"pre-commit: warning: {w}", file=sys.stderr)
     for v in violations:
         where = f"{v['file']}:{v['line']}" if v["line"] else v["file"]
         print(f"pre-commit: {v['kind']}: {where}: {v['detail']}", file=sys.stderr)

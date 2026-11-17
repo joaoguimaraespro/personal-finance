@@ -46,11 +46,10 @@ The whole backend is not `dotnet format` clean yet, so check only the files you 
 One version of each generic agent, from Armature; the project context they need is in the rules above, not in
 copies of the agents.
 
-- Armature `core` plugin (user level): `tdd-guide` (implements one task test-first), `security-reviewer` (report
-  only), `build-error-resolver` (minimal fixes to a broken build).
+- Armature `core` plugin (user level): the `implement-task` skill (one task, test-first), `/fix` (bugs),
+  `security-reviewer` and `researcher` (report only).
 - Written into `.claude/agents/` by the Armature packs (managed: `armature sync`, never edited here):
-  `csharp-reviewer`, `typescript-reviewer` (report only), `dotnet-developer`, `angular-developer`,
-  `design-system-guard`.
+  `csharp-reviewer`, `typescript-reviewer` and `design-system-guard` (report only).
 
 ## Never
 
@@ -59,152 +58,83 @@ Merge pull requests, push to `main`, edit merged ADRs, weaken or skip tests, or 
 <!-- armature:stack-dotnet:start -->
 ## .NET (stack-dotnet)
 
-Armature defaults. Where this repo's rules (`.claude/rules/project/`, other rules Armature does not manage, or
-AGENTS.md outside the Armature sections) differ, the repo wins.
+Armature defaults: where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. Rules: `.claude/rules/csharp/`; read `project-structure.md` before adding a project or folder and
+`api-endpoints.md` before an endpoint. Skills `dotnet-create-*`, `dotnet-ef-migration`; templates in
+`plugins/stack-dotnet/templates/`; reviewer `csharp-reviewer`. Tasks tagged `[@dotnet]` run through `implement-task`.
 
-Rules: `.claude/rules/csharp/` (coding style, patterns, data access, security, testing), also rendered to
-`.cursor/rules/csharp-*.mdc`. They load for `*.cs`, `*.csproj` and `appsettings*.json`. The repo's `.editorconfig`,
-architecture doc and ADRs decide style and structure; the rules describe the defaults when the repo says nothing.
-
-- Style follows the repo's `.editorconfig` (`var`, namespaces, braces); nullable on. Without one, Armature's template
-  (`plugins/stack-dotnet/templates/.editorconfig`) is a starting point.
-- Expected failures as results (`Result`/`Error`: validation, not found, conflict, forbidden) rather than exceptions,
-  in whatever shape the repo already uses.
-- Follow the repo's application structure: feature slices with minimal APIs, CQRS handlers behind a mediator
-  (`<Verb><Entity>Command`/`Query`), or controllers. Do not introduce a different one in a single change.
-- A module owns its data: no reaching into another module's `DbContext`; migrations come from the EF tool.
-
-Skills: `dotnet-create-module`, `dotnet-create-entity`, `dotnet-create-command-query` (for repos that use CQRS),
-`dotnet-ef-migration`. Official .NET skills come from the `dotnet/skills` marketplace (enabled in
-`.claude/settings.json`, not copied here).
-
-Agents: `[@dotnet-developer]` implements one .NET task test-first; `csharp-reviewer` reviews C# changes (report
-only). Typical gate: `dotnet build`, `dotnet format --verify-no-changes`, `dotnet test` (the repo's `VERIFY_CMD` wins).
+- Modular monolith (`src/Web.Api`, `BuildingBlocks`, `Modules`), minimal APIs, `<Verb><Entity>Command`/`Query`,
+  RFC 9457 ProblemDetails; style from the repo's `.editorconfig`.
+- Never reach into another module's `DbContext`; banned APIs (`BannedSymbols.txt`) are build errors, not suggestions.
 <!-- armature:stack-dotnet:end -->
 
 <!-- armature:stack-typescript:start -->
 ## TypeScript
 
-Armature defaults. Where this repo's rules (`.claude/rules/project/`, other rules Armature does not manage, or
-AGENTS.md outside the Armature sections) differ, the repo wins.
+Armature defaults: where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. Rules: `.claude/rules/typescript/`; banned APIs in `templates/biome.banned.json`; reviewer
+`typescript-reviewer` (reports only).
 
-Rules: `.claude/rules/typescript/` (Cursor: `.cursor/rules/typescript-*.mdc`), applied to `*.ts`, `*.tsx`, `*.js`
-and test files.
-
-- Strict TypeScript: no `any`, no hiding casts, no `!` without a guard; schemas (e.g. Zod) at every trust boundary.
-- One formatter and linter, run by the gate: what the repo already uses (Biome when it has none).
-- Test-first by user-visible behaviour, with the repo's runner (Vitest and Testing Library by default); Playwright
-  for critical flows.
-- No secrets or tokens in the browser: public env prefixes (`NEXT_PUBLIC_`, `VITE_`) are public.
-
-| Agent | Use it |
-|---|---|
-| `typescript-reviewer` | After TypeScript changes, before a pull request. Reports findings with a verdict; never edits |
+- Strict: no `any`, no hiding casts, no `!` without a guard; a schema at every trust boundary.
+- One formatter and linter, the one the repo already uses.
 <!-- armature:stack-typescript:end -->
 
 <!-- armature:stack-angular:start -->
 ## Angular
 
-Armature defaults. Where this repo's rules (`.claude/rules/project/`, other rules Armature does not manage, or
-AGENTS.md outside the Armature sections) differ, the repo wins.
+Armature defaults: where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. Rules: `.claude/rules/angular/` plus the TypeScript rules; skill `angular-guide`; reviewer
+`typescript-reviewer`. Tasks tagged `[@angular]` run through the core `implement-task` skill.
 
-Rules: `.claude/rules/angular/` (Cursor: `.cursor/rules/angular-*.mdc`), plus the TypeScript rules. Skill:
-`angular-guide` (the official angular/skills `angular-developer` skill, renamed so it does not clash with the agent).
-
-- Check the installed Angular version first; follow the CLI conventions the repo already uses.
-- Defaults for new code: standalone components, `OnPush`, `inject()`, signal inputs/outputs, `resource`/`rxResource`
-  for data, block control flow with `track`.
-- HTTP through the repo's API service and `HttpClient`, so the interceptors (session expiry, timeouts, XSRF) apply.
-- Every UI string goes into every language file in the same change; money and dates through the shared pipes.
-- The backend computes figures; the UI only displays them.
-
-| Agent | Use it |
-|---|---|
-| `angular-developer` | Tasks tagged `[@angular-developer]`: one task, test-first |
-| `typescript-reviewer` | After web changes, before a pull request. Reports only |
+- HTTP only through the repo's API service, so the interceptors apply. The backend computes figures; the UI displays them.
 <!-- armature:stack-angular:end -->
 
 <!-- armature:security:start -->
 ## Security review tools
 
-Armature defaults. Where this repo's rules (`.claude/rules/project/`, other rules Armature does not manage, or
-AGENTS.md outside the Armature sections) differ, the repo wins.
+Armature defaults: where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. The upstream security plugins (Trail of Bits, `security-guidance`) are installed at user scope, on demand,
+from their own marketplaces; the pack README has the commands.
 
-Nothing from this pack is copied into the repo. The security plugins are installed from upstream, at **user scope**,
-**on demand** (when a change touches auth, input handling, secrets, dependencies or integrations), and never vendored:
-Trail of Bits' skills are CC-BY-SA-4.0, which must not be mixed into the repo.
-
-```bash
-claude plugin marketplace add trailofbits/skills
-claude plugin install insecure-defaults@trailofbits      # hard-coded credentials, fail-open defaults
-claude plugin install sharp-edges@trailofbits            # error-prone APIs and dangerous configuration
-claude plugin install differential-review@trailofbits    # security review of a diff with git history
-claude plugin install supply-chain-risk-auditor@trailofbits
-claude plugin install security-guidance@claude-plugins-official   # warnings on risky edits
-```
-
-- The `security-reviewer` agent (Armature core) stays the first pass before a pull request; the plugins above go deeper.
-- Static findings come from `semgrep scan --json` in PR Validation, not from a model.
-- Never paste secrets, tokens, real user data or client data into a prompt or a finding.
+- Never vendor them (CC-BY-SA-4.0). `security-reviewer` (core) stays the first pass; semgrep runs in PR Validation.
+- Never paste secrets, tokens or client data into a prompt or a finding.
 <!-- armature:security:end -->
 
 <!-- armature:design:start -->
 ## Design work
 
-Armature defaults. Where this repo's rules (`.claude/rules/project/`, other rules Armature does not manage, or
-AGENTS.md outside the Armature sections) differ, the repo wins.
+Armature defaults: where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. Rule: `.claude/rules/design/design-system.md` (tokens, states, accessibility, which design skill when); the
+repo's design-system doc and `DESIGN.md` outrank any skill.
 
-Work like a senior product designer, not a code generator. Start from the user's task and the evidence on screen, reuse
-what the app already has before adding anything, and treat every state as a deliverable: empty, loading, partial,
-error, no permission and stale. The repo's own design rules (its design-system doc and `DESIGN.md`) outrank any skill.
-Accessibility means WCAG 2.2 AA: keyboard use, visible focus, contrast, no meaning carried by colour alone, labels.
-
-| Skill or agent | Use it to |
-|---|---|
-| `impeccable` | Review and improve an existing screen: `critique` (UX, hierarchy), `audit` (accessibility, performance, responsive), then `polish`, `typeset`, `layout`, `clarify` or `harden`. The default for "make this better" |
-| `frontend-design` | Set a new screen's direction before code: purpose, tone, hierarchy. Constrained by the repo's design rules |
-| `ui-ux-pro-max` | Look up palettes, font pairings, UX guidelines and chart types: `python3 .agents/skills/ui-ux-pro-max/scripts/search.py "<query>" --domain <domain>`. Do not use `--persist` |
-| `emil-design-eng` + `review-animations` | Motion and interaction feel (easing, duration, hover and press states); review every animation before shipping; respect `prefers-reduced-motion` |
-| `break-ui` | Stress a screen before calling it done: long text, empty and huge data, slow network, narrow widths |
-| `design-system-guard` (agent) | Check a UI diff against the design tokens and rules: no hard-coded colours or sizes, components reused |
-
-**Review a screen.** Run the app and look at it before judging it: light and dark, 375 px and 1440 px, keyboard only.
-Fix problems by severity and show before and after screenshots. A visual change is done only when a person has seen it.
-
-**Keep it consistent.** Use tokens, never hard-coded values. Impeccable owns `PRODUCT.md` (users, purpose, tone;
-`/impeccable init`) and `DESIGN.md` (the visual system; `/impeccable document`, refreshed in the same PR as a visual
-change). Do not create a `design-system/` folder. Keep telemetry off (`DO_NOT_TRACK=1`).
-Vendored skills are pinned in Armature's `vendor.lock.json`; do not edit them in the repo (`armature sync` reports it).
+- Tokens only, never hard-coded colours or sizes; every state is designed; WCAG 2.2 AA.
+- A visual change is done only when a person has seen it (light and dark, phone and desktop).
 <!-- armature:design:end -->
 
 <!-- armature:core:start -->
 ## Armature (core)
 
-Armature writes defaults into this repo: the sections between `armature:` markers in this file, the rules in
-`.claude/rules/` and `.cursor/rules/`, skills and agents. They are defaults, not the repo's law. **Where this repo's own
-rules differ (`.claude/rules/project/`, any other rule Armature does not manage, or AGENTS.md outside the Armature
-sections), the repo wins.** To change an Armature section here, use `.armature/overrides.json`, not an edit between
-the markers (`armature sync` reports edits there as conflicts).
+Armature writes defaults into this repo (the sections between `armature:` markers, `.claude/rules/`, skills, agents).
+Where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. Change
+an Armature section through `.armature/overrides.json`, never between the markers.
 
-**Task Loop.** Implement a feature's `tasks.md` one task per fresh agent session, test-first; a task is done only when
-the gate (`VERIFY_CMD` in `.agent-loop.env`) passes:
+**Fix Lane.** A bug starts with `/fix <issue or description>` (the `fix` skill): a red test, the root cause in one
+line, the smallest fix, a check for the bug class, a PR with `Fixes <ID>`.
+
+**Task Loop.** A feature's `tasks.md`, one task per fresh session, each through the `implement-task` skill (an
+`[@dotnet]`-style tag is only a stack hint); a task is done only when the gate (`VERIFY_CMD` in `.agent-loop.env`)
+passes. `--dry-run` shows the plan; `tasks_lint.py` checks the task lines first. `--parallel N` runs up to N
+consecutive `[P]` tasks at once, one worktree each (N sessions billed at once; the gate must tolerate it).
 
 ```bash
-task-loop specs/<NNN-feature>/tasks.md                            # on PATH while the core plugin is enabled
-"$ARMATURE_HOME/plugins/core/bin/task-loop" specs/<NNN-feature>/tasks.md   # from a normal shell
+task-loop specs/<NNN-feature>/tasks.md                                     # core plugin enabled
+"$ARMATURE_HOME/plugins/core/bin/task-loop" specs/<NNN-feature>/tasks.md   # normal shell
 ```
 
-`--dry-run` prints the plan; `tasks_lint.py specs/<NNN-feature>/tasks.md` checks the task lines first.
+Agents: `security-reviewer` (before a PR touching auth, input, secrets, dependencies or integrations; reports only),
+`researcher` (`/radar`). Everything else runs in the main session with skills.
 
-| Agent (`.claude/agents/`) | Use it |
-|---|---|
-| `tdd-guide` | Untagged tasks: one task, failing test first, then the code |
-| `build-error-resolver` | The build, type check or format gate fails: the smallest fix, no refactoring |
-| `security-reviewer` | Before a pull request that touches auth, input, secrets, dependencies or integrations. Reports only |
-| `lead-engineer`, `software-architect`, `database-engineer`, `devops-engineer` | Plans, designs, schemas, pipelines |
-| `product-manager`, `ux-designer`, `researcher` | Specs, flows, evidence |
+**Checks before prose.** No comment unless it cites a source (ADR, requirement or issue id, URL); comments are
+claims, not facts. During the learning period (`review.learning_period` in `.armature/config.json`) a person reviews
+every change, and `review-lessons` turns repeated remarks into lint rules, tests or types first. PR Validation (the
+required CI check) and `quality.sh` run the gate, the test guard, secrets, dead code, duplication, dependencies,
+comments and `ui-evidence` (UI PRs carry screenshots in `## Verification`).
 
-Commits are Conventional Commits with no co-author or AI attribution (the `commit-msg` hook checks;
-`.armature/config.json` sets the subject limit and a task-id prefix). Never commit `.env` files, secrets or client
-data (the `pre-commit` hook checks; `.armature/allow-data` lists data that may be committed).
+Never skip the git hooks (`--no-verify`, `core.hooksPath`), never commit `.env` files, secrets or client data, and
+never add a package without checking it exists. Commits are Conventional Commits with no AI attribution.
 <!-- armature:core:end -->

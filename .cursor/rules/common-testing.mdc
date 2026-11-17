@@ -13,7 +13,7 @@ alwaysApply: true
 4. Run the project gate (`VERIFY_CMD` in `.agent-loop.env`, or the commands in `AGENTS.md`). The agent's claim that
    it works never counts; the gate does.
 
-The `tdd-guide` agent implements one task this way.
+The `implement-task` skill runs one task this way (the Task Loop uses it for every task).
 
 ## What to test
 - Unit tests for domain logic and utilities; integration tests for endpoints, database access and external

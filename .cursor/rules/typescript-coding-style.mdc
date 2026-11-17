@@ -14,6 +14,13 @@ alwaysApply: false
   Follow the repo's choice when it already uses Prettier/ESLint; never add a second one.
 - Suppress a lint finding only on the line, with the tool's own syntax and a reason
   (`// biome-ignore lint/<group>/<rule>: <reason>`). No file-wide disables.
+- **Banned APIs** (Armature template `plugins/stack-typescript/templates/biome.banned.json`, adopted with
+  `"extends": ["./biome.banned.json"]` in the repo's `biome.json`): `any`, `console`, timers (`setTimeout`,
+  `setInterval`, `requestAnimationFrame`, `requestIdleCallback`) and React `useEffect`/`useLayoutEffect` are errors
+  in product code, each with a message that names the fix. Code whose job is timing or syncing with an outside
+  system lives in the allow-listed folder (`src/lib/platform/`), as do tests and scripts. With ESLint the same list is
+  `no-restricted-globals`, `no-restricted-imports`, `no-console` and `@typescript-eslint/no-explicit-any`. Add an
+  entry when a review keeps correcting the same call (the `review-lessons` skill); never remove one to pass the gate.
 - Use the repo's package manager (lockfile decides: `bun.lock`, `pnpm-lock.yaml`, `package-lock.json`). Never mix.
 
 ## Types
