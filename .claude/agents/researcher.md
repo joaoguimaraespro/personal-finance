@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Market, competitor and technology scout for one project and one topic. Use when the /team research stage needs news, releases, competitor moves, regulation or papers relevant to a project. Returns ranked findings with sources; does not write files.
+description: Market, competitor and technology scout for one project and one topic. Use when the /radar skill needs news, releases, competitor moves, regulation or papers relevant to a project. Returns ranked findings with sources; does not write files.
 tools: Read, Grep, Glob, WebSearch, WebFetch
 model: sonnet
 ---

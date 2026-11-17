@@ -29,6 +29,22 @@ paths:
 - No new UI library without an ADR.
 - Components accept `className` and merge classes with the repo's `cn()` helper.
 
+## Approved drafts
+
+When the feature has approved drafts (`design.md`, wireframes, HTML drafts), the UI matches their screens, states,
+microcopy and accessibility notes. A difference is a question for the owner, not a decision for the implementer.
+
+## Design files and skills
+
+- Impeccable owns `PRODUCT.md` (users, purpose, tone; `/impeccable init`) and `DESIGN.md` (the visual system;
+  `/impeccable document`, refreshed in the same PR as a visual change). No `design-system/` folder. Telemetry off
+  (`DO_NOT_TRACK=1`).
+- Review a screen by running it: light and dark, 375 px and 1440 px, keyboard only; fix by severity and show before
+  and after screenshots. `impeccable` critiques and polishes, `frontend-design` sets a new screen's direction,
+  `ui-ux-pro-max` looks things up (never `--persist`), `emil-design-eng` and `review-animations` check motion,
+  `break-ui` stresses the screen, the `design-system-guard` agent checks a UI diff.
+- Vendored skills are pinned in Armature's `vendor.lock.json`; never edit them in the repo.
+
 ## Every state is designed
 
 Empty, loading, partial, error, no permission and stale. Long text, huge lists and narrow widths do not break the

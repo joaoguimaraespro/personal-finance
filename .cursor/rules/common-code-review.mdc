@@ -34,7 +34,6 @@ alwaysApply: true
 | `security-reviewer` | Auth, input handling, injection, secrets, personal data, dependencies |
 | `csharp-reviewer` | C#/.NET changes (stack-dotnet pack) |
 | `typescript-reviewer` | TypeScript, Angular, React/Next.js changes (stack-typescript pack) |
-| `build-error-resolver` | A failing build, type check or format check |
 
 Reviewers report findings; they do not edit code. A person merges; nothing merges automatically.
 

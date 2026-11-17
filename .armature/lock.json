@@ -227,7 +227,7 @@
       "pack": "stack-dotnet"
     },
     ".agents/skills/dotnet-ef-migration/SKILL.md": {
-      "sha256": "e788b962c8092f205b9e9e70382cc70a38d836f18da52d176e283c2fa87941db",
+      "sha256": "538fc33517afbbf0891f7d927b165bf4745da3663eadbb6b8c2b1c8fa97fe0fc",
       "pack": "stack-dotnet"
     },
     ".agents/skills/emil-design-eng/LICENSE.txt": {
@@ -706,73 +706,37 @@
       "sha256": "a599aa256049cf30954d1f164721b99e453eb7e4cb8241bcab2d5573e6cf58b8",
       "pack": "design"
     },
+    ".armature/hooks/armature-deps-check.py": {
+      "sha256": "b1292d9dd2ddb0775a862a6618e5ff6619329bfa4adb62fd5253c0bbfa72a299",
+      "pack": "core"
+    },
     ".armature/hooks/commit-msg": {
       "sha256": "eaa2958edb952efee792bfbe8596e464a46de3b22bb5a23d2881f108b00db239",
       "pack": "core"
     },
     ".armature/hooks/pre-commit": {
-      "sha256": "5a7b5fb45c1289c68f29094ff4883797afdab2997435d23839b3a8f9c56e6ee6",
-      "pack": "core"
-    },
-    ".claude/agents/angular-developer.md": {
-      "sha256": "7db46df9e3849074e95811de2a1ba2b342d87f35d68007e85675703033a2eb0b",
-      "pack": "stack-angular"
-    },
-    ".claude/agents/build-error-resolver.md": {
-      "sha256": "5877d014090dece2165f2fbae9a3d96715c842380faace3f09ccd0cb65fd24a8",
+      "sha256": "3dc8612d1bb559bb2d311293a0b67830bbd73aaea1012f115fac313a8ecabcd2",
       "pack": "core"
     },
     ".claude/agents/csharp-reviewer.md": {
-      "sha256": "ed07ae357200156901c5be966a9d6e5349e91a2fa7b0d4042a6d265bf8137dbe",
+      "sha256": "8c38bf4d0a5dbbf80c41398d77ffd09a166fe2c96d151c22ba0f9f83d30b2a38",
       "pack": "stack-dotnet"
-    },
-    ".claude/agents/database-engineer.md": {
-      "sha256": "fc786b0fb2db9c439334c79968e19ce8fa7edc6d4cbd786192cdb51e7bc56637",
-      "pack": "core"
     },
     ".claude/agents/design-system-guard.md": {
-      "sha256": "672a25d70c44e12d53292242a88e1872b39b80f8a11ad643e625b9b7a12f67ed",
+      "sha256": "7bb4b25060f5c4f13550813cd5e33859e8985a956a5b560585b53f21b032f8ba",
       "pack": "design"
     },
-    ".claude/agents/devops-engineer.md": {
-      "sha256": "76a076d971f5d6bf6b0405f0297599d7a3a3893fdc25076e5b0b8970575013d0",
-      "pack": "core"
-    },
-    ".claude/agents/dotnet-developer.md": {
-      "sha256": "60349ce2ea1082a458ba4232b8e61928a45fef2e95d4334f05f7a68a6484f7d7",
-      "pack": "stack-dotnet"
-    },
-    ".claude/agents/lead-engineer.md": {
-      "sha256": "1ef857d17705bae1c2633400cc4bcaeb28fc3b0a25f9edbf0a2087f67a11702c",
-      "pack": "core"
-    },
-    ".claude/agents/product-manager.md": {
-      "sha256": "de4617980ea1e7738d7cddeed548c97609efcab6168da05e60b8d07a9efedfe5",
-      "pack": "core"
-    },
     ".claude/agents/researcher.md": {
-      "sha256": "b7ed44fc5c134a627b24815e039e9132c631e44c96fce48b3fe4a388a3fe282a",
+      "sha256": "a25f499aafcf603d8f431814d859fea42a865e01c4f9ddfe5f3afc1f9597ad23",
       "pack": "core"
     },
     ".claude/agents/security-reviewer.md": {
       "sha256": "8e75ef7e4b05fe31a58535e49cee3f65d677c60aabcbe3b40e8407b4c78ffe72",
       "pack": "core"
     },
-    ".claude/agents/software-architect.md": {
-      "sha256": "c3cd9af349259f29d3afdbf38e3ba1d4ffbcd9141c2cd94fa25e3ba16522dd77",
-      "pack": "core"
-    },
-    ".claude/agents/tdd-guide.md": {
-      "sha256": "5f84a00723eb8f6f47aad396ba643c868897361b6b1024e2c1f2c523d0d4b4e8",
-      "pack": "core"
-    },
     ".claude/agents/typescript-reviewer.md": {
-      "sha256": "59661b81e2f96e11096054f0c60d3722b02df2a1baee56ce4ad69b5067f334d6",
+      "sha256": "7a61e4b23d7ca4c59c2effd7c7db7f6923407c868281fa85f46bc86e8dd26e0a",
       "pack": "stack-typescript"
-    },
-    ".claude/agents/ux-designer.md": {
-      "sha256": "c9ef9a2ee3c7b9c41047750e3fed3f2f690ad0d9f07a15d09b5a77ba657ab288",
-      "pack": "core"
     },
     ".claude/rules/angular/coding-style.md": {
       "sha256": "bb3d6f731b1718d198a32ae8b3ad4683f9a260da76abe0c726a28b6faa8385ce",
@@ -790,16 +754,28 @@
       "sha256": "5ce2c0802d57fc0540e7f940be59ca45149355d166d81405a630d9f57066f866",
       "pack": "stack-angular"
     },
+    ".claude/rules/common/code-comments.md": {
+      "sha256": "9e3922528146d341ecc6eba82c4632fbdb594b7919f413617df461454aef131b",
+      "pack": "core"
+    },
     ".claude/rules/common/code-review.md": {
-      "sha256": "151414ea95956adae6a80ce9a7cb0a02be81dda3e1ca94eb48f85a8cf9cd830e",
+      "sha256": "9b26e95c96261cf135882943dbf23bd37b12aeab9c5ca79d150363bc69da8211",
       "pack": "core"
     },
     ".claude/rules/common/coding-style.md": {
       "sha256": "b0de39475f200659be981bed23eeb0f16eab209c2c46469fb4d62d7195364ea2",
       "pack": "core"
     },
+    ".claude/rules/common/database.md": {
+      "sha256": "a739ae25750eab344ada3f4b899adb1f805854a99784474df16b542cd57bc5f0",
+      "pack": "core"
+    },
     ".claude/rules/common/development-workflow.md": {
-      "sha256": "cd28154fd377caaf40602dcc7615df3f022bb65c55fb6baaac1466a62b8dbd6b",
+      "sha256": "c88589e7dcb8fa80555bc613913e55a591fcc401c5f72e67e84add9eb350c606",
+      "pack": "core"
+    },
+    ".claude/rules/common/infrastructure.md": {
+      "sha256": "1f37f6b56a0e4e28c24fcb345831df6e313f4dbad73a32fe3764d78b3eee2934",
       "pack": "core"
     },
     ".claude/rules/common/security.md": {
@@ -807,19 +783,27 @@
       "pack": "core"
     },
     ".claude/rules/common/testing.md": {
-      "sha256": "e8393e865b7a4d864034253e12429714a60a7358d2c993046b6ad7c612d6ac3d",
+      "sha256": "7f0c2f72e7586e5803db965f21a8d7bcb2d195a35ae5b187a1e7fad0d13d1ee5",
       "pack": "core"
+    },
+    ".claude/rules/csharp/api-endpoints.md": {
+      "sha256": "76f91f049064dafa167489922c467000b4c9409283c300d2baeb39a7d684929a",
+      "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/coding-style.md": {
       "sha256": "221bbaece44b256ac6a947fe215b94a1e85a79dfffd781941b45a56b78869a83",
       "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/data-access.md": {
-      "sha256": "c91ef85194943c4615b7e510afc5b95e8739b8ef945d781805a63888367ba70b",
+      "sha256": "392baa839c77131fbaa2dd7e38c66914753d263d66c38de559b4a4155fb38cc2",
       "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/patterns.md": {
-      "sha256": "077f943c5ab816688dc8511b786de26baae46283d2dd4b32a6da1e782210ea85",
+      "sha256": "2ae6939878df5b9f46e3bc359bc8c3e6d65392ed4e0e7f133a7fcaf67f30386d",
+      "pack": "stack-dotnet"
+    },
+    ".claude/rules/csharp/project-structure.md": {
+      "sha256": "51cb0fff36e3611e513eb1d80fbdb0339ba651fcba7e2a0b442f0fcda1af31cf",
       "pack": "stack-dotnet"
     },
     ".claude/rules/csharp/security.md": {
@@ -831,11 +815,11 @@
       "pack": "stack-dotnet"
     },
     ".claude/rules/design/design-system.md": {
-      "sha256": "7a53f7ed930e5f53025a84d591c624101b19b99848c066bcc9ef3797247c91c0",
+      "sha256": "b4045f72e4a5791ccb8f69cc33eb0e29866908db3fb5856505adffbe3e4ced5b",
       "pack": "design"
     },
     ".claude/rules/typescript/coding-style.md": {
-      "sha256": "2e44a402b9a84b1dbd2bdf57220497195c33a3385c4618ab780e231bd5117810",
+      "sha256": "66d6acf4631d53dcdbe3068ac6fa35668d97025b2fd169d6b222df30147ebdcb",
       "pack": "stack-typescript"
     },
     ".claude/rules/typescript/patterns.md": {
@@ -1059,7 +1043,7 @@
       "pack": "stack-dotnet"
     },
     ".claude/skills/dotnet-ef-migration/SKILL.md": {
-      "sha256": "e788b962c8092f205b9e9e70382cc70a38d836f18da52d176e283c2fa87941db",
+      "sha256": "538fc33517afbbf0891f7d927b165bf4745da3663eadbb6b8c2b1c8fa97fe0fc",
       "pack": "stack-dotnet"
     },
     ".claude/skills/emil-design-eng/LICENSE.txt": {
@@ -1554,16 +1538,28 @@
       "sha256": "f98df5f49e78290efbae9ec940a25b4c8617cd31bf7062005b037ee1cb824fe3",
       "pack": "stack-angular"
     },
+    ".cursor/rules/common-code-comments.mdc": {
+      "sha256": "7a5ebaf37415b91631ad78c83707a44124131c00265ef0000025a0cf06813815",
+      "pack": "core"
+    },
     ".cursor/rules/common-code-review.mdc": {
-      "sha256": "3e7dd71a01112d4fa6a44f30967f446a98db29af3a3bc5b1293dd24cde87a2d4",
+      "sha256": "bf5af1facd00ce88e8786fcf3f00b25739834147c99ffbfd2625cb53016b402f",
       "pack": "core"
     },
     ".cursor/rules/common-coding-style.mdc": {
       "sha256": "dc3e66d91dfe471aef0f4e9118d1fd57444eb2500d57446d0ad55b13a290bbf1",
       "pack": "core"
     },
+    ".cursor/rules/common-database.mdc": {
+      "sha256": "8ffd57ec8d06e0f05675b89b48b94c91df604d853dbfaa2a8b918d8b8f0d47d6",
+      "pack": "core"
+    },
     ".cursor/rules/common-development-workflow.mdc": {
-      "sha256": "4a5d949a6ef3e00e2dd287023d96e73ab9d7dc100690a09985476cf47dc271dd",
+      "sha256": "8169818173fd468f2249d00c1d3358855a197f9d7bfe977bdc55c929947f3127",
+      "pack": "core"
+    },
+    ".cursor/rules/common-infrastructure.mdc": {
+      "sha256": "2426f63c33bda006ff2335b4d9aae37332f410b4328b5d26f1001e28bc0fa5f4",
       "pack": "core"
     },
     ".cursor/rules/common-security.mdc": {
@@ -1571,19 +1567,27 @@
       "pack": "core"
     },
     ".cursor/rules/common-testing.mdc": {
-      "sha256": "7f026f34a6af9a2ceb73197dc9f1b7f9460737f61d6519729877c619a8a604b4",
+      "sha256": "6cb9556e606054fffe1a9f7ac42d0ed1ba1e09dd68acf5ead28ca132efe4104c",
       "pack": "core"
+    },
+    ".cursor/rules/csharp-api-endpoints.mdc": {
+      "sha256": "33e39eec4b3ad64e4825056f0a7e8445665df941ca6928235ff07a33869b9112",
+      "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-coding-style.mdc": {
       "sha256": "d06668b18f5fd3761966f103fcf9d332044f89243bc2c39de86ad1b912ab6e0f",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-data-access.mdc": {
-      "sha256": "f05229652b17a2a846afb9c98b001ddd96e55592b8e383b9a955d609066654d7",
+      "sha256": "95fbe34a1db3d7ddca6ee207d4a0602e41eebef5bb6a8df77af44795e4c86aac",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-patterns.mdc": {
-      "sha256": "264212aa04386297dceeacc2c1790e2598a64080f1b8f6baa6863442613ad48f",
+      "sha256": "c62849a76215500e1a0a5cf17994ffff170c5d713afa37d57053eb7b52740936",
+      "pack": "stack-dotnet"
+    },
+    ".cursor/rules/csharp-project-structure.mdc": {
+      "sha256": "a407bad81f4232e0598a5d4443363de7ffe58fae3345e5aad9114f92032fb28c",
       "pack": "stack-dotnet"
     },
     ".cursor/rules/csharp-security.mdc": {
@@ -1595,7 +1599,7 @@
       "pack": "stack-dotnet"
     },
     ".cursor/rules/design-design-system.mdc": {
-      "sha256": "c56547a873f8e61f883cdd2cad100f96baed6eed497c6941ca1a2c7b9b9dab5f",
+      "sha256": "c142191dd218beb68756bc2a8718c453bec883cca44642fe027d4685526cffe6",
       "pack": "design"
     },
     ".cursor/rules/project-backend.mdc": {
@@ -1619,7 +1623,7 @@
       "source": ".claude/rules/project/web.md"
     },
     ".cursor/rules/typescript-coding-style.mdc": {
-      "sha256": "fe31f3a294ee23b359e16a908e27d851fcb5678049efd426578bbfae446ea047",
+      "sha256": "bc93b2a97ff09115982d900095904e4c654cc10082377ae98d981e1acbfa748e",
       "pack": "stack-typescript"
     },
     ".cursor/rules/typescript-patterns.mdc": {
@@ -1843,7 +1847,7 @@
       "pack": "stack-dotnet"
     },
     ".cursor/skills/dotnet-ef-migration/SKILL.md": {
-      "sha256": "e788b962c8092f205b9e9e70382cc70a38d836f18da52d176e283c2fa87941db",
+      "sha256": "538fc33517afbbf0891f7d927b165bf4745da3663eadbb6b8c2b1c8fa97fe0fc",
       "pack": "stack-dotnet"
     },
     ".cursor/skills/emil-design-eng/LICENSE.txt": {
@@ -2324,12 +2328,12 @@
     }
   },
   "sections": {
-    "core": "3a7015c1888a1c6713939a2202370f256e5ca5c3ef60a902705408c4cb25789e",
-    "design": "8708803ca6f6226ab9bec3dea345e4c75867ed48a7b7f27e74ec69ee0db51403",
-    "security": "fffb190476f4484d19c6102519c18c40c0b406cfff129a487e6647e451a20994",
-    "stack-angular": "a9a66971c0aaf7e946ee58530d7cbbe1b089848148f62238b21c5bf2739daa70",
-    "stack-dotnet": "cb8ab9481d6583d6773d198c712eb4149359d35bfd6a3035cadc79a8037c0cc7",
-    "stack-typescript": "6b0357e362fd5d80aa2a8d8d7feabc4e76248395a1b19e1a42ef9486fa5d4809"
+    "core": "fde564959629d62caefdcff531578e87718a1994433664acea90f3e9b0827942",
+    "design": "bc828d48ec86efb3f8f8cdddb02dc1e76f905dab9e40e22ced871605c8bc5d14",
+    "security": "9211e86e233bd015929832f782d0d046b90792e4f385a3af3f01eab11805b976",
+    "stack-angular": "7c8488fb11f2e857b0190dc0b24d77b1ca8167ea0420aac910494ca4fc5659ac",
+    "stack-dotnet": "689d69df28a3bbf462d05d072b038e29946d12e96beff52f23c803ba85bd8b8d",
+    "stack-typescript": "113f84b98d1c3f437c212b9cc7fdd4bedf1aa45b3db0237402e220094eed3cac"
   },
   "settings": {
     "marketplaces": [
@@ -2343,6 +2347,25 @@
       "dotnet-aspnetcore@dotnet-agent-skills",
       "dotnet-upgrade@dotnet-agent-skills",
       "typescript-lsp@claude-plugins-official"
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit * --no-verify*)",
+      "Bash(git commit -n*)",
+      "Bash(git commit * -n)",
+      "Bash(git commit * -n *)",
+      "Bash(git push --no-verify*)",
+      "Bash(git push * --no-verify*)",
+      "Bash(git -c core.hooksPath*)",
+      "Bash(git -c core.hookspath*)",
+      "Bash(git * -c core.hooksPath*)",
+      "Bash(git * -c core.hookspath*)",
+      "Bash(git config core.hooksPath*)",
+      "Bash(git config core.hookspath*)",
+      "Bash(git config * core.hooksPath*)",
+      "Bash(git config * core.hookspath*)"
     ]
   }
 }

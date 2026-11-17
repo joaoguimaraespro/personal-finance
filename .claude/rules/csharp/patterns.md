@@ -18,8 +18,8 @@ ADRs) wins where it differs.
 - Architecture tests (e.g. NetArchTest) enforce the layering where the repo has them; keep them green.
 
 ## CQRS
-For repos that use CQRS with a mediator. A repo built on feature slices with minimal APIs (or controllers calling
-services) keeps its own structure; do not introduce a mediator in a single change.
+The default for every .NET API (owner's decision, 2026-11-17). Layout and endpoints:
+[project-structure.md](project-structure.md), [api-endpoints.md](api-endpoints.md).
 - Commands change state, queries never do. Naming: `<Verb><Entity>Command` / `<Verb><Entity>CommandHandler` /
   `<Verb><Entity>CommandValidator`; `<Verb><Entity>Query` / `<Verb><Entity>QueryHandler`
   (`CreateInvoiceCommand`, `GetInvoiceByIdQuery`, `ListInvoicesQuery`).
@@ -35,7 +35,8 @@ services) keeps its own structure; do not introduce a mediator in a single chang
 - Map business-rule failures to the right type: `Error.Validation`/`Error.Problem` (400), `Error.NotFound` (404),
   `Error.Conflict` (409), `Error.Forbidden` (403). Reserve `Error.Failure` (500) for genuinely unexpected faults; it
   hides the error code from the client.
-- Endpoints turn a `Result` into an RFC 7807 Problem Details response in one place (`result.Match(Ok, Problem)`).
+- Endpoints turn a `Result` into an RFC 9457 Problem Details response in one place, with the error code as the
+  `code` extension ([api-endpoints.md](api-endpoints.md)). Validation is 400, never 422 or 500.
 
 ## Domain
 - Entities: private setters, a private parameterless constructor for EF Core, a static `Create(...)` factory that
