@@ -93,6 +93,17 @@
       ]
     },
     {
+      "name": "uv",
+      "purpose": "Installs the Python tools below (specify-cli, vulture, semgrep) with `uv tool install`, each in its own environment",
+      "bin": "uv",
+      "min_version": "0.9.0",
+      "check": [
+        "uv",
+        "--version"
+      ],
+      "install_hint": "download uv-<arch>-unknown-linux-gnu.tar.gz and its .sha256 from https://github.com/astral-sh/uv/releases, check it (sha256sum -c), put uv and uvx in ~/.local/bin; or see https://docs.astral.sh/uv/getting-started/installation/"
+    },
+    {
       "name": "specify-cli",
       "purpose": "Spec Kit CLI (specify): sdd-init.sh runs its init; `armature speckit` reports repo versions against this pin and prints the upgrade path. Keep the version equal to SPEC_KIT_VERSION in plugins/core/bin/sdd-init.sh",
       "bin": "specify",
@@ -200,7 +211,7 @@
     },
     {
       "name": "semgrep",
-      "purpose": "Static analysis rules of PR Validation (review/lanes.py: .armature/semgrep and the skills' semgrep rules). LGPL-2.1, run as a tool",
+      "purpose": "Static analysis rules of PR Validation (review/lanes.py: .armature/semgrep and the skills' semgrep rules). LGPL-2.1, run as a tool. Installed on Python 3.12 with setuptools<81: on 3.14 its protobuf fails to import, and setuptools 81+ drops pkg_resources, which its opentelemetry needs",
       "bin": "semgrep",
       "version": "1.97.0",
       "check": [
@@ -212,6 +223,10 @@
         "tool",
         "install",
         "--force",
+        "--python",
+        "3.12",
+        "--with",
+        "setuptools<81",
         "semgrep==1.97.0"
       ]
     }

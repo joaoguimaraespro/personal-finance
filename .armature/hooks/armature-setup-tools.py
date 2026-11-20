@@ -200,8 +200,14 @@ def main(argv: list[str]) -> int:
                 print(f"{tool['name']}: install by hand: {tool.get('install_hint', 'see its docs')}", file=sys.stderr)
             else:
                 print(f"{tool['name']}: running {' '.join(tool['install'])}", file=sys.stderr)
-                proc = subprocess.run(tool["install"])
-                res["action"] = "installed" if proc.returncode == 0 else "install-failed"
+                try:
+                    proc = subprocess.run(tool["install"])
+                    res["action"] = "installed" if proc.returncode == 0 else "install-failed"
+                except OSError as exc:   # the installer itself (uv, bun) is missing: report it, go on with the rest
+                    res["action"], res["error"] = "install-failed", str(exc)
+                    print(f"{tool['name']}: cannot run {tool['install'][0]} ({exc.strerror}): install "
+                          f"{tool['install'][0]} first (setup-tools.py --only {tool['install'][0]} shows how)",
+                          file=sys.stderr)
                 res.update({k: v for k, v in probe(tool).items() if k in ("status", "found", "path")})
         elif res["status"] != "ok":
             how = " ".join(tool["install"]) if "install" in tool else tool.get("install_hint", "see its docs")

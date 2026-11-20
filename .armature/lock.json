@@ -1,5 +1,5 @@
 {
-  "armature_version": "0.1.0",
+  "armature_version": "0.2.0",
   "packs": [
     "stack-dotnet",
     "stack-typescript",
@@ -711,11 +711,11 @@
       "pack": "core"
     },
     ".armature/hooks/armature-setup-tools.py": {
-      "sha256": "878a5b5a208d6ba2cddc2850e85ac2027a31b662be5ec07eeacf1371a59c38a2",
+      "sha256": "4a58647ec4546aca8135360008b01324fcfca1b3660665c4f9322bbb4089dd9a",
       "pack": "core"
     },
     ".armature/hooks/armature-tools.json": {
-      "sha256": "6c127bb344c0e50be91b9e1499931b64e3b73dbafe988b454596e29b4b098ecb",
+      "sha256": "28cf72fdc4e4e87664f89308cd12cf6d8a8fc4a91ed4eaea8000992bae3cc8f2",
       "pack": "core"
     },
     ".armature/hooks/commit-msg": {
