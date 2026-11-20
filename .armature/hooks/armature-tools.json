@@ -1,0 +1,219 @@
+{
+  "_comment": "Command-line tools Armature expects on each machine, with pinned versions. Install or check them with plugins/core/bin/setup-tools.py. Each tool is installed once per machine (bun global folder, Playwright browser cache), never inside Armature or a project. Order matters for --install: playwright-core installs the browser and its ffmpeg. The quality gates (review/quality.py, the pre-commit hook) use gitleaks, osv-scanner, knip, jscpd, vulture and semgrep; gitleaks and osv-scanner install from a pinned download (sha256 checked) on linux-x86_64, and the pre-commit hook installs gitleaks on first use; Each repo's own CI installs the same versions (Armature ships no CI).",
+  "tools": [
+    {
+      "name": "bun",
+      "purpose": "Installs the JavaScript tools below into its global folder",
+      "bin": "bun",
+      "min_version": "1.3.0",
+      "check": [
+        "bun",
+        "--version"
+      ],
+      "install_hint": "curl -fsSL https://bun.sh/install | bash"
+    },
+    {
+      "name": "node",
+      "purpose": "Runs the walkthrough recorder (plugins/core/bin/record-walkthrough.mjs) and the likec4 CLI",
+      "bin": "node",
+      "min_version": "22.0.0",
+      "check": [
+        "node",
+        "--version"
+      ],
+      "install_hint": "install Node.js 22 or newer (nvm, fnm or the OS package)"
+    },
+    {
+      "name": "likec4",
+      "purpose": "Architecture and pipeline model as text: validate, export PNG, build the static site for the walkthroughs",
+      "bin": "likec4",
+      "version": "1.61.0",
+      "check": [
+        "likec4",
+        "--version"
+      ],
+      "install": [
+        "bun",
+        "add",
+        "-g",
+        "likec4@1.61.0"
+      ]
+    },
+    {
+      "name": "playwright-core",
+      "purpose": "Drives Chromium to record the dynamic-view walkthroughs. Same version as the Playwright that likec4 1.61.0 bundles, so both use one browser revision",
+      "bin": "playwright-core",
+      "version": "1.64.1",
+      "check": [
+        "playwright-core",
+        "--version"
+      ],
+      "path": "$BUN_GLOBAL/playwright-core/index.mjs",
+      "install": [
+        "bun",
+        "add",
+        "-g",
+        "playwright-core@1.64.1"
+      ]
+    },
+    {
+      "name": "chromium-headless-shell",
+      "purpose": "Browser for likec4 export png and the walkthrough recorder (revision of playwright-core 1.64.1)",
+      "version": "1248",
+      "path": "$PLAYWRIGHT_BROWSERS_PATH/chromium_headless_shell-1248/INSTALLATION_COMPLETE",
+      "install": [
+        "playwright-core",
+        "install",
+        "chromium-headless-shell"
+      ]
+    },
+    {
+      "name": "playwright-ffmpeg",
+      "purpose": "Playwright's own ffmpeg build, used to record the page video (WebM)",
+      "version": "1013",
+      "path": "$PLAYWRIGHT_BROWSERS_PATH/ffmpeg-1013/INSTALLATION_COMPLETE",
+      "install": [
+        "playwright-core",
+        "install",
+        "ffmpeg"
+      ]
+    },
+    {
+      "name": "ffmpeg-static",
+      "purpose": "Full ffmpeg (6.0, with libx264) to convert the recordings to MP4 H.264",
+      "package": "ffmpeg-static",
+      "version": "5.2.0",
+      "path": "$BUN_GLOBAL/ffmpeg-static/ffmpeg",
+      "install": [
+        "bun",
+        "add",
+        "-g",
+        "--trust",
+        "ffmpeg-static@5.2.0"
+      ]
+    },
+    {
+      "name": "specify-cli",
+      "purpose": "Spec Kit CLI (specify): sdd-init.sh runs its init; `armature speckit` reports repo versions against this pin and prints the upgrade path. Keep the version equal to SPEC_KIT_VERSION in plugins/core/bin/sdd-init.sh",
+      "bin": "specify",
+      "version": "1.4.0",
+      "check": [
+        "specify",
+        "--version"
+      ],
+      "install": [
+        "uv",
+        "tool",
+        "install",
+        "--force",
+        "specify-cli",
+        "--from",
+        "git+https://github.com/github/spec-kit.git@v1.4.0"
+      ]
+    },
+    {
+      "name": "gitleaks",
+      "purpose": "Secret scanner: the pre-commit hook (staged changes) and the secrets check of PR Validation (the PR's commits). MIT",
+      "bin": "gitleaks",
+      "version": "8.30.1",
+      "check": [
+        "gitleaks",
+        "version"
+      ],
+      "install_hint": "download gitleaks_8.30.1_<os>_<arch>.tar.gz from https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1, check it against gitleaks_8.30.1_checksums.txt (sha256sum -c --ignore-missing), put gitleaks in ~/.local/bin",
+      "download": {
+        "linux-x86_64": {
+          "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz",
+          "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+          "archive": "tar.gz",
+          "member": "gitleaks"
+        }
+      },
+      "dest": "~/.local/bin/gitleaks"
+    },
+    {
+      "name": "osv-scanner",
+      "purpose": "Known vulnerabilities in the lockfiles a PR changes (dependencies check of PR Validation). Apache-2.0",
+      "bin": "osv-scanner",
+      "version": "2.7.0",
+      "check": [
+        "osv-scanner",
+        "--version"
+      ],
+      "install_hint": "download osv-scanner_<os>_<arch> from https://github.com/google/osv-scanner/releases/tag/v2.7.0, check it against osv-scanner_SHA256SUMS, install it as ~/.local/bin/osv-scanner",
+      "download": {
+        "linux-x86_64": {
+          "url": "https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64",
+          "sha256": "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
+        }
+      },
+      "dest": "~/.local/bin/osv-scanner"
+    },
+    {
+      "name": "knip",
+      "purpose": "Unused files, exports and dependencies in TypeScript/JavaScript (dead-code check). ISC",
+      "bin": "knip",
+      "version": "6.44.0",
+      "check": [
+        "knip",
+        "--version"
+      ],
+      "install": [
+        "bun",
+        "add",
+        "-g",
+        "knip@6.44.0"
+      ]
+    },
+    {
+      "name": "jscpd",
+      "purpose": "Copy-paste detection: clones a PR introduces (duplication check). MIT",
+      "bin": "jscpd",
+      "version": "5.4.2",
+      "check": [
+        "jscpd",
+        "--version"
+      ],
+      "install": [
+        "bun",
+        "add",
+        "-g",
+        "jscpd@5.4.2"
+      ]
+    },
+    {
+      "name": "vulture",
+      "purpose": "Unused Python code (dead-code check). MIT",
+      "bin": "vulture",
+      "version": "2.16",
+      "check": [
+        "vulture",
+        "--version"
+      ],
+      "install": [
+        "uv",
+        "tool",
+        "install",
+        "--force",
+        "vulture==2.16"
+      ]
+    },
+    {
+      "name": "semgrep",
+      "purpose": "Static analysis rules of PR Validation (review/lanes.py: .armature/semgrep and the skills' semgrep rules). LGPL-2.1, run as a tool",
+      "bin": "semgrep",
+      "version": "1.97.0",
+      "check": [
+        "semgrep",
+        "--version"
+      ],
+      "install": [
+        "uv",
+        "tool",
+        "install",
+        "--force",
+        "semgrep==1.97.0"
+      ]
+    }
+  ]
+}

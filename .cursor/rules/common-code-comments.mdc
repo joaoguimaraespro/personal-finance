@@ -16,10 +16,10 @@ it in code instead: a name, a type, a test, a lint rule.
   `// Tenant from the token only (ADR-010).` The citation carries the why; the comment adds one line at most.
 - **Tool pragmas, with their reason**: `// biome-ignore lint/<rule>: <reason>`, `# noqa: F401`,
   `# type: ignore[arg-type]  # <reason>`, `// @ts-expect-error <reason>`, `#pragma warning disable <id> // <reason>`,
-  coverage and formatter switches.
+  coverage and formatter switches, and bundler hints (`/* @vite-ignore */`, `/* webpackChunkName: … */`).
 - **License headers** (`SPDX-License-Identifier`, copyright).
-- **Doc comments a toolchain requires**: C# `///` on public APIs when the project generates documentation; Python
-  docstrings on public modules and functions. They describe the contract (what, inputs, outputs, errors), never the
+- **API doc comments**: C# `///` on public APIs when the project generates documentation; JSDoc or TSDoc `/** */` on
+  exported symbols; Python docstrings on public modules and functions. They describe the contract (what, inputs, outputs, errors), never the
   history or a justification.
 
 ## Not allowed

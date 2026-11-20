@@ -710,12 +710,20 @@
       "sha256": "b1292d9dd2ddb0775a862a6618e5ff6619329bfa4adb62fd5253c0bbfa72a299",
       "pack": "core"
     },
+    ".armature/hooks/armature-setup-tools.py": {
+      "sha256": "878a5b5a208d6ba2cddc2850e85ac2027a31b662be5ec07eeacf1371a59c38a2",
+      "pack": "core"
+    },
+    ".armature/hooks/armature-tools.json": {
+      "sha256": "6c127bb344c0e50be91b9e1499931b64e3b73dbafe988b454596e29b4b098ecb",
+      "pack": "core"
+    },
     ".armature/hooks/commit-msg": {
       "sha256": "eaa2958edb952efee792bfbe8596e464a46de3b22bb5a23d2881f108b00db239",
       "pack": "core"
     },
     ".armature/hooks/pre-commit": {
-      "sha256": "3dc8612d1bb559bb2d311293a0b67830bbd73aaea1012f115fac313a8ecabcd2",
+      "sha256": "27c692f377362b007902f60cb7df82a31a7983512d8a53b0c554974ead669bb3",
       "pack": "core"
     },
     ".claude/agents/csharp-reviewer.md": {
@@ -723,7 +731,7 @@
       "pack": "stack-dotnet"
     },
     ".claude/agents/design-system-guard.md": {
-      "sha256": "7bb4b25060f5c4f13550813cd5e33859e8985a956a5b560585b53f21b032f8ba",
+      "sha256": "3e0c0334eb1d937df5b764ae76a4b27103c692bdc337d831c05811af6d2628d0",
       "pack": "design"
     },
     ".claude/agents/researcher.md": {
@@ -735,7 +743,7 @@
       "pack": "core"
     },
     ".claude/agents/typescript-reviewer.md": {
-      "sha256": "7a61e4b23d7ca4c59c2effd7c7db7f6923407c868281fa85f46bc86e8dd26e0a",
+      "sha256": "013667116eee5ffc9a32813e118cfd49dc83877e433d86b115b7501e2d9303e6",
       "pack": "stack-typescript"
     },
     ".claude/rules/angular/coding-style.md": {
@@ -755,7 +763,7 @@
       "pack": "stack-angular"
     },
     ".claude/rules/common/code-comments.md": {
-      "sha256": "9e3922528146d341ecc6eba82c4632fbdb594b7919f413617df461454aef131b",
+      "sha256": "cfcb3a45d853b45effd67d007be70ad8ba5ccfb185cee63a206c1fb6be30468c",
       "pack": "core"
     },
     ".claude/rules/common/code-review.md": {
@@ -771,7 +779,7 @@
       "pack": "core"
     },
     ".claude/rules/common/development-workflow.md": {
-      "sha256": "c88589e7dcb8fa80555bc613913e55a591fcc401c5f72e67e84add9eb350c606",
+      "sha256": "9ffa584c4ffe38e9f1b2c2731b0dcec46194f7367d8c97ff6a6abb0bf2292a29",
       "pack": "core"
     },
     ".claude/rules/common/infrastructure.md": {
@@ -815,7 +823,7 @@
       "pack": "stack-dotnet"
     },
     ".claude/rules/design/design-system.md": {
-      "sha256": "b4045f72e4a5791ccb8f69cc33eb0e29866908db3fb5856505adffbe3e4ced5b",
+      "sha256": "0bef82f38b4ff65d740fcd02a2a57548f599d43a5a747c128453399223c3a98a",
       "pack": "design"
     },
     ".claude/rules/typescript/coding-style.md": {
@@ -1539,7 +1547,7 @@
       "pack": "stack-angular"
     },
     ".cursor/rules/common-code-comments.mdc": {
-      "sha256": "7a5ebaf37415b91631ad78c83707a44124131c00265ef0000025a0cf06813815",
+      "sha256": "f601d11a7b4a8ec297b8955fcefb993806197170fc2ecf83e4547104f442d4f7",
       "pack": "core"
     },
     ".cursor/rules/common-code-review.mdc": {
@@ -1555,7 +1563,7 @@
       "pack": "core"
     },
     ".cursor/rules/common-development-workflow.mdc": {
-      "sha256": "8169818173fd468f2249d00c1d3358855a197f9d7bfe977bdc55c929947f3127",
+      "sha256": "aee6b3384a6227db9e0e648beb8dbcb05368313468b6a50b66ac7e84e39aeba1",
       "pack": "core"
     },
     ".cursor/rules/common-infrastructure.mdc": {
@@ -1599,7 +1607,7 @@
       "pack": "stack-dotnet"
     },
     ".cursor/rules/design-design-system.mdc": {
-      "sha256": "c142191dd218beb68756bc2a8718c453bec883cca44642fe027d4685526cffe6",
+      "sha256": "de6aa3027d9c02dc86c5f1c50831cd72332b4770fdbb68328631faeeb2f2a287",
       "pack": "design"
     },
     ".cursor/rules/project-backend.mdc": {
@@ -2328,8 +2336,8 @@
     }
   },
   "sections": {
-    "core": "fde564959629d62caefdcff531578e87718a1994433664acea90f3e9b0827942",
-    "design": "bc828d48ec86efb3f8f8cdddb02dc1e76f905dab9e40e22ced871605c8bc5d14",
+    "core": "bdfc72dc725216914009bf488b07dcfd856a6702cca812801ef3ff6fbcc5fcc5",
+    "design": "90cd5221b6b3c48d358d9e0374fd09d7220bf1f898e7c2ed86da46fc5a3970ac",
     "security": "9211e86e233bd015929832f782d0d046b90792e4f385a3af3f01eab11805b976",
     "stack-angular": "7c8488fb11f2e857b0190dc0b24d77b1ca8167ea0420aac910494ca4fc5659ac",
     "stack-dotnet": "689d69df28a3bbf462d05d072b038e29946d12e96beff52f23c803ba85bd8b8d",
@@ -2365,7 +2373,15 @@
       "Bash(git config core.hooksPath*)",
       "Bash(git config core.hookspath*)",
       "Bash(git config * core.hooksPath*)",
-      "Bash(git config * core.hookspath*)"
+      "Bash(git config * core.hookspath*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh api *pulls/*/merge*)",
+      "Bash(git push * main)",
+      "Bash(git push * main:*)",
+      "Bash(git push * HEAD:main*)",
+      "Bash(git push * develop)",
+      "Bash(git push * develop:*)",
+      "Bash(git push * HEAD:develop*)"
     ]
   }
 }

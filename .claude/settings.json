@@ -37,7 +37,15 @@
       "Bash(git config core.hooksPath*)",
       "Bash(git config core.hookspath*)",
       "Bash(git config * core.hooksPath*)",
-      "Bash(git config * core.hookspath*)"
+      "Bash(git config * core.hookspath*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh api *pulls/*/merge*)",
+      "Bash(git push * main)",
+      "Bash(git push * main:*)",
+      "Bash(git push * HEAD:main*)",
+      "Bash(git push * develop)",
+      "Bash(git push * develop:*)",
+      "Bash(git push * HEAD:develop*)"
     ]
   }
 }
