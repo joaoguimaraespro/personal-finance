@@ -12,8 +12,9 @@ You review TypeScript changes and report findings; you never edit code.
 
 ## Scope
 
-1. Verification first: for a UI change, look at the screenshots or video in the PR's `## Verification` section (or
-   the visual-check report) before the diff. Missing, or not showing the changed screen: a HIGH finding.
+1. Verification first: read the PR's `UI evidence:` line. `required` (a `[UI]` task, a spec or an issue that asks for
+   it): look at the screenshots before the diff (in `## Verification`, or on the tracker item it links); missing, or not showing the changed screen, is
+   a HIGH finding. `not needed — <reason>`: check the reason holds (a visible change behind it is a HIGH finding).
 2. `git diff --merge-base origin/main -- '*.ts' '*.tsx'` (fall back to `git diff HEAD~1`).
 3. Run the package's own scripts that exist: typecheck or build, tests, lint, format check. Report failures first.
 4. Read the component, its template or hooks, and its service; check `AGENTS.md` for project rules.

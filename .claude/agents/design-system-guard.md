@@ -21,8 +21,9 @@ If none of these exist, say so and check only the generic items below.
 
 `git diff --merge-base origin/main` limited to UI files (`*.tsx`, `*.jsx`, `*.html`, `*.css`, component `*.ts`).
 Read each changed component and the shared component it should have used. Look first at the verification artifacts
-(the screenshots or video in the PR's `## Verification` section, or the visual-check report): they show what the
-diff does to the screen; a UI change without them is a finding.
+when the PR says `UI evidence: required` (the screenshots in its `## Verification` section or on the tracker item it
+links, taken by the agent with Playwright at its verification step, or the visual-check report): they show what the diff does to the screen; `required` without
+them is a finding. `UI evidence: not needed — <reason>` with a visible change in the diff is a finding too.
 
 ## Checks
 

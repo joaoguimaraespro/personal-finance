@@ -10,11 +10,34 @@ The repo's `AGENTS.md` is the source for its workflow; this rule is the default.
 
 ## Pick the lane
 - **Fix Lane** (a fix, debt, one change): acceptance criteria in the issue, a failing test, the smallest fix, the
-  gate, a pull request. For a bug, the `fix` skill (`/fix <issue or description>`) runs it: reproduce with a red
-  test, name the root cause, the smallest fix, then propose the check that would have caught the bug class.
+  gate, a pull request. For a bug, the `fix` skill (`/fix <issue or description>`) runs it: diagnose (a read-only
+  Investigate session when the cause is unclear), write `specs/fix-<ID>/` with the root cause and a small
+  `tasks.md`, build it with the Task Loop, then propose the check that would have caught the bug class. A fix that
+  needs more than about two tasks or a design decision becomes a Feature.
 - **Spec Lane** (a feature, more than one change): spec, plan and tasks with Spec Kit in `specs/<NNN-slug>/`, citing
   requirement IDs. Open a draft pull request with the spec and stop until a person approves it. Then the Task Loop
   runs one fresh session per task, test first, until each task's gate passes.
+
+## Verification, the pull request and the review loop
+- **Screenshots only when the design changed, as the work says explicitly**: a `[UI]` task, `UI evidence: required`
+  in the spec, or an issue labelled `ui` or `visual-bug`. A feature with no design needs none; never decide it from
+  the files changed. The agent takes them at its verification step with Playwright (the `visual-check` skill or the
+  Playwright MCP), opens every image and checks it against the spec, the design or the bug. Not in CI.
+- The agent writes the pull request with the `open-pr` skill: what was implemented (by ids), the risk tier and
+  rollback, the verification (gate results, the `UI evidence:` line, where the screenshots are: one comment on the
+  Linear issue with them embedded, or the local work vault for work projects), what is not done, `Fixes <ID>`.
+- **"Review" means "read my comments".** When the person says "review", "revê", "check my comments" or "I reviewed
+  it" after a PR was opened in the session, run `address-review` on that PR's comments; a fresh code review only when
+  asked for "a code review".
+- Review comments go through the `address-review` skill: in the Spec Lane each actionable comment becomes a task in
+  a `## Review round <k>` section of `tasks.md` and the Task Loop runs again; in the Fix Lane the same,
+  in `specs/fix-<ID>/tasks.md`; a PR with no task file gets test-first fixes here. One PR comment maps each review comment to its task or commit. Repeat until a person approves and
+  merges. This usually happens in the same session that built the work: the person comments, says "review", and the
+  loop runs again.
+- **Learn during review:** `address-review` turns a comment that states a general rule (or starts with `rule:`) into
+  a check in the same round (lint rule, banned API, test, type; prose only when nothing can check it) and records it
+  in `.armature/review/lessons-ledger.json`. A `review-lessons` sweep catches what was missed (by hand for
+  now; a weekly schedule is planned).
 
 ## Before writing new code
 - Search the codebase for an existing implementation or pattern and follow it.

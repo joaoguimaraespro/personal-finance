@@ -104,6 +104,9 @@ repo's design-system doc and `DESIGN.md` outrank any skill.
 
 - Tokens only, never hard-coded colours or sizes; every state is designed; WCAG 2.2 AA.
 - A visual change is done only when a person has seen it (light and dark, phone and desktop).
+- One icon set per repo, named in its design-system doc. Chat and agent surfaces are the chat library's components
+  (CopilotKit) styled with the repo's tokens: read the installed components (`copilotkit` skill) before designing
+  them.
 <!-- armature:design:end -->
 
 <!-- armature:core:start -->
@@ -113,13 +116,37 @@ Armature writes defaults into this repo (the sections between `armature:` marker
 Where this repo's own rules (`.claude/rules/project/`, AGENTS.md outside these sections) differ, the repo wins. Change
 an Armature section through `.armature/overrides.json`, never between the markers.
 
-**Fix Lane.** A bug starts with `/fix <issue or description>` (the `fix` skill): a red test, the root cause in one
-line, the smallest fix, a check for the bug class, a PR with `Fixes <ID>`.
+**Fix Lane.** A bug starts with `/fix <issue or description>` (the `fix` skill): diagnose (a read-only Investigate
+session when the cause is unclear), `specs/fix-<ID>/` with the root cause and a small `tasks.md`, the Task Loop builds
+it test-first, a check for the bug class, a PR with `Fixes <ID>`. More than about two tasks or a design decision: a
+Feature.
+
+**Pull requests and review.** The agent writes the PR with the `open-pr` skill: what was implemented (by ids), the
+risk tier and rollback, the verification (gate results, the `UI evidence:` line, screenshots) and what is not done.
+Screenshots only when the design changed, as the work says (a `[UI]` task, `UI evidence: required` in the spec, an
+issue labelled `ui` or `visual-bug`): the agent takes them with Playwright (`visual-check` or the Playwright MCP),
+opens them, and puts them where the tracker says (`.armature/config.json` `tracker`): one comment on the Linear
+issue with the images embedded (they preview inline), or, for work projects, the local work vault
+(`~/Development/work-context`, never uploaded). The PR links them; never committed, never in CI.
+
+**"Review" means "read my comments".** When João says "review", "revê", "check my comments" or "I reviewed it" in a
+session that opened a PR, run `address-review` on that PR's comments in the same session: new tasks in `tasks.md`
+and the Task Loop again (Spec Lane), or test-first fixes. It is not a fresh code review; that only on "a code
+review". A comment that states a general rule (or starts with `rule:`) also becomes a check in that round; a
+`review-lessons` sweep (by hand for now, weekly later) catches what was missed (ledger: `.armature/review/lessons-ledger.json`).
+
+**Tools before scripts.** Armature is a flexible base: deterministic checks where a check can decide, and otherwise
+the tools the AI providers already ship (the Playwright MCP or `playwright-cli`, the Linear MCP, `gh`) rather than scripts this repo would have to maintain.
 
 **Task Loop.** A feature's `tasks.md`, one task per fresh session, each through the `implement-task` skill (an
 `[@dotnet]`-style tag is only a stack hint); a task is done only when the gate (`VERIFY_CMD` in `.agent-loop.env`)
-passes. `--dry-run` shows the plan; `tasks_lint.py` checks the task lines first. `--parallel N` runs up to N
-consecutive `[P]` tasks at once, one worktree each (N sessions billed at once; the gate must tolerate it).
+passes. `--dry-run` shows the plan; `tasks_lint.py` checks the task lines first. Consecutive `[P]` tasks (no
+dependency on each other, different files) run side by side, two at a time by default, one worktree each;
+`--parallel N` or `TASK_PARALLEL` in `.agent-loop.env` changes it (`1` when the gate cannot run twice at once). Each task's
+tokens, cost, attempts and time go to a metrics store on the machine (`~/.local/share/armature/metrics`);
+`python3 "$ARMATURE_HOME/plugins/core/bin/metrics.py" report` shows them per month and repo, with the interactive
+sessions next to them, and `--github <repo>` adds review comments per PR, reverts and follow-up fixes.
+`docs/measuring.md` in Armature: the eval with a prompt-only baseline (`make_golden.py`, then `run_evals.py`).
 
 ```bash
 task-loop specs/<NNN-feature>/tasks.md                                     # core plugin enabled
@@ -131,10 +158,12 @@ Agents: `security-reviewer` (before a PR touching auth, input, secrets, dependen
 
 **Checks before prose.** No comment unless it cites a source (ADR, requirement or issue id, URL); comments are
 claims, not facts. During the learning period (`review.learning_period` in `.armature/config.json`) a person reviews
-every change, and `review-lessons` turns repeated remarks into lint rules, tests or types first. PR Validation (the
-required CI check) and `quality.sh` run the gate, the test guard, secrets, dead code, duplication, dependencies,
-comments and `ui-evidence` (UI PRs carry screenshots in `## Verification`).
+every change, and each correction that states a general rule becomes a lint rule, test or type first. The repo's own CI
+runs its gates; `quality.sh` and `pr-validate.sh` run Armature's checks locally (gate, test guard, secrets, dead code,
+duplication, dependencies, comments, `ui-evidence`: a PR that changes UI states `UI evidence: required` with its
+screenshots, or `UI evidence: not needed — <reason>`).
 
-Never skip the git hooks (`--no-verify`, `core.hooksPath`), never commit `.env` files, secrets or client data, and
-never add a package without checking it exists. Commits are Conventional Commits with no AI attribution.
+Never skip the git hooks (`--no-verify`, `core.hooksPath`), never merge a pull request or push to `main` or `develop`
+(a person merges; Claude Code denies it), never commit `.env` files, secrets or client data, and never add a package
+without checking it exists. Commits are Conventional Commits with no AI attribution.
 <!-- armature:core:end -->

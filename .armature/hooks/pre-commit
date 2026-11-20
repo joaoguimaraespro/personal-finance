@@ -11,9 +11,16 @@ Blocks staged (added, copied, modified or renamed) files that are:
   denylist     a name from the file in $ARMATURE_DENYLIST (one per line, '#' comments) in a path or added line,
                matched case-insensitively as a whole word. Unset: skipped. The file must live outside the repo.
                Findings name the denylist line number, never the name itself.
-  secret       also gitleaks (`gitleaks git --staged --redact`) when it is on PATH (or $ARMATURE_GITLEAKS_BIN):
-               its rules catch far more than the patterns above. Not installed: a hint, never a failure.
-               .gitleaksignore and `gitleaks:allow` work as usual; 'pragma: allowlist secret' is honoured too.
+  secret       also gitleaks (`gitleaks git --staged --redact`), from $ARMATURE_GITLEAKS_BIN, PATH or ~/.local/bin:
+               its rules catch far more than the patterns above. .gitleaksignore and `gitleaks:allow` work as
+               usual; 'pragma: allowlist secret' is honoured too.
+  scanner_missing
+               gitleaks is not installed. The first time, the hook installs the pinned version itself
+               (setup-tools.py --install --only gitleaks: tools.json's download, sha256 checked), once per machine
+               (a marker in ~/.cache/armature; $ARMATURE_TOOLS_AUTOINSTALL=0 turns the attempt off). Still missing
+               after that: the commit is blocked, because a secret that reaches the remote cannot be taken back.
+               setup-tools.py is $ARMATURE_SETUP_TOOLS, $ARMATURE_HOME/plugins/core/bin/, the
+               armature-setup-tools.py copy next to this hook (with armature-tools.json), else ../bin/ beside it.
   unknown_package
                a package newly added to a staged manifest (package.json, pyproject.toml, requirements*.txt,
                *.csproj, Directory.Packages.props) that does not exist on its registry: a hallucinated or mistyped
@@ -71,6 +78,9 @@ LOCK = ".armature/lock.json"
 # A lock line is a path or section name and its sha256; gitleaks reads some as keys ("stack-auth": "<hex>").
 LOCK_HASH_LINE = re.compile(r'^\s*"[^"]+":\s*"[0-9a-f]{64}",?\s*$')
 GITLEAKS_TIMEOUT_S = 120
+AUTOINSTALL_TIMEOUT_S = 180
+SETUP_HELPER = "armature-setup-tools.py"
+MISSING = object()   # gitleaks_findings: the scanner is not installed
 DEPS_HELPER = "armature-deps-check.py"
 MANIFEST_RE = re.compile(r"(^|/)(package\.json|pyproject\.toml|requirements[\w.-]*\.txt|[^/]+\.(cs|fs|vb)proj|"
                          r"Directory\.Packages\.props)$")
@@ -204,13 +214,58 @@ def secret_hit(text):
     return None
 
 
+def find_gitleaks():
+    """The gitleaks executable: $ARMATURE_GITLEAKS_BIN (a path or a name), PATH, then ~/.local/bin; or None."""
+    name = os.environ.get("ARMATURE_GITLEAKS_BIN") or "gitleaks"
+    exe = shutil.which(name)
+    local = os.path.join(os.path.expanduser("~"), ".local", "bin", os.path.basename(name))
+    if exe is None and os.access(local, os.X_OK):
+        exe = local
+    return exe
+
+
+def setup_tools_script():
+    here = os.path.dirname(os.path.realpath(__file__))
+    candidates = [os.environ.get("ARMATURE_SETUP_TOOLS") or "", os.path.join(here, SETUP_HELPER),
+                  os.path.join(here, "..", "bin", "setup-tools.py")]
+    if os.environ.get("ARMATURE_HOME"):
+        candidates.insert(1, os.path.join(os.environ["ARMATURE_HOME"], "plugins", "core", "bin", "setup-tools.py"))
+    return next((c for c in candidates if c and os.path.isfile(c)), None)
+
+
+def autoinstall(tool):
+    """Install a pinned tool once per machine (see the doc above); True when an install was attempted now."""
+    if os.environ.get("ARMATURE_TOOLS_AUTOINSTALL", "1") == "0":
+        return False
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    marker = os.path.join(cache, "armature", f"autoinstall-{tool}.attempted")
+    script = setup_tools_script()
+    if os.path.exists(marker) or script is None:
+        return False
+    os.makedirs(os.path.dirname(marker), exist_ok=True)
+    with open(marker, "w", encoding="utf-8") as fh:   # written first: a hung install is not retried on every commit
+        fh.write("setup-tools.py --install --only " + tool + "\n")
+    print(f"pre-commit: installing {tool} (once per machine, pinned version)...", file=sys.stderr)
+    try:
+        subprocess.run([sys.executable, script, "--install", "--only", tool], capture_output=True, text=True,
+                       timeout=AUTOINSTALL_TIMEOUT_S)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"pre-commit: installing {tool} failed: {e}", file=sys.stderr)
+    return True
+
+
 def gitleaks_findings(root):
-    """[(file, line, rule)] from gitleaks on the staged changes; None when gitleaks is missing or failed."""
-    exe = shutil.which(os.environ.get("ARMATURE_GITLEAKS_BIN") or "gitleaks")
+    """[(file, line, rule)] from gitleaks on the staged changes; MISSING when gitleaks is not installed (after the
+    one-time install attempt); None when gitleaks failed on its own."""
+    exe = find_gitleaks()
+    if exe is None and autoinstall("gitleaks"):
+        exe = find_gitleaks()
     if exe is None:
-        print("pre-commit: gitleaks is not installed: only the built-in secret patterns ran "
-              "(setup-tools.py --install --only gitleaks)", file=sys.stderr)
-        return None
+        script = setup_tools_script() or "plugins/core/bin/setup-tools.py"
+        print("pre-commit: gitleaks is not installed, so this commit is blocked (a secret that reaches the remote "
+              f"cannot be taken back). Install it: python3 {script} --install --only gitleaks "
+              "(or see tools.json's install_hint for this platform).", file=sys.stderr)
+        return MISSING
     try:
         p = subprocess.run([exe, "git", "--staged", "--redact", "--no-banner", "--report-format", "json",
                             "--report-path", "-", "--exit-code", "0", "--log-level", "error", "."],
@@ -300,7 +355,12 @@ def main(argv):
                 if rx.search(text):
                     violations.append({"file": path, "line": ln, "kind": "denylist", "detail": f"denylist entry {i}"})
     lines_of = {}
-    for file, line, rule in gitleaks_findings(root) or []:
+    leaks = gitleaks_findings(root)
+    if leaks is MISSING:
+        violations.append({"file": "gitleaks", "line": 0, "kind": "scanner_missing",
+                           "detail": "gitleaks is not installed"})
+        leaks = None
+    for file, line, rule in leaks or []:
         if file in trusted or any(v["kind"] == "secret" and (v["file"], v["line"]) == (file, line)
                                   for v in violations):
             continue

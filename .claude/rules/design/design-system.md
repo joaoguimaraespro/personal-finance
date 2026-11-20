@@ -28,6 +28,12 @@ paths:
 - Reuse the shared UI package before adding anything; extend a shared component instead of copying it.
 - No new UI library without an ADR.
 - Components accept `className` and merge classes with the repo's `cn()` helper.
+- **Icons:** one icon set per repo, chosen in the repo's design-system doc (with its licence and weight/size rules).
+  Use only that set; no emoji as icons, no second set mixed in.
+- **Chat and agent surfaces use the chat library's own components** (CopilotKit in most repos): before designing
+  them, read what the installed version ships and its styling hooks (the `copilotkit` skill; the installed
+  `node_modules/@copilotkit`), and style those components with the repo's tokens. Never draw a parallel chat UI next
+  to the library's.
 
 ## Approved drafts
 
